@@ -42,7 +42,7 @@ function LoginContent() {
       
       const role = (userData.role || "").toUpperCase();
       if (role === "SUPER_ADMIN" || role === "ADMIN" || role === "SUB_ADMIN" || role.startsWith("ADMIN_")) {
-        router.replace("/admin");
+        router.replace("/admin/dashboard");
       } else if (role === "SUPPLIER" || role === "FOURNISSEUR" || role.startsWith("SUPPLIER_") || role === "SUB_SUPPLIER") {
         router.replace("/supplier");
       } else if (role === "DRIVER" || role === "LIVREUR") {

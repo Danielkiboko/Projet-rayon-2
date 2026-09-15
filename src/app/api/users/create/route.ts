@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb, adminInitError } from '@/lib/firebase-admin';
 import { sendMobiShastraSMS } from '@/lib/sms';
+import nodemailer from 'nodemailer';
 
 export async function POST(req: Request) {
   try {
@@ -70,19 +71,20 @@ export async function POST(req: Request) {
     }
 
     // 4. Create or Retrieve the User in Firebase Auth
+    const finalPassword = password || Math.random().toString(36).slice(-10) + "A1@";
     let userRecord;
     try {
       userRecord = await adminAuth.createUser({
         email,
-        password: password || Math.random().toString(36).slice(-10) + "A1@",
+        password: finalPassword,
         displayName,
       });
     } catch (createErr: any) {
       if (createErr.code === 'auth/email-already-exists') {
         userRecord = await adminAuth.getUserByEmail(email);
-        if (password) {
+        if (finalPassword) {
           try {
-            await adminAuth.updateUser(userRecord.uid, { password, displayName });
+            await adminAuth.updateUser(userRecord.uid, { password: finalPassword, displayName });
           } catch (upErr) {
             console.warn('Could not update existing user credentials:', upErr);
           }
@@ -163,6 +165,63 @@ export async function POST(req: Request) {
       console.warn('Could not generate reset link:', resetErr);
     }
 
+    // 8.5 Send Email with nodemailer
+    if (notificationMethod === 'email' || !notificationMethod || notificationMethod === 'both') {
+      try {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST || 'smtp.hostinger.com',
+          port: parseInt(process.env.SMTP_PORT || '465'),
+          secure: true,
+          auth: {
+            user: process.env.SMTP_USER || 'admin@rayons.net',
+            pass: process.env.SMTP_PASS || 'Daniel88'
+          }
+        });
+
+        const rayonName = extraData?.rayonName || 'Non défini';
+        const displayRole = roleToCreate === 'driver' ? 'Livreur' : 
+                            roleToCreate === 'supplier' ? 'Fournisseur' : roleToCreate;
+        
+        const mailOptions = {
+          from: '"Rayons.net" <admin@rayons.net>',
+          to: email,
+          subject: 'Bienvenue sur Rayons.net !',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+              <h2 style="color: #C7D300;">Bonjour ${displayName || ''}, bienvenue sur Rayons.net !</h2>
+              <p>Votre compte a été créé avec succès par l'administration.</p>
+              
+              <div style="background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 20px 0;">
+                <p style="margin: 5px 0;"><strong>Rôle :</strong> ${displayRole}</p>
+                <p style="margin: 5px 0;"><strong>Rayon de rattachement :</strong> ${rayonName}</p>
+              </div>
+
+              <h3>Vos informations de connexion :</h3>
+              <p><strong>Identifiant (Email) :</strong> ${email}</p>
+              <p><strong>Mot de passe temporaire :</strong> <span style="background: #eee; padding: 3px 6px; letter-spacing: 1px;">${finalPassword}</span></p>
+              
+              <div style="margin-top: 30px;">
+                ${resetLink ? 
+                  `<a href="${resetLink}" style="background-color: #C7D300; color: #0F1D27; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 5px; display: inline-block;">Configurer mon mot de passe et me connecter</a>` : 
+                  `<a href="https://rayons.net/login" style="background-color: #C7D300; color: #0F1D27; padding: 10px 20px; text-decoration: none; font-weight: bold; border-radius: 5px; display: inline-block;">Se connecter</a>`
+                }
+              </div>
+              
+              <p style="margin-top: 40px; font-size: 0.9em; color: #666;">
+                Merci de rejoindre la plateforme !<br>
+                L'équipe Rayons.net
+              </p>
+            </div>
+          `
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(`Welcome email sent successfully to ${email}`);
+      } catch (emailErr) {
+        console.error('Failed to send welcome email:', emailErr);
+      }
+    }
+
     // 9. Send SMS if requested
     if (notificationMethod === 'sms' && phoneNumber) {
       try {
@@ -175,7 +234,7 @@ export async function POST(req: Request) {
           }
         }
 
-        const message = `Bonjour ${displayName || ''}, votre compte Rayons a été créé. \nEmail: ${email}\n${resetLink ? `Activez votre compte ici: ${resetLink}` : `Mot de passe temporaire: ${password}`}\nLien: https://rayons.net`;
+        const message = `Bonjour ${displayName || ''}, votre compte Rayons a été créé. \nEmail: ${email}\n${resetLink ? `Activez votre compte ici: ${resetLink}` : `Mot de passe temporaire: ${finalPassword}`}\nLien: https://rayons.net`;
         await sendMobiShastraSMS({ mobileNo: phoneNumber, message, customSenderId });
         console.log(`SMS sent successfully to ${phoneNumber} with senderId ${customSenderId || 'default'}`);
       } catch (smsError) {

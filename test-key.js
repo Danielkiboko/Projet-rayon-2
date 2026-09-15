@@ -1,13 +1,8 @@
 const fs = require('fs');
-const envFile = fs.readFileSync('.env.local', 'utf8');
-let privateKeyRaw = '';
-for (const line of envFile.split('\n')) {
-  if (line.startsWith('FIREBASE_PRIVATE_KEY=')) {
-    privateKeyRaw = line.substring('FIREBASE_PRIVATE_KEY='.length);
-    break;
-  }
-}
-let privateKey = privateKeyRaw.trim();
+const envLocal = fs.readFileSync('.env.local', 'utf-8');
+const privateKeyMatch = envLocal.match(/FIREBASE_PRIVATE_KEY="(.+?)"/);
+
+let privateKey = privateKeyMatch[1];
 privateKey = privateKey.replace(/^["']|["']$/g, '');
 privateKey = privateKey.replace(/\\n/g, '\n').replace(/\r/g, '');
 const pemRegex = /-----BEGIN PRIVATE KEY-----([\s\S]+?)-----END PRIVATE KEY-----/;
@@ -23,5 +18,18 @@ for (let i = 0; i < cleanBase64.length; i += 64) {
   chunks.push(cleanBase64.slice(i, i + 64));
 }
 privateKey = `-----BEGIN PRIVATE KEY-----\n${chunks.join('\n')}\n-----END PRIVATE KEY-----\n`;
-console.log("Reconstructed Key:");
-console.log(privateKey);
+
+const admin = require('firebase-admin');
+const clientEmailMatch = envLocal.match(/FIREBASE_CLIENT_EMAIL="(.+?)"/);
+try {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: 'rayon-projet',
+      clientEmail: clientEmailMatch[1].trim(),
+      privateKey: privateKey,
+    })
+  });
+  console.log("Success!");
+} catch(e) {
+  console.log("Failed:", e.message);
+}

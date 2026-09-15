@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": 404,
+    "message": "The database (default) does not exist for project rayon-projet Please visit https://console.cloud.google.com/datastore/setup?project=rayon-projet to add a Cloud Datastore or Cloud Firestore database. ",
+    "status": "NOT_FOUND"
+  }
+}

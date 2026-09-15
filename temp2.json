@@ -1,0 +1,33 @@
+{
+  "error": {
+    "code": 403,
+    "message": "Permission denied on resource project project-930187596211.",
+    "status": "PERMISSION_DENIED",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "reason": "CONSUMER_INVALID",
+        "domain": "googleapis.com",
+        "metadata": {
+          "containerInfo": "project-930187596211",
+          "consumer": "projects/project-930187596211",
+          "service": "firestore.googleapis.com"
+        }
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.LocalizedMessage",
+        "locale": "en-US",
+        "message": "Permission denied on resource project project-930187596211."
+      },
+      {
+        "@type": "type.googleapis.com/google.rpc.Help",
+        "links": [
+          {
+            "description": "Google developers console",
+            "url": "https://console.developers.google.com"
+          }
+        ]
+      }
+    ]
+  }
+}
