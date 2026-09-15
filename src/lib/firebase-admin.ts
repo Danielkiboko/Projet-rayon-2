@@ -80,7 +80,7 @@ export const adminDb = new Proxy({} as any, {
     if (adminInitError) {
       throw adminInitError;
     }
-    const firestore = getFirestore('default');
+    const firestore = getFirestore();
     const value = (firestore as any)[prop];
     if (typeof value === 'function') {
       return value.bind(firestore);
