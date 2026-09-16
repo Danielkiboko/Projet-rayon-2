@@ -105,32 +105,47 @@ export default function MissionDetails({ params }: { params?: { id: string } }) 
         });
       } else if (status === "ARRIVED_AWAITING_PAYMENT") {
         newStatus = "COMPLETED";
-        await updateDoc(orderRef, {
-          status: "COMPLETED",
-          paymentStatus: "PAID",
-          deliveredAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
+        const remainingAmount = Number(order.remainingBalance ?? order.totalAmount ?? 0);
+        
+        const response = await fetch("/api/orders/confirm-delivery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orderId: order.id,
+            driverId: currentUser.uid,
+            driverName: userData?.name || currentUser.displayName || "Livreur",
+            driverPhone: userData?.phone || "",
+            amountCollected: remainingAmount,
+            paymentMethod: "CASH",
+          }),
         });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || "Erreur lors de la confirmation d'encaissement.");
+        }
       }
       
-      // Envoi de la notification au client (Background)
-      const phone = order.clientPhone || (order.customerInfo && order.customerInfo.phone) || order.deliveryDetails?.recipientPhone || "";
-      fetch("/api/notifications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "ORDER_STATUS_CHANGED",
-          orderId: order.id,
-          status: newStatus,
-          clientId: order.clientId,
-          clientPhone: phone
-        }),
-      }).catch(err => console.error("Notification API error:", err));
+      // Envoi de la notification au client si transition vers ARRIVED_AWAITING_PAYMENT (pour COMPLETED confirm-delivery s'en charge)
+      if (newStatus === "ARRIVED_AWAITING_PAYMENT") {
+        const phone = order.clientPhone || (order.customerInfo && order.customerInfo.phone) || order.deliveryDetails?.recipientPhone || "";
+        fetch("/api/notifications", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "ORDER_STATUS_CHANGED",
+            orderId: order.id,
+            status: newStatus,
+            clientId: order.clientId,
+            clientPhone: phone
+          }),
+        }).catch(err => console.error("Notification API error:", err));
+      }
       
       setStatus(newStatus as any);
     } catch (err: any) {
       console.error(err);
-      alert("Erreur lors de la mise à jour du statut.");
+      alert(err.message || "Erreur lors de la mise à jour du statut.");
     } finally {
       setIsUpdating(false);
     }

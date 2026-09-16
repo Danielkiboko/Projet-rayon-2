@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Wallet, ArrowDownRight, ArrowUpRight, Plus, Download, X, Search, Home, Hotel, Sparkles, Sliders, ShieldAlert, CheckCircle, Lock, Clock } from "lucide-react";
+import { Wallet, ArrowDownRight, ArrowUpRight, Plus, Download, X, Search, Home, Hotel, Sparkles, Sliders, ShieldAlert, CheckCircle, Lock, Clock, Phone, Loader2 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, where, doc, updateDoc, limit } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
@@ -20,7 +20,12 @@ interface Transaction {
   currency: string;
   description: string;
   referenceId?: string;
-  status: "COMPLETED" | "PENDING";
+  orderId?: string;
+  status: "COMPLETED" | "PENDING" | "PENDING_HANDOVER";
+  isPendingHandover?: boolean;
+  driverId?: string;
+  driverName?: string;
+  driverPhone?: string;
   createdAt: any;
   supplierId: string;
 }
@@ -65,6 +70,10 @@ export default function SupplierFinancePage() {
   const [isSubmittingAdj, setIsSubmittingAdj] = useState(false);
   const [financeNotice, setFinanceNotice] = useState("");
 
+  // État des encaissements en attente chez les livreurs
+  const [pendingHandovers, setPendingHandovers] = useState<any[]>([]);
+  const [clearingOrderId, setClearingOrderId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!loading && (!user || !userData || (userData.role !== "SUPPLIER" && userData.role !== "supplier" && userData.role !== "SUPPLIER_IMMO" && userData.role !== "supplier_immo" && userData.role !== "SUB_SUPPLIER"))) {
       router.push("/");
@@ -73,24 +82,74 @@ export default function SupplierFinancePage() {
 
     if (user) {
 
-      // 1. Fetch manual transactions
+      // 1. Fetch transactions (Livre de Caisse & Opérations)
       const qTx = query(
         collection(db, "supplier_transactions"), 
         where("supplierId", "==", activeSupplierId),
-        orderBy("createdAt", "desc"),
-        limit(50)
+        limit(100)
       );
       
       let manualTx: Transaction[] = [];
       let automaticTx: Transaction[] = [];
 
       const updateCombined = () => {
-        const combined = [...manualTx, ...automaticTx].sort((a, b) => {
-          const tA = a.createdAt?.seconds || 0;
-          const tB = b.createdAt?.seconds || 0;
+        // Collecter les identifiants de commandes déjà enregistrés manuellement ou via l'API confirm-delivery
+        const recordedOrderIds = new Set<string>();
+        manualTx.forEach(m => {
+          if (m.orderId) recordedOrderIds.add(m.orderId);
+          if (m.referenceId) recordedOrderIds.add(m.referenceId);
+        });
+
+        // Filtrer les transactions automatiques pour éviter TOUT doublon
+        const deduplicatedAuto = automaticTx.filter(a => {
+          const id = a.referenceId || a.orderId || "";
+          return !recordedOrderIds.has(id);
+        });
+
+        const combined = [...manualTx, ...deduplicatedAuto].sort((a, b) => {
+          const tA = a.createdAt?.seconds || (a.createdAt?.toDate ? a.createdAt.toDate().getTime() / 1000 : 0);
+          const tB = b.createdAt?.seconds || (b.createdAt?.toDate ? b.createdAt.toDate().getTime() / 1000 : 0);
           return tB - tA;
         });
+
         setTransactions(combined);
+
+        // Agréger la liste des fonds détenus par les livreurs en attente de versement
+        const handoversMap = new Map<string, any>();
+
+        manualTx.forEach(m => {
+          if (m.isPendingHandover || m.status === "PENDING_HANDOVER") {
+            const oId = m.orderId || m.referenceId || m.id;
+            handoversMap.set(oId, {
+              orderId: oId,
+              orderNumber: oId.slice(0, 8).toUpperCase(),
+              driverName: m.driverName || "Livreur",
+              driverPhone: m.driverPhone || "",
+              amount: m.amount,
+              description: m.description,
+              collectedAt: m.createdAt,
+            });
+          }
+        });
+
+        deduplicatedAuto.forEach(a => {
+          if (a.isPendingHandover || a.status === "PENDING_HANDOVER") {
+            const oId = a.referenceId || a.orderId || a.id;
+            if (!handoversMap.has(oId)) {
+              handoversMap.set(oId, {
+                orderId: oId,
+                orderNumber: oId.slice(0, 8).toUpperCase(),
+                driverName: a.driverName || "Livreur",
+                driverPhone: a.driverPhone || "",
+                amount: a.amount,
+                description: a.description,
+                collectedAt: a.createdAt,
+              });
+            }
+          }
+        });
+
+        setPendingHandovers(Array.from(handoversMap.values()));
       };
       
       const unsubTx = onSnapshot(qTx, (snapshot) => {
@@ -128,7 +187,6 @@ export default function SupplierFinancePage() {
         const qPayments = query(
           collection(db, "payments"),
           where("supplierId", "==", activeSupplierId),
-          orderBy("createdAt", "desc"),
           limit(50)
         );
         unsubAutomatic = onSnapshot(qPayments, (snapshot) => {
@@ -157,34 +215,45 @@ export default function SupplierFinancePage() {
           console.warn("Payments warning:", err.message);
         });
       } else {
-        // Fetch orders for regular E-commerce
+        // Fetch orders for regular E-commerce sans orderBy composite pour éviter les erreurs d'index
         const qOrders = query(
           collection(db, "orders"),
           where("supplierIds", "array-contains", activeSupplierId),
-          orderBy("createdAt", "desc"),
-          limit(50)
+          limit(100)
         );
         unsubAutomatic = onSnapshot(qOrders, (snapshot) => {
           const data: Transaction[] = [];
           snapshot.forEach((doc) => {
             const order = doc.data();
             const status = (order.status || "").toUpperCase();
-            if (status === "COMPLETED" || status === "LIVRÉE" || status === "DELIVERED") {
+            const paymentStatus = (order.paymentStatus || "").toUpperCase();
+            const isDelivered = status === "COMPLETED" || status === "LIVRÉE" || status === "DELIVERED";
+            
+            // Vérifier si les espèces sont chez le livreur et pas encore remises en magasin
+            const isCashWithDriver = (paymentStatus === "COLLECTED_BY_DRIVER" || order.cashCollectedByDriver === true) && !order.cashHandedOverToSupplier;
+
+            if (isDelivered || isCashWithDriver) {
               const myItems = order.items?.filter((item: any) => item.supplierId === activeSupplierId) || [];
-              const myTotal = myItems.reduce((acc: number, item: any) => acc + (item.price * (item.quantity || 1)), 0);
-              const productNames = myItems.map((item: any) => item.productName || "Produit").join(", ");
+              const myTotal = myItems.reduce((acc: number, item: any) => acc + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
+              const productNames = myItems.map((item: any) => item.productName || item.name || "Produit").join(", ");
               
               if (myTotal > 0) {
                 data.push({
                   id: `order_${doc.id}`,
                   type: "INCOME",
-                  category: "Vente",
+                  category: isCashWithDriver ? "Vente Livrée (Espèces Livreur)" : "Vente",
                   amount: myTotal,
                   currency: "USD",
-                  description: `Commande #${doc.id.slice(0, 6).toUpperCase()} (${productNames})`,
+                  description: isCashWithDriver 
+                    ? `Commande #${doc.id.slice(0, 6).toUpperCase()} (${productNames}) - Espèces chez le livreur`
+                    : `Commande #${doc.id.slice(0, 6).toUpperCase()} (${productNames})`,
                   referenceId: doc.id,
-                  status: "COMPLETED",
-                  createdAt: order.createdAt,
+                  orderId: doc.id,
+                  status: isCashWithDriver ? "PENDING_HANDOVER" : "COMPLETED",
+                  isPendingHandover: isCashWithDriver,
+                  driverName: order.collectedByDriverName || order.driverName || "Livreur",
+                  driverPhone: order.collectedByDriverPhone || order.driverPhone || "",
+                  createdAt: order.deliveredAt || order.createdAt,
                   supplierId: activeSupplierId
                 });
               }
@@ -204,6 +273,38 @@ export default function SupplierFinancePage() {
       };
     }
   }, [user, userData, loading, router, activeSupplierId]);
+
+  const handleClearCash = async (orderId: string) => {
+    if (!orderId || !activeSupplierId) return;
+    if (!confirm("Confirmez-vous avoir reçu la remise des espèces de cette livraison de la part du livreur ?\n\nCette somme sera immédiatement intégrée à votre livre de caisse magasin.")) {
+      return;
+    }
+
+    setClearingOrderId(orderId);
+    try {
+      const res = await fetch("/api/orders/clear-cash", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          supplierId: activeSupplierId,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Erreur lors de la validation en caisse.");
+      }
+
+      setFinanceNotice("✅ Espèces remises par le livreur validées et intégrées à votre caisse magasin avec succès !");
+      setTimeout(() => setFinanceNotice(""), 6000);
+    } catch (err: any) {
+      console.error("Error clearing cash:", err);
+      alert(err.message || "Impossible de valider la réception en caisse.");
+    } finally {
+      setClearingOrderId(null);
+    }
+  };
 
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -391,6 +492,8 @@ export default function SupplierFinancePage() {
     } else if (filter === "HOTEL_INCOME") {
       const isHotel = t.branch === "hotel" || (t.category || "").toLowerCase().includes("hôtellerie") || (t.category || "").toLowerCase().includes("hotel");
       if (!isHotel) return false;
+    } else if (filter === "PENDING_HANDOVER") {
+      if (!t.isPendingHandover && t.status !== "PENDING_HANDOVER") return false;
     } else if (filter !== "ALL" && t.type !== filter) {
       return false;
     }
@@ -398,6 +501,7 @@ export default function SupplierFinancePage() {
     return true;
   });
 
+  const pendingCashTotal = pendingHandovers.reduce((acc, h) => acc + (Number(h.amount) || 0), 0);
   const totalIncome = transactions.filter(t => t.type === "INCOME").reduce((acc, t) => acc + t.amount, 0);
   const totalHabitationIncome = transactions
     .filter(t => t.type === "INCOME" && (t.branch === "habitation" || (t.category || "").toLowerCase().includes("loyer") || t.id.startsWith("payment_")))
@@ -407,6 +511,7 @@ export default function SupplierFinancePage() {
     .reduce((acc, t) => acc + t.amount, 0);
   const totalPayout = transactions.filter(t => t.type === "PAYOUT" || t.type === "EXPENSE").reduce((acc, t) => acc + t.amount, 0);
   const balance = totalIncome - totalPayout;
+  const storeAvailableBalance = Math.max(0, balance - pendingCashTotal);
 
   return (
     <div className="space-y-6 pb-20">
@@ -568,25 +673,38 @@ export default function SupplierFinancePage() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-gray-400 text-sm font-medium">Solde Actuel</h3>
+              <h3 className="text-gray-400 text-sm font-medium">Caisse Magasin (Disponible)</h3>
               <div className="p-2 bg-blue-500/20 rounded-lg">
                 <Wallet className="text-blue-400" size={20} />
               </div>
             </div>
-            <p className="text-3xl font-bold text-white mt-4">${balance.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-white mt-4">${storeAvailableBalance.toFixed(2)}</p>
+            <p className="text-xs text-gray-400 mt-1">Fonds physiques en magasin</p>
+          </div>
+
+          <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-amber-300 text-sm font-medium">Chez les Livreurs (Attente)</h3>
+              <div className="p-2 bg-amber-500/20 rounded-lg">
+                <Clock className="text-amber-400 animate-pulse" size={20} />
+              </div>
+            </div>
+            <p className="text-3xl font-bold text-amber-400 mt-4">${pendingCashTotal.toFixed(2)}</p>
+            <p className="text-xs text-amber-300/80 mt-1">{pendingHandovers.length} course(s) à reverser</p>
           </div>
           
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-gray-400 text-sm font-medium">Revenus (Entrées)</h3>
+              <h3 className="text-gray-400 text-sm font-medium">Revenus Réalisés (Entrées)</h3>
               <div className="p-2 bg-green-500/20 rounded-lg">
                 <ArrowDownRight className="text-green-400" size={20} />
               </div>
             </div>
             <p className="text-3xl font-bold text-white mt-4">${totalIncome.toFixed(2)}</p>
+            <p className="text-xs text-gray-400 mt-1">Total ventes cumulées</p>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
@@ -597,6 +715,83 @@ export default function SupplierFinancePage() {
               </div>
             </div>
             <p className="text-3xl font-bold text-white mt-4">${totalPayout.toFixed(2)}</p>
+            <p className="text-xs text-gray-400 mt-1">Charges & paiements</p>
+          </div>
+        </div>
+      )}
+
+      {/* Bannière interactive des fonds chez les livreurs */}
+      {pendingHandovers.length > 0 && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-5 shadow-lg">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl">
+                <Clock size={22} className="animate-pulse" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>Fonds Encaissés par les Livreurs en Attente de Caisse</span>
+                  <span className="bg-amber-500/30 text-amber-300 text-xs px-2.5 py-0.5 rounded-full font-bold border border-amber-500/40">
+                    {pendingHandovers.length} commande(s)
+                  </span>
+                </h3>
+                <p className="text-xs text-amber-200/80">
+                  Ces sommes ont été payées en espèces par les clients à la livraison. Cliquez sur "Valider la réception" dès que le livreur vous remet l'argent en boutique pour l'intégrer au livre de caisse.
+                </p>
+              </div>
+            </div>
+            <div className="sm:text-right shrink-0">
+              <span className="text-[11px] text-amber-300/80 uppercase font-bold tracking-wider">Total à reverser</span>
+              <p className="text-2xl font-black text-amber-400">${pendingCashTotal.toFixed(2)}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {pendingHandovers.map((item) => (
+              <div key={item.orderId} className="bg-black/40 border border-amber-500/25 rounded-xl p-4 flex flex-col justify-between space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Commande #{item.orderNumber}</span>
+                    <p className="text-sm font-semibold text-white mt-0.5 line-clamp-1">{item.description || "Articles livrés"}</p>
+                  </div>
+                  <span className="text-lg font-black text-emerald-400">${Number(item.amount || 0).toFixed(2)}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-xs text-gray-300 bg-white/5 p-2.5 rounded-lg border border-white/5">
+                  <div>
+                    <p className="text-[10px] text-gray-400 uppercase">Livreur détenteur</p>
+                    <p className="font-bold text-white">{item.driverName || "Livreur"}</p>
+                  </div>
+                  {item.driverPhone && (
+                    <a
+                      href={`tel:${item.driverPhone}`}
+                      className="flex items-center space-x-1 text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 px-2.5 py-1 rounded-lg transition-colors"
+                    >
+                      <Phone size={12} />
+                      <span>{item.driverPhone}</span>
+                    </a>
+                  )}
+                </div>
+
+                <button
+                  onClick={() => handleClearCash(item.orderId)}
+                  disabled={clearingOrderId === item.orderId}
+                  className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center justify-center space-x-2 disabled:opacity-50"
+                >
+                  {clearingOrderId === item.orderId ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      <span>Enregistrement en caisse...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle size={14} />
+                      <span>Valider la réception en caisse</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -628,12 +823,21 @@ export default function SupplierFinancePage() {
                 </button>
               </>
             ) : (
-              <button
-                onClick={() => setFilter("INCOME")}
-                className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 ${filter === "INCOME" ? "bg-green-500/20 text-green-400" : "text-gray-400 hover:text-white"}`}
-              >
-                Entrées (Ventes)
-              </button>
+              <>
+                <button
+                  onClick={() => setFilter("INCOME")}
+                  className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 ${filter === "INCOME" ? "bg-green-500/20 text-green-400" : "text-gray-400 hover:text-white"}`}
+                >
+                  Entrées (Ventes)
+                </button>
+                <button
+                  onClick={() => setFilter("PENDING_HANDOVER")}
+                  className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 flex items-center gap-1.5 ${filter === "PENDING_HANDOVER" ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "text-gray-400 hover:text-white"}`}
+                >
+                  <Clock size={14} />
+                  <span>Chez les Livreurs {pendingHandovers.length > 0 ? `(${pendingHandovers.length})` : ''}</span>
+                </button>
+              </>
             )}
             {!isImmo && (
               <button
@@ -686,6 +890,7 @@ export default function SupplierFinancePage() {
                 filteredTransactions.map((t) => {
                   const isHotel = t.branch === "hotel" || (t.category || "").toLowerCase().includes("hôtellerie") || (t.category || "").toLowerCase().includes("hotel");
                   const isRent = t.branch === "habitation" || (t.category || "").toLowerCase().includes("loyer") || t.id.startsWith("payment_");
+                  const isPending = t.isPendingHandover || t.status === "PENDING_HANDOVER";
 
                   return (
                     <tr key={t.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
@@ -693,7 +898,11 @@ export default function SupplierFinancePage() {
                         {t.createdAt?.toDate ? t.createdAt.toDate().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
                       </td>
                       <td className="px-6 py-4">
-                        {t.type === "INCOME" && (
+                        {isPending ? (
+                          <span className="inline-flex items-center text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 rounded text-xs font-semibold">
+                            <Clock size={12} className="mr-1"/> Chez le Livreur
+                          </span>
+                        ) : t.type === "INCOME" ? (
                           isHotel ? (
                             <span className="inline-flex items-center text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 rounded text-xs font-semibold">
                               <Hotel size={12} className="mr-1"/> Hôtellerie
@@ -704,17 +913,55 @@ export default function SupplierFinancePage() {
                             </span>
                           ) : (
                             <span className="inline-flex items-center text-green-400 bg-green-400/10 px-2.5 py-1 rounded text-xs">
-                              <ArrowDownRight size={12} className="mr-1"/> Entrée
+                              <ArrowDownRight size={12} className="mr-1"/> Entrée Caisse
                             </span>
                           )
+                        ) : t.type === "PAYOUT" ? (
+                          <span className="inline-flex items-center text-blue-400 bg-blue-400/10 px-2 py-1 rounded text-xs"><ArrowUpRight size={12} className="mr-1"/> Retrait</span>
+                        ) : (
+                          <span className="inline-flex items-center text-red-400 bg-red-400/10 px-2 py-1 rounded text-xs"><ArrowUpRight size={12} className="mr-1"/> Sortie {t.category ? `(${t.category})` : ''}</span>
                         )}
-                        {t.type === "PAYOUT" && <span className="inline-flex items-center text-blue-400 bg-blue-400/10 px-2 py-1 rounded text-xs"><ArrowUpRight size={12} className="mr-1"/> Retrait</span>}
-                        {t.type === "EXPENSE" && <span className="inline-flex items-center text-red-400 bg-red-400/10 px-2 py-1 rounded text-xs"><ArrowUpRight size={12} className="mr-1"/> Sortie {t.category ? `(${t.category})` : ''}</span>}
                       </td>
-                      <td className="px-6 py-4 text-white font-medium">{t.description}</td>
+                      <td className="px-6 py-4 text-white font-medium">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span>{t.description}</span>
+                          {isPending && (
+                            <button
+                              onClick={() => handleClearCash(t.orderId || t.referenceId || t.id)}
+                              disabled={clearingOrderId === (t.orderId || t.referenceId || t.id)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 text-xs font-bold rounded-lg transition-colors"
+                            >
+                              {clearingOrderId === (t.orderId || t.referenceId || t.id) ? (
+                                <>
+                                  <Loader2 size={12} className="animate-spin" />
+                                  <span>Validation...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle size={12} />
+                                  <span>Valider Réception</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-6 py-4 text-gray-400">{t.referenceId || "-"}</td>
-                      <td className={`px-6 py-4 text-right font-bold ${t.type === 'INCOME' ? 'text-green-400' : 'text-white'}`}>
-                        {t.type === 'INCOME' ? '+' : '-'}${t.amount.toFixed(2)}
+                      <td className={`px-6 py-4 text-right font-bold ${
+                        isPending 
+                          ? 'text-amber-400' 
+                          : t.type === 'INCOME' 
+                          ? 'text-green-400' 
+                          : 'text-white'
+                      }`}>
+                        <div>
+                          {t.type === 'INCOME' ? '+' : '-'}${t.amount.toFixed(2)}
+                          {isPending && (
+                            <span className="block text-[10px] text-amber-300/80 font-normal">
+                              en attente caisse
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
