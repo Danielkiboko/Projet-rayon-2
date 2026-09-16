@@ -286,7 +286,7 @@ export default function Home() {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden sm:block"><CurrencySelector /></div>
+            <CurrencySelector />
 
             {user ? (
               <div className="flex items-center gap-2">

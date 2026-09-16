@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ReviewsSection from "@/modules/shared/components/reviews/ReviewsSection";
+import { useCurrency } from "@/context/CurrencyContext";
 
 interface PropertyDetailModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export default function PropertyDetailModal({
   onBook,
   onChat
 }: PropertyDetailModalProps) {
+  const { formatPrice } = useCurrency();
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
 
   if (!isOpen || !property) return null;
@@ -124,7 +126,7 @@ export default function PropertyDetailModal({
                 {/* Price Badge Overlay */}
                 <div className="absolute bottom-4 left-4 p-3 bg-black/80 backdrop-blur-md rounded-2xl text-white shadow-xl">
                   <div className="text-2xl sm:text-3xl font-extrabold text-amber-400 flex items-baseline gap-1">
-                    $ {property.price?.toLocaleString()}
+                    {formatPrice(property.price)}
                     {isHotel ? (
                       <span className="text-xs font-normal text-gray-200">/ nuitée</span>
                     ) : !isSale ? (

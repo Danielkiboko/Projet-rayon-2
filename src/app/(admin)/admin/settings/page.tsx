@@ -15,6 +15,7 @@ import {
   Building,
   Loader2,
   AlertTriangle,
+  Coins,
 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, collection, getDocs, addDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore";
@@ -25,6 +26,8 @@ interface PlatformSettings {
   defaultDeliveryFee: number;
   adminShopName: string;
   adminContactPhone: string;
+  usdToFcRate: number;
+  usdToEurRate: number;
 }
 
 interface Category {
@@ -36,11 +39,13 @@ interface Category {
 }
 
 const DEFAULT_SETTINGS: PlatformSettings = {
-  monthlySubscriptionPrice: 50000,
+  monthlySubscriptionPrice: 50,
   trialDurationDays: 30,
   defaultDeliveryFee: 0,
   adminShopName: "Rayons Officiel",
   adminContactPhone: "",
+  usdToFcRate: 2850,
+  usdToEurRate: 0.92,
 };
 
 const DEFAULT_CATEGORIES: Omit<Category, "id">[] = [
@@ -353,6 +358,53 @@ export default function AdminSettingsPage() {
                     className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                   />
                   <p className="text-xs text-gray-500 mt-1.5">Appliqué si le fournisseur ne définit pas ses propres frais.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Section 3: Taux de Change & Devises (USD, FC, EUR) ── */}
+            <div className="pt-6 mt-2 border-t border-white/5">
+              <div className="flex items-center gap-2 mb-2">
+                <Coins size={18} className="text-amber-400" />
+                <span className="text-base font-bold text-white">Taux de Change & Multi-Devises</span>
+              </div>
+              <p className="text-sm text-gray-400 mb-5">
+                La devise de référence du catalogue est le Dollar US ($ USD). Définissez ici les taux de conversion appliqués automatiquement aux clients qui basculent en Francs Congolais (FC) ou en Euros (€).
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">
+                    Taux 1 $ USD = ... Francs Congolais (FC)
+                  </label>
+                  <input
+                    type="number"
+                    step="10"
+                    min="100"
+                    required
+                    value={settings.usdToFcRate || 2850}
+                    onChange={e => setSettings(s => ({ ...s, usdToFcRate: parseFloat(e.target.value) || 2850 }))}
+                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono"
+                    placeholder="2850"
+                  />
+                  <p className="text-xs text-gray-500 mt-1.5">Ex: 2 850 FC pour 1 $ USD (Marché RDC).</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">
+                    Taux 1 $ USD = ... Euro (€)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.1"
+                    required
+                    value={settings.usdToEurRate || 0.92}
+                    onChange={e => setSettings(s => ({ ...s, usdToEurRate: parseFloat(e.target.value) || 0.92 }))}
+                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono"
+                    placeholder="0.92"
+                  />
+                  <p className="text-xs text-gray-500 mt-1.5">Ex: 0.92 € pour 1 $ USD (soit 1 € ≈ 1.08 $ USD).</p>
                 </div>
               </div>
             </div>

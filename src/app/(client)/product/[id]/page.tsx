@@ -12,11 +12,14 @@ import { doc, getDoc, collection, getDocs, query, orderBy } from "firebase/fires
 import { db } from "@/lib/firebase";
 import { evaluateProductVerification, submitProductReview } from "@/lib/productVerification";
 import { DirectBuyModal } from "@/modules/client/components/DirectBuyModal";
+import { useCurrency } from "@/context/CurrencyContext";
+import { CurrencySelector } from "@/modules/shared/components/CurrencySelector";
 
 export default function ProductDetails({ params }: { params: { id: string } }) {
   const [lang, setLang] = useState<"fr" | "en">("fr");
   const { openChatForProduct } = useChat();
   const { addToCart } = useCart();
+  const { formatPrice } = useCurrency();
   const { user } = useAuth();
   const router = useRouter();
   
@@ -139,10 +142,12 @@ export default function ProductDetails({ params }: { params: { id: string } }) {
             <span className="text-sm font-medium">{lang === "fr" ? "Retour" : "Back"}</span>
           </Link>
           
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
+            <CurrencySelector variant="dark" />
+
             <button 
               onClick={() => setLang(lang === "fr" ? "en" : "fr")}
-              className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-md text-xs font-medium text-gray-300 hover:text-white transition-colors"
+              className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-full text-xs font-medium text-gray-300 hover:text-white transition-colors"
             >
               {lang.toUpperCase()}
             </button>
@@ -272,7 +277,7 @@ export default function ProductDetails({ params }: { params: { id: string } }) {
                     >
                       <div className="text-xs text-gray-400 mb-1">{tier.qty} {lang === "fr" ? "unités" : "units"}</div>
                       <div className={`text-lg font-bold ${isActive ? "text-primary-light" : "text-white"}`}>
-                        $ {tier.price.toFixed(2).replace(".", ",")}
+                        {formatPrice(tier.price)}
                       </div>
                     </div>
                   );

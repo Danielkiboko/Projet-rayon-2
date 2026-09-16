@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { useCurrency } from "@/context/CurrencyContext";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -39,6 +40,7 @@ export function CartDrawer() {
     totalItems 
   } = useCart();
   const { user, userData } = useAuth();
+  const { formatPrice } = useCurrency();
   const router = useRouter();
 
   const [step, setStep] = useState<"cart" | "checkout">("cart");
@@ -286,7 +288,7 @@ export function CartDrawer() {
 
                     <div className="flex-1 min-w-0">
                       <h4 className="font-semibold text-gray-900 text-xs truncate">{item.title}</h4>
-                      <div className="text-primary font-bold text-xs mt-0.5">${item.price}</div>
+                      <div className="text-primary font-bold text-xs mt-0.5">{formatPrice(item.price)}</div>
                       
                       <div className="flex items-center gap-2 mt-2">
                         <div className="flex items-center border border-gray-200 rounded-lg bg-gray-50">
@@ -307,8 +309,8 @@ export function CartDrawer() {
                           </button>
                         </div>
 
-                        <span className="text-[11px] text-gray-400">
-                          Total: ${(item.price * item.quantity).toFixed(2)}
+                        <span className="text-[11px] text-gray-500 font-medium">
+                          Total: {formatPrice(item.price * item.quantity)}
                         </span>
                       </div>
                     </div>
@@ -329,7 +331,7 @@ export function CartDrawer() {
               <div className="p-5 bg-gray-50 border-t border-gray-200 space-y-3">
                 <div className="flex justify-between items-center text-sm font-bold text-gray-900">
                   <span>Sous-total ({totalItems} articles) :</span>
-                  <span className="text-primary text-base font-extrabold">${subtotal.toFixed(2)}</span>
+                  <span className="text-primary text-base font-extrabold">{formatPrice(subtotal)}</span>
                 </div>
                 <p className="text-[11px] text-gray-400">
                   Frais de livraison calculés à l'étape suivante selon votre commune à Kinshasa.
@@ -483,15 +485,15 @@ export function CartDrawer() {
                 <div className="space-y-1 text-xs">
                   <div className="flex justify-between text-gray-500">
                     <span>Sous-total articles :</span>
-                    <span className="font-semibold text-gray-800">${subtotal.toFixed(2)}</span>
+                    <span className="font-semibold text-gray-800">{formatPrice(subtotal)}</span>
                   </div>
                   <div className="flex justify-between text-gray-500">
                     <span>Livraison ({selectedCommune}) :</span>
-                    <span className="font-semibold text-gray-800">${deliveryFee.toFixed(2)}</span>
+                    <span className="font-semibold text-gray-800">{formatPrice(deliveryFee)}</span>
                   </div>
                   <div className="border-t border-gray-200 pt-1.5 flex justify-between text-sm font-bold text-gray-900">
                     <span>Total Général :</span>
-                    <span className="text-primary font-extrabold text-base">${grandTotal.toFixed(2)}</span>
+                    <span className="text-primary font-extrabold text-base">{formatPrice(grandTotal)}</span>
                   </div>
                 </div>
 

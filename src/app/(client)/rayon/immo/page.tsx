@@ -14,6 +14,7 @@ import { db } from "@/lib/firebase";
 import { ProductSkeleton } from "@/modules/shared/components/ui/Skeleton";
 import { useAuth } from "@/context/AuthContext";
 import { useChat } from "@/context/ChatContext";
+import { useCurrency } from "@/context/CurrencyContext";
 import { ImmoContactModal } from "@/modules/client/components/ImmoContactModal";
 import PropertyDetailModal from "@/modules/shared/components/properties/PropertyDetailModal";
 
@@ -56,6 +57,7 @@ function ImmoContent() {
   const t = DICT[lang];
   const { user, loading, signOut } = useAuth();
   const { openChatForProduct } = useChat();
+  const { formatPrice } = useCurrency();
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<"all" | "sale" | "rent" | "hotel">("all");
@@ -445,7 +447,7 @@ function ImmoContent() {
                     {/* Price overlay bottom */}
                     <div className="absolute bottom-0 inset-x-0 p-2 sm:p-2.5 bg-gradient-to-t from-black/85 via-black/40 to-transparent">
                       <div className="text-sm sm:text-base font-extrabold text-white drop-shadow-xs flex items-baseline gap-1">
-                        $ {property.price?.toLocaleString()}
+                        {formatPrice(property.price)}
                         {isHotel ? (
                           <span className="text-[10px] sm:text-xs font-normal text-gray-200">/ nuit</span>
                         ) : !isSale ? (

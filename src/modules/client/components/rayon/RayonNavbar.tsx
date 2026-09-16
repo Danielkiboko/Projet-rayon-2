@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
 import NotificationBell from "@/modules/shared/components/notifications/NotificationBell";
+import { CurrencySelector } from "@/modules/shared/components/CurrencySelector";
 
 interface RayonNavbarProps {
   category: "immo" | "mode" | "connect" | "saveurs";
@@ -75,11 +76,14 @@ export function RayonNavbar({ category, lang, setLang, t }: RayonNavbarProps) {
           </Link>
         </div>
         
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 sm:space-x-3">
+          {/* Currency Selector (USD, FC, EUR) */}
+          <CurrencySelector />
+
           <div className="hidden md:flex items-center space-x-2">
             <button 
               onClick={() => setLang(lang === "fr" ? "en" : "fr")}
-              className="flex items-center px-3 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-md text-xs font-medium text-gray-600 hover:text-gray-900 transition-colors"
+              className="flex items-center px-3 py-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-full text-xs font-medium text-gray-600 hover:text-gray-900 transition-colors"
             >
               <Globe size={14} className="mr-1" /> {lang.toUpperCase()}
             </button>

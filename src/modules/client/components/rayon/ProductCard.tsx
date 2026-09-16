@@ -3,6 +3,7 @@ import { ShieldCheck, Star, ShoppingBag, ShoppingCart } from "lucide-react";
 import { motion } from "framer-motion";
 import { evaluateProductVerification } from "@/lib/productVerification";
 import { useCart } from "@/context/CartContext";
+import { useCurrency } from "@/context/CurrencyContext";
 
 interface ProductCardProps {
   product: any;
@@ -16,6 +17,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product, lang, t, category, index, handleChat, onBuy }: ProductCardProps) {
   const { addToCart } = useCart();
+  const { formatPrice } = useCurrency();
   const isMode = category === "mode";
   const isSaveurs = category === "saveurs";
   const verification = evaluateProductVerification(product);
@@ -86,7 +88,7 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
         </h3>
         
         <div className="text-sm font-bold text-gray-900 mb-2">
-          $ {Number(product.price).toFixed(2)}
+          {formatPrice(product.price)}
         </div>
       
         {/* Actions — compact row */}

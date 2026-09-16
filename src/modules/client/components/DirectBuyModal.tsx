@@ -16,6 +16,7 @@ import {
   Package
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useCurrency } from "@/context/CurrencyContext";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -31,6 +32,7 @@ import { KINSHASA_COMMUNES } from "@/lib/kinshasaDelivery";
 
 export function DirectBuyModal({ isOpen, onClose, product }: DirectBuyModalProps) {
   const { user, userData } = useAuth();
+  const { formatPrice } = useCurrency();
   const router = useRouter();
 
   const [quantity, setQuantity] = useState(1);
@@ -254,7 +256,7 @@ export function DirectBuyModal({ isOpen, onClose, product }: DirectBuyModalProps
               </div>
               <div className="flex-1 min-w-0">
                 <h4 className="font-bold text-gray-900 text-sm truncate">{productTitle}</h4>
-                <div className="text-gray-500 text-xs mt-0.5">${unitPrice} / unité</div>
+                <div className="text-gray-500 text-xs mt-0.5">{formatPrice(unitPrice)} / unité</div>
               </div>
               {/* Quantity selector */}
               <div className="flex items-center gap-2 border border-gray-200 bg-white rounded-xl p-1">
@@ -382,17 +384,17 @@ export function DirectBuyModal({ isOpen, onClose, product }: DirectBuyModalProps
 
             {/* Price breakdown */}
             <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-1.5">
-              <div className="flex justify-between text-gray-500">
+              <div className="flex justify-between text-gray-500 text-xs">
                 <span>Sous-total ({quantity} art.) :</span>
-                <span className="font-semibold text-gray-800">${subtotal.toFixed(2)}</span>
+                <span className="font-semibold text-gray-800">{formatPrice(subtotal)}</span>
               </div>
-              <div className="flex justify-between text-gray-500">
+              <div className="flex justify-between text-gray-500 text-xs">
                 <span>Livraison ({selectedCommune}) :</span>
-                <span className="font-semibold text-gray-800">${deliveryFee.toFixed(2)}</span>
+                <span className="font-semibold text-gray-800">{formatPrice(deliveryFee)}</span>
               </div>
               <div className="border-t border-gray-200 pt-2 flex justify-between text-sm font-bold text-gray-900">
                 <span>Total à régler :</span>
-                <span className="text-primary font-extrabold text-base">${totalAmount.toFixed(2)}</span>
+                <span className="text-primary font-extrabold text-base">{formatPrice(totalAmount)}</span>
               </div>
             </div>
 
@@ -410,7 +412,7 @@ export function DirectBuyModal({ isOpen, onClose, product }: DirectBuyModalProps
               ) : (
                 <>
                   <ShoppingBag size={17} />
-                  <span>Confirmer la commande (${totalAmount.toFixed(2)})</span>
+                  <span>Confirmer la commande ({formatPrice(totalAmount)})</span>
                 </>
               )}
             </button>

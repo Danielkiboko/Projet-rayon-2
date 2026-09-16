@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { useCurrency } from "@/context/CurrencyContext";
 
 interface UniversalSearchBarProps {
   products?: any[];
@@ -24,6 +25,7 @@ interface UniversalSearchBarProps {
 
 export function UniversalSearchBar({ products = [], properties = [] }: UniversalSearchBarProps) {
   const router = useRouter();
+  const { formatPrice } = useCurrency();
   const [query, setQuery] = useState("");
   const [selectedRayon, setSelectedRayon] = useState<"all" | "connect" | "immo" | "mode" | "saveurs">("all");
   const [isOpen, setIsOpen] = useState(false);
@@ -272,7 +274,7 @@ export function UniversalSearchBar({ products = [], properties = [] }: Universal
                           </div>
                         </div>
                         <div className="text-right shrink-0 pl-2">
-                          <span className="text-xs font-bold text-gray-900">${prod.price}</span>
+                          <span className="text-xs font-bold text-gray-900">{formatPrice(prod.price)}</span>
                         </div>
                       </Link>
                     ))}
@@ -309,7 +311,7 @@ export function UniversalSearchBar({ products = [], properties = [] }: Universal
                         </div>
                         <div className="text-right shrink-0 pl-2">
                           <span className="text-xs font-bold text-blue-600">
-                            {prop.price ? `$${prop.price}` : "Voir offre"}
+                            {prop.price ? formatPrice(prop.price) : "Voir offre"}
                           </span>
                         </div>
                       </Link>
