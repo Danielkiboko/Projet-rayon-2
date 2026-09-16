@@ -171,30 +171,30 @@ function ImmoContent() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
         {/* Immo Hero */}
-        <div className="relative rounded-3xl overflow-hidden mb-12 shadow-xl h-[300px]">
+        <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden mb-6 sm:mb-8 shadow-lg h-[220px] sm:h-[280px]">
           <img 
             src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=2000" 
             alt="Modern House" 
             className="absolute inset-0 w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-green-900/90 via-green-900/60 to-transparent"></div>
-          <div className="absolute inset-0 flex flex-col justify-center px-8 md:px-16 w-full md:w-2/3">
-            <span className="inline-block px-3 py-1 bg-white/20 text-white text-xs font-bold tracking-wider rounded-full mb-4 border border-white/30 uppercase w-max">
+          <div className="absolute inset-0 bg-gradient-to-r from-green-950/90 via-green-900/60 to-transparent"></div>
+          <div className="absolute inset-0 flex flex-col justify-center px-6 sm:px-10 md:px-14 w-full md:w-2/3">
+            <span className="inline-block px-2.5 py-0.5 bg-white/20 text-white text-[11px] font-bold tracking-wider rounded-full mb-2.5 border border-white/30 uppercase w-max">
               {t.tag}
             </span>
             <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight mb-4"
+              transition={{ duration: 0.5 }}
+              className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight leading-tight mb-2"
             >
               {t.title}
             </motion.h1>
             <motion.p 
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="text-lg text-green-50 max-w-lg hidden md:block"
+              transition={{ duration: 0.5, delay: 0.15 }}
+              className="text-xs sm:text-sm text-green-50/90 max-w-lg hidden sm:block"
             >
               {t.subtitle}
             </motion.p>
@@ -241,7 +241,7 @@ function ImmoContent() {
         </div>
 
         {/* Multi-Criteria Advanced Search Toolbar */}
-        <div className="bg-white border border-gray-200 rounded-3xl p-5 mb-10 shadow-sm space-y-4">
+        <div className="bg-white border border-gray-200/80 rounded-2xl p-3.5 sm:p-4 mb-6 shadow-xs space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             {/* Search Input */}
             <div className="md:col-span-5 relative">
@@ -365,14 +365,12 @@ function ImmoContent() {
           <span>{filteredProducts.length} bien(s) correspondant à vos critères</span>
         </div>
 
-        {/* Properties Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {/* Properties Grid - Dense Compact Alibaba/Booking style */}
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
           {isLoading ? (
-            <>
-              <ProductSkeleton />
-              <ProductSkeleton />
-              <ProductSkeleton />
-            </>
+            Array.from({ length: 10 }).map((_, i) => (
+              <ProductSkeleton key={i} />
+            ))
           ) : filteredProducts.length === 0 ? (
             <div className="col-span-full py-16 text-center text-gray-500 bg-white rounded-2xl border border-gray-100">
               <Hotel size={48} className="mx-auto text-gray-300 mb-3" />
@@ -390,18 +388,18 @@ function ImmoContent() {
               return (
                 <motion.div
                   key={property.id}
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.1, duration: 0.5 }}
-                  className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-lg transition-all group flex flex-col"
+                  transition={{ delay: Math.min(idx * 0.05, 0.4), duration: 0.35 }}
+                  className="bg-white rounded-xl sm:rounded-2xl border border-gray-200/75 shadow-2xs hover:shadow-md transition-all duration-300 group flex flex-col overflow-hidden"
                 >
-                  {/* Image with click to open detail */}
+                  {/* Image with click to open detail - Aspect 4/3 */}
                   <div 
                     onClick={() => {
                       setSelectedDetailProperty(property);
                       setIsDetailModalOpen(true);
                     }}
-                    className="relative h-64 overflow-hidden cursor-pointer"
+                    className="relative aspect-[4/3] w-full overflow-hidden cursor-pointer bg-gray-100"
                   >
                     <img 
                       src={property.image} 
@@ -410,167 +408,135 @@ function ImmoContent() {
                       decoding="async"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                    <div className="absolute top-4 left-4">
+                    
+                    {/* Badge top left */}
+                    <div className="absolute top-2 left-2">
                       {isHotel ? (
-                        <span className="px-3 py-1.5 text-xs font-bold tracking-wider rounded-xl uppercase bg-black/85 text-white border border-white/20 backdrop-blur-md shadow-lg flex items-center gap-1.5">
-                          <Hotel size={13} className="text-amber-400" />
+                        <span className="px-2 py-0.5 text-[9px] sm:text-[10px] font-bold tracking-wider rounded-md uppercase bg-black/85 text-white border border-white/20 backdrop-blur-md shadow-xs flex items-center gap-1">
+                          <Hotel size={10} className="text-amber-400" />
                           {property.hotelDetails?.stars && !isNaN(parseInt(property.hotelDetails.stars)) ? (
                             <>
                               <span className="text-amber-400 font-bold">{property.hotelDetails.stars}★</span>
-                              <span className="text-gray-100 font-semibold tracking-wider">HÔTEL</span>
+                              <span className="text-gray-100 font-semibold hidden sm:inline">HÔTEL</span>
                             </>
-                          ) : property.hotelDetails?.stars === "boutique" ? (
-                            <span className="text-amber-300 font-semibold tracking-wider">HÔTEL BOUTIQUE</span>
                           ) : (
-                            <span className="text-emerald-300 font-semibold tracking-wider">RÉSIDENCE HÔTELIÈRE</span>
+                            <span>HÔTEL</span>
                           )}
                         </span>
                       ) : (
-                        <span className={`px-3 py-1.5 text-xs font-bold tracking-wider rounded-xl border uppercase backdrop-blur-md shadow-sm ${
+                        <span className={`px-2 py-0.5 text-[9px] sm:text-[10px] font-bold tracking-wider rounded-md border uppercase backdrop-blur-md shadow-xs ${
                           isSale 
                             ? "bg-white/95 text-emerald-800 border-emerald-200/80" 
                             : "bg-white/95 text-blue-800 border-blue-200/80"
                         }`}>
-                          {isSale ? "🏠 À Vendre" : "🏠 À Louer"}
+                          {isSale ? "À Vendre" : "À Louer"}
                         </span>
                       )}
                     </div>
+
                     {/* Rating badge top right */}
-                    <div className="absolute top-4 right-4">
-                      <span className="px-2.5 py-1 text-xs font-bold tracking-wider rounded-xl bg-black/75 text-amber-400 border border-white/20 backdrop-blur-md shadow-lg flex items-center gap-1">
-                        <Star size={12} className="fill-amber-400 text-amber-400" />
+                    <div className="absolute top-2 right-2">
+                      <span className="px-1.5 py-0.5 text-[9px] sm:text-[10px] font-bold rounded-md bg-black/75 text-amber-400 border border-white/20 backdrop-blur-md shadow-xs flex items-center gap-0.5">
+                        <Star size={10} className="fill-amber-400 text-amber-400" />
                         <span>{property.averageRating ? property.averageRating.toFixed(1) : "5.0"}</span>
-                        <span className="text-[10px] text-gray-300">({property.ratingsCount || 0})</span>
                       </span>
                     </div>
-                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent">
-                      <div className="text-2xl font-bold text-white drop-shadow-md flex items-baseline gap-1">
+
+                    {/* Price overlay bottom */}
+                    <div className="absolute bottom-0 inset-x-0 p-2 sm:p-2.5 bg-gradient-to-t from-black/85 via-black/40 to-transparent">
+                      <div className="text-sm sm:text-base font-extrabold text-white drop-shadow-xs flex items-baseline gap-1">
                         $ {property.price?.toLocaleString()}
                         {isHotel ? (
-                          <span className="text-sm font-normal text-gray-300">/ nuitée</span>
+                          <span className="text-[10px] sm:text-xs font-normal text-gray-200">/ nuit</span>
                         ) : !isSale ? (
-                          <span className="text-sm font-normal text-gray-300">/ mois</span>
+                          <span className="text-[10px] sm:text-xs font-normal text-gray-200">/ mois</span>
                         ) : null}
                       </div>
                     </div>
                   </div>
 
-                  {/* Info */}
-                  <div className="p-6 flex-1 flex flex-col">
-                    <h3 
-                      onClick={() => {
-                        setSelectedDetailProperty(property);
-                        setIsDetailModalOpen(true);
-                      }}
-                      className="text-xl font-bold text-gray-900 mb-2 leading-tight cursor-pointer hover:text-green-700 transition-colors"
-                    >
-                      {property.title?.[lang] || property.title?.fr || property.title}
-                    </h3>
-                    
-                    <div className="flex items-center text-gray-500 text-sm mb-3">
-                      <MapPin size={16} className="mr-1 text-green-600 shrink-0" />
-                      <span className="truncate">{property.location}</span>
-                    </div>
+                  {/* Info Body */}
+                  <div className="p-2.5 sm:p-3 flex-1 flex flex-col justify-between">
+                    <div>
+                      <h3 
+                        onClick={() => {
+                          setSelectedDetailProperty(property);
+                          setIsDetailModalOpen(true);
+                        }}
+                        className="text-xs sm:text-sm font-bold text-gray-900 leading-snug cursor-pointer hover:text-green-700 transition-colors line-clamp-1 mb-1"
+                        title={property.title?.[lang] || property.title?.fr || property.title}
+                      >
+                        {property.title?.[lang] || property.title?.fr || property.title}
+                      </h3>
+                      
+                      <div className="flex items-center text-gray-500 text-[11px] mb-2">
+                        <MapPin size={12} className="mr-0.5 text-green-600 shrink-0" />
+                        <span className="truncate">{property.location}</span>
+                      </div>
 
-                    {/* Rating summary line */}
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-4 pb-2 border-b border-gray-100">
-                      <div className="flex items-center gap-1 text-amber-500 font-bold">
-                        <Star size={13} className="fill-amber-400 text-amber-400" />
-                        <span className="text-gray-900 font-extrabold">{property.averageRating ? property.averageRating.toFixed(1) : "5.0"}</span>
-                        <span className="text-gray-400 font-normal text-[11px]">({property.ratingsCount || 0} avis)</span>
-                      </div>
-                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full font-semibold text-[10px] border border-emerald-200/60 flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                        Certifié Rayons
-                      </span>
+                      {/* Features / Prestations */}
+                      {isHotel ? (
+                        <div className="flex items-center gap-1 text-[10px] text-gray-600 py-1 border-t border-b border-gray-100 mb-2.5 flex-wrap">
+                          {property.hotelDetails?.amenities?.includes("generator") && (
+                            <span className="px-1.5 py-0.5 bg-amber-50 text-amber-800 rounded font-medium text-[9px] sm:text-[10px]">
+                              ⚡ 24/7
+                            </span>
+                          )}
+                          {property.hotelDetails?.amenities?.includes("wifi") && (
+                            <span className="px-1.5 py-0.5 bg-blue-50 text-blue-800 rounded font-medium text-[9px] sm:text-[10px]">
+                              📶 Wifi
+                            </span>
+                          )}
+                          {property.hotelDetails?.amenities?.includes("ac") && (
+                            <span className="px-1.5 py-0.5 bg-indigo-50 text-indigo-800 rounded font-medium text-[9px] sm:text-[10px]">
+                              ❄️ Clim
+                            </span>
+                          )}
+                          {property.hotelDetails?.amenities?.includes("pool") && (
+                            <span className="px-1.5 py-0.5 bg-cyan-50 text-cyan-800 rounded font-medium text-[9px] sm:text-[10px]">
+                              🏊 Piscine
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-gray-600 py-1 border-t border-b border-gray-100 mb-2.5 font-medium">
+                          {property.immoDetails?.area ? (
+                            <div className="flex items-center gap-1">
+                              <Maximize size={12} className="text-gray-400" />
+                              <span>{property.immoDetails.area} m²</span>
+                            </div>
+                          ) : null}
+                          {property.immoDetails?.beds > 0 ? (
+                            <div className="flex items-center gap-1">
+                              <BedDouble size={12} className="text-gray-400" />
+                              <span>{property.immoDetails.beds} ch</span>
+                            </div>
+                          ) : null}
+                          {property.immoDetails?.baths > 0 ? (
+                            <div className="flex items-center gap-1">
+                              <Bath size={12} className="text-gray-400" />
+                              <span>{property.immoDetails.baths} sdb</span>
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
                     </div>
-                    
-                    {/* Features & Prestations */}
-                    {isHotel ? (
-                      <div className="border-t border-b border-gray-100 py-3 mb-6 space-y-2">
-                        <div className="flex items-center justify-between text-xs text-gray-600">
-                          <span className="font-medium text-gray-700">
-                            Check-in: {property.hotelDetails?.checkInTime || "14h"}
-                          </span>
-                          <span className="font-medium text-gray-700">
-                            Check-out: {property.hotelDetails?.checkOutTime || "12h"}
-                          </span>
-                        </div>
-                        {property.hotelDetails?.amenities && property.hotelDetails.amenities.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 pt-1">
-                            {property.hotelDetails.amenities.includes("generator") && (
-                              <span className="px-2 py-0.5 bg-amber-50 text-amber-800 rounded text-[11px] font-medium border border-amber-200">
-                                ⚡ Groupe 24/7
-                              </span>
-                            )}
-                            {property.hotelDetails.amenities.includes("wifi") && (
-                              <span className="px-2 py-0.5 bg-blue-50 text-blue-800 rounded text-[11px] font-medium border border-blue-200">
-                                📶 Wifi Fibre
-                              </span>
-                            )}
-                            {property.hotelDetails.amenities.includes("pool") && (
-                              <span className="px-2 py-0.5 bg-cyan-50 text-cyan-800 rounded text-[11px] font-medium border border-cyan-200">
-                                🏊 Piscine
-                              </span>
-                            )}
-                            {property.hotelDetails.amenities.includes("ac") && (
-                              <span className="px-2 py-0.5 bg-indigo-50 text-indigo-800 rounded text-[11px] font-medium border border-indigo-200">
-                                ❄️ Clim
-                              </span>
-                            )}
-                            {property.hotelDetails.amenities.includes("breakfast") && (
-                              <span className="px-2 py-0.5 bg-orange-50 text-orange-800 rounded text-[11px] font-medium border border-orange-200">
-                                🍳 P. Déjeuner
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between border-t border-b border-gray-100 py-4 mb-6">
-                        <div className="flex items-center space-x-2 text-sm text-gray-600">
-                          <Maximize size={18} className="text-gray-400" />
-                          <span>{property.immoDetails?.area} m²</span>
-                        </div>
-                        {property.immoDetails?.beds > 0 && (
-                          <div className="flex items-center space-x-2 text-sm text-gray-600">
-                            <BedDouble size={18} className="text-gray-400" />
-                            <span>{property.immoDetails?.beds}</span>
-                          </div>
-                        )}
-                        {property.immoDetails?.baths > 0 && (
-                          <div className="flex items-center space-x-2 text-sm text-gray-600">
-                            <Bath size={18} className="text-gray-400" />
-                            <span>{property.immoDetails?.baths}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
                     
                     {/* Actions */}
-                    <div className="mt-auto flex items-center gap-2">
+                    <div className="mt-auto flex items-center gap-1.5 pt-1">
                       <button 
                         onClick={() => {
                           setContactProperty(property);
                           setIsContactModalOpen(true);
                         }}
-                        className={`flex-1 py-3 text-white text-sm font-bold rounded-xl transition-all flex items-center justify-center space-x-2 shadow-sm ${
+                        className={`flex-1 py-1.5 sm:py-2 px-2 text-white text-[11px] sm:text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1 shadow-2xs ${
                           isHotel 
-                            ? "bg-gradient-to-r from-gray-900 via-neutral-900 to-black hover:bg-black border border-amber-500/30" 
+                            ? "bg-gradient-to-r from-gray-900 via-neutral-900 to-black hover:bg-black border border-amber-500/20" 
                             : "bg-gray-900 hover:bg-gray-800"
                         }`}
                       >
-                        {isHotel ? (
-                          <>
-                            <CalendarCheck size={16} className="text-amber-400" />
-                            <span>Réserver une nuitée</span>
-                          </>
-                        ) : (
-                          <>
-                            <CalendarCheck size={16} />
-                            <span>Prendre RDV / Visite</span>
-                          </>
-                        )}
+                        <CalendarCheck size={13} className={isHotel ? "text-amber-400" : "text-white"} />
+                        <span className="truncate">{isHotel ? "Réserver" : "Prendre RDV"}</span>
                       </button>
 
                       <button 
@@ -583,9 +549,9 @@ function ImmoContent() {
                           });
                         }}
                         title={isHotel ? "Contacter l'hôtel" : "Discuter directement"}
-                        className="p-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors shrink-0"
+                        className="p-1.5 sm:p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors shrink-0"
                       >
-                        <MessageSquare size={16} />
+                        <MessageSquare size={13} />
                       </button>
                     </div>
                   </div>
