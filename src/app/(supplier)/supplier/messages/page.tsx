@@ -59,6 +59,7 @@ export default function SupplierMessagesPage() {
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [currentProductStock, setCurrentProductStock] = useState<number | null>(null);
   const [productBrand, setProductBrand] = useState<string>("");
+  const [productPurchasePrice, setProductPurchasePrice] = useState<number>(0);
 
   // Fetch supplier products for stock & pricing
   useEffect(() => {
@@ -149,6 +150,7 @@ export default function SupplierMessagesPage() {
         const stk = Number(matched.stock ?? 0);
         setCurrentProductStock(stk);
         setProductBrand(matched.brand || "");
+        setProductPurchasePrice(Number(matched.purchasePrice ?? 0));
         if (proformaUnitPrice === 0 && Number(matched.price) > 0) {
           setProformaUnitPrice(Number(matched.price));
         }
@@ -164,6 +166,7 @@ export default function SupplierMessagesPage() {
             const stk = Number(data.stock ?? 0);
             setCurrentProductStock(stk);
             setProductBrand(data.brand || "");
+            setProductPurchasePrice(Number(data.purchasePrice ?? 0));
             if (proformaUnitPrice === 0 && Number(data.price) > 0) {
               setProformaUnitPrice(Number(data.price));
             }
@@ -247,6 +250,9 @@ export default function SupplierMessagesPage() {
           brand: productBrand || undefined,
           quantity: proformaQuantity,
           unitPrice: proformaUnitPrice,
+          purchasePrice: productPurchasePrice,
+          costOfGoodsSold: Number((productPurchasePrice * proformaQuantity).toFixed(2)),
+          grossProfit: Number(((proformaUnitPrice - productPurchasePrice) * proformaQuantity).toFixed(2)),
           totalPrice: calculatedTotalProducts,
           price: calculatedTotalProducts, // Rétro-compatibilité
           deliveryFee: deliveryFee,

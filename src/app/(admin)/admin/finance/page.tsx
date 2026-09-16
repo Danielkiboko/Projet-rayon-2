@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Wallet, ArrowDownRight, ArrowUpRight, Plus, Download, X, Search, 
-  FileText, ShieldAlert, CheckCircle, Clock, AlertTriangle, Sliders, RefreshCw, Lock
+  FileText, ShieldAlert, CheckCircle, Clock, AlertTriangle, Sliders, RefreshCw, Lock,
+  Calendar, TrendingUp, Landmark
 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { 
@@ -64,6 +65,7 @@ export default function AdminFinancePage() {
   const [adminStoreSales, setAdminStoreSales] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [journalFilter, setJournalFilter] = useState<string>("ALL");
+  const [periodFilter, setPeriodFilter] = useState<"today" | "yesterday" | "last7days" | "this_month" | "all">("today");
   const [search, setSearch] = useState("");
 
   // Modals
@@ -151,10 +153,25 @@ export default function AdminFinancePage() {
           );
           if (adminItems.length > 0) {
             const amount = adminItems.reduce((acc: number, it: any) => acc + (Number(it.price || 0) * Number(it.quantity || 1)), 0);
+            const capital = adminItems.reduce((acc: number, it: any) => {
+              const c = it.costOfGoodsSold !== undefined 
+                ? Number(it.costOfGoodsSold) 
+                : ((Number(it.purchasePrice) || 0) * (Number(it.quantity) || 1));
+              return acc + c;
+            }, 0);
+            const profit = adminItems.reduce((acc: number, it: any) => {
+              const p = it.grossProfit !== undefined 
+                ? Number(it.grossProfit) 
+                : (((Number(it.price) || 0) - (Number(it.purchasePrice) || 0)) * (Number(it.quantity) || 1));
+              return acc + p;
+            }, 0);
+
             sales.push({
               id: docSnap.id,
               orderId: docSnap.id,
               amount,
+              capital,
+              profit: profit > 0 ? profit : Math.max(0, amount - capital),
               items: adminItems,
               createdAt: order.createdAt
             });
@@ -173,7 +190,46 @@ export default function AdminFinancePage() {
     };
   }, [user, userData, loading, router]);
 
-  // Calculations
+  // Helpers pour le filtrage par période (24h vs Historique)
+  const getTxTimestamp = (t: any): number => {
+    if (!t) return 0;
+    const d = t.createdAt || t.date;
+    if (!d) return 0;
+    if (d.toMillis) return d.toMillis();
+    if (d.toDate) return d.toDate().getTime();
+    if (d.seconds) return d.seconds * 1000;
+    if (typeof d === "number") return d;
+    const parsed = new Date(d).getTime();
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  const isTxInPeriod = (t: any, period: "today" | "yesterday" | "last7days" | "this_month" | "all"): boolean => {
+    if (period === "all") return true;
+    const time = getTxTimestamp(t);
+    if (!time) return true;
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000;
+
+    if (period === "today") return time >= startOfToday;
+    if (period === "yesterday") return time >= startOfYesterday && time < startOfToday;
+    if (period === "last7days") return time >= now.getTime() - 7 * 24 * 60 * 60 * 1000;
+    if (period === "this_month") return time >= new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    return true;
+  };
+
+  const getPeriodLabel = () => {
+    switch (periodFilter) {
+      case "today": return "Aujourd'hui (24h)";
+      case "yesterday": return "Hier";
+      case "last7days": return "7 derniers jours";
+      case "this_month": return "Ce mois";
+      case "all": return "Tout l'historique";
+    }
+  };
+
+  // Calculations globales (Solde de Caisse)
   const totalSubscriptions = transactions
     .filter(t => t.type === "SUBSCRIPTION")
     .reduce((acc, t) => acc + t.amount, 0);
@@ -190,6 +246,24 @@ export default function AdminFinancePage() {
     .reduce((acc, t) => acc + t.amount, 0);
 
   const currentBalance = totalIncome - totalPayout;
+
+  // Calculations filtrées par période (Défaut: 24h)
+  const periodAdminSales = adminStoreSales.filter(s => isTxInPeriod(s, periodFilter));
+  const periodTx = transactions.filter(t => isTxInPeriod(t, periodFilter));
+  const periodSubscriptions = periodTx
+    .filter(t => t.type === "SUBSCRIPTION")
+    .reduce((acc, t) => acc + t.amount, 0);
+  const periodOtherIncome = periodTx
+    .filter(t => t.type === "OTHER_INCOME")
+    .reduce((acc, t) => acc + t.amount, 0);
+  const periodAdminSalesTotal = periodAdminSales.reduce((acc, s) => acc + s.amount, 0);
+  const periodIncome = periodSubscriptions + periodOtherIncome + periodAdminSalesTotal;
+  const periodPayout = periodTx
+    .filter(t => t.type === "EXPENSE")
+    .reduce((acc, t) => acc + t.amount, 0);
+
+  const periodCapital = periodAdminSales.reduce((acc, s) => acc + (Number(s.capital) || 0), 0);
+  const periodNetProfit = periodAdminSales.reduce((acc, s) => acc + (Number(s.profit) || (s.amount - (Number(s.capital) || 0))), 0) + periodSubscriptions + periodOtherIncome;
 
   // Settle supplier deposit (1-click action)
   const handleSettleSupplierDeposit = async (supplier: UserSupplier) => {
@@ -363,8 +437,9 @@ export default function AdminFinancePage() {
     document.body.removeChild(link);
   };
 
-  // Filtered Ledger
+  // Filtered Ledger (avec filtre de période temporelle)
   const filteredLedger = ledgerEntries.filter(entry => {
+    if (!isTxInPeriod({ createdAt: entry.date }, periodFilter)) return false;
     if (journalFilter !== "ALL" && entry.journal !== journalFilter) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -431,50 +506,158 @@ export default function AdminFinancePage() {
         </motion.div>
       )}
 
-      {/* Financial Overview Cards - Based on User's Business Model */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {/* Sélecteur de Période Comptable Centrale : Journalier (24h) vs Historique */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-[#C7D300]/20 text-[#C7D300] rounded-xl shrink-0">
+            <Calendar size={20} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-white">
+                Période Comptable : <span className="text-[#C7D300]">{getPeriodLabel()}</span>
+              </h3>
+              {periodFilter === "today" && (
+                <span className="text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Journalier (24h)
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {periodFilter === "today" 
+                ? "Affichage des écritures des dernières 24h. Après 24h, les recettes et charges basculent dans l'historique."
+                : `Comptabilité filtrée pour la période : ${getPeriodLabel()}.`}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto p-1 bg-black/30 border border-white/10 rounded-xl">
+          <button
+            onClick={() => setPeriodFilter("today")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+              periodFilter === "today"
+                ? "bg-[#C7D300] text-gray-950 shadow-sm"
+                : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <span>⚡ Aujourd'hui (24h)</span>
+          </button>
+          <button
+            onClick={() => setPeriodFilter("yesterday")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+              periodFilter === "yesterday"
+                ? "bg-white text-gray-950 shadow-sm font-bold"
+                : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            Hier
+          </button>
+          <button
+            onClick={() => setPeriodFilter("last7days")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+              periodFilter === "last7days"
+                ? "bg-white text-gray-950 shadow-sm font-bold"
+                : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            7 derniers jours
+          </button>
+          <button
+            onClick={() => setPeriodFilter("this_month")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+              periodFilter === "this_month"
+                ? "bg-white text-gray-950 shadow-sm font-bold"
+                : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            Ce mois
+          </button>
+          <button
+            onClick={() => setPeriodFilter("all")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1 ${
+              periodFilter === "all"
+                ? "bg-white text-gray-950 shadow-sm font-bold"
+                : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <span>📚 Tout l'historique</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Financial Overview Cards (6 Cards with Capital & Intérêts) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {/* 1. Solde de Caisse Consolidé */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Solde de Caisse</h3>
+            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Caisse Centrale</h3>
             <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400">
               <Wallet size={18} />
             </div>
           </div>
-          <p className="text-3xl font-black text-white mt-3">${currentBalance.toFixed(2)}</p>
-          <span className="text-[11px] text-gray-400 mt-1 block">Solde net consolidé</span>
+          <p className="text-2xl sm:text-3xl font-black text-white mt-3">${currentBalance.toFixed(2)}</p>
+          <span className="text-[11px] text-gray-400 mt-1 block">Solde net disponible</span>
         </div>
 
+        {/* 2. Revenus Réalisés Période */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Abonnements Fournisseurs</h3>
-            <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400">
+            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Revenus ({getPeriodLabel()})</h3>
+            <div className="p-2 bg-green-500/20 rounded-lg text-green-400">
               <ArrowDownRight size={18} />
             </div>
           </div>
-          <p className="text-3xl font-black text-emerald-400 mt-3">${totalSubscriptions.toFixed(2)}</p>
-          <span className="text-[11px] text-gray-400 mt-1 block">Dépôts mensuels perçus</span>
+          <p className="text-2xl sm:text-3xl font-black text-green-400 mt-3">${periodIncome.toFixed(2)}</p>
+          <span className="text-[11px] text-gray-400 mt-1 block">Entrées de la période</span>
         </div>
 
+        {/* 3. Dépenses Période */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Ventes Boutiques Admin</h3>
-            <div className="p-2 bg-cyan-500/20 rounded-lg text-cyan-400">
-              <ArrowDownRight size={18} />
-            </div>
-          </div>
-          <p className="text-3xl font-black text-cyan-400 mt-3">${(totalOtherIncome + totalAdminStoreSales).toFixed(2)}</p>
-          <span className="text-[11px] text-gray-400 mt-1 block">Produits certifiés officiels ({adminStoreSales.length} vente{adminStoreSales.length > 1 ? 's' : ''})</span>
-        </div>
-
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Dépenses Plateforme</h3>
+            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Dépenses ({getPeriodLabel()})</h3>
             <div className="p-2 bg-red-500/20 rounded-lg text-red-400">
               <ArrowUpRight size={18} />
             </div>
           </div>
-          <p className="text-3xl font-black text-red-400 mt-3">${totalPayout.toFixed(2)}</p>
-          <span className="text-[11px] text-gray-400 mt-1 block">Frais serveurs & logistique</span>
+          <p className="text-2xl sm:text-3xl font-black text-red-400 mt-3">${periodPayout.toFixed(2)}</p>
+          <span className="text-[11px] text-gray-400 mt-1 block">Charges & sorties</span>
+        </div>
+
+        {/* 4. Capital Récupéré (Prix d'achat des produits vendus) */}
+        <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-indigo-300 text-xs font-semibold uppercase tracking-wider">Capital Récupéré</h3>
+            <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400">
+              <Landmark size={18} />
+            </div>
+          </div>
+          <p className="text-2xl sm:text-3xl font-black text-indigo-400 mt-3">${periodCapital.toFixed(2)}</p>
+          <span className="text-[11px] text-indigo-300/80 mt-1 block">Fonds propres amortis</span>
+        </div>
+
+        {/* 5. Intérêts Réalisés (Marge nette) */}
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-emerald-300 text-xs font-semibold uppercase tracking-wider">Intérêts (Bénéfice)</h3>
+            <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400">
+              <TrendingUp size={18} />
+            </div>
+          </div>
+          <p className="text-2xl sm:text-3xl font-black text-emerald-400 mt-3">+${periodNetProfit.toFixed(2)}</p>
+          <span className="text-[11px] text-emerald-300/80 mt-1 block">Marge nette {getPeriodLabel()}</span>
+        </div>
+
+        {/* 6. Abonnements Fournisseurs */}
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Abonnements</h3>
+            <div className="p-2 bg-[#C7D300]/20 rounded-lg text-[#C7D300]">
+              <ArrowDownRight size={18} />
+            </div>
+          </div>
+          <p className="text-2xl sm:text-3xl font-black text-[#C7D300] mt-3">${periodSubscriptions.toFixed(2)}</p>
+          <span className="text-[11px] text-gray-400 mt-1 block">Dépôts mensuels reçus</span>
         </div>
       </div>
 
@@ -576,7 +759,17 @@ export default function AdminFinancePage() {
                 {filteredLedger.length === 0 ? (
                   <tr>
                     <td colSpan={8} className="px-6 py-10 text-center text-gray-400">
-                      Aucune écriture comptable enregistrée pour ce filtre.
+                      <p className="font-semibold text-white">Aucune écriture comptable pour : {getPeriodLabel()}</p>
+                      {periodFilter === "today" ? (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Les écritures de plus de 24h sont automatiquement archivées dans l'historique.<br />
+                          Pour les consulter, sélectionnez <strong className="text-white">"Hier"</strong>, <strong className="text-white">"7 derniers jours"</strong> ou <strong className="text-white">"Tout l'historique"</strong> ci-dessus.
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Aucune écriture ne correspond à cette période ou au journal sélectionné.
+                        </p>
+                      )}
                     </td>
                   </tr>
                 ) : (

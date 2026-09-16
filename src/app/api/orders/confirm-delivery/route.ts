@@ -55,19 +55,33 @@ export async function POST(req: NextRequest) {
         updatedAt: FieldValue.serverTimestamp(),
       });
 
-      // 2. Déterminer les montants par fournisseur et générer les écritures de caisse
+      // 2. Déterminer les montants par fournisseur et générer les écritures de caisse (avec Capital & Intérêts)
       const items = Array.isArray(orderData.items) ? orderData.items : [];
       const supplierAmounts: Record<string, number> = {};
+      const supplierCapital: Record<string, number> = {};
+      const supplierProfit: Record<string, number> = {};
 
       if (items.length > 0) {
         for (const item of items) {
           const sId = item.supplierId || orderData.supplierId || "admin";
-          const itemTotal = (Number(item.price) || 0) * (Number(item.quantity) || 1);
+          const itemQty = Number(item.quantity) || 1;
+          const itemTotal = (Number(item.price) || 0) * itemQty;
+          const itemCost = item.costOfGoodsSold !== undefined 
+            ? Number(item.costOfGoodsSold) 
+            : ((Number(item.purchasePrice) || 0) * itemQty);
+          const itemMargin = item.grossProfit !== undefined 
+            ? Number(item.grossProfit) 
+            : (itemTotal - itemCost);
+
           supplierAmounts[sId] = (supplierAmounts[sId] || 0) + itemTotal;
+          supplierCapital[sId] = (supplierCapital[sId] || 0) + itemCost;
+          supplierProfit[sId] = (supplierProfit[sId] || 0) + itemMargin;
         }
       } else {
         const fallbackSupplier = orderData.supplierId || "admin";
         supplierAmounts[fallbackSupplier] = finalAmount;
+        supplierCapital[fallbackSupplier] = Number(orderData.purchaseCost || 0);
+        supplierProfit[fallbackSupplier] = Number(orderData.grossProfit !== undefined ? orderData.grossProfit : finalAmount);
       }
 
       suppliersAffected = Object.keys(supplierAmounts);
@@ -75,6 +89,8 @@ export async function POST(req: NextRequest) {
       // Générer pour chaque fournisseur l'écriture dans supplier_transactions et accounting_ledger
       for (const sId of suppliersAffected) {
         const sAmount = supplierAmounts[sId] || finalAmount;
+        const sCapital = supplierCapital[sId] || 0;
+        const sProfit = supplierProfit[sId] !== undefined ? supplierProfit[sId] : (sAmount - sCapital);
 
         // A. Écriture dans supplier_transactions (Livre de Caisse du fournisseur)
         const sTxRef = adminDb.collection("supplier_transactions").doc();
@@ -84,6 +100,8 @@ export async function POST(req: NextRequest) {
           type: "INCOME",
           category: "Vente Livrée (Espèces Livreur)",
           amount: sAmount,
+          capital: sCapital,
+          profit: sProfit,
           currency: "USD",
           description: `Commande livrée #${orderNum} - Fonds encaissés par ${dName}`,
           referenceId: orderId,

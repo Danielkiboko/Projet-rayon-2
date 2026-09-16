@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Package, Plus, X, Search, Edit2, Trash2, Filter, Settings, 
-  MapPin, Clock, Tag, ShoppingBag, Truck, Image as ImageIcon, Bot, Send, AlertCircle, CheckCircle, XCircle
+  MapPin, Clock, Tag, ShoppingBag, Truck, Image as ImageIcon, Bot, Send, AlertCircle, CheckCircle, XCircle, TrendingUp
 } from "lucide-react";
 import { useProductAiAssistant, handleImageUploadShared } from "@/hooks/useProductAiAssistant";
 import AiAssistantChat from "@/modules/shared/components/shared/AiAssistantChat";
@@ -44,6 +44,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
   const [productBrand, setProductBrand] = useState("");
   const [productCategory, setProductCategory] = useState("");
   const [productPrice, setProductPrice] = useState("");
+  const [productPurchasePrice, setProductPurchasePrice] = useState("");
   const [productStock, setProductStock] = useState("");
   const [productDesc, setProductDesc] = useState("");
 
@@ -67,6 +68,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
       if (autoFill.brand) setProductBrand(autoFill.brand);
       if (autoFill.category) setProductCategory(autoFill.category);
       if (autoFill.price) setProductPrice(autoFill.price);
+      if (autoFill.purchasePrice) setProductPurchasePrice(autoFill.purchasePrice);
       if (autoFill.stock) setProductStock(autoFill.stock);
       if (autoFill.description) setProductDesc(autoFill.description);
     },
@@ -93,7 +95,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
         setProducts(fetchedProducts);
         setIsLoading(false);
       }, (error) => {
-        console.warn("Error fetching admin products (handled):", error.message);
+        console.error("Error fetching admin products:", error);
         setIsLoading(false);
       });
     } else {
@@ -126,6 +128,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
     setProductBrand("");
     setProductCategory("");
     setProductPrice("");
+    setProductPurchasePrice("");
     setProductStock("");
     setProductDesc("");
     setImagePreview(null);
@@ -163,6 +166,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
     
     setProductBrand(product.brand || "");
     setProductPrice(product.price?.toString() || "");
+    setProductPurchasePrice(product.purchasePrice?.toString() || "");
     setProductStock(product.stock?.toString() || "");
     setProductCategory(product.category || "");
     setProductDesc(product.description || "");
@@ -195,6 +199,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
     })();
 
     const parsedPrice = parseFloat(productPrice);
+    const parsedPurchasePrice = parseFloat(productPurchasePrice);
     const parsedStock = parseInt(productStock || "0", 10);
 
     if (!productTitle.trim()) {
@@ -208,6 +213,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
       category: normalizedCategory,
       rayon: normalizedCategory,
       price: isNaN(parsedPrice) ? 0 : parsedPrice,
+      purchasePrice: isNaN(parsedPurchasePrice) ? 0 : parsedPurchasePrice,
       stock: isNaN(parsedStock) ? 0 : parsedStock,
       description: productDesc.trim(),
       image: imagePreview || "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400",
@@ -730,8 +736,20 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                           </span>
                         )}
                       </td>
-                      <td className="p-4 font-bold text-white">
-                        {formatPrice(product.price)}
+                      <td className="p-4">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-white text-sm">{formatPrice(product.price)}</span>
+                          {product.purchasePrice !== undefined && Number(product.purchasePrice) > 0 ? (
+                            <div className="flex flex-col text-[11px] mt-0.5 space-y-0.5">
+                              <span className="text-gray-400">Capital: {formatPrice(product.purchasePrice)}</span>
+                              <span className={Number(product.price) - Number(product.purchasePrice) >= 0 ? "text-emerald-400 font-semibold" : "text-red-400 font-semibold"}>
+                                Intérêt: {Number(product.price) - Number(product.purchasePrice) >= 0 ? "+" : ""}{formatPrice(Number(product.price) - Number(product.purchasePrice))}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] text-gray-500 italic mt-0.5">Capital non renseigné</span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4">
                         {product.status === "pending_approval" || product.status === "PENDING_APPROVAL" ? (
@@ -867,9 +885,26 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-300">Prix (Base: {currency})</label>
+                    <label className="text-sm font-medium text-gray-300">
+                      Prix d'achat (Capital: {currency})
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={productPurchasePrice}
+                      onChange={(e) => setProductPurchasePrice(e.target.value)}
+                      placeholder="Ex: 120.00"
+                      className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white"
+                    />
+                    <span className="text-[11px] text-gray-400">Capital investi / pièce</span>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-300">
+                      Prix de vente (Client: {currency})
+                    </label>
                     <input
                       type="number"
                       step="0.01"
@@ -879,14 +914,15 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                       placeholder="Ex: 199.99"
                       className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white"
                     />
+                    <span className="text-[11px] text-gray-400">Prix public en magasin</span>
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium text-gray-300">Quantité en stock</label>
+                      <label className="text-sm font-medium text-gray-300">Quantité stock</label>
                       {parseInt(productStock || "0") < 10 && (
                         <span className="text-[11px] font-bold text-red-400 flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
                           <AlertCircle size={12} />
-                          {parseInt(productStock || "0") <= 0 ? "Rupture totale" : "Stock critique (< 10 pcs)"}
+                          {parseInt(productStock || "0") <= 0 ? "Rupture" : "< 10 pcs"}
                         </span>
                       )}
                     </div>
@@ -916,12 +952,33 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                       </button>
                     </div>
                     {parseInt(productStock || "0") < 10 && (
-                      <p className="text-[11px] text-red-400 font-medium mt-1">
-                        ⚠️ Moins de 10 pièces : ce produit déclenchera un signal rouge de rupture en magasin.
+                      <p className="text-[10px] text-red-400 font-medium mt-1">
+                        ⚠️ Moins de 10 pièces : alerte rouge activée.
                       </p>
                     )}
                   </div>
                 </div>
+
+                {/* Calculateur de rentabilité & Comptabilité automatique */}
+                {parseFloat(productPrice) > 0 && parseFloat(productPurchasePrice) > 0 && (
+                  <div className={`p-3 rounded-xl border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+                    parseFloat(productPrice) >= parseFloat(productPurchasePrice)
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                      : "bg-red-500/10 border-red-500/30 text-red-300"
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <TrendingUp size={16} className={parseFloat(productPrice) >= parseFloat(productPurchasePrice) ? "text-emerald-400" : "text-red-400"} />
+                      <span>
+                        <strong>Marge brute (Intérêt net) :</strong>{" "}
+                        {(parseFloat(productPrice) - parseFloat(productPurchasePrice)).toFixed(2)} {currency}{" "}
+                        ({(((parseFloat(productPrice) - parseFloat(productPurchasePrice)) / parseFloat(productPrice)) * 100).toFixed(1)}%)
+                      </span>
+                    </div>
+                    <span className="text-gray-300">
+                      <strong>Capital investi :</strong> {parseFloat(productPurchasePrice).toFixed(2)} {currency} / unité
+                    </span>
+                  </div>
+                )}
 
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-300">Rayon / Catégorie de publication</label>

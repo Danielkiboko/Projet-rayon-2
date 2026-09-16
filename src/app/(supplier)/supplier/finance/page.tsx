@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Wallet, ArrowDownRight, ArrowUpRight, Plus, Download, X, Search, Home, Hotel, Sparkles, Sliders, ShieldAlert, CheckCircle, Lock, Clock, Phone, Loader2 } from "lucide-react";
+import { Wallet, ArrowDownRight, ArrowUpRight, Plus, Download, X, Search, Home, Hotel, Sparkles, Sliders, ShieldAlert, CheckCircle, Lock, Clock, Phone, Loader2, Calendar, TrendingUp, Landmark } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, where, doc, updateDoc, limit } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
@@ -17,6 +17,10 @@ interface Transaction {
   category?: string;
   branch?: "habitation" | "hotel" | "generic";
   amount: number;
+  capital?: number;
+  profit?: number;
+  costOfGoodsSold?: number;
+  grossProfit?: number;
   currency: string;
   description: string;
   referenceId?: string;
@@ -38,6 +42,7 @@ export default function SupplierFinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState("ALL");
+  const [periodFilter, setPeriodFilter] = useState<"today" | "yesterday" | "last7days" | "this_month" | "all">("today");
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -235,6 +240,18 @@ export default function SupplierFinancePage() {
             if (isDelivered || isCashWithDriver) {
               const myItems = order.items?.filter((item: any) => item.supplierId === activeSupplierId) || [];
               const myTotal = myItems.reduce((acc: number, item: any) => acc + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
+              const myCapital = myItems.reduce((acc: number, item: any) => {
+                const c = item.costOfGoodsSold !== undefined 
+                  ? Number(item.costOfGoodsSold) 
+                  : ((Number(item.purchasePrice) || 0) * (Number(item.quantity) || 1));
+                return acc + c;
+              }, 0);
+              const myProfit = myItems.reduce((acc: number, item: any) => {
+                const p = item.grossProfit !== undefined 
+                  ? Number(item.grossProfit) 
+                  : (((Number(item.price) || 0) - (Number(item.purchasePrice) || 0)) * (Number(item.quantity) || 1));
+                return acc + p;
+              }, 0);
               const productNames = myItems.map((item: any) => item.productName || item.name || "Produit").join(", ");
               
               if (myTotal > 0) {
@@ -243,6 +260,8 @@ export default function SupplierFinancePage() {
                   type: "INCOME",
                   category: isCashWithDriver ? "Vente Livrée (Espèces Livreur)" : "Vente",
                   amount: myTotal,
+                  capital: myCapital,
+                  profit: myProfit > 0 ? myProfit : Math.max(0, myTotal - myCapital),
                   currency: "USD",
                   description: isCashWithDriver 
                     ? `Commande #${doc.id.slice(0, 6).toUpperCase()} (${productNames}) - Espèces chez le livreur`
@@ -405,6 +424,12 @@ export default function SupplierFinancePage() {
     }
   };
 
+  // Trésorerie globale Caisse Magasin (Disponible physiquement en boutique)
+  const totalIncomeAllTime = transactions.filter(t => t.type === "INCOME").reduce((acc, t) => acc + t.amount, 0);
+  const totalPayoutAllTime = transactions.filter(t => t.type === "PAYOUT" || t.type === "EXPENSE").reduce((acc, t) => acc + t.amount, 0);
+  const balance = totalIncomeAllTime - totalPayoutAllTime;
+  const globalBalance = balance;
+
   const handleSaveAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
     const val = parseFloat(adjAmount);
@@ -485,7 +510,57 @@ export default function SupplierFinancePage() {
     document.body.removeChild(link);
   };
 
+  const getTxTimestamp = (t: any): number => {
+    if (!t.createdAt) return 0;
+    if (t.createdAt.toMillis) return t.createdAt.toMillis();
+    if (t.createdAt.toDate) return t.createdAt.toDate().getTime();
+    if (t.createdAt.seconds) return t.createdAt.seconds * 1000;
+    if (typeof t.createdAt === "number") return t.createdAt;
+    const parsed = new Date(t.createdAt).getTime();
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
+  const isTxInPeriod = (t: any, period: "today" | "yesterday" | "last7days" | "this_month" | "all"): boolean => {
+    if (period === "all") return true;
+    const time = getTxTimestamp(t);
+    if (!time) return true;
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000;
+
+    if (period === "today") {
+      return time >= startOfToday;
+    }
+    if (period === "yesterday") {
+      return time >= startOfYesterday && time < startOfToday;
+    }
+    if (period === "last7days") {
+      const sevenDaysAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+      return time >= sevenDaysAgo;
+    }
+    if (period === "this_month") {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+      return time >= startOfMonth;
+    }
+    return true;
+  };
+
+  const getPeriodLabel = () => {
+    switch (periodFilter) {
+      case "today": return "Aujourd'hui (24h)";
+      case "yesterday": return "Hier";
+      case "last7days": return "7 derniers jours";
+      case "this_month": return "Ce mois";
+      case "all": return "Tout l'historique";
+    }
+  };
+
   const filteredTransactions = transactions.filter(t => {
+    // 1. Filtrer par période temporelle
+    if (!isTxInPeriod(t, periodFilter)) return false;
+
+    // 2. Filtrer par type / branche
     if (filter === "RENT_INCOME") {
       const isRent = t.branch === "habitation" || (t.category || "").toLowerCase().includes("loyer") || t.id.startsWith("payment_");
       if (!isRent) return false;
@@ -502,16 +577,32 @@ export default function SupplierFinancePage() {
   });
 
   const pendingCashTotal = pendingHandovers.reduce((acc, h) => acc + (Number(h.amount) || 0), 0);
-  const totalIncome = transactions.filter(t => t.type === "INCOME").reduce((acc, t) => acc + t.amount, 0);
-  const totalHabitationIncome = transactions
+  const storeAvailableBalance = Math.max(0, globalBalance - pendingCashTotal);
+
+  // Indicateurs spécifiques à la période sélectionnée (par défaut: Journalier 24h)
+  const periodTransactions = transactions.filter(t => isTxInPeriod(t, periodFilter));
+  const periodIncome = periodTransactions.filter(t => t.type === "INCOME").reduce((acc, t) => acc + t.amount, 0);
+  const periodPayout = periodTransactions.filter(t => t.type === "PAYOUT" || t.type === "EXPENSE").reduce((acc, t) => acc + t.amount, 0);
+
+  // Capital Récupéré (Prix d'achat des produits vendus sur la période)
+  const periodCapital = periodTransactions.filter(t => t.type === "INCOME").reduce((acc, t) => {
+    const c = t.capital !== undefined ? Number(t.capital) : (t.costOfGoodsSold !== undefined ? Number(t.costOfGoodsSold) : 0);
+    return acc + c;
+  }, 0);
+
+  // Intérêts Réalisés / Bénéfice net (Revenus de la période - Capital investi)
+  const periodNetProfit = periodTransactions.filter(t => t.type === "INCOME").reduce((acc, t) => {
+    if (t.profit !== undefined && Number(t.profit) >= 0) return acc + Number(t.profit);
+    const c = t.capital !== undefined ? Number(t.capital) : (t.costOfGoodsSold !== undefined ? Number(t.costOfGoodsSold) : 0);
+    return acc + Math.max(0, t.amount - c);
+  }, 0);
+
+  const totalHabitationIncome = periodTransactions
     .filter(t => t.type === "INCOME" && (t.branch === "habitation" || (t.category || "").toLowerCase().includes("loyer") || t.id.startsWith("payment_")))
     .reduce((acc, t) => acc + t.amount, 0);
-  const totalHotelIncome = transactions
+  const totalHotelIncome = periodTransactions
     .filter(t => t.type === "INCOME" && (t.branch === "hotel" || (t.category || "").toLowerCase().includes("hôtellerie") || (t.category || "").toLowerCase().includes("hotel")))
     .reduce((acc, t) => acc + t.amount, 0);
-  const totalPayout = transactions.filter(t => t.type === "PAYOUT" || t.type === "EXPENSE").reduce((acc, t) => acc + t.amount, 0);
-  const balance = totalIncome - totalPayout;
-  const storeAvailableBalance = Math.max(0, balance - pendingCashTotal);
 
   return (
     <div className="space-y-6 pb-20">
@@ -625,18 +716,98 @@ export default function SupplierFinancePage() {
         </div>
       )}
 
+      {/* Sélecteur de Période Comptable : Journalier (24h) vs Historique */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-primary/20 text-primary-light rounded-xl shrink-0">
+            <Calendar size={20} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-white">
+                Période Comptable : <span className="text-primary-light">{getPeriodLabel()}</span>
+              </h3>
+              {periodFilter === "today" && (
+                <span className="text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Journalier (24h en direct)
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {periodFilter === "today" 
+                ? "Affichage direct des entrées/sorties des dernières 24h. Après 24h, les écritures basculent automatiquement dans l'historique."
+                : `Comptabilité filtrée pour la période sélectionnée : ${getPeriodLabel()}.`}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto p-1 bg-black/30 border border-white/10 rounded-xl">
+          <button
+            onClick={() => setPeriodFilter("today")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
+              periodFilter === "today"
+                ? "bg-primary text-white shadow-sm"
+                : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <span>⚡ Aujourd'hui (24h)</span>
+          </button>
+          <button
+            onClick={() => setPeriodFilter("yesterday")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+              periodFilter === "yesterday"
+                ? "bg-white text-gray-950 shadow-sm font-bold"
+                : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            Hier
+          </button>
+          <button
+            onClick={() => setPeriodFilter("last7days")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+              periodFilter === "last7days"
+                ? "bg-white text-gray-950 shadow-sm font-bold"
+                : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            7 derniers jours
+          </button>
+          <button
+            onClick={() => setPeriodFilter("this_month")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+              periodFilter === "this_month"
+                ? "bg-white text-gray-950 shadow-sm font-bold"
+                : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            Ce mois
+          </button>
+          <button
+            onClick={() => setPeriodFilter("all")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1 ${
+              periodFilter === "all"
+                ? "bg-white text-gray-950 shadow-sm font-bold"
+                : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <span>📚 Tout l'historique</span>
+          </button>
+        </div>
+      </div>
+
       {/* KPI Cards */}
       {isImmo ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-gray-400 text-xs font-semibold uppercase">Solde Trésorerie</h3>
+              <h3 className="text-gray-400 text-xs font-semibold uppercase">Caisse Magasin (Dispo)</h3>
               <div className="p-2 bg-blue-500/20 rounded-lg">
                 <Wallet className="text-blue-400" size={18} />
               </div>
             </div>
-            <p className="text-2xl font-bold text-white mt-3">${balance.toFixed(2)}</p>
-            <p className="text-xs text-gray-400 mt-1">Revenus nets cumulés</p>
+            <p className="text-2xl font-bold text-white mt-3">${storeAvailableBalance.toFixed(2)}</p>
+            <p className="text-[11px] text-gray-400 mt-1">Fonds physiques en caisse</p>
           </div>
 
           <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-5">
@@ -647,18 +818,18 @@ export default function SupplierFinancePage() {
               </div>
             </div>
             <p className="text-2xl font-bold text-emerald-400 mt-3">${totalHabitationIncome.toFixed(2)}</p>
-            <p className="text-xs text-emerald-300/70 mt-1">Baux résidentiels & commerciaux</p>
+            <p className="text-[11px] text-emerald-300/70 mt-1">{getPeriodLabel()}</p>
           </div>
 
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-amber-300 text-xs font-semibold uppercase">🏨 Recettes Hôtellerie</h3>
+              <h3 className="text-amber-300 text-xs font-semibold uppercase">🏨 Hôtellerie</h3>
               <div className="p-2 bg-amber-500/20 rounded-lg">
                 <Hotel className="text-amber-400" size={18} />
               </div>
             </div>
             <p className="text-2xl font-bold text-amber-400 mt-3">${totalHotelIncome.toFixed(2)}</p>
-            <p className="text-xs text-amber-300/70 mt-1">Nuitées & séjours réservés</p>
+            <p className="text-[11px] text-amber-300/70 mt-1">{getPeriodLabel()}</p>
           </div>
 
           <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-5">
@@ -668,54 +839,104 @@ export default function SupplierFinancePage() {
                 <ArrowUpRight className="text-red-400" size={18} />
               </div>
             </div>
-            <p className="text-2xl font-bold text-red-400 mt-3">${totalPayout.toFixed(2)}</p>
-            <p className="text-xs text-red-300/70 mt-1">Entretien, carburant, salaires</p>
+            <p className="text-2xl font-bold text-red-400 mt-3">${periodPayout.toFixed(2)}</p>
+            <p className="text-[11px] text-red-300/70 mt-1">{getPeriodLabel()}</p>
+          </div>
+
+          <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-indigo-300 text-xs font-semibold uppercase">Capital Récupéré</h3>
+              <div className="p-2 bg-indigo-500/20 rounded-lg">
+                <Landmark className="text-indigo-400" size={18} />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-indigo-400 mt-3">${periodCapital.toFixed(2)}</p>
+            <p className="text-[11px] text-indigo-300/70 mt-1">Investissement amorti</p>
+          </div>
+
+          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-emerald-300 text-xs font-semibold uppercase">Intérêts (Bénéfice)</h3>
+              <div className="p-2 bg-emerald-500/20 rounded-lg">
+                <TrendingUp className="text-emerald-400" size={18} />
+              </div>
+            </div>
+            <p className="text-2xl font-bold text-emerald-400 mt-3">+${periodNetProfit.toFixed(2)}</p>
+            <p className="text-[11px] text-emerald-300/70 mt-1">Marge nette {getPeriodLabel()}</p>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          {/* 1. Caisse Magasin Disponible */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-gray-400 text-sm font-medium">Caisse Magasin (Disponible)</h3>
+              <h3 className="text-gray-400 text-xs font-semibold uppercase">Caisse Magasin</h3>
               <div className="p-2 bg-blue-500/20 rounded-lg">
-                <Wallet className="text-blue-400" size={20} />
+                <Wallet className="text-blue-400" size={18} />
               </div>
             </div>
-            <p className="text-3xl font-bold text-white mt-4">${storeAvailableBalance.toFixed(2)}</p>
-            <p className="text-xs text-gray-400 mt-1">Fonds physiques en magasin</p>
+            <p className="text-2xl sm:text-3xl font-bold text-white mt-3">${storeAvailableBalance.toFixed(2)}</p>
+            <p className="text-[11px] text-gray-400 mt-1">Cash physique disponible</p>
           </div>
 
-          <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-6">
+          {/* 2. Chez les Livreurs */}
+          <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-amber-300 text-sm font-medium">Chez les Livreurs (Attente)</h3>
+              <h3 className="text-amber-300 text-xs font-semibold uppercase">Chez les Livreurs</h3>
               <div className="p-2 bg-amber-500/20 rounded-lg">
-                <Clock className="text-amber-400 animate-pulse" size={20} />
+                <Clock className="text-amber-400 animate-pulse" size={18} />
               </div>
             </div>
-            <p className="text-3xl font-bold text-amber-400 mt-4">${pendingCashTotal.toFixed(2)}</p>
-            <p className="text-xs text-amber-300/80 mt-1">{pendingHandovers.length} course(s) à reverser</p>
+            <p className="text-2xl sm:text-3xl font-bold text-amber-400 mt-3">${pendingCashTotal.toFixed(2)}</p>
+            <p className="text-[11px] text-amber-300/80 mt-1">{pendingHandovers.length} course(s) en attente</p>
           </div>
           
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+          {/* 3. Revenus Réalisés Période */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-gray-400 text-sm font-medium">Revenus Réalisés (Entrées)</h3>
+              <h3 className="text-gray-400 text-xs font-semibold uppercase">Revenus ({getPeriodLabel()})</h3>
               <div className="p-2 bg-green-500/20 rounded-lg">
-                <ArrowDownRight className="text-green-400" size={20} />
+                <ArrowDownRight className="text-green-400" size={18} />
               </div>
             </div>
-            <p className="text-3xl font-bold text-white mt-4">${totalIncome.toFixed(2)}</p>
-            <p className="text-xs text-gray-400 mt-1">Total ventes cumulées</p>
+            <p className="text-2xl sm:text-3xl font-bold text-white mt-3">${periodIncome.toFixed(2)}</p>
+            <p className="text-[11px] text-gray-400 mt-1">Entrées de la période</p>
           </div>
 
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+          {/* 4. Dépenses Période */}
+          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
             <div className="flex items-center justify-between">
-              <h3 className="text-gray-400 text-sm font-medium">Dépenses (Sorties)</h3>
+              <h3 className="text-gray-400 text-xs font-semibold uppercase">Dépenses ({getPeriodLabel()})</h3>
               <div className="p-2 bg-red-500/20 rounded-lg">
-                <ArrowUpRight className="text-red-400" size={20} />
+                <ArrowUpRight className="text-red-400" size={18} />
               </div>
             </div>
-            <p className="text-3xl font-bold text-white mt-4">${totalPayout.toFixed(2)}</p>
-            <p className="text-xs text-gray-400 mt-1">Charges & paiements</p>
+            <p className="text-2xl sm:text-3xl font-bold text-white mt-3">${periodPayout.toFixed(2)}</p>
+            <p className="text-[11px] text-gray-400 mt-1">Sorties & charges</p>
+          </div>
+
+          {/* 5. Capital Récupéré (Prix d'achat des produits vendus) */}
+          <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-indigo-300 text-xs font-semibold uppercase">Capital Récupéré</h3>
+              <div className="p-2 bg-indigo-500/20 rounded-lg">
+                <Landmark className="text-indigo-400" size={18} />
+              </div>
+            </div>
+            <p className="text-2xl sm:text-3xl font-bold text-indigo-400 mt-3">${periodCapital.toFixed(2)}</p>
+            <p className="text-[11px] text-indigo-300/80 mt-1">Capital investi amorti</p>
+          </div>
+
+          {/* 6. Intérêts Réalisés (Marge nette) */}
+          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-5">
+            <div className="flex items-center justify-between">
+              <h3 className="text-emerald-300 text-xs font-semibold uppercase">Intérêts (Bénéfice)</h3>
+              <div className="p-2 bg-emerald-500/20 rounded-lg">
+                <TrendingUp className="text-emerald-400" size={18} />
+              </div>
+            </div>
+            <p className="text-2xl sm:text-3xl font-bold text-emerald-400 mt-3">+${periodNetProfit.toFixed(2)}</p>
+            <p className="text-[11px] text-emerald-300/80 mt-1">Marge nette {getPeriodLabel()}</p>
           </div>
         </div>
       )}
@@ -884,7 +1105,19 @@ export default function SupplierFinancePage() {
                 </tr>
               ) : filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-400">Aucune transaction trouvée.</td>
+                  <td colSpan={5} className="px-6 py-10 text-center text-gray-400">
+                    <p className="font-semibold text-white">Aucune opération pour : {getPeriodLabel()}</p>
+                    {periodFilter === "today" ? (
+                      <p className="text-xs text-gray-400 mt-1">
+                        Les transactions de plus de 24h sont automatiquement archivées dans l'historique.<br />
+                        Pour les consulter, sélectionnez <strong className="text-white">"Hier"</strong>, <strong className="text-white">"7 derniers jours"</strong> ou <strong className="text-white">"Tout l'historique"</strong> dans la barre de période ci-dessus.
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-400 mt-1">
+                        Aucune transaction ne correspond à cette période ou à vos filtres.
+                      </p>
+                    )}
+                  </td>
                 </tr>
               ) : (
                 filteredTransactions.map((t) => {
@@ -955,7 +1188,13 @@ export default function SupplierFinancePage() {
                           : 'text-white'
                       }`}>
                         <div>
-                          {t.type === 'INCOME' ? '+' : '-'}${t.amount.toFixed(2)}
+                          <div>{t.type === 'INCOME' ? '+' : '-'}${t.amount.toFixed(2)}</div>
+                          {t.type === 'INCOME' && (Number(t.capital) > 0 || Number(t.profit) > 0) && (
+                            <div className="flex flex-col text-[10px] font-normal mt-0.5 text-right">
+                              <span className="text-gray-400">Capital: ${Number(t.capital || 0).toFixed(2)}</span>
+                              <span className="text-emerald-400 font-semibold">Intérêt: +${Number(t.profit !== undefined ? t.profit : (t.amount - (t.capital || 0))).toFixed(2)}</span>
+                            </div>
+                          )}
                           {isPending && (
                             <span className="block text-[10px] text-amber-300/80 font-normal">
                               en attente caisse

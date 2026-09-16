@@ -95,6 +95,12 @@ export async function POST(req: NextRequest) {
         }
       });
 
+      const itemsCost = myItems.reduce((acc: number, item: any) => {
+        const c = item.costOfGoodsSold !== undefined ? Number(item.costOfGoodsSold) : ((Number(item.purchasePrice) || 0) * (Number(item.quantity) || 1));
+        return acc + c;
+      }, 0);
+      const itemsProfit = itemsTotal > 0 ? (itemsTotal - itemsCost) : (amount - itemsCost);
+
       // C. Créer l'entrée si elle n'existait pas encore
       if (updatedCount === 0) {
         const newTxRef = adminDb.collection("supplier_transactions").doc();
@@ -104,6 +110,8 @@ export async function POST(req: NextRequest) {
           type: "INCOME",
           category: "Vente Livrée (Remise Caisse)",
           amount: amount,
+          capital: itemsCost || Number(orderData.purchaseCost || 0),
+          profit: itemsProfit !== undefined ? itemsProfit : Number(orderData.grossProfit || amount),
           currency: "USD",
           description: `Commande livrée #${orderNum} - Espèces remises en caisse par ${dName}`,
           referenceId: orderId,

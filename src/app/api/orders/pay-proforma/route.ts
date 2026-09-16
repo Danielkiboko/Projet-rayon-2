@@ -85,6 +85,10 @@ export async function POST(req: NextRequest) {
       } else {
         // Commande e-commerce : envoyée au circuit des livreurs Rayons
         const orderRef = adminDb.collection("orders").doc(orderId);
+        const purchasePrice = Number(prodDoc?.data()?.purchasePrice ?? proforma.purchasePrice ?? 0);
+        const costOfGoodsSold = Number((purchasePrice * qty).toFixed(2));
+        const grossProfit = Number((totalP - costOfGoodsSold).toFixed(2));
+
         transaction.set(orderRef, {
           id: orderId,
           clientId: clientId,
@@ -99,12 +103,17 @@ export async function POST(req: NextRequest) {
             productName: proforma.productName || "Produit",
             quantity: qty,
             price: unitP, // Prix unitaire
+            purchasePrice: purchasePrice, // Prix d'achat unitaire (Capital investi)
+            costOfGoodsSold: costOfGoodsSold, // Coût total d'achat
+            grossProfit: grossProfit, // Bénéfice / Intérêt net
             total: totalP, // Montant total pour cette ligne d'articles
           }],
           subtotal: totalP,
           deliveryFee: deliveryF,
           totalAmount: totalP, // Montant exact des articles à payer au livreur
           remainingBalance: totalP, // Solde restant à percevoir en espèces par le livreur
+          purchaseCost: costOfGoodsSold, // Capital total investi
+          grossProfit: grossProfit, // Intérêts nets totaux
           currency: "$",
           paymentMethod: "CASH_ON_DELIVERY",
           paymentStatus: "DELIVERY_PAID", // La livraison est payée d'avance
