@@ -97,9 +97,9 @@ export async function POST(req: Request) {
     await adminAuth.setCustomUserClaims(userRecord.uid, claims);
 
     let additionalData = { ...extraData };
-    if (roleToCreate === 'supplier' || roleToCreate === 'SUPPLIER_IMMO' || roleToCreate === 'SUPPLIER_SAVEURS') {
-      // Read trial duration from platform settings (default: 30 days)
-      let trialDays = 30;
+    if (roleToCreate === 'supplier' || roleToCreate === 'SUPPLIER_IMMO' || roleToCreate === 'SUPPLIER_SAVEURS' || roleToCreate === 'SUPPLIER_MODE' || roleToCreate === 'SUPPLIER_CONNECT' || roleToCreate === 'SUPPLIER') {
+      // Read trial duration from platform settings (default: 15 days per policy)
+      let trialDays = 15;
       try {
         const settingsDoc = await adminDb.collection('settings').doc('platform').get();
         if (settingsDoc.exists) {
@@ -109,12 +109,13 @@ export async function POST(req: Request) {
           }
         }
       } catch (settingsErr) {
-        console.warn('Could not read platform settings, using default 30 days trial:', settingsErr);
+        console.warn('Could not read platform settings, using default 15 days trial:', settingsErr);
       }
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + trialDays);
       additionalData.subscriptionStatus = 'TRIAL';
       additionalData.subscriptionEndDate = endDate;
+      additionalData.trialPeriodDays = trialDays;
     }
 
     // 6. Save User Metadata in Firestore

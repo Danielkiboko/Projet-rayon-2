@@ -56,16 +56,15 @@ export default function SupplierLayout({
         }
       }
 
-      // Don't redirect if they are already on the finance page
-      if (pathname === "/supplier/finance") return;
-
-      if (userData.subscriptionStatus === "TRIAL" && userData.subscriptionEndDate) {
-        const endDate = userData.subscriptionEndDate.toDate ? userData.subscriptionEndDate.toDate() : new Date(userData.subscriptionEndDate);
-        if (new Date() > endDate) {
-          router.push("/supplier/finance");
+      // Check subscription/trial expiry
+      const subscriptionInfo = evaluateSupplierSubscription(userData);
+      if (subscriptionInfo.isBlocked) {
+        // Allow dashboard and finance pages — block everything else
+        const allowedWhenExpired = ['/supplier', '/supplier/finance', '/supplier/settings'];
+        const isAllowed = allowedWhenExpired.some(p => pathname === p || pathname.startsWith(p + '/'));
+        if (!isAllowed) {
+          router.push('/supplier');
         }
-      } else if (userData.subscriptionStatus === "EXPIRED") {
-        router.push("/supplier/finance");
       }
     }
   }, [user, userData, loading, pathname, router]);

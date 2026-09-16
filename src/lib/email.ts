@@ -3,17 +3,17 @@ import nodemailer from "nodemailer";
 export const sendEmail = async ({ to, subject, html }: { to: string; subject: string; html: string }) => {
   try {
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
+      host: process.env.SMTP_HOST || 'smtp.hostinger.com',
       port: Number(process.env.SMTP_PORT) || 465,
-      secure: Number(process.env.SMTP_PORT) === 465, // true for 465, false for other ports
+      secure: Number(process.env.SMTP_PORT || 465) === 465,
       auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
+        user: process.env.SMTP_USER || 'admin@rayons.net',
+        pass: process.env.SMTP_PASS || 'Kinoko88@',
       },
     });
 
     const info = await transporter.sendMail({
-      from: `"Rayons.net" <${process.env.SMTP_USER}>`,
+      from: `"Rayons.net" <${process.env.SMTP_USER || 'admin@rayons.net'}>`,
       to,
       subject,
       html,

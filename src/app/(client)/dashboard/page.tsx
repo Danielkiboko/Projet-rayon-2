@@ -16,11 +16,29 @@ export default function DashboardRedirect() {
       router.replace("/login")
       return
     }
-    let role = userData?.role?.toUpperCase();
+
+    // userData might still be null briefly — wait for it
+    if (userData === null) return;
+
+    let role = (userData?.role || '').toUpperCase();
     
     // Hardcode super admin email for redirect if no role is explicitly set in Firestore
     if (!role && user?.email === "danielkiboko218@gmail.com") {
       role = "SUPER_ADMIN";
+    }
+
+    // If userData exists with a role, proceed to route — otherwise wait more
+    if (!role && userData !== undefined) {
+      // Try from token claims as last resort
+      user.getIdTokenResult().then((tokenResult) => {
+        const claimRole = (tokenResult.claims.role as string || '').toUpperCase();
+        if (claimRole && ['SUPPLIER', 'SUPPLIER_IMMO', 'SUB_SUPPLIER', 'SUPPLIER_SAVEURS', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT'].includes(claimRole)) {
+          router.replace("/supplier");
+        } else if (claimRole && ['SUPERADMIN', 'SUPER_ADMIN', 'ADMIN', 'SUB_ADMIN', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_OPS'].includes(claimRole)) {
+          router.replace("/admin/dashboard");
+        }
+      }).catch(() => {});
+      return;
     }
 
     if (isSupplier(userData)) {
