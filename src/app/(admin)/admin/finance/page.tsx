@@ -45,6 +45,8 @@ interface UserSupplier {
   subscriptionStatus?: string;
   isBlocked?: boolean;
   depositAmount?: number;
+  isOfficialAdminStore?: boolean;
+  isAdminSupplier?: boolean;
   createdAt?: any;
 }
 
@@ -59,6 +61,7 @@ export default function AdminFinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [ledgerEntries, setLedgerEntries] = useState<AccountingEntry[]>([]);
   const [suppliers, setSuppliers] = useState<UserSupplier[]>([]);
+  const [adminStoreSales, setAdminStoreSales] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [journalFilter, setJournalFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
@@ -131,9 +134,42 @@ export default function AdminFinancePage() {
       console.warn("Accounting ledger listener warning:", error.message);
     });
 
+    // 3. Listen to Completed Orders containing Official Admin Store / Admin items
+    const qOrders = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(100));
+    const unsubOrders = onSnapshot(qOrders, (snapshot) => {
+      const sales: any[] = [];
+      snapshot.forEach((docSnap) => {
+        const order = docSnap.data();
+        const status = (order.status || "").toUpperCase();
+        if (status === "COMPLETED" || status === "LIVRÉE" || status === "DELIVERED") {
+          const adminItems = (order.items || []).filter((item: any) => 
+            item.isAdminProduct || 
+            item.isOfficialRayons || 
+            item.isOfficialAdminStore ||
+            item.supplierId === "admin" ||
+            item.supplierEmail === "danielkiboko218@gmail.com"
+          );
+          if (adminItems.length > 0) {
+            const amount = adminItems.reduce((acc: number, it: any) => acc + (Number(it.price || 0) * Number(it.quantity || 1)), 0);
+            sales.push({
+              id: docSnap.id,
+              orderId: docSnap.id,
+              amount,
+              items: adminItems,
+              createdAt: order.createdAt
+            });
+          }
+        }
+      });
+      setAdminStoreSales(sales);
+    }, (error) => {
+      console.warn("Orders finance listener warning:", error.message);
+    });
+
     return () => {
       unsubTx();
       unsubLedger();
+      unsubOrders();
     };
   }, [user, userData, loading, router]);
 
@@ -146,7 +182,9 @@ export default function AdminFinancePage() {
     .filter(t => t.type === "OTHER_INCOME")
     .reduce((acc, t) => acc + t.amount, 0);
 
-  const totalIncome = totalSubscriptions + totalOtherIncome;
+  const totalAdminStoreSales = adminStoreSales.reduce((acc, s) => acc + s.amount, 0);
+
+  const totalIncome = totalSubscriptions + totalOtherIncome + totalAdminStoreSales;
   const totalPayout = transactions
     .filter(t => t.type === "EXPENSE")
     .reduce((acc, t) => acc + t.amount, 0);
@@ -419,13 +457,13 @@ export default function AdminFinancePage() {
 
         <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Ventes & Recettes Admin</h3>
+            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Ventes Boutiques Admin</h3>
             <div className="p-2 bg-cyan-500/20 rounded-lg text-cyan-400">
               <ArrowDownRight size={18} />
             </div>
           </div>
-          <p className="text-3xl font-black text-cyan-400 mt-3">${totalOtherIncome.toFixed(2)}</p>
-          <span className="text-[11px] text-gray-400 mt-1 block">Vente de vos propres produits</span>
+          <p className="text-3xl font-black text-cyan-400 mt-3">${(totalOtherIncome + totalAdminStoreSales).toFixed(2)}</p>
+          <span className="text-[11px] text-gray-400 mt-1 block">Produits certifiés officiels ({adminStoreSales.length} vente{adminStoreSales.length > 1 ? 's' : ''})</span>
         </div>
 
         <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
@@ -621,20 +659,32 @@ export default function AdminFinancePage() {
                   </tr>
                 ) : (
                   suppliers.map((s) => {
+                    const isOfficialStore = Boolean(s.isOfficialAdminStore || s.isAdminSupplier || s.email === "danielkiboko218@gmail.com");
                     const subInfo = evaluateSupplierSubscription(s);
                     const depositAmount = s.depositAmount || 50;
 
                     return (
                       <tr key={s.id} className="hover:bg-white/5 transition-colors">
                         <td className="px-5 py-3.5">
-                          <div className="font-bold text-white">{s.displayName || s.company || "Partenaire"}</div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-white">{s.displayName || s.company || "Partenaire"}</span>
+                            {isOfficialStore && (
+                              <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold">
+                                👑 Admin
+                              </span>
+                            )}
+                          </div>
                           <div className="text-[11px] text-gray-400">{s.email}</div>
                         </td>
                         <td className="px-5 py-3.5 uppercase font-bold text-gray-300">
                           {s.rayon || "Mode / Connect"}
                         </td>
                         <td className="px-5 py-3.5">
-                          {subInfo.isTrial ? (
+                          {isOfficialStore ? (
+                            <span className="inline-flex items-center text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 rounded-full text-[11px] font-semibold">
+                              👑 Boutique Officielle Admin
+                            </span>
+                          ) : subInfo.isTrial ? (
                             <span className="inline-flex items-center text-blue-400 bg-blue-500/15 px-2.5 py-1 rounded-full text-[11px] font-semibold">
                               Essai 15 jours ({subInfo.daysLeft}j restants)
                             </span>
@@ -645,13 +695,17 @@ export default function AdminFinancePage() {
                           )}
                         </td>
                         <td className="px-5 py-3.5 font-medium text-gray-300">
-                          {subInfo.formattedDueDate}
+                          {isOfficialStore ? "Illimitée (Exempté)" : subInfo.formattedDueDate}
                         </td>
                         <td className="px-5 py-3.5 font-bold text-white">
-                          ${depositAmount} / mois
+                          {isOfficialStore ? "$0 (Exempté)" : `$${depositAmount} / mois`}
                         </td>
                         <td className="px-5 py-3.5">
-                          {subInfo.isBlocked ? (
+                          {isOfficialStore ? (
+                            <span className="inline-flex items-center text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded-full text-[11px] font-bold">
+                              <CheckCircle size={12} className="mr-1" /> Boutique Active
+                            </span>
+                          ) : subInfo.isBlocked ? (
                             <span className="inline-flex items-center text-red-400 bg-red-500/15 border border-red-500/30 px-2.5 py-1 rounded-full text-[11px] font-bold">
                               <Lock size={12} className="mr-1" /> Bloqué (Impayé)
                             </span>
@@ -666,14 +720,20 @@ export default function AdminFinancePage() {
                           )}
                         </td>
                         <td className="px-5 py-3.5 text-right">
-                          <button
-                            onClick={() => handleSettleSupplierDeposit(s)}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] rounded-lg font-bold text-xs transition-colors shadow-sm"
-                            title="Encaisser le dépôt de 50$, débloquer le compte et passer l'écriture comptable AB"
-                          >
-                            <ArrowDownRight size={14} />
-                            Encaisser Dépôt ($50)
-                          </button>
+                          {isOfficialStore ? (
+                            <span className="text-xs text-amber-400 font-medium italic">
+                              Recettes liées à l'Admin
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleSettleSupplierDeposit(s)}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] rounded-lg font-bold text-xs transition-colors shadow-sm"
+                              title="Encaisser le dépôt de 50$, débloquer le compte et passer l'écriture comptable AB"
+                            >
+                              <ArrowDownRight size={14} />
+                              Encaisser Dépôt ($50)
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );

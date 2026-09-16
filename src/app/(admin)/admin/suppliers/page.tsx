@@ -28,6 +28,8 @@ interface Supplier {
   parentSupplierId?: string;
   businessType?: string;
   serviceAttached?: string;
+  isOfficialAdminStore?: boolean;
+  isAdminSupplier?: boolean;
   createdAt?: any;
 }
 
@@ -57,6 +59,7 @@ export default function SuppliersPage() {
 
   // Form states for creation (Strictly commercial vendors)
   const [supplierCategory, setSupplierCategory] = useState<"immo" | "mode" | "connect" | "saveurs">("immo");
+  const [isOfficialAdminStore, setIsOfficialAdminStore] = useState(false);
   const [name, setName] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -117,6 +120,8 @@ export default function SuppliersPage() {
           parentSupplierId: data.parentSupplierId || data.createdBy,
           businessType: data.businessType,
           serviceAttached: data.serviceAttached,
+          isOfficialAdminStore: Boolean(data.isOfficialAdminStore || data.isAdminSupplier),
+          isAdminSupplier: Boolean(data.isAdminSupplier),
           createdAt: data.createdAt, // Store createdAt to sort later
         });
       };
@@ -341,6 +346,8 @@ export default function SuppliersPage() {
             lastName,
             assignedRayons: [primaryRayon],
             serviceAttached: primaryRayon,
+            isOfficialAdminStore: Boolean(isOfficialAdminStore),
+            isAdminSupplier: Boolean(isOfficialAdminStore),
             ...(supplierCategory === 'immo' ? { businessType: 'IMMOBILIER' } : (supplierCategory === 'saveurs' ? { businessType: 'RESTAURATION' } : {}))
           },
           notificationMethod,
@@ -367,6 +374,7 @@ export default function SuppliersPage() {
       setRayon("immo");
       setRole("SUPPLIER_IMMO");
       setSupplierCategory("immo");
+      setIsOfficialAdminStore(false);
       setIsModalOpen(false);
 
       const methodMsg = notificationMethod === 'email' 
@@ -743,6 +751,12 @@ export default function SuppliersPage() {
                           <div className="flex flex-col">
                             <div className="flex items-center space-x-2">
                               <span className="font-semibold text-white">{supplier.name}</span>
+                              {(supplier.isOfficialAdminStore || supplier.isAdminSupplier) && (
+                                <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider flex items-center gap-1">
+                                  <span>👑</span>
+                                  <span>Boutique Admin</span>
+                                </span>
+                              )}
                               {supplier.role === 'SUB_ADMIN' && (
                                 <span className="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">
                                   Sous-Admin
@@ -886,41 +900,51 @@ export default function SuppliersPage() {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          {(() => {
-                            let statusStr = supplier.subscriptionStatus || "Non défini";
-                            let statusClass = "text-gray-400";
-                            
-                            if (statusStr === "ACTIVE" || statusStr === "TRIAL") {
-                              if (supplier.subscriptionEndDate) {
-                                const endDate = new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate);
-                                if (new Date() > endDate) {
-                                  statusStr = "EXPIRÉ";
-                                  statusClass = "text-red-500 font-bold";
+                        {(supplier.isOfficialAdminStore || supplier.isAdminSupplier) ? (
+                          <div className="flex flex-col">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 w-max">
+                              <span>👑</span>
+                              <span>Boutique Officielle Admin</span>
+                            </span>
+                            <span className="text-[11px] text-gray-400 mt-1">Exempté de frais & de tenue de compte</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col">
+                            {(() => {
+                              let statusStr = supplier.subscriptionStatus || "Non défini";
+                              let statusClass = "text-gray-400";
+                              
+                              if (statusStr === "ACTIVE" || statusStr === "TRIAL") {
+                                if (supplier.subscriptionEndDate) {
+                                  const endDate = new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate);
+                                  if (new Date() > endDate) {
+                                    statusStr = "EXPIRÉ";
+                                    statusClass = "text-red-500 font-bold";
+                                  } else {
+                                    statusClass = statusStr === "TRIAL" ? "text-blue-400" : "text-green-400";
+                                  }
                                 } else {
                                   statusClass = statusStr === "TRIAL" ? "text-blue-400" : "text-green-400";
                                 }
                               } else {
-                                statusClass = statusStr === "TRIAL" ? "text-blue-400" : "text-green-400";
+                                statusClass = "text-red-400";
                               }
-                            } else {
-                              statusClass = "text-red-400";
-                            }
 
-                            return <span className={statusClass}>{statusStr}</span>;
-                          })()}
-                          {supplier.subscriptionEndDate && (
-                            <span className="text-xs text-gray-500">
-                              Échéance: {new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate).toLocaleDateString("fr-FR")}
-                            </span>
-                          )}
-                          <button 
-                            onClick={() => { setSelectedSupplierId(supplier.id); setSelectedSupplierSub(supplier); setDaysToAdd(30); setIsSubModalOpen(true); }}
-                            className="text-xs text-primary-light mt-1 text-left hover:underline"
-                          >
-                            Prolonger
-                          </button>
-                        </div>
+                              return <span className={statusClass}>{statusStr}</span>;
+                            })()}
+                            {supplier.subscriptionEndDate && (
+                              <span className="text-xs text-gray-500">
+                                Échéance: {new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate).toLocaleDateString("fr-FR")}
+                              </span>
+                            )}
+                            <button 
+                              onClick={() => { setSelectedSupplierId(supplier.id); setSelectedSupplierSub(supplier); setDaysToAdd(30); setIsSubModalOpen(true); }}
+                              className="text-xs text-primary-light mt-1 text-left hover:underline"
+                            >
+                              Prolonger
+                            </button>
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         {supplier.profileUpdateStatus === "PENDING_APPROVAL" || supplier.status === "PENDING_APPROVAL" ? (
@@ -1242,8 +1266,41 @@ export default function SuppliersPage() {
 
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Un abonnement d'essai de 30 jours sera automatiquement attribué au fournisseur pour commencer à vendre.
+                    Un abonnement d'essai de 30 jours sera automatiquement attribué au fournisseur standard pour commencer à vendre.
                   </p>
+                </div>
+
+                {/* Option: Boutique Officielle de l'Administration */}
+                <div 
+                  onClick={() => setIsOfficialAdminStore(!isOfficialAdminStore)}
+                  className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                    isOfficialAdminStore 
+                      ? "bg-amber-500/15 border-amber-500 text-white shadow-lg shadow-amber-500/10" 
+                      : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl mt-0.5">👑</span>
+                      <div>
+                        <p className="font-bold text-sm text-white flex items-center gap-1.5">
+                          <span>Boutique Officielle de l'Administration</span>
+                          <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold uppercase">
+                            Admin Only
+                          </span>
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                          Ce compte est la vitrine marchande officielle de Rayons.net. <strong>Aucun frais de tenue de compte ni d'abonnement</strong>. Tous ses produits sont certifiés d'office et ses recettes de ventes vont directement dans la comptabilité de l'Administration.
+                        </p>
+                      </div>
+                    </div>
+                    <input 
+                      type="checkbox" 
+                      checked={isOfficialAdminStore} 
+                      onChange={(e) => setIsOfficialAdminStore(e.target.checked)} 
+                      className="mt-1 h-4 w-4 rounded text-amber-500 focus:ring-amber-400 bg-black/40 border-white/20 shrink-0"
+                    />
+                  </div>
                 </div>
 
                 <div className="pt-4 flex justify-end space-x-3">

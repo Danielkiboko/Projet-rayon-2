@@ -451,50 +451,74 @@ export default function SupplierFinancePage() {
       )}
 
       {/* Supplier Deposit & Subscription Status Card */}
-      <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-        subscriptionInfo.isBlocked 
-          ? "bg-red-500/15 border-red-500/30 text-red-200"
-          : subscriptionInfo.isTrial 
-          ? "bg-blue-500/10 border-blue-500/25 text-blue-200"
-          : "bg-emerald-500/10 border-emerald-500/25 text-emerald-200"
-      }`}>
-        <div className="flex items-center gap-3.5">
-          <div className={`p-3 rounded-xl shrink-0 ${
-            subscriptionInfo.isBlocked ? "bg-red-500/20 text-red-400" :
-            subscriptionInfo.isTrial ? "bg-blue-500/20 text-blue-400" :
-            "bg-emerald-500/20 text-emerald-400"
-          }`}>
-            {subscriptionInfo.isBlocked ? <Lock size={22} /> :
-             subscriptionInfo.isTrial ? <Clock size={22} /> :
-             <CheckCircle size={22} />}
+      {(userData?.isOfficialAdminStore || userData?.isAdminSupplier) ? (
+        <div className="p-4 rounded-2xl border bg-amber-500/15 border-amber-500/30 text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="p-3 rounded-xl shrink-0 bg-amber-500/20 text-amber-400">
+              <span className="text-2xl">👑</span>
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-white flex items-center gap-2">
+                <span>Boutique Officielle de l'Administration</span>
+                <span className="text-[10px] bg-amber-500/30 text-amber-200 border border-amber-500/40 px-2 py-0.5 rounded-full font-bold uppercase">
+                  Liée à l'Admin
+                </span>
+              </h3>
+              <p className="text-xs text-amber-200/80 mt-0.5">
+                Ce compte est dispensé de frais de tenue de compte et d'abonnement. Toutes vos recettes de ventes sont automatiquement consolidées dans la trésorerie et la comptabilité générale de l'Administration.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="font-bold text-sm text-white">
-              {subscriptionInfo.isBlocked ? "Compte Suspendu : Dépôt Mensuel Attendu ($50)" :
-               subscriptionInfo.isTrial ? `Période d'essai active : 15 Jours (${subscriptionInfo.daysLeft}j restants)` :
-               "Abonnement Partenaire Rayons.net Actif"}
-            </h3>
-            <p className="text-xs opacity-80 mt-0.5">
-              {subscriptionInfo.isBlocked ? "Le délai est dépassé. Régularisez votre dépôt pour débloquer la publication de vos articles et la messagerie client." :
-               subscriptionInfo.isTrial ? `Prochaine échéance du premier dépôt le ${subscriptionInfo.formattedDueDate}. Profitez de vos 15 jours offerts.` :
-               `Votre compte est en règle jusqu'au ${subscriptionInfo.formattedDueDate}.`}
-            </p>
+          <div className="text-xs font-semibold px-3 py-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl w-max shrink-0">
+            Exempté de tenue de compte
           </div>
         </div>
+      ) : (
+        <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+          subscriptionInfo.isBlocked 
+            ? "bg-red-500/15 border-red-500/30 text-red-200"
+            : subscriptionInfo.isTrial 
+            ? "bg-blue-500/10 border-blue-500/25 text-blue-200"
+            : "bg-emerald-500/10 border-emerald-500/25 text-emerald-200"
+        }`}>
+          <div className="flex items-center gap-3.5">
+            <div className={`p-3 rounded-xl shrink-0 ${
+              subscriptionInfo.isBlocked ? "bg-red-500/20 text-red-400" :
+              subscriptionInfo.isTrial ? "bg-blue-500/20 text-blue-400" :
+              "bg-emerald-500/20 text-emerald-400"
+            }`}>
+              {subscriptionInfo.isBlocked ? <Lock size={22} /> :
+               subscriptionInfo.isTrial ? <Clock size={22} /> :
+               <CheckCircle size={22} />}
+            </div>
+            <div>
+              <h3 className="font-bold text-sm text-white">
+                {subscriptionInfo.isBlocked ? "Compte Suspendu : Dépôt Mensuel Attendu ($50)" :
+                 subscriptionInfo.isTrial ? `Période d'essai active : 15 Jours (${subscriptionInfo.daysLeft}j restants)` :
+                 "Abonnement Partenaire Rayons.net Actif"}
+              </h3>
+              <p className="text-xs opacity-80 mt-0.5">
+                {subscriptionInfo.isBlocked ? "Le délai est dépassé. Régularisez votre dépôt pour débloquer la publication de vos articles et la messagerie client." :
+                 subscriptionInfo.isTrial ? `Prochaine échéance du premier dépôt le ${subscriptionInfo.formattedDueDate}. Profitez de vos 15 jours offerts.` :
+                 `Votre compte est en règle jusqu'au ${subscriptionInfo.formattedDueDate}.`}
+              </p>
+            </div>
+          </div>
 
-        <div>
-          <button
-            onClick={handlePayDeposit}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md ${
-              subscriptionInfo.isBlocked 
-                ? "bg-red-600 hover:bg-red-500 text-white animate-pulse" 
-                : "bg-white/10 hover:bg-white/20 text-white border border-white/20"
-            }`}
-          >
-            {subscriptionInfo.isBlocked ? "Régulariser Maintenant ($50)" : "Régler d'avance ($50)"}
-          </button>
+          <div>
+            <button
+              onClick={handlePayDeposit}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md ${
+                subscriptionInfo.isBlocked 
+                  ? "bg-red-600 hover:bg-red-500 text-white animate-pulse" 
+                  : "bg-white/10 hover:bg-white/20 text-white border border-white/20"
+              }`}
+            >
+              {subscriptionInfo.isBlocked ? "Régulariser Maintenant ($50)" : "Régler d'avance ($50)"}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* KPI Cards */}
       {isImmo ? (

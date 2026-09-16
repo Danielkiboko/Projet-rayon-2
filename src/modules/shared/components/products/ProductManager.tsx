@@ -222,22 +222,26 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
           updatedAt: serverTimestamp(),
         });
       } else {
+        const isOfficialStore = isAdmin || Boolean(userData?.isOfficialAdminStore || userData?.isAdminSupplier || user.email === "danielkiboko218@gmail.com");
         await addDoc(collection(db, "products"), {
           ...productData,
           supplierId: activeSupplierId || user.uid,
-          supplierName: isAdmin ? "Rayons Officiel (Admin)" : (userData?.displayName || userData?.name || "Fournisseur"),
+          supplierName: isOfficialStore 
+            ? (userData?.displayName || "Rayons Officiel (Admin)") 
+            : (userData?.displayName || userData?.name || "Fournisseur"),
           supplierEmail: user.email || "",
-          supplierRole: isAdmin ? "ADMIN" : (userData?.role || "SUPPLIER"),
-          isAdminProduct: isAdmin,
-          isOfficialRayons: isAdmin,
-          isVerified: isAdmin, // Vérifié d'office si Admin, soumis aux votes clients si Fournisseur
-          ratingsCount: isAdmin ? 1 : 0,
-          averageRating: isAdmin ? 5.0 : 0,
-          status: isAdmin ? "Disponible" : "pending_approval",
+          supplierRole: isOfficialStore ? "ADMIN" : (userData?.role || "SUPPLIER"),
+          isAdminProduct: isOfficialStore,
+          isOfficialRayons: isOfficialStore,
+          isOfficialAdminStore: isOfficialStore,
+          isVerified: isOfficialStore, // Vérifié d'office si Admin ou Boutique Officielle, soumis aux votes clients si Fournisseur standard
+          ratingsCount: isOfficialStore ? 1 : 0,
+          averageRating: isOfficialStore ? 5.0 : 0,
+          status: isOfficialStore ? "Disponible" : "pending_approval",
           createdAt: serverTimestamp(),
         });
 
-        if (!isAdmin) {
+        if (!isOfficialStore) {
           // Add notification for admins
           try {
             await addDoc(collection(db, "inapp_notifications"), {

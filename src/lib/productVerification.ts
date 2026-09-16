@@ -31,15 +31,21 @@ export function evaluateProductVerification(product: any): ProductVerificationSt
     };
   }
 
-  // 1. Vérification stricte : Seul un produit DIRECTEMENT publié par l'Admin est "Certifié • Officiel Rayons".
-  // Un produit créé par un fournisseur (même validé par l'admin) appartient au fournisseur et sa réputation dépend uniquement de la notation client.
+  // 1. Vérification stricte : Un produit DIRECTEMENT publié par l'Admin ou par sa Boutique Fournisseur Officielle est "Certifié • Officiel Rayons".
+  // Un produit créé par un fournisseur standard tiers (même validé par l'admin) appartient au fournisseur tiers et sa réputation dépend uniquement de la notation client.
   const isDirectAdminProduct = Boolean(
-    (product.isAdminProduct === true || product.isOfficialRayons === true) &&
+    product.isOfficialAdminStore === true ||
+    product.isAdminSupplier === true ||
     (
-      product.supplierEmail === "danielkiboko218@gmail.com" ||
-      product.supplierId === "admin" ||
-      product.supplierRole === "SUPER_ADMIN" ||
-      product.supplierRole === "superAdmin"
+      (product.isAdminProduct === true || product.isOfficialRayons === true) &&
+      (
+        product.supplierEmail === "danielkiboko218@gmail.com" ||
+        product.supplierId === "admin" ||
+        product.supplierRole === "SUPER_ADMIN" ||
+        product.supplierRole === "superAdmin" ||
+        product.isOfficialAdminStore === true ||
+        product.isAdminSupplier === true
+      )
     )
   );
 

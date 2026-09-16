@@ -100,24 +100,33 @@ export async function POST(req: Request) {
 
     let additionalData = { ...extraData };
     if (roleToCreate === 'supplier' || roleToCreate === 'SUPPLIER_IMMO' || roleToCreate === 'SUPPLIER_SAVEURS' || roleToCreate === 'SUPPLIER_MODE' || roleToCreate === 'SUPPLIER_CONNECT' || roleToCreate === 'SUPPLIER') {
-      // Read trial duration from platform settings (default: 15 days per policy)
-      let trialDays = 15;
-      try {
-        const settingsDoc = await adminDb.collection('settings').doc('platform').get();
-        if (settingsDoc.exists) {
-          const settingsData = settingsDoc.data();
-          if (settingsData?.trialDurationDays && settingsData.trialDurationDays > 0) {
-            trialDays = settingsData.trialDurationDays;
+      if (extraData?.isOfficialAdminStore || extraData?.isAdminSupplier) {
+        additionalData.subscriptionStatus = 'ACTIVE';
+        additionalData.subscriptionEndDate = null;
+        additionalData.depositAmount = 0;
+        additionalData.isOfficialAdminStore = true;
+        additionalData.isAdminSupplier = true;
+        additionalData.isBlocked = false;
+      } else {
+        // Read trial duration from platform settings (default: 15 days per policy)
+        let trialDays = 15;
+        try {
+          const settingsDoc = await adminDb.collection('settings').doc('platform').get();
+          if (settingsDoc.exists) {
+            const settingsData = settingsDoc.data();
+            if (settingsData?.trialDurationDays && settingsData.trialDurationDays > 0) {
+              trialDays = settingsData.trialDurationDays;
+            }
           }
+        } catch (settingsErr) {
+          console.warn('Could not read platform settings, using default 15 days trial:', settingsErr);
         }
-      } catch (settingsErr) {
-        console.warn('Could not read platform settings, using default 15 days trial:', settingsErr);
+        const endDate = new Date();
+        endDate.setDate(endDate.getDate() + trialDays);
+        additionalData.subscriptionStatus = 'TRIAL';
+        additionalData.subscriptionEndDate = endDate;
+        additionalData.trialPeriodDays = trialDays;
       }
-      const endDate = new Date();
-      endDate.setDate(endDate.getDate() + trialDays);
-      additionalData.subscriptionStatus = 'TRIAL';
-      additionalData.subscriptionEndDate = endDate;
-      additionalData.trialPeriodDays = trialDays;
     }
 
     // 6. Save User Metadata in Firestore

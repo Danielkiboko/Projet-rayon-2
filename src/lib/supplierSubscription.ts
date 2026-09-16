@@ -29,19 +29,23 @@ export function evaluateSupplierSubscription(userData: any): SupplierSubscriptio
     };
   }
 
-  // Si c'est l'administrateur principal ou un sous-admin, pas de blocage
+  // Si c'est l'administrateur principal, un sous-admin, ou une boutique officielle de l'admin
   if (
     userData.role === "ADMIN" || 
     userData.role === "admin" || 
     userData.role === "SUB_ADMIN" ||
-    userData.email === "danielkiboko218@gmail.com"
+    userData.email === "danielkiboko218@gmail.com" ||
+    userData.isOfficialAdminStore === true ||
+    userData.isAdminSupplier === true
   ) {
     return {
       isBlocked: false,
       isTrial: false,
       status: "ACTIVE",
       daysLeft: 9999,
-      formattedDueDate: "Illimité",
+      formattedDueDate: (userData.isOfficialAdminStore || userData.isAdminSupplier) 
+        ? "Boutique Officielle Admin (Exempté de frais)" 
+        : "Illimité",
       depositAmount: 0
     };
   }
