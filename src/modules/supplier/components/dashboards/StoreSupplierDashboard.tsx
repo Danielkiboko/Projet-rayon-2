@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Package, ShoppingCart, DollarSign, Truck, UtensilsCrossed, LucideIcon } from "lucide-react";
+import { Package, ShoppingCart, DollarSign, Truck, UtensilsCrossed, LucideIcon, AlertCircle } from "lucide-react";
 import { useCurrency } from "@/context/CurrencyContext";
 import { useAuth } from "@/context/AuthContext";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
@@ -80,8 +80,11 @@ export default function StoreSupplierDashboard({ rayon }: StoreSupplierDashboard
       title: cfg.productKpiTitle,
       value: stats.totalProducts.toString(),
       subtitle: "Catalogue",
-      subInfo: cfg.productKpiSubInfo,
+      subInfo: stats.lowStockProducts > 0 
+        ? `⚠️ ${stats.lowStockProducts} en rupture / critique (<10)` 
+        : cfg.productKpiSubInfo,
       icon: cfg.productKpiIcon,
+      alertCondition: stats.lowStockProducts > 0,
       onClick: isBlocked ? undefined : () => router.push("/supplier/products"),
     },
     {
@@ -127,6 +130,33 @@ export default function StoreSupplierDashboard({ rayon }: StoreSupplierDashboard
     },
   ];
 
+  const lowStockAlert = stats.lowStockProducts > 0 ? (
+    <div className="bg-red-500/15 border border-red-500/30 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-6 shadow-lg">
+      <div className="flex items-center gap-3.5">
+        <div className="p-3 bg-red-500/20 text-red-400 rounded-xl shrink-0 animate-pulse">
+          <AlertCircle size={24} />
+        </div>
+        <div>
+          <h4 className="font-bold text-sm text-red-200 flex items-center gap-2">
+            <span>Signal Logistique : {stats.lowStockProducts} produit(s) en rupture / stock critique</span>
+            <span className="bg-red-500/30 text-red-200 text-[10px] font-black uppercase px-2 py-0.5 rounded-full border border-red-500/40">
+              Moins de 10 pièces
+            </span>
+          </h4>
+          <p className="text-xs text-red-300/80 mt-0.5">
+            Ces articles ont un stock inférieur à 10 pièces. Réapprovisionnez-les rapidement pour éviter l'indisponibilité sur vos rayons.
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={() => router.push("/supplier/products")}
+        className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shrink-0 self-start sm:self-center"
+      >
+        Gérer les stocks
+      </button>
+    </div>
+  ) : null;
+
   return (
     <GenericDashboard
       loading={loading}
@@ -142,6 +172,7 @@ export default function StoreSupplierDashboard({ rayon }: StoreSupplierDashboard
       actionsTitle={cfg.actionsTitle}
       actions={actions}
       isBlocked={isBlocked}
+      bottomExtra={lowStockAlert}
       renderRecentRow={(order: any) => (
         <tr key={order.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
           <td className="p-4 font-semibold text-white">#{order.id.slice(0, 6).toUpperCase()}</td>

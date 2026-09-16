@@ -41,6 +41,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [productTitle, setProductTitle] = useState("");
+  const [productBrand, setProductBrand] = useState("");
   const [productCategory, setProductCategory] = useState("");
   const [productPrice, setProductPrice] = useState("");
   const [productStock, setProductStock] = useState("");
@@ -63,6 +64,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
           setProductTitle(autoFill.title.fr || autoFill.title.en || autoFill.title.français || "");
         }
       }
+      if (autoFill.brand) setProductBrand(autoFill.brand);
       if (autoFill.category) setProductCategory(autoFill.category);
       if (autoFill.price) setProductPrice(autoFill.price);
       if (autoFill.stock) setProductStock(autoFill.stock);
@@ -121,6 +123,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
   const resetForm = () => {
     setEditingId(null);
     setProductTitle("");
+    setProductBrand("");
     setProductCategory("");
     setProductPrice("");
     setProductStock("");
@@ -158,6 +161,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
       setProductTitle(product.title as string || "");
     }
     
+    setProductBrand(product.brand || "");
     setProductPrice(product.price?.toString() || "");
     setProductStock(product.stock?.toString() || "");
     setProductCategory(product.category || "");
@@ -199,7 +203,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
       return;
     }
 
-    const productData = {
+    const productData: any = {
       title: { fr: productTitle.trim(), en: productTitle.trim() },
       category: normalizedCategory,
       rayon: normalizedCategory,
@@ -208,6 +212,10 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
       description: productDesc.trim(),
       image: imagePreview || "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400",
     };
+
+    if (productBrand.trim()) {
+      productData.brand = productBrand.trim();
+    }
 
     if (!isAdmin && subscriptionInfo.isBlocked) {
       alert("Action refusée : Votre compte est suspendu pour impayé. Veuillez régulariser votre dépôt.");
@@ -407,10 +415,15 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
 
   const filteredProducts = products.filter(p => {
     const title = getTitle(p.title).toLowerCase();
-    const matchesSearch = title.includes(search.toLowerCase());
+    const brand = (p.brand || "").toLowerCase();
+    const matchesSearch = title.includes(search.toLowerCase()) || brand.includes(search.toLowerCase());
     if (!matchesSearch) return false;
 
     if (selectedRayonFilter === "all") return true;
+
+    if (selectedRayonFilter === "low_stock") {
+      return (Number(p.stock) || 0) < 10;
+    }
 
     const cat = (p.category || "").toLowerCase();
     const ray = (p.rayon || "").toLowerCase();
@@ -430,17 +443,17 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
     return cat === selectedRayonFilter;
   });
 
-  const lowStockCount = products.filter(p => (p.stock || 0) < 5).length;
+  const lowStockCount = products.filter(p => (Number(p.stock) || 0) < 10).length;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">
-            {isAdmin ? "Gestion des Produits" : "Mes Produits"}
+            {isAdmin ? "Gestion des Produits" : "Mes Produits & Logistique"}
           </h1>
           <p className="text-sm text-gray-400 mt-1">
-            {isAdmin ? "Gérez le catalogue complet de Rayons." : "Gérez votre catalogue d'articles et vos stocks."}
+            {isAdmin ? "Gérez le catalogue complet de Rayons." : "Gérez votre catalogue d'articles, vos marques et le suivi logistique des stocks."}
           </p>
         </div>
         <div className="flex gap-2">
@@ -484,17 +497,54 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
           </div>
         </div>
         {!isAdmin && (
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
+          <div className={`border rounded-xl p-4 flex items-center justify-between transition-all ${
+            lowStockCount > 0 
+              ? "bg-red-500/15 border-red-500/40 text-red-200 shadow-lg shadow-red-950/20" 
+              : "bg-white/5 border-white/10"
+          }`}>
             <div>
-              <p className="text-sm text-gray-400">Rupture / Stock faible</p>
-              <p className="text-2xl font-bold text-white mt-1">{lowStockCount}</p>
+              <p className="text-sm text-gray-300 font-medium">Rupture & Stock Faible (&lt; 10 pcs)</p>
+              <p className={`text-2xl font-black mt-1 ${lowStockCount > 0 ? "text-red-400" : "text-white"}`}>
+                {lowStockCount}
+              </p>
+              {lowStockCount > 0 && (
+                <span className="text-[11px] text-red-300 font-semibold">⚠️ Signal rouge actif</span>
+              )}
             </div>
-            <div className="p-3 bg-orange-400/10 text-orange-400 rounded-lg">
-              <AlertCircle size={20} />
+            <div className={`p-3 rounded-xl ${lowStockCount > 0 ? "bg-red-500/25 text-red-400 animate-pulse" : "bg-orange-400/10 text-orange-400"}`}>
+              <AlertCircle size={22} />
             </div>
           </div>
         )}
       </div>
+
+      {/* Signal Rouge : Bannière Logistique Rupture / Stock critique (< 10 pièces) */}
+      {!isAdmin && lowStockCount > 0 && (
+        <div className="bg-gradient-to-r from-red-950/60 via-red-900/30 to-red-950/60 border-2 border-red-500/50 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl shadow-red-950/40">
+          <div className="flex items-center gap-3.5">
+            <div className="p-3 bg-red-500 text-white rounded-xl shadow-lg shadow-red-500/50 shrink-0">
+              <AlertCircle size={24} className="animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
+                <h3 className="text-base font-black text-white tracking-wide uppercase">
+                  Signal Rouge Logistique : {lowStockCount} Produit(s) en Rupture ou Moins de 10 Pièces
+                </h3>
+              </div>
+              <p className="text-xs text-red-200/90 mt-1">
+                Le seuil de sécurité logistique est fixé à 10 pièces en magasin. Dès qu'un article passe sous 10 unités, ce signal rouge vous avertit d'un réapprovisionnement urgent pour éviter la rupture complète.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setSelectedRayonFilter("low_stock")}
+            className="px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shrink-0 self-start sm:self-center uppercase tracking-wider"
+          >
+            Filtrer les stocks critiques ({lowStockCount})
+          </button>
+        </div>
+      )}
 
       <div className="bg-white/5 border border-white/10 rounded-2xl shadow-sm overflow-hidden">
         <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
@@ -502,7 +552,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="text"
-              placeholder="Rechercher un produit..."
+              placeholder="Rechercher par titre ou marque..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white text-sm transition-all"
@@ -522,6 +572,21 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
               Tous ({products.length})
             </button>
             
+            {!isAdmin && (
+              <button
+                onClick={() => setSelectedRayonFilter("low_stock")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+                  selectedRayonFilter === "low_stock"
+                    ? "bg-red-600 text-white shadow-sm font-bold"
+                    : lowStockCount > 0
+                    ? "bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30"
+                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                <span>🔴</span> Stock Critique (&lt; 10) {lowStockCount > 0 ? `(${lowStockCount})` : ''}
+              </button>
+            )}
+
             {(isAdmin || assignedRayons.includes("mode") || assignedRayons.length === 0) && (
               <button
                 onClick={() => setSelectedRayonFilter("mode")}
@@ -581,8 +646,9 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
             <thead>
               <tr className="bg-white/5 text-xs uppercase tracking-wider text-gray-400 font-semibold">
                 <th className="p-4 w-16">Image</th>
-                <th className="p-4">Titre (FR / EN)</th>
-                <th className="p-4">Rayon / Catégorie</th>
+                <th className="p-4">Produit & Marque</th>
+                <th className="p-4">Rayon</th>
+                <th className="p-4">Stock (Logistique)</th>
                 <th className="p-4">Prix</th>
                 <th className="p-4">Statut</th>
                 <th className="p-4 text-right">Actions</th>
@@ -591,88 +657,136 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
             <tbody className="text-sm text-gray-300">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-gray-500 font-medium">Chargement...</td>
+                  <td colSpan={7} className="p-12 text-center text-gray-500 font-medium">Chargement...</td>
                 </tr>
               ) : filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-12 text-center text-gray-500 font-medium">
+                  <td colSpan={7} className="p-12 text-center text-gray-500 font-medium">
                     Aucun produit trouvé.
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map((product) => (
-                  <tr key={product.id} className="border-b border-white/5 hover:bg-white/5 transition-colors group">
-                    <td className="p-4">
-                      <div className="w-12 h-12 bg-white/5 rounded-lg overflow-hidden border border-white/10 flex items-center justify-center shrink-0">
-                        {product.image ? (
-                          <img src={product.image} alt="produit" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                filteredProducts.map((product) => {
+                  const stockNum = Number(product.stock ?? 0);
+                  const isLowStock = stockNum < 10;
+                  const isOutOfStock = stockNum <= 0;
+
+                  return (
+                    <tr 
+                      key={product.id} 
+                      className={`border-b border-white/5 hover:bg-white/5 transition-colors group ${
+                        isLowStock ? "bg-red-500/[0.04] border-l-4 border-l-red-500" : ""
+                      }`}
+                    >
+                      <td className="p-4">
+                        <div className="w-12 h-12 bg-white/5 rounded-lg overflow-hidden border border-white/10 flex items-center justify-center shrink-0">
+                          {product.image ? (
+                            <img src={product.image} alt="produit" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                          ) : (
+                            <Package size={16} className="text-primary-light" />
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4 font-semibold text-white">
+                        <div className="flex flex-col">
+                          <span className="line-clamp-1">{getTitle(product.title)}</span>
+                          {product.brand ? (
+                            <span className="text-[11px] font-bold text-gray-400 tracking-wider uppercase mt-0.5">
+                              🏷️ {product.brand}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-gray-500 italic mt-0.5">Marque standard</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        {getRayonBadge(product)}
+                      </td>
+                      <td className="p-4">
+                        {isOutOfStock ? (
+                          <div className="flex flex-col gap-1">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black bg-red-500/25 text-red-300 border border-red-500/50 shadow-sm animate-pulse">
+                              <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                              Rupture Totale (0 pc)
+                            </span>
+                            <span className="text-[10px] text-red-400 font-bold uppercase tracking-wider">
+                              Réassort urgent requis
+                            </span>
+                          </div>
+                        ) : isLowStock ? (
+                          <div className="flex flex-col gap-1">
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black bg-red-500/20 text-red-400 border border-red-500/40 shadow-sm animate-pulse">
+                              <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                              Moins de 10 pcs ({stockNum} rest.)
+                            </span>
+                            <span className="text-[10px] text-red-300/80 font-semibold">
+                              Signal rouge (&lt; 10 pcs)
+                            </span>
+                          </div>
                         ) : (
-                          <Package size={16} className="text-primary-light" />
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                            {stockNum} pièces
+                          </span>
                         )}
-                      </div>
-                    </td>
-                    <td className="p-4 font-semibold text-white">
-                      <span className="line-clamp-1">{getTitle(product.title)}</span>
-                    </td>
-                    <td className="p-4">
-                      {getRayonBadge(product)}
-                    </td>
-                    <td className="p-4 font-bold text-white">
-                      {formatPrice(product.price)}
-                    </td>
-                    <td className="p-4">
-                      {product.status === "pending_approval" || product.status === "PENDING_APPROVAL" ? (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-orange-500/10 text-orange-500 uppercase tracking-wider">
-                          En attente
-                        </span>
-                      ) : product.status === "published" || product.status === "Disponible" ? (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-green-500/10 text-green-500 uppercase tracking-wider">
-                          Publié
-                        </span>
-                      ) : product.status === "REJECTED" ? (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-red-500/10 text-red-500 uppercase tracking-wider">
-                          Rejeté
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-white/10 text-gray-300 uppercase tracking-wider">
-                          {product.status || "Brouillon"}
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-4 text-right whitespace-nowrap">
-                      {isAdmin && (product.status !== "published" && product.status !== "Disponible") && (
-                        <>
-                          <button 
-                            onClick={() => handleApproveProduct(product.id)}
-                            title="Approuver et Publier"
-                            className="inline-flex p-2 bg-white/5 text-orange-500 hover:text-white rounded-lg hover:bg-green-500 transition-colors border border-transparent hover:border-green-500 mr-2"
-                          >
-                            <CheckCircle size={18} />
-                          </button>
-                          <button 
-                            onClick={() => handleRejectProduct(product.id)}
-                            title="Rejeter"
-                            className="inline-flex p-2 bg-white/5 text-red-500 hover:text-white rounded-lg hover:bg-red-500 transition-colors border border-transparent hover:border-red-500 mr-2"
-                          >
-                            <XCircle size={18} />
-                          </button>
-                        </>
-                      )}
-                      <button 
-                        onClick={() => openEditModal(product)}
-                        className="inline-flex p-2 bg-white/5 text-gray-400 hover:text-white rounded-lg hover:bg-blue-600 transition-colors border border-transparent hover:border-blue-600 mr-2"
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteProduct(product.id)}
-                        className="inline-flex p-2 bg-white/5 text-gray-400 hover:text-white rounded-lg hover:bg-red-600 transition-colors border border-transparent hover:border-red-600"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="p-4 font-bold text-white">
+                        {formatPrice(product.price)}
+                      </td>
+                      <td className="p-4">
+                        {product.status === "pending_approval" || product.status === "PENDING_APPROVAL" ? (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-orange-500/10 text-orange-500 uppercase tracking-wider">
+                            En attente
+                          </span>
+                        ) : product.status === "published" || product.status === "Disponible" ? (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-green-500/10 text-green-500 uppercase tracking-wider">
+                            Publié
+                          </span>
+                        ) : product.status === "REJECTED" ? (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-red-500/10 text-red-500 uppercase tracking-wider">
+                            Rejeté
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-white/10 text-gray-300 uppercase tracking-wider">
+                            {product.status || "Brouillon"}
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-4 text-right whitespace-nowrap">
+                        {isAdmin && (product.status !== "published" && product.status !== "Disponible") && (
+                          <>
+                            <button 
+                              onClick={() => handleApproveProduct(product.id)}
+                              title="Approuver et Publier"
+                              className="inline-flex p-2 bg-white/5 text-orange-500 hover:text-white rounded-lg hover:bg-green-500 transition-colors border border-transparent hover:border-green-500 mr-2"
+                            >
+                              <CheckCircle size={18} />
+                            </button>
+                            <button 
+                              onClick={() => handleRejectProduct(product.id)}
+                              title="Rejeter"
+                              className="inline-flex p-2 bg-white/5 text-red-500 hover:text-white rounded-lg hover:bg-red-500 transition-colors border border-transparent hover:border-red-500 mr-2"
+                            >
+                              <XCircle size={18} />
+                            </button>
+                          </>
+                        )}
+                        <button 
+                          onClick={() => openEditModal(product)}
+                          className="inline-flex p-2 bg-white/5 text-gray-400 hover:text-white rounded-lg hover:bg-blue-600 transition-colors border border-transparent hover:border-blue-600 mr-2"
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteProduct(product.id)}
+                          className="inline-flex p-2 bg-white/5 text-gray-400 hover:text-white rounded-lg hover:bg-red-600 transition-colors border border-transparent hover:border-red-600"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -728,17 +842,29 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                   />
                 )}
 
-                {/* Form Fields */}
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-300">Titre</label>
-                  <input
-                    type="text"
-                    required
-                    value={productTitle}
-                    onChange={(e) => setProductTitle(e.target.value)}
-                    placeholder="Ex: Veste en cuir"
-                    className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white"
-                  />
+                {/* Form Fields: Titre & Marque */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-300">Titre du produit</label>
+                    <input
+                      type="text"
+                      required
+                      value={productTitle}
+                      onChange={(e) => setProductTitle(e.target.value)}
+                      placeholder="Ex: Routeur Starlink Gen 3"
+                      className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-300">Marque / Fabricant</label>
+                    <input
+                      type="text"
+                      value={productBrand}
+                      onChange={(e) => setProductBrand(e.target.value)}
+                      placeholder="Ex: Starlink, Apple, Nike..."
+                      className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white"
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -755,7 +881,15 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-300">Quantité en stock</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-300">Quantité en stock</label>
+                      {parseInt(productStock || "0") < 10 && (
+                        <span className="text-[11px] font-bold text-red-400 flex items-center gap-1 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
+                          <AlertCircle size={12} />
+                          {parseInt(productStock || "0") <= 0 ? "Rupture totale" : "Stock critique (< 10 pcs)"}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center space-x-2">
                       <button 
                         type="button" 
@@ -781,6 +915,11 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                         +
                       </button>
                     </div>
+                    {parseInt(productStock || "0") < 10 && (
+                      <p className="text-[11px] text-red-400 font-medium mt-1">
+                        ⚠️ Moins de 10 pièces : ce produit déclenchera un signal rouge de rupture en magasin.
+                      </p>
+                    )}
                   </div>
                 </div>
 

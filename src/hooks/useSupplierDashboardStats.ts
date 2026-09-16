@@ -10,6 +10,7 @@ export function useSupplierDashboardStats(productsCollectionName = "products") {
   
   const [stats, setStats] = useState({
     totalProducts: 0,
+    lowStockProducts: 0,
     activeOrders: 0,
     totalRevenue: 0,
     pendingDeliveries: 0,
@@ -29,7 +30,17 @@ export function useSupplierDashboardStats(productsCollectionName = "products") {
       limit(1000)
     );
     const unsubProducts = onSnapshot(qProps, (snapshot) => {
-      setStats(prev => ({ ...prev, totalProducts: snapshot.size }));
+      let lowStock = 0;
+      snapshot.forEach(docSnap => {
+        const d = docSnap.data();
+        const s = Number(d.stock ?? 0);
+        if (s < 10) lowStock++;
+      });
+      setStats(prev => ({ 
+        ...prev, 
+        totalProducts: snapshot.size,
+        lowStockProducts: lowStock
+      }));
     }, (err) => {
       console.warn("useSupplierDashboardStats products warning:", err.message);
     });
