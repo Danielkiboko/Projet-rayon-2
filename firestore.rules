@@ -44,8 +44,13 @@ service cloud.firestore {
     }
 
     function ownsSupplierData(supplierId) {
-      return (isSupplier() && request.auth.uid == supplierId) ||
-             (isSubSupplier() && request.auth.token.parentSupplierId == supplierId);
+      return request.auth != null && (
+        request.auth.uid == supplierId ||
+        (isSupplier() && request.auth.uid == supplierId) ||
+        (request.auth.token.parentSupplierId == supplierId) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.parentSupplierId == supplierId)
+      );
     }
 
     function isDriver() {
@@ -152,6 +157,8 @@ service cloud.firestore {
           get(/databases/$(database)/documents/chats/$(chatId)).data.clientId == request.auth.uid ||
           get(/databases/$(database)/documents/chats/$(chatId)).data.supplierId == request.auth.uid ||
           ownsSupplierData(get(/databases/$(database)/documents/chats/$(chatId)).data.supplierId) ||
+          request.resource.data.senderId == request.auth.uid ||
+          ownsSupplierData(request.resource.data.senderId) ||
           isSuperAdmin() || isAdmin()
         );
       }

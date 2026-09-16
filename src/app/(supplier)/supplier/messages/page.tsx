@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { MessageSquare, Send, User, Lock, Package } from "lucide-react";
+import { MessageSquare, Send, User, Lock, Package, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, addDoc, orderBy, serverTimestamp, doc, updateDoc, getDoc, limit } from "firebase/firestore";
@@ -55,6 +55,8 @@ export default function SupplierMessagesPage() {
   const [showProformaForm, setShowProformaForm] = useState(false);
   const [proformaQuantity, setProformaQuantity] = useState(1);
   const [proformaUnitPrice, setProformaUnitPrice] = useState<number>(0);
+  const [proformaProductName, setProformaProductName] = useState<string>("");
+  const [isSubmittingProforma, setIsSubmittingProforma] = useState(false);
   const [supplierProducts, setSupplierProducts] = useState<any[]>([]);
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [currentProductStock, setCurrentProductStock] = useState<number | null>(null);
@@ -78,7 +80,7 @@ export default function SupplierMessagesPage() {
 
   // Fetch chats list
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeSupplierId) return;
     const q = query(
       collection(db, "chats"),
       where("supplierId", "==", activeSupplierId)
@@ -93,7 +95,7 @@ export default function SupplierMessagesPage() {
       setChats(fetchedChats);
     });
     return () => unsubscribe();
-  }, [user]);
+  }, [user, activeSupplierId]);
 
   // Fetch messages for active chat
   useEffect(() => {
@@ -122,12 +124,49 @@ export default function SupplierMessagesPage() {
     activeChat?.productName?.toLowerCase().includes("hotel")
   );
 
+  // Helper pour choisir un produit dans le sélecteur
+  const handleSelectProduct = (prodId: string) => {
+    setSelectedProductId(prodId);
+    if (!prodId) {
+      // Produit personnalisé / sur mesure
+      setProformaProductName(activeChat?.propertyTitle || activeChat?.productName || "Article sur mesure");
+      setCurrentProductStock(null);
+      setProductBrand("");
+      setProductPurchasePrice(0);
+      return;
+    }
+    const found = supplierProducts.find(p => p.id === prodId);
+    if (found) {
+      const title = found.title?.fr || found.title?.en || found.title || found.name || found.productName || "Produit";
+      setProformaProductName(title);
+      setCurrentProductStock(Number(found.stock ?? 0));
+      setProductBrand(found.brand || "");
+      setProductPurchasePrice(Number(found.purchasePrice ?? 0));
+      if (Number(found.price) > 0) {
+        setProformaUnitPrice(Number(found.price));
+      }
+    }
+  };
+
   // Sync selected product & stock when active chat changes
   useEffect(() => {
     if (!activeChat) return;
     const targetProdId = activeChat.productId || "";
     setSelectedProductId(targetProdId);
-  }, [activeChatId]);
+    setProformaProductName(activeChat.propertyTitle || activeChat.productName || (isHotelChat ? "Séjour Hôtel" : "Produit"));
+    
+    if (targetProdId) {
+      const found = supplierProducts.find(p => p.id === targetProdId);
+      if (found) {
+        setCurrentProductStock(Number(found.stock ?? 0));
+        setProductBrand(found.brand || "");
+        setProductPurchasePrice(Number(found.purchasePrice ?? 0));
+        if (Number(found.price) > 0) {
+          setProformaUnitPrice(Number(found.price));
+        }
+      }
+    }
+  }, [activeChatId, activeChat?.productId, supplierProducts, isHotelChat]);
 
   // Resolve current product stock and default unit price
   useEffect(() => {
@@ -151,6 +190,10 @@ export default function SupplierMessagesPage() {
         setCurrentProductStock(stk);
         setProductBrand(matched.brand || "");
         setProductPurchasePrice(Number(matched.purchasePrice ?? 0));
+        const matchedName = matched.title?.fr || matched.title?.en || matched.title || matched.name || matched.productName || "";
+        if (matchedName && !proformaProductName) {
+          setProformaProductName(matchedName);
+        }
         if (proformaUnitPrice === 0 && Number(matched.price) > 0) {
           setProformaUnitPrice(Number(matched.price));
         }
@@ -167,6 +210,10 @@ export default function SupplierMessagesPage() {
             setCurrentProductStock(stk);
             setProductBrand(data.brand || "");
             setProductPurchasePrice(Number(data.purchasePrice ?? 0));
+            const pTitle = data.title?.fr || data.title?.en || data.title || data.name || data.productName || "";
+            if (pTitle && !proformaProductName) {
+              setProformaProductName(pTitle);
+            }
             if (proformaUnitPrice === 0 && Number(data.price) > 0) {
               setProformaUnitPrice(Number(data.price));
             }
@@ -204,8 +251,9 @@ export default function SupplierMessagesPage() {
       });
       
       setNewChatMessage("");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error sending message", err);
+      alert("Erreur lors de l'envoi du message : " + (err?.message || "Veuillez vérifier votre connexion."));
     }
   };
 
@@ -215,12 +263,17 @@ export default function SupplierMessagesPage() {
     e.preventDefault();
     if (!user || !activeChatId) return;
 
+    if (subscriptionInfo.isBlocked) {
+      alert("Envoi impossible : Votre compte est actuellement suspendu pour impayé de dépôt mensuel. Veuillez régulariser votre compte dans l'espace Finance.");
+      return;
+    }
+
     const isHotel = isHotelChat;
 
     // 1. VÉRIFICATION DU STOCK STRICTEMENT OBLIGATOIRE
     if (!isHotel && currentProductStock !== null) {
       if (currentProductStock <= 0) {
-        alert("Impossible de générer la facture proforma : ce produit est actuellement en rupture totale de stock (0 pièce disponible).");
+        alert("Impossible de générer la facture proforma : ce produit est actuellement en rupture totale de stock (0 pièce disponible). Veuillez sélectionner un autre produit ou réapprovisionner.");
         return;
       }
       if (proformaQuantity > currentProductStock) {
@@ -234,20 +287,51 @@ export default function SupplierMessagesPage() {
       return;
     }
     
+    setIsSubmittingProforma(true);
+
     try {
-      const resolvedProdId = selectedProductId || activeChat?.productId || null;
-      const resolvedProdName = activeChat?.propertyTitle || activeChat?.productName || (isHotel ? "Séjour Hôtel" : "Produit");
+      const resolvedProdId = selectedProductId || activeChat?.productId || "";
+      const resolvedProdName = proformaProductName || activeChat?.propertyTitle || activeChat?.productName || (isHotel ? "Séjour Hôtel" : "Produit");
       const deliveryFee = isHotel ? 0 : 3;
 
-      await addDoc(collection(db, "chats", activeChatId, "messages"), {
-        text: isHotel ? "Devis / Réservation Séjour Hôtel" : `Facture Proforma (${proformaQuantity}x ${resolvedProdName})`,
-        senderId: activeSupplierId,
-        createdAt: serverTimestamp(),
-        type: 'proforma',
-        proforma: {
-          productId: resolvedProdId,
+      // 1. Essayer d'abord d'envoyer via l'API sécurisée
+      let sentViaApi = false;
+      try {
+        const res = await fetch("/api/chats/send-proforma", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chatId: activeChatId,
+            senderId: activeSupplierId,
+            productId: resolvedProdId,
+            productName: resolvedProdName,
+            brand: productBrand || "",
+            quantity: proformaQuantity,
+            unitPrice: proformaUnitPrice,
+            purchasePrice: productPurchasePrice,
+            deliveryFee: deliveryFee,
+            type: isHotel ? "hotel" : "product"
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          sentViaApi = true;
+        } else if (!res.ok) {
+          throw new Error(data.error || "Erreur lors de l'envoi de la facture proforma.");
+        }
+      } catch (apiErr: any) {
+        if (apiErr.message && !apiErr.message.includes("fetch")) {
+          throw apiErr;
+        }
+        console.warn("API send-proforma fallback to client-side write:", apiErr);
+      }
+
+      // 2. Si l'API n'a pas répondu (ex: réseau), fallback Firestore direct SANS champ undefined
+      if (!sentViaApi) {
+        const proformaPayload: Record<string, any> = {
+          productId: resolvedProdId || "",
           productName: resolvedProdName,
-          brand: productBrand || undefined,
           quantity: proformaQuantity,
           unitPrice: proformaUnitPrice,
           purchasePrice: productPurchasePrice,
@@ -259,18 +343,34 @@ export default function SupplierMessagesPage() {
           type: isHotel ? 'hotel' : 'product',
           status: 'pending',
           supplierId: activeSupplierId
+        };
+
+        if (productBrand && productBrand.trim()) {
+          proformaPayload.brand = productBrand.trim();
         }
-      });
-      
-      await updateDoc(doc(db, "chats", activeChatId), {
-        lastMessage: isHotel ? "🏨 Devis Séjour envoyé" : `📄 Proforma envoyé : ${proformaQuantity}x à $${proformaUnitPrice}`,
-        updatedAt: serverTimestamp()
-      });
+
+        await addDoc(collection(db, "chats", activeChatId, "messages"), {
+          text: isHotel ? "Devis / Réservation Séjour Hôtel" : `Facture Proforma (${proformaQuantity}x ${resolvedProdName})`,
+          senderId: activeSupplierId,
+          createdAt: serverTimestamp(),
+          type: 'proforma',
+          proforma: proformaPayload
+        });
+        
+        await updateDoc(doc(db, "chats", activeChatId), {
+          lastMessage: isHotel ? "🏨 Devis Séjour envoyé" : `📄 Proforma envoyé : ${proformaQuantity}x à $${proformaUnitPrice}`,
+          updatedAt: serverTimestamp(),
+          unreadClient: true
+        });
+      }
       
       setShowProformaForm(false);
       setProformaQuantity(1);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error sending proforma", err);
+      alert("Erreur lors de l'envoi du proforma : " + (err?.message || "Veuillez vérifier les informations saisies."));
+    } finally {
+      setIsSubmittingProforma(false);
     }
   };
 
@@ -489,9 +589,8 @@ export default function SupplierMessagesPage() {
                         <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
                           <span>{isHotelChat ? "🏨 Devis Réservation Séjour" : "📄 Générateur de Facture Proforma"}</span>
                         </h4>
-                        <p className="text-xs text-gray-300 mt-0.5">
-                          {activeChat?.propertyTitle || activeChat?.productName || "Produit du catalogue"}
-                          {productBrand && <span className="ml-1.5 text-[10px] bg-white/10 text-amber-300 px-1.5 py-0.5 rounded font-semibold">{productBrand}</span>}
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          Créez une facture proforma personnalisée pour votre client.
                         </p>
                       </div>
 
@@ -514,12 +613,53 @@ export default function SupplierMessagesPage() {
                       )}
                     </div>
 
+                    {/* Sélecteur de produit dans le magasin */}
+                    {!isHotelChat && supplierProducts.length > 0 && (
+                      <div>
+                        <label className="block text-xs text-gray-300 mb-1 font-medium">
+                          Sélectionner l'article du magasin :
+                        </label>
+                        <select
+                          value={selectedProductId}
+                          onChange={(e) => handleSelectProduct(e.target.value)}
+                          className="w-full bg-black/40 border border-white/20 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="">-- Article sur mesure / Saisie manuelle --</option>
+                          {supplierProducts.map((p) => {
+                            const pTitle = p.title?.fr || p.title?.en || p.title || p.name || p.productName || "Sans nom";
+                            const stk = Number(p.stock ?? 0);
+                            const price = Number(p.price ?? 0);
+                            return (
+                              <option key={p.id} value={p.id}>
+                                {stk <= 0 ? "🔴 [Épuisé 0 pc]" : stk < 10 ? `⚠️ [${stk} pcs]` : `🟢 [${stk} pcs]`} {pTitle} — ${price.toFixed(2)}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Désignation de l'article */}
+                    <div>
+                      <label className="block text-xs text-gray-300 mb-1 font-medium">
+                        {isHotelChat ? "Nom de l'Hôtel / Type de Chambre" : "Désignation de l'article"}
+                      </label>
+                      <input
+                        type="text"
+                        value={proformaProductName}
+                        onChange={(e) => setProformaProductName(e.target.value)}
+                        placeholder="Ex: iPhone 13 128GB Bleu ou Chambre Deluxe"
+                        className="w-full bg-black/30 border border-white/15 rounded-xl px-3.5 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        required
+                      />
+                    </div>
+
                     {/* Si le produit est en rupture de stock */}
                     {!isHotelChat && currentProductStock !== null && currentProductStock <= 0 && (
                       <div className="p-3 bg-red-500/20 border border-red-500/40 rounded-xl text-xs text-red-200 flex items-center gap-2">
                         <span>🔴</span>
                         <span>
-                          <strong>Produit épuisé :</strong> Ce produit a 0 pièce en stock. Vous ne pouvez pas émettre de proforma tant qu'un réassort n'a pas été effectué.
+                          <strong>Produit épuisé :</strong> Ce produit a 0 pièce en stock. Veuillez choisir un autre produit ou réapprovisionner votre magasin.
                         </span>
                       </div>
                     )}
@@ -609,27 +749,46 @@ export default function SupplierMessagesPage() {
                     </div>
 
                     {/* Boutons d'action */}
-                    <div className="flex items-center justify-end gap-2.5 pt-1">
-                      <button 
-                        type="button" 
-                        onClick={() => setShowProformaForm(false)} 
-                        className="text-gray-400 hover:text-white px-3 py-2 text-xs font-semibold rounded-xl hover:bg-white/5 transition-colors"
-                      >
-                        Annuler
-                      </button>
-                      <button 
-                        type="submit" 
-                        disabled={
-                          !isHotelChat && currentProductStock !== null && (
-                            currentProductStock <= 0 || 
-                            proformaQuantity > currentProductStock || 
-                            proformaUnitPrice <= 0
-                          )
-                        }
-                        className="bg-primary hover:bg-primary-light text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
-                      >
-                        <span>{isHotelChat ? "Envoyer Devis Séjour" : `Envoyer Proforma ($${calculatedTotalProducts.toFixed(2)})`}</span>
-                      </button>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
+                      <div className="text-[11px] text-gray-400">
+                        {!isHotelChat && proformaUnitPrice <= 0 && (
+                          <span className="text-amber-300">⚠️ Indiquez un prix unitaire supérieur à 0.</span>
+                        )}
+                        {!isHotelChat && currentProductStock !== null && currentProductStock <= 0 && (
+                          <span className="text-red-400">🔴 Produit épuisé (stock = 0).</span>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-end gap-2.5">
+                        <button 
+                          type="button" 
+                          onClick={() => setShowProformaForm(false)} 
+                          className="text-gray-400 hover:text-white px-3 py-2 text-xs font-semibold rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+                        >
+                          Annuler
+                        </button>
+                        <button 
+                          type="submit" 
+                          disabled={
+                            isSubmittingProforma ||
+                            (!isHotelChat && currentProductStock !== null && (
+                              currentProductStock <= 0 || 
+                              proformaQuantity > currentProductStock || 
+                              proformaUnitPrice <= 0
+                            )) ||
+                            (!isHotelChat && currentProductStock === null && proformaUnitPrice <= 0)
+                          }
+                          className="bg-primary hover:bg-primary-light text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          {isSubmittingProforma ? (
+                            <>
+                              <Loader2 size={14} className="animate-spin" />
+                              <span>Envoi en cours...</span>
+                            </>
+                          ) : (
+                            <span>{isHotelChat ? "Envoyer Devis Séjour" : `Envoyer Proforma ($${calculatedTotalProducts.toFixed(2)})`}</span>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </form>
                 )}
@@ -648,9 +807,18 @@ export default function SupplierMessagesPage() {
                   <div className="flex space-x-2">
                     <button
                       type="button"
-                      onClick={() => setShowProformaForm(!showProformaForm)}
-                      className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-xl transition-colors border border-white/10 flex items-center justify-center text-base"
-                      title={isHotelChat ? "Générer Devis Séjour Hôtel" : "Générer Proforma"}
+                      onClick={() => {
+                        if (!showProformaForm) {
+                          if (!selectedProductId && activeChat?.productId) {
+                            handleSelectProduct(activeChat.productId);
+                          } else if (!selectedProductId && supplierProducts.length > 0) {
+                            handleSelectProduct(supplierProducts[0].id);
+                          }
+                        }
+                        setShowProformaForm(!showProformaForm);
+                      }}
+                      className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-xl transition-colors border border-white/10 flex items-center justify-center text-base cursor-pointer"
+                      title={isHotelChat ? "Générer Devis Séjour Hôtel" : "Générer Facture Proforma"}
                     >
                       {isHotelChat ? "🏨" : "📄"}
                     </button>
