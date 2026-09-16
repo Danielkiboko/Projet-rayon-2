@@ -214,7 +214,7 @@ export default function Home() {
     const fetchData = async () => {
       try {
         const [prodSnap, propSnap] = await Promise.all([
-          getDocs(query(collection(db, "products"), limit(50))),
+          getDocs(query(collection(db, "products"), limit(16))),
           getDocs(query(collection(db, "properties"), where("status", "==", "Disponible"), limit(4)))
         ]);
 

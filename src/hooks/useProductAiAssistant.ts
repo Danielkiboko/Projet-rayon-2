@@ -1,5 +1,4 @@
 import { useState } from "react";
-import imageCompression from 'browser-image-compression';
 
 interface AiAssistantOptions {
   onAiDataParsed: (parsedData: any) => void;
@@ -103,35 +102,49 @@ export function useProductAiAssistant({ onAiDataParsed, apiEndpoint = '/api/ai/p
   };
 }
 
+import { optimizeImageToWebP, OptimizedImageResult } from "@/lib/imageOptimizer";
+import toast from "react-hot-toast";
+
 export const handleImageUploadShared = async (
   e: React.ChangeEvent<HTMLInputElement>,
   setImageFile: (file: File) => void,
   setImagePreview: (base64: string) => void,
   analyzeImage: (base64: string, type: string, prompt: string) => Promise<void>,
-  prompt: string
+  prompt: string,
+  onOptimized?: (stats: OptimizedImageResult) => void
 ) => {
   const file = e.target.files?.[0];
   if (!file) return;
 
+  const toastId = toast.loading("Conversion de la photo en format Web (WebP)...");
+
   try {
-    const options = {
-      maxSizeMB: 0.5,
-      maxWidthOrHeight: 1920,
-      useWebWorker: true,
-      fileType: "image/webp"
-    };
-    
-    const compressedFile = await imageCompression(file, options);
-    setImageFile(compressedFile);
-    
-    const reader = new FileReader();
-    reader.readAsDataURL(compressedFile);
-    reader.onloadend = async () => {
-      const base64data = reader.result as string;
-      setImagePreview(base64data);
-      await analyzeImage(base64data, compressedFile.type, prompt);
-    };
+    const result = await optimizeImageToWebP(file, {
+      maxWidth: 960,
+      maxHeight: 960,
+      quality: 0.8
+    });
+
+    setImageFile(result.file);
+    setImagePreview(result.dataUrl);
+
+    if (onOptimized) {
+      onOptimized(result);
+    }
+
+    if (result.savedPercentage > 0) {
+      toast.success(
+        `Photo convertie en WebP : ${result.originalFormatted} ➔ ${result.compressedFormatted} (-${result.savedPercentage}% plus léger)`,
+        { id: toastId, duration: 4000 }
+      );
+    } else {
+      toast.success(`Photo prête en format WebP optimisé (${result.compressedFormatted})`, { id: toastId });
+    }
+
+    // Trigger AI assistance in background
+    await analyzeImage(result.dataUrl, result.format, prompt);
   } catch (error) {
-    console.error("Erreur de compression d'image:", error);
+    console.error("Erreur de conversion d'image:", error);
+    toast.error("Erreur lors de la préparation de l'image", { id: toastId });
   }
 };
