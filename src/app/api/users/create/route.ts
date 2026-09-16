@@ -166,7 +166,7 @@ export async function POST(req: Request) {
           secure: true,
           auth: {
             user: process.env.SMTP_USER || 'admin@rayons.net',
-            pass: process.env.SMTP_PASS || 'Daniel88'
+            pass: process.env.SMTP_PASS || 'Kinoko88@'
           }
         });
 
