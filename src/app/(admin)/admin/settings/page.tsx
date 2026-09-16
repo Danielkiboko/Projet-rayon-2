@@ -81,7 +81,7 @@ function Toast({ message, type }: { message: string; type: "success" | "error" }
   );
 }
 
-import { isSuperAdmin } from "@/lib/permissions";
+import { isSuperAdmin, hasAdminAccess } from "@/lib/permissions";
 
 export default function AdminSettingsPage() {
   const { user, userData } = useAuth();
@@ -159,15 +159,45 @@ export default function AdminSettingsPage() {
     e.preventDefault();
     setIsSavingSettings(true);
     try {
-      await setDoc(doc(db, "settings", "platform"), {
-        ...settings,
-        updatedAt: serverTimestamp(),
-        updatedBy: user?.uid,
+      const dataToSave: Record<string, any> = {
+        monthlySubscriptionPrice: Number(settings.monthlySubscriptionPrice) || 50,
+        trialDurationDays: Number(settings.trialDurationDays) || 30,
+        defaultDeliveryFee: Number(settings.defaultDeliveryFee) || 0,
+        adminShopName: settings.adminShopName || "Rayons Officiel",
+        adminContactPhone: settings.adminContactPhone || "",
+        usdToFcRate: Number(settings.usdToFcRate) || 2850,
+        usdToEurRate: Number(settings.usdToEurRate) || 0.92,
+      };
+
+      // 1. Try saving directly via client Firestore
+      try {
+        const clientData = {
+          ...dataToSave,
+          updatedAt: serverTimestamp(),
+          ...(user?.uid ? { updatedBy: user.uid } : {}),
+        };
+        await setDoc(doc(db, "settings", "platform"), clientData, { merge: true });
+        showToast("Taux de change et paramètres enregistrés avec succès !");
+        return;
+      } catch (firestoreErr) {
+        console.warn("Client Firestore setDoc failed, trying server API fallback:", firestoreErr);
+      }
+
+      // 2. Server API fallback (bypasses any client auth token latency)
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ settings: dataToSave, userId: user?.uid }),
       });
-      showToast("Paramètres sauvegardés avec succès !");
-    } catch (err) {
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Impossible d'enregistrer les paramètres.");
+      }
+
+      showToast("Taux de change et paramètres enregistrés avec succès !");
+    } catch (err: any) {
       console.error("Error saving settings:", err);
-      showToast("Erreur lors de la sauvegarde.", "error");
+      showToast(err?.message || "Erreur lors de la sauvegarde.", "error");
     } finally {
       setIsSavingSettings(false);
     }
@@ -237,7 +267,7 @@ export default function AdminSettingsPage() {
   };
 
   const userRole = (userData?.role || "").toUpperCase();
-  const canManageSettings = isSuper || userRole === "SUB_ADMIN" || userRole === "ADMIN";
+  const canManageSettings = isSuper || hasAdminAccess(user, userData) || userRole === "SUB_ADMIN" || userRole === "ADMIN";
 
   if (!canManageSettings) {
     return (

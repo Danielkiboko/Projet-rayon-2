@@ -20,9 +20,9 @@ service cloud.firestore {
     function isAdmin() {
       return isSuperAdmin() || (
         request.auth != null && (
-          request.auth.token.role in ['admin', 'ADMIN', 'SUB_ADMIN', 'sub_admin', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS'] ||
+          request.auth.token.role in ['admin', 'ADMIN', 'SUB_ADMIN', 'sub_admin', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS', 'SOUS_ADMIN_GENERAL', 'sous_admin_general'] ||
           (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-           (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'ADMIN', 'SUB_ADMIN', 'sub_admin', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS', 'SUPER_ADMIN']))
+           (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'ADMIN', 'SUB_ADMIN', 'sub_admin', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS', 'SUPER_ADMIN', 'SOUS_ADMIN_GENERAL', 'sous_admin_general']))
         )
       );
     }
@@ -219,6 +219,18 @@ service cloud.firestore {
       ) || (
         request.auth != null && (resource.data.userId == request.auth.uid || resource.data.clientId == request.auth.uid)
       );
+    }
+
+    // Platform Settings & Configuration (Multi-devise, Taux de change, etc.)
+    match /settings/{docId} {
+      allow read: if true; // Public/clients can read exchange rates for live currency conversion
+      allow write: if isSuperAdmin() || isAdmin();
+    }
+
+    // Product Categories / Rayons
+    match /categories/{catId} {
+      allow read: if true; // Anyone can read categories
+      allow write: if isSuperAdmin() || isAdmin();
     }
   }
 }
