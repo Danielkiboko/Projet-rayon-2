@@ -190,28 +190,43 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
       return c || "general";
     })();
 
+    const parsedPrice = parseFloat(productPrice);
+    const parsedStock = parseInt(productStock || "0", 10);
+
+    if (!productTitle.trim()) {
+      alert("Veuillez renseigner un titre pour le produit.");
+      setIsProcessing(false);
+      return;
+    }
+
     const productData = {
-      title: { fr: productTitle, en: productTitle }, // Unified Data Model
+      title: { fr: productTitle.trim(), en: productTitle.trim() },
       category: normalizedCategory,
       rayon: normalizedCategory,
-      price: parseFloat(productPrice),
-      stock: parseInt(productStock || "0", 10),
-      description: productDesc,
+      price: isNaN(parsedPrice) ? 0 : parsedPrice,
+      stock: isNaN(parsedStock) ? 0 : parsedStock,
+      description: productDesc.trim(),
       image: imagePreview || "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400",
     };
 
     if (!isAdmin && subscriptionInfo.isBlocked) {
       alert("Action refusée : Votre compte est suspendu pour impayé. Veuillez régulariser votre dépôt.");
+      setIsProcessing(false);
       return;
     }
 
     try {
       if (editingId) {
-        await updateDoc(doc(db, "products", editingId), productData);
+        await updateDoc(doc(db, "products", editingId), {
+          ...productData,
+          updatedAt: serverTimestamp(),
+        });
       } else {
         await addDoc(collection(db, "products"), {
           ...productData,
-          supplierId: activeSupplierId,
+          supplierId: activeSupplierId || user.uid,
+          supplierName: isAdmin ? "Rayons Officiel (Admin)" : (userData?.displayName || userData?.name || "Fournisseur"),
+          supplierEmail: user.email || "",
           supplierRole: isAdmin ? "ADMIN" : (userData?.role || "SUPPLIER"),
           isAdminProduct: isAdmin,
           isOfficialRayons: isAdmin,
@@ -226,24 +241,24 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
           // Add notification for admins
           try {
             await addDoc(collection(db, "inapp_notifications"), {
-               type: "admin_alert",
-               title: "Nouveau produit à valider",
-               message: `Le fournisseur a ajouté un nouveau produit: ${productTitle}. Veuillez l'examiner.`,
-               time: Date.now(),
-               link: "/admin/products", // admins can review it here
-               read: false,
-               createdAt: serverTimestamp()
+              type: "admin_alert",
+              title: "Nouveau produit à valider",
+              message: `Le fournisseur a ajouté un nouveau produit: ${productTitle}. Veuillez l'examiner.`,
+              time: Date.now(),
+              link: "/admin/products",
+              read: false,
+              createdAt: serverTimestamp()
             });
           } catch (notifError) {
-            console.error("Error notifying admins:", notifError);
+            console.warn("Error notifying admins:", notifError);
           }
         }
       }
       setIsModalOpen(false);
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erreur lors de la sauvegarde du produit", error);
-      alert("Erreur lors de la sauvegarde du produit.");
+      alert("Erreur lors de la sauvegarde : " + (error?.message || "Vérifiez vos permissions réseau."));
     } finally {
       setIsProcessing(false);
     }

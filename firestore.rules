@@ -1,73 +1,69 @@
 rules_version = '2';
 
 service cloud.firestore {
-  // Helper to check role
-  function isSuperAdmin() {
-    return request.auth != null && (
-      request.auth.token.email == 'danielkiboko218@gmail.com' ||
-      request.auth.token.email == 'danielKIBOKO218@gmail.com' ||
-      request.auth.token.email == 'admin@rayons.net' ||
-      request.auth.token.role == 'superAdmin' ||
-      request.auth.token.role == 'SUPER_ADMIN' ||
-      request.auth.token.role == 'SUPERADMIN' ||
-      (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-       (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN' ||
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superAdmin'))
-    );
-  }
-
-  function isAdmin() {
-    return isSuperAdmin() || (
-      request.auth != null && (
-        request.auth.token.role in ['admin', 'ADMIN', 'SUB_ADMIN', 'sub_admin', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS'] ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'ADMIN', 'SUB_ADMIN', 'sub_admin', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS', 'SUPER_ADMIN']))
-      )
-    );
-  }
-
-  function isSupplier() {
-    return request.auth != null && (
-      request.auth.token.role in ['supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS'] ||
-      (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS'])
-    );
-  }
-
-  function isSubSupplier() {
-    return request.auth != null && (
-      request.auth.token.role in ['SUB_SUPPLIER', 'sub_supplier'] ||
-      (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['SUB_SUPPLIER', 'sub_supplier'])
-    );
-  }
-
-  function ownsSupplierData(supplierId) {
-    return (isSupplier() && request.auth.uid == supplierId) ||
-           (isSubSupplier() && request.auth.token.parentSupplierId == supplierId);
-  }
-
-  function isDriver() {
-    return request.auth != null && (
-      request.auth.token.role in ['driver', 'DRIVER'] ||
-      (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['driver', 'DRIVER'])
-    );
-  }
-
   match /databases/{database}/documents {
+    // Helper functions within database scope
+    function isSuperAdmin() {
+      return request.auth != null && (
+        request.auth.token.email == 'danielkiboko218@gmail.com' ||
+        request.auth.token.email == 'danielKIBOKO218@gmail.com' ||
+        request.auth.token.email == 'admin@rayons.net' ||
+        request.auth.token.role == 'superAdmin' ||
+        request.auth.token.role == 'SUPER_ADMIN' ||
+        request.auth.token.role == 'SUPERADMIN' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superAdmin'))
+      );
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() || (
+        request.auth != null && (
+          request.auth.token.role in ['admin', 'ADMIN', 'SUB_ADMIN', 'sub_admin', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS'] ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+           (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'ADMIN', 'SUB_ADMIN', 'sub_admin', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS', 'SUPER_ADMIN']))
+        )
+      );
+    }
+
+    function isSupplier() {
+      return request.auth != null && (
+        request.auth.token.role in ['supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT', 'fournisseur', 'FOURNISSEUR'] ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT', 'fournisseur', 'FOURNISSEUR'])
+      );
+    }
+
+    function isSubSupplier() {
+      return request.auth != null && (
+        request.auth.token.role in ['SUB_SUPPLIER', 'sub_supplier'] ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['SUB_SUPPLIER', 'sub_supplier'])
+      );
+    }
+
+    function ownsSupplierData(supplierId) {
+      return (isSupplier() && request.auth.uid == supplierId) ||
+             (isSubSupplier() && request.auth.token.parentSupplierId == supplierId);
+    }
+
+    function isDriver() {
+      return request.auth != null && (
+        request.auth.token.role in ['driver', 'DRIVER', 'livreur', 'LIVREUR', 'chauffeur', 'CHAUFFEUR'] ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['driver', 'DRIVER', 'livreur', 'LIVREUR', 'chauffeur', 'CHAUFFEUR'])
+      );
+    }
+
     // Suppliers can manage their own supplier document
     match /suppliers/{supplierId} {
-      allow read, write: if isSuperAdmin() || isAdmin() || (
-        ownsSupplierData(supplierId)
-      );
+      allow read, write: if isSuperAdmin() || isAdmin() || ownsSupplierData(supplierId);
     }
 
     // Drivers collection – top‑level with supplierId field
     match /drivers/{driverId} {
-      // Creation allowed for a supplier creating its own driver
-      allow create: if ownsSupplierData(request.resource.data.supplierId);
-      // Supplier can read/write its drivers, admin/superadmin can manage all, driver can manage own
+      allow create: if isSuperAdmin() || isAdmin() || ownsSupplierData(request.resource.data.supplierId);
       allow read, update, delete: if (
         isSuperAdmin() || isAdmin() || (
           ownsSupplierData(resource.data.supplierId)
@@ -79,12 +75,10 @@ service cloud.firestore {
 
     // Orders collection – each order contains supplierId and optional driverId
     match /orders/{orderId} {
-      // Suppliers and admins can create orders for their supplier
       allow create: if isSuperAdmin() || isAdmin() || (
         ownsSupplierData(request.resource.data.supplierId)
       );
 
-      // Read/write for the supplier that owns the order
       allow read, update, delete: if (
         isSuperAdmin() || isAdmin() || (
           ownsSupplierData(resource.data.supplierId)
@@ -96,12 +90,10 @@ service cloud.firestore {
         )
       );
 
-      // Drivers can read orders waiting for driver pickup, or orders assigned to them
       allow read: if isDriver() && (
         resource.data.status in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver'] || 
         resource.data.driverId == request.auth.uid
       );
-      // Drivers can accept an order (setting their own driverId) or update order status
       allow update: if isDriver() && (
         (request.resource.data.driverId == request.auth.uid && resource.data.status in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver']) ||
         (resource.data.driverId == request.auth.uid && request.resource.data.driverId == request.auth.uid)
@@ -143,12 +135,11 @@ service cloud.firestore {
       }
     }
 
-    // Add additional collections (products, etc.) with similar scoping if needed.
+    // Products collection: Admins and owners can create, update, delete
     match /products/{productId} {
       allow read: if true;
-      allow create: if ownsSupplierData(request.resource.data.supplierId);
-      allow update, delete: if ownsSupplierData(resource.data.supplierId);
-      allow update, delete: if isSuperAdmin() || isAdmin();
+      allow create: if isSuperAdmin() || isAdmin() || ownsSupplierData(request.resource.data.supplierId);
+      allow update, delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
 
       match /reviews/{reviewId} {
         allow read: if true;
@@ -158,16 +149,14 @@ service cloud.firestore {
     }
 
     match /invoices/{invoiceId} {
-      allow create: if ownsSupplierData(request.resource.data.supplierId);
-      allow read, update, delete: if ownsSupplierData(resource.data.supplierId);
-      allow read, update, delete: if isSuperAdmin() || isAdmin();
+      allow create: if isSuperAdmin() || isAdmin() || ownsSupplierData(request.resource.data.supplierId);
+      allow read, update, delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
     }
 
     match /properties/{propertyId} {
       allow read: if true; // Public can see properties
-      allow create: if ownsSupplierData(request.resource.data.supplierId);
-      allow update, delete: if ownsSupplierData(resource.data.supplierId);
-      allow update, delete: if isSuperAdmin() || isAdmin();
+      allow create: if isSuperAdmin() || isAdmin() || ownsSupplierData(request.resource.data.supplierId);
+      allow update, delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
 
       match /reviews/{reviewId} {
         allow read: if true;
@@ -177,21 +166,18 @@ service cloud.firestore {
     }
 
     match /tenants/{tenantId} {
-      allow create: if ownsSupplierData(request.resource.data.supplierId);
-      allow read, update, delete: if ownsSupplierData(resource.data.supplierId);
-      allow read, update, delete: if isSuperAdmin() || isAdmin();
+      allow create: if isSuperAdmin() || isAdmin() || ownsSupplierData(request.resource.data.supplierId);
+      allow read, update, delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
     }
 
     match /payments/{paymentId} {
-      allow create: if ownsSupplierData(request.resource.data.supplierId);
-      allow read, update, delete: if ownsSupplierData(resource.data.supplierId);
-      allow read, update, delete: if isSuperAdmin() || isAdmin();
+      allow create: if isSuperAdmin() || isAdmin() || ownsSupplierData(request.resource.data.supplierId);
+      allow read, update, delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
     }
 
     match /visits/{visitId} {
       allow create: if true; // Public can request a visit
-      allow read, update, delete: if ownsSupplierData(resource.data.supplierId);
-      allow read, update, delete: if isSuperAdmin() || isAdmin();
+      allow read, update, delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
     }
 
     match /error_logs/{logId} {
@@ -214,9 +200,10 @@ service cloud.firestore {
     match /transactions/{transactionId} {
       allow read, write: if isSuperAdmin() || isAdmin();
     }
+
     match /supplier_transactions/{transactionId} {
-      allow create: if ownsSupplierData(request.resource.data.supplierId);
-      allow read, update, delete: if ownsSupplierData(resource.data.supplierId);
+      allow create: if isSuperAdmin() || isAdmin() || ownsSupplierData(request.resource.data.supplierId);
+      allow read, update, delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
       allow read, write: if isSuperAdmin() || isAdmin();
     }
 
