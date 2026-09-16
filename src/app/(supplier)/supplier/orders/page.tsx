@@ -18,6 +18,9 @@ interface Order {
   deliveryFee: number;
   paymentStatus: string;
   status: string;
+  driverId?: string;
+  driverName?: string;
+  driverPhone?: string;
   createdAt: any;
   deliveredAt?: any;
   cancelledAt?: any;
@@ -207,7 +210,15 @@ export default function SupplierOrdersPage() {
                         {total.toLocaleString()} $
                       </td>
                       <td className="px-6 py-4">
-                        {getStatusBadge(order.status)}
+                        <div className="flex flex-col space-y-1">
+                          {getStatusBadge(order.status)}
+                          {order.driverName && (
+                            <span className="text-[11px] text-gray-400 flex items-center gap-1">
+                              <Truck size={11} className="text-primary-light" />
+                              <span className="truncate max-w-[130px]">{order.driverName}</span>
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button

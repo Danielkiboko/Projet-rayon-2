@@ -2,51 +2,95 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ChevronLeft, MapPin, Phone, MessageSquare, Navigation, CheckCircle2, DollarSign } from "lucide-react";
+import { useRouter, useParams } from "next/navigation";
+import { ChevronLeft, MapPin, Phone, MessageSquare, Navigation, CheckCircle2, DollarSign, Loader2 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc, collection, addDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
+import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 
-export default function MissionDetails({ params }: { params: { id: string } }) {
+export default function MissionDetails({ params }: { params?: { id: string } }) {
   const router = useRouter();
+  const routeParams = useParams();
+  const missionId = (routeParams?.id as string) || params?.id || "";
+  const { user, userData } = useAuth();
   const { formatPrice } = useCurrency();
   const [order, setOrder] = useState<any>(null);
-  const [status, setStatus] = useState<"ACCEPTED" | "ARRIVED_AWAITING_PAYMENT" | "LIVRE" | "COMPLETED">("ACCEPTED");
+  const [status, setStatus] = useState<"CONFIRMED_AWAITING_DRIVER" | "ACCEPTED" | "ARRIVED_AWAITING_PAYMENT" | "LIVRE" | "COMPLETED">("ACCEPTED");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [driverLocation, setDriverLocation] = useState<{lat: number, lng: number} | null>(null);
 
   useEffect(() => {
-    const fetchOrder = async () => {
-      try {
-        const docRef = doc(db, "orders", params.id);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setOrder({ id: docSnap.id, ...data });
-          setStatus(data.status as any || "ACCEPTED");
-        } else {
-          setError("Mission introuvable");
-        }
-      } catch (err: any) {
-        console.error(err);
-        setError("Erreur de chargement");
-      } finally {
-        setIsLoading(false);
+    if (!missionId) return;
+
+    const docRef = doc(db, "orders", missionId);
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setOrder({ id: docSnap.id, ...data });
+        setStatus((data.status as any) || "ACCEPTED");
+        setError("");
+      } else {
+        setError("Mission introuvable");
       }
-    };
-    fetchOrder();
-  }, [params.id]);
+      setIsLoading(false);
+    }, (err) => {
+      console.error("Erreur écoute mission:", err);
+      setError("Erreur de chargement");
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [missionId]);
+
+  // Acceptation atomique et anti-doublon si la mission est encore en attente
+  const handleAcceptMission = async () => {
+    if (!order || !user || isUpdating) return;
+    setIsUpdating(true);
+
+    try {
+      const response = await fetch("/api/driver/accept-mission", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: order.id,
+          driverId: user.uid,
+          driverName: userData?.name || user.displayName || "Livreur",
+          driverPhone: userData?.phone || "",
+          driverVehicle: userData?.vehicle || "",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        if (data.code === "ALREADY_ACCEPTED") {
+          alert("⚠️ Cette mission vient déjà d'être acceptée par un autre livreur.");
+          router.push("/driver");
+        } else {
+          alert(data.message || data.error || "Impossible d'accepter cette mission.");
+        }
+        return;
+      }
+
+      setStatus("ACCEPTED");
+    } catch (err) {
+      console.error(err);
+      alert("Erreur réseau lors de l'acceptation.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const handleStatusChange = async () => {
     if (!order) return;
     setIsUpdating(true);
     
     try {
-      const user = auth.currentUser;
-      if (!user) throw new Error("Non connecté");
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("Non connecté");
 
       const orderRef = doc(db, "orders", order.id);
       let newStatus = status;
@@ -60,16 +104,17 @@ export default function MissionDetails({ params }: { params: { id: string } }) {
           updatedAt: serverTimestamp()
         });
       } else if (status === "ARRIVED_AWAITING_PAYMENT") {
-        newStatus = "COMPLETED"; // Update to COMPLETED for consistency with admin dashboard
+        newStatus = "COMPLETED";
         await updateDoc(orderRef, {
           status: "COMPLETED",
+          paymentStatus: "PAID",
           deliveredAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
       }
       
       // Envoi de la notification au client (Background)
-      const phone = order.clientPhone || (order.customerInfo && order.customerInfo.phone) || "";
+      const phone = order.clientPhone || (order.customerInfo && order.customerInfo.phone) || order.deliveryDetails?.recipientPhone || "";
       fetch("/api/notifications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -121,7 +166,7 @@ export default function MissionDetails({ params }: { params: { id: string } }) {
           <ChevronLeft size={24} />
         </button>
         <span className="text-white font-bold text-sm bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/10">
-          Mission {params.id.substring(0,6)}...
+          Mission {missionId ? missionId.substring(0, 6).toUpperCase() : ""}...
         </span>
         <div className="w-10" />
       </div>
@@ -200,11 +245,26 @@ export default function MissionDetails({ params }: { params: { id: string } }) {
 
         {/* Action Button */}
         <div className="mt-auto">
-          {status === "LIVRE" ? (
+          {status === "LIVRE" || status === "COMPLETED" ? (
             <div className="w-full py-4 bg-green-500/20 text-green-400 font-bold rounded-2xl flex items-center justify-center border border-green-500/30">
               <CheckCircle2 size={20} className="mr-2" />
-              Mission Terminée
+              Mission Terminée avec Succès
             </div>
+          ) : status === "CONFIRMED_AWAITING_DRIVER" ? (
+            <button 
+              onClick={handleAcceptMission}
+              disabled={isUpdating}
+              className="w-full py-4 bg-primary hover:bg-primary-light text-white font-bold rounded-2xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center space-x-2 disabled:opacity-50"
+            >
+              {isUpdating ? (
+                <Loader2 size={20} className="animate-spin" />
+              ) : (
+                <>
+                  <CheckCircle2 size={20} />
+                  <span>Accepter cette Mission</span>
+                </>
+              )}
+            </button>
           ) : (
             <button 
               onClick={handleStatusChange}
@@ -216,16 +276,16 @@ export default function MissionDetails({ params }: { params: { id: string } }) {
               }`}
             >
               {isUpdating ? (
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <Loader2 size={20} className="animate-spin" />
               ) : status === "ACCEPTED" ? (
                 <>
                   <Navigation size={20} />
-                  <span>Je suis arrivé (Envoyer SMS)</span>
+                  <span>Je suis arrivé chez le client (Envoyer SMS)</span>
                 </>
               ) : (
                 <>
                   <DollarSign size={20} />
-                  <span>Confirmer la Livraison</span>
+                  <span>Confirmer la Livraison & Encaisser</span>
                 </>
               )}
             </button>

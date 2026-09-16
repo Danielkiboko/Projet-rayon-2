@@ -90,22 +90,30 @@ export function DirectBuyModal({ isOpen, onClose, product }: DirectBuyModalProps
     try {
       const orderId = `CMD-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 900 + 100)}`;
       
+      const targetSupplierId = product.supplierId || "admin";
+      const fullAddress = `${deliveryAddress.trim()}, ${selectedCommune}, Kinshasa`;
+
       const orderData = {
         id: orderId,
         clientId: user ? user.uid : "GUEST",
         clientName: clientName.trim(),
         clientPhone: clientPhone.trim(),
-        supplierId: product.supplierId || "admin",
+        clientAddress: fullAddress,
+        supplierId: targetSupplierId,
+        supplierIds: [targetSupplierId],
+        rayon: product.rayon || product.category || "connect",
         items: [{
           productId: product.id,
           productName: productTitle,
           quantity: quantity,
           price: unitPrice,
-          image: productImage
+          image: productImage,
+          supplierId: targetSupplierId
         }],
         subtotal: subtotal,
         deliveryFee: deliveryFee,
         totalAmount: totalAmount,
+        remainingBalance: totalAmount,
         currency: "$",
         deliveryDetails: {
           city: "Kinshasa",

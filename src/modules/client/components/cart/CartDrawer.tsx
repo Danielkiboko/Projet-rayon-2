@@ -100,12 +100,17 @@ export function CartDrawer() {
     try {
       const orderId = `CMD-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 900 + 100)}`;
       
+      const supplierIds = Array.from(new Set(items.map(it => it.supplierId || "admin")));
+      const fullAddress = `${deliveryAddress.trim()}, ${selectedCommune}, Kinshasa`;
+
       const orderData = {
         id: orderId,
         clientId: user ? user.uid : "GUEST",
         clientName: clientName.trim(),
         clientPhone: clientPhone.trim(),
+        clientAddress: fullAddress,
         supplierId: items[0]?.supplierId || "admin",
+        supplierIds: supplierIds,
         items: items.map(it => ({
           productId: it.id,
           productName: it.title,
@@ -117,6 +122,7 @@ export function CartDrawer() {
         subtotal: subtotal,
         deliveryFee: deliveryFee,
         totalAmount: grandTotal,
+        remainingBalance: grandTotal,
         currency: "$",
         deliveryDetails: {
           city: "Kinshasa",

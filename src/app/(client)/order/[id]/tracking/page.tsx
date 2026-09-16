@@ -134,17 +134,34 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
           {order.driverId && (
             <div className="flex items-center justify-between mb-6 pb-6 border-b border-gray-100">
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                  <span className="text-lg font-bold text-gray-600">L</span>
+                <div className="w-12 h-12 bg-primary/10 text-primary rounded-full flex items-center justify-center font-bold text-lg">
+                  {order.driverName ? order.driverName.charAt(0).toUpperCase() : "L"}
                 </div>
                 <div>
-                  <h4 className="font-bold text-gray-900">Votre Livreur</h4>
-                  <p className="text-sm text-gray-500">En route vers vous</p>
+                  <h4 className="font-bold text-gray-900">{order.driverName || "Livreur Rayon"}</h4>
+                  <p className="text-sm text-gray-500">
+                    {order.status === "COMPLETED" 
+                      ? "Course terminée" 
+                      : order.status === "ARRIVED_AWAITING_PAYMENT" 
+                        ? "Arrivé à votre adresse" 
+                        : "En route vers vous"}
+                    {order.driverVehicle ? ` • ${order.driverVehicle}` : ""}
+                  </p>
                 </div>
               </div>
-              <button className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center">
-                <Phone className="w-5 h-5" />
-              </button>
+              {order.driverPhone ? (
+                <a 
+                  href={`tel:${order.driverPhone}`} 
+                  title={`Appeler ${order.driverName || 'le livreur'}`}
+                  className="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center hover:bg-green-200 transition-colors shadow-xs"
+                >
+                  <Phone className="w-5 h-5" />
+                </a>
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center">
+                  <Phone className="w-5 h-5" />
+                </div>
+              )}
             </div>
           )}
 

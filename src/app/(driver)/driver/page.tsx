@@ -2,19 +2,21 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Package, MapPin, Clock, ChevronRight, User, CheckCircle } from "lucide-react";
-import { collection, query, orderBy, onSnapshot, where, doc, getDoc, updateDoc } from "firebase/firestore";
+import { useRouter } from "next/navigation";
+import { Package, MapPin, Clock, ChevronRight, User, CheckCircle, Loader2 } from "lucide-react";
+import { collection, query, orderBy, onSnapshot, where, doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 
 export default function DriverDashboard() {
+  const router = useRouter();
   const { user, loading, userData } = useAuth();
   const { formatPrice } = useCurrency();
   const [availableOrders, setAvailableOrders] = useState<any[]>([]);
   const [myOrders, setMyOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [acceptingOrderId, setAcceptingOrderId] = useState<string | null>(null);
   const [driverInfo, setDriverInfo] = useState<any>(null);
 
   useEffect(() => {
@@ -90,34 +92,45 @@ export default function DriverDashboard() {
   }, [user, loading]);
 
   const handleAcceptOrder = async (orderId: string) => {
-    if (!user) return;
-    setIsProcessing(true);
+    if (!user || acceptingOrderId) return;
+    setAcceptingOrderId(orderId);
+
     try {
-      await updateDoc(doc(db, "orders", orderId), {
-        status: "ACCEPTED",
-        driverId: user.uid,
+      const driverName = driverInfo?.displayName || userData?.name || "Livreur";
+      const driverPhone = driverInfo?.phone || userData?.phone || "";
+      const driverVehicle = driverInfo?.vehicle || "";
+
+      const response = await fetch("/api/driver/accept-mission", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          driverId: user.uid,
+          driverName,
+          driverPhone,
+          driverVehicle,
+        }),
       });
-      
-      const order: any = availableOrders.find((m: any) => m.id === orderId);
-      if (order) {
-        const phone = order.clientPhone || (order.customerInfo && order.customerInfo.phone) || "";
-        fetch("/api/notifications", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "ORDER_STATUS_CHANGED",
-            orderId: order.id,
-            status: "ACCEPTED",
-            clientId: order.clientId,
-            clientPhone: phone
-          }),
-        }).catch(err => console.error("Notification API error:", err));
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        if (data.code === "ALREADY_ACCEPTED") {
+          alert("⚠️ Cette mission vient déjà d'être acceptée par un autre livreur.");
+          setAvailableOrders(prev => prev.filter(o => o.id !== orderId));
+        } else {
+          alert(data.message || data.error || "Impossible d'accepter cette course.");
+        }
+        return;
       }
+
+      // Redirection immédiate vers la page de détails de mission
+      router.push(`/driver/mission/${orderId}`);
     } catch (error) {
       console.error("Error accepting order", error);
-      alert("Erreur lors de l'acceptation de la course.");
+      alert("Erreur de connexion lors de l'acceptation de la course.");
     } finally {
-      setIsProcessing(false);
+      setAcceptingOrderId(null);
     }
   };
 
@@ -231,7 +244,9 @@ export default function DriverDashboard() {
                   </div>
                   <div>
                     <h3 className="font-bold text-white text-sm">#ORD-{mission.id.slice(0, 6).toUpperCase()}</h3>
-                    <p className="text-xs text-gray-400">Nouvelle Commande</p>
+                    <p className="text-xs text-gray-400">
+                      {mission.items?.length ? `${mission.items.length} article(s)` : "Nouvelle Commande"}
+                    </p>
                   </div>
                 </div>
                 <div className="font-bold text-green-400 text-sm">
@@ -244,18 +259,31 @@ export default function DriverDashboard() {
                   <MapPin size={12} className="text-gray-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400">Livraison</p>
-                  <p className="text-sm font-medium text-white line-clamp-2">{mission.clientAddress || mission.customerInfo?.address || "Adresse non spécifiée"}</p>
+                  <p className="text-xs text-gray-400">
+                    Livraison {mission.deliveryDetails?.commune ? `(${mission.deliveryDetails.commune})` : ""}
+                  </p>
+                  <p className="text-sm font-medium text-white line-clamp-2">
+                    {mission.clientAddress || mission.customerInfo?.address || mission.deliveryDetails?.address || "Adresse non spécifiée"}
+                  </p>
                 </div>
               </div>
 
               <button 
                 onClick={() => handleAcceptOrder(mission.id)}
-                disabled={isProcessing}
-                className="w-full bg-primary hover:bg-primary-light text-white font-bold py-3.5 rounded-xl shadow-lg transition-colors flex items-center justify-center active:scale-95 disabled:opacity-50"
+                disabled={acceptingOrderId !== null}
+                className="w-full bg-primary hover:bg-primary-light text-white font-bold py-3.5 rounded-xl shadow-lg transition-colors flex items-center justify-center active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <CheckCircle size={18} className="mr-2" /> 
-                {isProcessing ? "Attribution..." : "Accepter la course"}
+                {acceptingOrderId === mission.id ? (
+                  <>
+                    <Loader2 size={18} className="mr-2 animate-spin" />
+                    <span>Attribution en cours...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle size={18} className="mr-2" /> 
+                    <span>Accepter la course</span>
+                  </>
+                )}
               </button>
             </div>
           ))}
