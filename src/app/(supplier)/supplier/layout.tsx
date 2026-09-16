@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { ShieldAlert, LayoutDashboard, Package, ShoppingCart, Truck, Wallet, CreditCard, Users, Layers } from "lucide-react";
+import { ShieldAlert, LayoutDashboard, Package, ShoppingCart, Truck, Wallet, CreditCard, Users, Layers, Lock, ArrowRight } from "lucide-react";
 import { themeConfig } from "@/lib/themeConfig";
 import ProfileUpdateModal from "@/modules/supplier/components/ProfileUpdateModal";
 import DashboardLayout from "@/modules/shared/components/layouts/DashboardLayout";
@@ -178,6 +178,17 @@ export default function SupplierLayout({
     );
   }
 
+  // Verrouillage strict des fonctionnalités si abonnement expiré
+  if (subscriptionInfo.isBlocked) {
+    navItems = navItems.map(item => {
+      const isAllowed = item.href === '/supplier' || item.href === '/supplier/finance' || item.href === '/supplier/settings';
+      return {
+        ...item,
+        locked: !isAllowed
+      };
+    });
+  }
+
   const availableRayons = userData?.assignedRayons || [];
 
   const getRayonLabel = (r: string) => {
@@ -242,21 +253,29 @@ export default function SupplierLayout({
 
       {/* ── Subscription / Deposit State Banners ── */}
       {subscriptionInfo.isBlocked ? (
-        <div className="bg-red-500/15 border-2 border-red-500/40 p-4 rounded-xl flex items-center justify-between gap-4 mb-6 shadow-lg shadow-red-950/20">
-          <div className="flex items-center gap-3">
-            <ShieldAlert className="text-red-400 shrink-0" size={24} />
+        <div className="bg-gradient-to-r from-red-950/50 via-red-900/30 to-red-950/50 border border-red-500/40 p-4 md:p-5 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6 shadow-xl shadow-red-950/25 backdrop-blur-md">
+          <div className="flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400 shrink-0 mt-0.5">
+              <ShieldAlert size={22} />
+            </div>
             <div>
-              <p className="text-red-400 font-bold text-sm">Compte Partenaire Suspendu pour Impayé</p>
-              <p className="text-red-300/80 text-xs mt-0.5">
-                {subscriptionInfo.reason || "Votre délai est dépassé. La publication de nouveaux produits et la réponse aux messages clients sont bloquées jusqu'au règlement de votre dépôt mensuel ($50)."}
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="text-red-400 font-bold text-sm">Période d'essai expirée (15 jours)</p>
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-red-500/20 text-red-300 border border-red-500/30">
+                  Mode Consultation Seul
+                </span>
+              </div>
+              <p className="text-red-200/80 text-xs mt-1 leading-relaxed max-w-2xl">
+                {subscriptionInfo.reason || "Votre délai d'essai est dépassé. Vous pouvez voir votre tableau de bord, mais la publication, la gestion de catalogue et la messagerie sont bloquées. Régularisez votre dépôt mensuel ($50) pour débloquer l'ensemble des fonctionnalités."}
               </p>
             </div>
           </div>
           <button
             onClick={() => router.push('/supplier/finance')}
-            className="shrink-0 px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-lg transition-all shadow-md whitespace-nowrap"
+            className="shrink-0 px-5 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-red-950/40 whitespace-nowrap flex items-center gap-2"
           >
-            Régulariser ($50)
+            <span>Régulariser ($50)</span>
+            <ArrowRight size={14} />
           </button>
         </div>
       ) : subscriptionInfo.isTrial && (

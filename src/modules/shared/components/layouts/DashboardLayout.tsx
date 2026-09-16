@@ -4,8 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { motion } from "framer-motion";
-import { LogOut, Menu, X, Bell, UserCircle, Search, ShieldAlert } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { LogOut, Menu, X, Bell, UserCircle, Search, ShieldAlert, Lock, ArrowRight } from "lucide-react";
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
 
 type MenuItem = {
@@ -14,6 +14,7 @@ type MenuItem = {
   icon: React.ElementType;
   badge?: number;
   requiresPremium?: boolean;
+  locked?: boolean;
   colorClass?: {
     bg: string;
     text: string;
@@ -82,6 +83,8 @@ export function DashboardLayout({
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>(passedNotifications || []);
 
+  const [lockedModalItem, setLockedModalItem] = useState<MenuItem | null>(null);
+
   const unreadCount = passedUnreadCount !== undefined ? passedUnreadCount : notifications.filter(n => !n.read).length;
 
   const userName = passedUserName || user?.displayName || user?.email || "Fournisseur";
@@ -90,6 +93,49 @@ export function DashboardLayout({
   return (
     <div className="flex h-screen bg-[#0B151C] overflow-hidden font-sans">
       {customProfileModal}
+
+      {/* Subscription Locked Feature Modal */}
+      <AnimatePresence>
+        {lockedModalItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 10 }}
+              className="bg-[#0F1B24] border border-red-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-black/80 relative"
+            >
+              <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/25 flex items-center justify-center text-red-400 mb-4">
+                <Lock size={24} />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">
+                Accès restreint : {lockedModalItem.title}
+              </h3>
+              <p className="text-sm text-gray-300 leading-relaxed mb-4">
+                Votre période d'essai de 15 jours est terminée. La navigation et la gestion active de cette section sont bloquées jusqu'au règlement de votre dépôt mensuel ($50).
+              </p>
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 mb-6 text-xs text-gray-300 leading-relaxed">
+                💡 <strong className="text-white">Mode consultation :</strong> Vous pouvez toujours visualiser vos indicateurs globaux sur votre tableau de bord.
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setLockedModalItem(null)}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-white/10 text-gray-300 hover:text-white hover:bg-white/5 text-sm font-medium transition-colors"
+                >
+                  Rester ici
+                </button>
+                <Link
+                  href="/supplier/finance"
+                  onClick={() => setLockedModalItem(null)}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-lg shadow-red-950/40 text-center"
+                >
+                  <span>Payer ($50)</span>
+                  <ArrowRight size={15} />
+                </Link>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
       
       {/* Mobile sidebar overlay */}
       {isSidebarOpen && (
@@ -124,12 +170,31 @@ export function DashboardLayout({
             
             const activeBg = item.colorClass ? item.colorClass.bg : themeColors.activeMenuBg;
             const activeText = item.colorClass ? item.colorClass.text : themeColors.activeMenuText;
+
+            if (item.locked) {
+              return (
+                <div 
+                  key={item.title} 
+                  onClick={() => setLockedModalItem(item)}
+                  className="flex items-center justify-between px-4 py-3 rounded-xl transition-all text-gray-500 hover:bg-red-500/10 hover:text-red-300 cursor-pointer opacity-70 group border border-transparent hover:border-red-500/20"
+                >
+                  <div className="flex items-center space-x-3">
+                    <Icon size={20} strokeWidth={1.8} className="text-gray-500 group-hover:text-red-400" />
+                    <span className="text-sm font-medium">{item.title}</span>
+                  </div>
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500/10 text-red-400 text-[10px] font-bold border border-red-500/20">
+                    <Lock size={10} />
+                    <span>Bloqué</span>
+                  </div>
+                </div>
+              );
+            }
             
             return (
               <Link key={item.title} href={item.href}>
                 <div className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
                   isActive 
-                    ? `${activeBg} ${activeText}` 
+                    ? `${activeBg} ${activeText} shadow-sm` 
                     : "text-gray-400 hover:bg-white/5 hover:text-white"
                 }`}>
                   <div className="flex items-center space-x-3">

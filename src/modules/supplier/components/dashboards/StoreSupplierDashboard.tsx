@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { Package, ShoppingCart, DollarSign, Truck, UtensilsCrossed, LucideIcon } from "lucide-react";
 import { useCurrency } from "@/context/CurrencyContext";
+import { useAuth } from "@/context/AuthContext";
+import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
 import GenericDashboard, { KpiConfig, ActionConfig } from "./shared/GenericDashboard";
 import { useSupplierDashboardStats } from "@/hooks/useSupplierDashboardStats";
 
@@ -65,7 +67,11 @@ interface StoreSupplierDashboardProps {
 export default function StoreSupplierDashboard({ rayon }: StoreSupplierDashboardProps) {
   const router = useRouter();
   const { formatPrice } = useCurrency();
+  const { userData } = useAuth();
   const { stats, loading, revenueData, recentOrders } = useSupplierDashboardStats();
+
+  const subscriptionInfo = evaluateSupplierSubscription(userData);
+  const isBlocked = subscriptionInfo.isBlocked;
 
   const cfg = RAYON_CONFIGS[rayon] || RAYON_CONFIGS.mode;
 
@@ -76,6 +82,7 @@ export default function StoreSupplierDashboard({ rayon }: StoreSupplierDashboard
       subtitle: "Catalogue",
       subInfo: cfg.productKpiSubInfo,
       icon: cfg.productKpiIcon,
+      onClick: isBlocked ? undefined : () => router.push("/supplier/products"),
     },
     {
       title: "Commandes Actives",
@@ -83,6 +90,7 @@ export default function StoreSupplierDashboard({ rayon }: StoreSupplierDashboard
       subtitle: "En cours",
       subInfo: "À traiter / En préparation",
       icon: ShoppingCart,
+      onClick: isBlocked ? undefined : () => router.push("/supplier/orders"),
     },
     {
       title: "Chiffre d'affaires",
@@ -98,6 +106,7 @@ export default function StoreSupplierDashboard({ rayon }: StoreSupplierDashboard
       subInfo: stats.pendingDeliveries > 0 ? "Préparer les colis" : "Tout est expédié",
       icon: Truck,
       alertCondition: stats.pendingDeliveries > 0,
+      onClick: isBlocked ? undefined : () => router.push("/supplier/orders"),
     },
   ];
 
@@ -132,6 +141,7 @@ export default function StoreSupplierDashboard({ rayon }: StoreSupplierDashboard
       emptyStateMessage="Aucune commande récente."
       actionsTitle={cfg.actionsTitle}
       actions={actions}
+      isBlocked={isBlocked}
       renderRecentRow={(order: any) => (
         <tr key={order.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
           <td className="p-4 font-semibold text-white">#{order.id.slice(0, 6).toUpperCase()}</td>

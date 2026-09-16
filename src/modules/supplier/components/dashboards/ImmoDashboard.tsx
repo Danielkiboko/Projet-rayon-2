@@ -14,6 +14,7 @@ import GenericDashboard, { KpiConfig, ActionConfig } from "./shared/GenericDashb
 import { groupPaymentsByDate } from "@/lib/dateUtils";
 import HotelBookingsManager from "@/modules/shared/components/hotels/HotelBookingsManager";
 import { Hotel, CalendarCheck } from "lucide-react";
+import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
 
 export default function ImmoDashboard() {
   const { user, userData } = useAuth();
@@ -169,7 +170,15 @@ export default function ImmoDashboard() {
     };
   }, [user]);
 
+  const subscriptionInfo = evaluateSupplierSubscription(userData);
+  const isBlocked = subscriptionInfo.isBlocked;
+
   const handleApproveVisit = async (visit: any) => {
+    if (isBlocked) {
+      alert("Votre abonnement est suspendu. Veuillez régulariser votre compte dans Finance ($50) pour valider des visites.");
+      window.location.href = '/supplier/finance';
+      return;
+    }
     if (confirm("Confirmer et valider cette visite ?")) {
       try {
         await updateDoc(doc(db, "visits", visit.id), { status: "APPROVED" });
@@ -197,6 +206,11 @@ export default function ImmoDashboard() {
   };
 
   const handleChatWithClient = async (visit: any) => {
+    if (isBlocked) {
+      alert("Votre abonnement est suspendu. Veuillez régulariser votre compte pour accéder à la messagerie.");
+      window.location.href = '/supplier/finance';
+      return;
+    }
     if (!visit.clientId) {
       alert("Ce client n'a pas de compte associé.");
       return;
@@ -233,7 +247,7 @@ export default function ImmoDashboard() {
   ];
 
   const KPIS: KpiConfig[] = [
-    { title: "Propriétés", value: stats.totalProperties.toString(), subtitle: "Total enregistrées", subInfo: "Gérez votre parc", icon: Home, onClick: () => window.location.href = '/supplier/properties' },
+    { title: "Propriétés", value: stats.totalProperties.toString(), subtitle: "Total enregistrées", subInfo: "Gérez votre parc", icon: Home, onClick: isBlocked ? undefined : () => window.location.href = '/supplier/properties' },
     { title: "Gain Prévu (Actifs)", value: `$${stats.totalRent.toFixed(2)}`, subtitle: `${stats.totalTenants} Locataires Actifs`, subInfo: "Taux d'occupation: " + occupancyRate + "%", icon: Users, onClick: () => setSelectedKpiDetail("gains_prevus") },
     { title: "Gain Reçu", value: `$${totalCollected.toFixed(2)}`, subtitle: "Cumul encaissé", subInfo: "Gains réels de l'exploitation", icon: DollarSign, onClick: () => setSelectedKpiDetail("gains_recus") },
     { title: "Pertes & Dettes", value: `$${(stats.lateRentAmount + stats.formerTenantsDebt).toFixed(2)}`, subtitle: `${stats.lateRents} retard(s) + Anciens`, subInfo: (stats.lateRentAmount + stats.formerTenantsDebt) > 0 ? "Envoyez des relances" : "Tout est à jour", icon: AlertCircle, alertCondition: (stats.lateRentAmount + stats.formerTenantsDebt) > 0, onClick: () => setSelectedKpiDetail("dettes") },
@@ -267,6 +281,7 @@ export default function ImmoDashboard() {
         chartColor="#f59e0b"
         actionsTitle="Gérer mon parc"
         actions={actions}
+        isBlocked={isBlocked}
         rightColumnExtra={<StatusPieChart data={occupancyData} title="Taux d'Occupation" />}
         bottomExtra={
           <div className="bg-[#1a1a1a] border border-white/5 rounded-2xl p-6 shadow-sm">
