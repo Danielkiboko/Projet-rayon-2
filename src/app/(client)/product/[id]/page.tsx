@@ -125,10 +125,14 @@ export default function ProductDetails({ params }: { params: { id: string } }) {
   }
 
   const handleOpenChat = () => {
+    const titleStr = typeof productData.title === "object" && productData.title !== null
+      ? (productData.title[lang] || productData.title.fr || productData.title.en || "Produit")
+      : (productData.title || "Produit");
+
     openChatForProduct({
       id: productData.id,
       supplierId: productData.supplierId || "admin",
-      name: productData.title[lang]
+      name: titleStr
     });
   };
 

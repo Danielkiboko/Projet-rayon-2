@@ -75,7 +75,7 @@ export function GlobalChatbot() {
     try {
       const orderId = `ord_${Date.now()}`;
       
-      const currentChatRef = selectedChatId || (activeProduct ? userChats.find(c => c.productId === activeProduct.id)?.id : null);
+      const currentChatRef = selectedChatId || (activeProduct ? `${user?.uid}_${activeProduct.supplierId}_${activeProduct.id}` : null);
       if (currentChatRef) {
         await updateDoc(doc(db, "chats", currentChatRef, "messages", msg.id), {
           "proforma.status": "paid",

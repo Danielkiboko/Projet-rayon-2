@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ShieldCheck, Star, ShoppingBag, ShoppingCart } from "lucide-react";
+import { ShieldCheck, Star, ShoppingBag, ShoppingCart, MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { evaluateProductVerification } from "@/lib/productVerification";
 import { useCart } from "@/context/CartContext";
@@ -57,6 +57,20 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
             {product.tag?.[lang] || defaultTag}
           </span>
         </div>
+
+        {/* Quick Chat Button overlay */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleChat(product);
+          }}
+          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/95 hover:bg-[#0F1D27] text-gray-700 hover:text-[#C7D300] shadow-sm flex items-center justify-center transition-all active:scale-90 z-10"
+          title="Discuter / Négocier (Devis & Proforma)"
+        >
+          <MessageCircle size={13} />
+        </button>
       </div>
 
       {/* Product Info */}
@@ -91,7 +105,7 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
           {formatPrice(product.price)}
         </div>
       
-        {/* Actions — compact row */}
+        {/* Actions — row with Acheter, Chat, Panier, Détails */}
         <div className="flex gap-1.5 mt-auto">
           {onBuy && (
             <button 
@@ -106,16 +120,25 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
           )}
           <button 
             type="button"
+            onClick={() => handleChat(product)}
+            className="flex-1 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer"
+            title="Discuter / Négocier avec le vendeur (Proforma & Devis)"
+          >
+            <MessageCircle size={11} className="text-emerald-600" />
+            <span>Chat</span>
+          </button>
+          <button 
+            type="button"
             onClick={() => addToCart(product, 1)}
-            className="flex-1 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer"
-            title="Panier"
+            className="p-1.5 px-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center cursor-pointer"
+            title="Ajouter au panier"
           >
             <ShoppingCart size={11} className="text-primary" />
-            <span>Panier</span>
           </button>
           <Link 
             href={`/product/${product.id}`}
-            className="flex-1 py-1.5 bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 text-[10px] font-semibold rounded-lg transition-colors flex items-center justify-center"
+            className="p-1.5 px-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 text-[10px] font-semibold rounded-lg transition-colors flex items-center justify-center"
+            title="Détails"
           >
             {t.details || "Détails"}
           </Link>
