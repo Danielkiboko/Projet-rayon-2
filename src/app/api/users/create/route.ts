@@ -81,17 +81,9 @@ export async function POST(req: Request) {
       });
     } catch (createErr: any) {
       if (createErr.code === 'auth/email-already-exists') {
-        userRecord = await adminAuth.getUserByEmail(email);
-        if (finalPassword) {
-          try {
-            await adminAuth.updateUser(userRecord.uid, { password: finalPassword, displayName });
-          } catch (upErr) {
-            console.warn('Could not update existing user credentials:', upErr);
-          }
-        }
-      } else {
-        throw createErr;
+        return NextResponse.json({ error: 'Un compte avec cette adresse e-mail existe déjà.' }, { status: 409 });
       }
+      throw createErr;
     }
 
     // 5. Set Custom Claims (Role & Creation lineage)
