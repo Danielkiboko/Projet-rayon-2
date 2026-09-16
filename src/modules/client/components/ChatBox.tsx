@@ -107,63 +107,40 @@ export function ChatBox({ chatId, otherUserName = "Utilisateur" }: ChatBoxProps)
 
   const handlePayDelivery = async (msg: Message) => {
     if (!user || !msg.proforma) return;
-    
-    // Simule paiement
-    alert("Redirection vers le paiement Makuta pour la livraison...");
-    
+
+    if (msg.proforma.status === "paid") {
+      if (msg.proforma.orderId) {
+        window.location.href = `/order/${msg.proforma.orderId}/tracking`;
+      } else {
+        alert("Cette commande a déjà été confirmée.");
+      }
+      return;
+    }
+
     try {
-      const orderId = `ord_${Date.now()}`;
-      
-      // 1. Mettre à jour le statut
-      if (chatId) {
-        await updateDoc(doc(db, "chats", chatId, "messages", msg.id), {
-          "proforma.status": "paid",
-          "proforma.orderId": orderId
-        });
-      }
-      
-      // 2. Créer la commande
-      await setDoc(doc(db, "orders", orderId), {
-        id: orderId,
-        clientId: user.uid,
-        supplierId: msg.senderId,
-        chatId: chatId,
-        items: [{
-          productId: msg.proforma.productId,
-          productName: msg.proforma.productName,
-          quantity: msg.proforma.quantity,
-          price: msg.proforma.price,
-        }],
-        totalAmount: msg.proforma.price,
-        deliveryFee: msg.proforma.deliveryFee,
-        paymentStatus: 'delivery_paid',
-        status: 'pending_driver',
-        createdAt: serverTimestamp(),
-        clientLocation: {
-          lat: -4.322447, // Kinshasa mock
-          lng: 15.307045
-        }
+      const res = await fetch("/api/orders/pay-proforma", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId: chatId,
+          messageId: msg.id,
+          clientId: user.uid,
+          clientName: user.displayName || user.email || "Client",
+          clientPhone: user.phoneNumber || "",
+          clientAddress: "Kinshasa"
+        })
       });
-      
-      // 3. Déduire le stock
-      if (msg.proforma.productId) {
-        await fetch('/api/orders/update-stock', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            productId: msg.proforma.productId,
-            quantity: msg.proforma.quantity,
-            action: 'decrement'
-          })
-        });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Erreur lors du paiement");
       }
-      
+
       alert("Paiement réussi ! La commande est envoyée aux livreurs.");
-      window.location.href = `/order/${orderId}/tracking`;
-      
-    } catch (error) {
+      window.location.href = `/order/${data.orderId}/tracking`;
+    } catch (error: any) {
       console.error("Erreur de paiement", error);
-      alert("Erreur lors du paiement.");
+      alert(error.message || "Erreur lors du paiement.");
     }
   };
 

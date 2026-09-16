@@ -27,13 +27,18 @@ const getStatusBadge = (status: string) => {
   const normalized = (status || "").toLowerCase();
   switch (normalized) {
     case "delivered":
+    case "completed":
+    case "livre":
       return <span className="flex w-max items-center space-x-1 text-green-400 bg-green-400/10 px-2 py-1 rounded-md text-xs font-medium"><CheckCircle size={12} /><span>Livrée</span></span>;
     case "pending_driver":
+    case "confirmed_awaiting_driver":
       return <span className="flex w-max items-center space-x-1 text-orange-400 bg-orange-400/10 px-2 py-1 rounded-md text-xs font-medium"><Clock size={12} /><span>En attente de livreur</span></span>;
     case "driver_assigned":
+    case "accepted":
       return <span className="flex w-max items-center space-x-1 text-blue-400 bg-blue-400/10 px-2 py-1 rounded-md text-xs font-medium"><Truck size={12} /><span>Livreur assigné</span></span>;
     case "in_transit":
-      return <span className="flex w-max items-center space-x-1 text-primary bg-primary/10 px-2 py-1 rounded-md text-xs font-medium"><Truck size={12} /><span>En transit</span></span>;
+    case "arrived_awaiting_payment":
+      return <span className="flex w-max items-center space-x-1 text-primary bg-primary/10 px-2 py-1 rounded-md text-xs font-medium"><Truck size={12} /><span>En cours de livraison</span></span>;
     case "cancelled":
       return <span className="flex w-max items-center space-x-1 text-red-400 bg-red-400/10 px-2 py-1 rounded-md text-xs font-medium"><XCircle size={12} /><span>Annulée</span></span>;
     default:
@@ -84,11 +89,11 @@ export default function SupplierOrdersPage() {
     let statusMatch = true;
     
     if (filter === "pending") {
-      statusMatch = normalizedStatus === "pending_driver" || normalizedStatus === "driver_assigned";
+      statusMatch = normalizedStatus === "pending_driver" || normalizedStatus === "confirmed_awaiting_driver" || normalizedStatus === "driver_assigned" || normalizedStatus === "accepted";
     } else if (filter === "in_transit") {
-      statusMatch = normalizedStatus === "in_transit";
+      statusMatch = normalizedStatus === "in_transit" || normalizedStatus === "arrived_awaiting_payment";
     } else if (filter === "delivered") {
-      statusMatch = normalizedStatus === "delivered";
+      statusMatch = normalizedStatus === "delivered" || normalizedStatus === "completed" || normalizedStatus === "livre";
     } else if (filter === "cancelled") {
       statusMatch = normalizedStatus === "cancelled";
     }

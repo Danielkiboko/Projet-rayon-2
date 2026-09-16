@@ -73,31 +73,46 @@ service cloud.firestore {
       );
     }
 
-    // Orders collection – each order contains supplierId and optional driverId
+    // Orders collection – each order contains supplierId, optional driverId, and clientId
     match /orders/{orderId} {
-      allow create: if isSuperAdmin() || isAdmin() || (
+      allow create: if request.auth != null && (
+        request.resource.data.clientId == request.auth.uid ||
+        request.resource.data.clientId == 'GUEST' ||
+        isSuperAdmin() || isAdmin() || 
         ownsSupplierData(request.resource.data.supplierId)
       );
 
-      allow read, update, delete: if (
-        isSuperAdmin() || isAdmin() || (
-          ownsSupplierData(resource.data.supplierId)
-        ) || (
-          resource.data.keys().hasAll(['supplierIds']) && (
-            (isSupplier() && request.auth.uid in resource.data.supplierIds) || 
-            (isSubSupplier() && request.auth.token.parentSupplierId in resource.data.supplierIds)
+      allow read: if (
+        resource.data.clientId == 'GUEST' || (
+          request.auth != null && (
+            resource.data.clientId == request.auth.uid ||
+            isSuperAdmin() || isAdmin() || 
+            resource.data.supplierId == request.auth.uid ||
+            ownsSupplierData(resource.data.supplierId) ||
+            (resource.data.keys().hasAll(['supplierIds']) && (
+              (isSupplier() && request.auth.uid in resource.data.supplierIds) || 
+              (isSubSupplier() && request.auth.token.parentSupplierId in resource.data.supplierIds)
+            )) ||
+            (isDriver() && (
+              resource.data.status in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver'] || 
+              resource.data.driverId == request.auth.uid
+            ))
           )
         )
       );
 
-      allow read: if isDriver() && (
-        resource.data.status in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver'] || 
-        resource.data.driverId == request.auth.uid
+      allow update: if request.auth != null && (
+        resource.data.clientId == request.auth.uid ||
+        isSuperAdmin() || isAdmin() || 
+        resource.data.supplierId == request.auth.uid ||
+        ownsSupplierData(resource.data.supplierId) ||
+        (isDriver() && (
+          (request.resource.data.driverId == request.auth.uid && resource.data.status in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver']) ||
+          (resource.data.driverId == request.auth.uid && request.resource.data.driverId == request.auth.uid)
+        ))
       );
-      allow update: if isDriver() && (
-        (request.resource.data.driverId == request.auth.uid && resource.data.status in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver']) ||
-        (resource.data.driverId == request.auth.uid && request.resource.data.driverId == request.auth.uid)
-      );
+
+      allow delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
     }
 
     // Users collection

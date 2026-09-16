@@ -50,21 +50,39 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case "pending_driver": return "En attente d'un livreur";
-      case "driver_assigned": return "Livreur en route vers la boutique";
-      case "in_transit": return "Colis en route vers vous";
-      case "delivered": return "Livré";
-      default: return status;
+      case "pending_driver":
+      case "CONFIRMED_AWAITING_DRIVER":
+        return "En attente d'un livreur";
+      case "driver_assigned":
+      case "ACCEPTED":
+        return "Livreur assigné — En route vers le fournisseur";
+      case "in_transit":
+      case "ARRIVED_AWAITING_PAYMENT":
+        return "Livreur en route vers votre adresse";
+      case "delivered":
+      case "COMPLETED":
+        return "Colis livré avec succès";
+      default:
+        return status || "En cours de traitement";
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "pending_driver": return <Package className="w-6 h-6 text-orange-500" />;
-      case "driver_assigned": return <Truck className="w-6 h-6 text-blue-500" />;
-      case "in_transit": return <Truck className="w-6 h-6 text-primary" />;
-      case "delivered": return <CheckCircle className="w-6 h-6 text-green-500" />;
-      default: return <Package className="w-6 h-6 text-gray-500" />;
+      case "pending_driver":
+      case "CONFIRMED_AWAITING_DRIVER":
+        return <Package className="w-6 h-6 text-orange-500" />;
+      case "driver_assigned":
+      case "ACCEPTED":
+        return <Truck className="w-6 h-6 text-blue-500" />;
+      case "in_transit":
+      case "ARRIVED_AWAITING_PAYMENT":
+        return <Truck className="w-6 h-6 text-primary" />;
+      case "delivered":
+      case "COMPLETED":
+        return <CheckCircle className="w-6 h-6 text-green-500" />;
+      default:
+        return <Package className="w-6 h-6 text-gray-500" />;
     }
   };
 

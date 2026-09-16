@@ -61,87 +61,65 @@ export function GlobalChatbot() {
     return () => unsubscribe();
   }, [user, isChatOpen]);
 
+  const [payingMessageId, setPayingMessageId] = useState<string | null>(null);
+
   const handlePayDelivery = async (msg: any) => {
     if (!user) return;
-    
-    const isHotel = msg.proforma?.type === 'hotel';
-    
-    if (isHotel) {
-      alert(`Validation de votre réservation de séjour (${msg.proforma.price}$)...`);
-    } else {
-      alert("Redirection vers le paiement Makuta pour la livraison (3$)...");
-    }
-    
-    try {
-      const orderId = `ord_${Date.now()}`;
-      
-      const currentChatRef = selectedChatId || (activeProduct ? `${user?.uid}_${activeProduct.supplierId}_${activeProduct.id}` : null);
-      if (currentChatRef) {
-        await updateDoc(doc(db, "chats", currentChatRef, "messages", msg.id), {
-          "proforma.status": "paid",
-          "proforma.orderId": orderId
-        });
+    if (payingMessageId) return;
+
+    // Protection anti-doublon : si déjà payé, rediriger directement vers le suivi
+    if (msg.proforma?.status === 'paid') {
+      if (msg.proforma?.orderId) {
+        closeChat();
+        router.push(`/order/${msg.proforma.orderId}/tracking`);
+      } else {
+        alert("Cette commande a déjà été confirmée.");
       }
-      
-      if (isHotel) {
-        // Enregistrer la réservation hôtelière confirmée
-        await addDoc(collection(db, "hotel_bookings"), {
-          propertyTitle: msg.proforma.productName,
-          supplierId: msg.senderId,
+      return;
+    }
+
+    const currentChatRef = selectedChatId || (activeProduct ? `${user?.uid}_${activeProduct.supplierId}_${activeProduct.id}` : null);
+    if (!currentChatRef) {
+      alert("Erreur de session : impossible d'identifier la conversation.");
+      return;
+    }
+
+    setPayingMessageId(msg.id);
+
+    try {
+      const res = await fetch("/api/orders/pay-proforma", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatId: currentChatRef,
+          messageId: msg.id,
           clientId: user.uid,
-          nightsCount: msg.proforma.quantity,
-          totalPrice: msg.proforma.price,
-          status: "CONFIRMED",
-          createdAt: serverTimestamp()
-        });
-        alert("Réservation confirmée avec succès ! L'établissement a été notifié.");
-        return;
+          clientName: user.displayName || user.email || "Client",
+          clientPhone: guestPhone || user.phoneNumber || "",
+          clientAddress: "Kinshasa"
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Erreur lors de la validation du proforma.");
       }
 
-      // 2. Créer une nouvelle commande "pending_driver" pour e-commerce
-      await setDoc(doc(db, "orders", orderId), {
-        id: orderId,
-        clientId: user.uid,
-        supplierId: msg.senderId, // le fournisseur qui a envoyé le proforma
-        chatId: currentChatRef,
-        items: [{
-          productId: msg.proforma.productId,
-          productName: msg.proforma.productName,
-          quantity: msg.proforma.quantity,
-          price: msg.proforma.price,
-        }],
-        totalAmount: msg.proforma.price, // à payer à la livraison
-        deliveryFee: msg.proforma.deliveryFee, // payé maintenant
-        paymentStatus: 'delivery_paid', // livraison payée, produit à payer
-        status: 'pending_driver', // En attente d'un livreur
-        createdAt: serverTimestamp(),
-        // Mock de position client pour l'instant (à remplacer par une vraie demande de localisation)
-        clientLocation: {
-          lat: -4.322447, // Kinshasa
-          lng: 15.307045
-        }
-      });
-      
-      // 3. Déduire le stock du produit via l'API (contourne les règles de sécurité client)
-      if (msg.proforma.productId) {
-        await fetch('/api/orders/update-stock', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            productId: msg.proforma.productId,
-            quantity: msg.proforma.quantity,
-            action: 'decrement'
-          })
-        });
+      const isHotel = msg.proforma?.type === 'hotel';
+
+      if (isHotel) {
+        alert("Réservation confirmée avec succès ! L'établissement prépare votre arrivée.");
+      } else {
+        alert(`Paiement de livraison validé avec succès ! Commande #${data.orderId} transmise aux livreurs.`);
+        closeChat();
+        router.push(`/order/${data.orderId}/tracking`);
       }
-      
-      alert("Paiement réussi ! La commande est envoyée aux livreurs.");
-      // Rediriger vers le suivi de commande
-      router.push(`/order/${orderId}/tracking`);
-      
-    } catch (error) {
-      console.error("Erreur de paiement", error);
-      alert("Erreur lors de la confirmation.");
+    } catch (error: any) {
+      console.error("Erreur paiement proforma:", error);
+      alert(error.message || "Erreur lors de la confirmation du proforma.");
+    } finally {
+      setPayingMessageId(null);
     }
   };
 
@@ -565,9 +543,17 @@ export function GlobalChatbot() {
                             {msg.proforma.status === 'pending' && (
                               <button 
                                 onClick={() => handlePayDelivery(msg)}
-                                className="w-full bg-gray-900 text-white py-2 rounded-lg font-medium hover:bg-gray-800 transition-colors flex items-center justify-center shadow-sm"
+                                disabled={payingMessageId === msg.id}
+                                className="w-full bg-gray-900 text-white py-2.5 rounded-lg font-medium hover:bg-gray-800 disabled:opacity-60 transition-colors flex items-center justify-center shadow-sm text-xs cursor-pointer"
                               >
-                                {isHotelProforma ? 'Confirmer la Réservation' : 'Payer la Livraison'}
+                                {payingMessageId === msg.id ? (
+                                  <span className="flex items-center gap-1.5">
+                                    <Loader2 size={14} className="animate-spin" />
+                                    <span>Validation en cours...</span>
+                                  </span>
+                                ) : (
+                                  isHotelProforma ? 'Confirmer la Réservation' : 'Payer la Livraison (Valider)'
+                                )}
                               </button>
                             )}
                             

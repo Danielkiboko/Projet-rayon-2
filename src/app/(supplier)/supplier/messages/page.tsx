@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { MessageSquare, Send, User, Lock } from "lucide-react";
+import { MessageSquare, Send, User, Lock, Package } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, addDoc, orderBy, serverTimestamp, doc, updateDoc } from "firebase/firestore";
@@ -34,6 +34,8 @@ type ChatMessage = {
     deliveryFee: number;
     type?: 'hotel' | 'product';
     status: 'pending' | 'paid' | 'delivered';
+    orderId?: string;
+    paidAt?: any;
   };
 };
 
@@ -301,6 +303,26 @@ export default function SupplierMessagesPage() {
                                 <span>{msg.proforma.type === 'hotel' ? 'Total Séjour :' : 'À Payer Maintenant (Livraison):'}</span>
                                 <span>{msg.proforma.type === 'hotel' ? `${msg.proforma.price} $` : `${msg.proforma.deliveryFee} $`}</span>
                               </div>
+
+                              {msg.proforma.status === 'paid' && (
+                                <div className="mt-2 pt-2 border-t border-white/20 flex flex-col gap-1.5">
+                                  <div className="flex items-center justify-between text-xs bg-black/30 p-2 rounded-lg">
+                                    <span className="font-semibold text-white">
+                                      Commande #{msg.proforma.orderId ? msg.proforma.orderId.substring(0, 12) : 'Validée'}
+                                    </span>
+                                    <span className="text-[10px] bg-green-500/20 text-green-300 px-1.5 py-0.5 rounded font-bold">
+                                      Transmise aux livreurs
+                                    </span>
+                                  </div>
+                                  <Link
+                                    href="/supplier/orders"
+                                    className="w-full bg-white/20 hover:bg-white/30 text-white py-1.5 px-2.5 rounded-lg text-xs font-semibold text-center transition-colors flex items-center justify-center gap-1.5"
+                                  >
+                                    <Package size={13} />
+                                    <span>Gérer dans Commandes</span>
+                                  </Link>
+                                </div>
+                              )}
                             </div>
                           ) : (
                             msg.text
