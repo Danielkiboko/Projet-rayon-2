@@ -355,12 +355,7 @@ export default function SuppliersPage() {
       }
 
       if (notificationMethod === 'email') {
-        // 2. Send password reset email non-blockingly so client-side issues don't abort creation
-        try {
-          await sendPasswordResetEmail(auth, email);
-        } catch (emailErr: any) {
-          console.warn("Client sendPasswordResetEmail warning (non-fatal):", emailErr);
-        }
+        console.log("Email d'onboarding géré par le backend.");
       }
 
       // Reset form and close modal
