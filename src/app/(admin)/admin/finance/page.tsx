@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Wallet, ArrowDownRight, ArrowUpRight, Plus, Download, X, Search, 
   FileText, ShieldAlert, CheckCircle, Clock, AlertTriangle, Sliders, RefreshCw, Lock,
-  Calendar, TrendingUp, Landmark
+  Calendar, TrendingUp, Landmark, ShoppingBag
 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { 
@@ -63,9 +63,14 @@ export default function AdminFinancePage() {
   const [ledgerEntries, setLedgerEntries] = useState<AccountingEntry[]>([]);
   const [suppliers, setSuppliers] = useState<UserSupplier[]>([]);
   const [adminStoreSales, setAdminStoreSales] = useState<any[]>([]);
+  const [allPlatformOrders, setAllPlatformOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [journalFilter, setJournalFilter] = useState<string>("ALL");
-  const [periodFilter, setPeriodFilter] = useState<"today" | "yesterday" | "last7days" | "this_month" | "all">("today");
+  const [periodFilter, setPeriodFilter] = useState<"today" | "yesterday" | "last7days" | "this_month" | "all" | "custom">("today");
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>("");
+  const [calendarStartDate, setCalendarStartDate] = useState<string>("");
+  const [calendarEndDate, setCalendarEndDate] = useState<string>("");
+  const [showRangePicker, setShowRangePicker] = useState<boolean>(false);
   const [search, setSearch] = useState("");
 
   // Modals
@@ -140,10 +145,19 @@ export default function AdminFinancePage() {
     const qOrders = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(100));
     const unsubOrders = onSnapshot(qOrders, (snapshot) => {
       const sales: any[] = [];
+      const platformOrders: any[] = [];
       snapshot.forEach((docSnap) => {
         const order = docSnap.data();
         const status = (order.status || "").toUpperCase();
         if (status === "COMPLETED" || status === "LIVRÉE" || status === "DELIVERED") {
+          // Volume total plateforme au prix facturé au client
+          const orderTotal = Number(order.total || order.totalPrice || order.subtotal || 0);
+          platformOrders.push({
+            id: docSnap.id,
+            total: orderTotal,
+            createdAt: order.deliveredAt || order.createdAt
+          });
+
           const adminItems = (order.items || []).filter((item: any) => 
             item.isAdminProduct || 
             item.isOfficialRayons || 
@@ -153,25 +167,10 @@ export default function AdminFinancePage() {
           );
           if (adminItems.length > 0) {
             const amount = adminItems.reduce((acc: number, it: any) => acc + (Number(it.price || 0) * Number(it.quantity || 1)), 0);
-            const capital = adminItems.reduce((acc: number, it: any) => {
-              const c = it.costOfGoodsSold !== undefined 
-                ? Number(it.costOfGoodsSold) 
-                : ((Number(it.purchasePrice) || 0) * (Number(it.quantity) || 1));
-              return acc + c;
-            }, 0);
-            const profit = adminItems.reduce((acc: number, it: any) => {
-              const p = it.grossProfit !== undefined 
-                ? Number(it.grossProfit) 
-                : (((Number(it.price) || 0) - (Number(it.purchasePrice) || 0)) * (Number(it.quantity) || 1));
-              return acc + p;
-            }, 0);
-
             sales.push({
               id: docSnap.id,
               orderId: docSnap.id,
               amount,
-              capital,
-              profit: profit > 0 ? profit : Math.max(0, amount - capital),
               items: adminItems,
               createdAt: order.createdAt
             });
@@ -179,6 +178,7 @@ export default function AdminFinancePage() {
         }
       });
       setAdminStoreSales(sales);
+      setAllPlatformOrders(platformOrders);
     }, (error) => {
       console.warn("Orders finance listener warning:", error.message);
     });
@@ -190,7 +190,7 @@ export default function AdminFinancePage() {
     };
   }, [user, userData, loading, router]);
 
-  // Helpers pour le filtrage par période (24h vs Historique)
+  // Helpers pour le filtrage par période (Calendrier, 24h, Historique)
   const getTxTimestamp = (t: any): number => {
     if (!t) return 0;
     const d = t.createdAt || t.date;
@@ -203,7 +203,7 @@ export default function AdminFinancePage() {
     return isNaN(parsed) ? 0 : parsed;
   };
 
-  const isTxInPeriod = (t: any, period: "today" | "yesterday" | "last7days" | "this_month" | "all"): boolean => {
+  const isTxInPeriod = (t: any, period: "today" | "yesterday" | "last7days" | "this_month" | "all" | "custom"): boolean => {
     if (period === "all") return true;
     const time = getTxTimestamp(t);
     if (!time) return true;
@@ -216,6 +216,26 @@ export default function AdminFinancePage() {
     if (period === "yesterday") return time >= startOfYesterday && time < startOfToday;
     if (period === "last7days") return time >= now.getTime() - 7 * 24 * 60 * 60 * 1000;
     if (period === "this_month") return time >= new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    if (period === "custom") {
+      if (selectedCalendarDate && !calendarStartDate && !calendarEndDate) {
+        const [y, m, d] = selectedCalendarDate.split("-").map(Number);
+        const dayStart = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+        const dayEnd = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+        return time >= dayStart && time <= dayEnd;
+      }
+      let match = true;
+      if (calendarStartDate) {
+        const [y, m, d] = calendarStartDate.split("-").map(Number);
+        const start = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+        if (time < start) match = false;
+      }
+      if (calendarEndDate) {
+        const [y, m, d] = calendarEndDate.split("-").map(Number);
+        const end = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+        if (time > end) match = false;
+      }
+      return match;
+    }
     return true;
   };
 
@@ -226,6 +246,25 @@ export default function AdminFinancePage() {
       case "last7days": return "7 derniers jours";
       case "this_month": return "Ce mois";
       case "all": return "Tout l'historique";
+      case "custom":
+        if (selectedCalendarDate && !calendarStartDate && !calendarEndDate) {
+          const [y, m, d] = selectedCalendarDate.split("-");
+          return `Journée du ${d}/${m}/${y}`;
+        }
+        if (calendarStartDate && calendarEndDate) {
+          const [y1, m1, d1] = calendarStartDate.split("-");
+          const [y2, m2, d2] = calendarEndDate.split("-");
+          return `Du ${d1}/${m1}/${y1} au ${d2}/${m2}/${y2}`;
+        }
+        if (calendarStartDate) {
+          const [y, m, d] = calendarStartDate.split("-");
+          return `Depuis le ${d}/${m}/${y}`;
+        }
+        if (calendarEndDate) {
+          const [y, m, d] = calendarEndDate.split("-");
+          return `Jusqu'au ${d}/${m}/${y}`;
+        }
+        return "Date du calendrier";
     }
   };
 
@@ -262,8 +301,10 @@ export default function AdminFinancePage() {
     .filter(t => t.type === "EXPENSE")
     .reduce((acc, t) => acc + t.amount, 0);
 
-  const periodCapital = periodAdminSales.reduce((acc, s) => acc + (Number(s.capital) || 0), 0);
-  const periodNetProfit = periodAdminSales.reduce((acc, s) => acc + (Number(s.profit) || (s.amount - (Number(s.capital) || 0))), 0) + periodSubscriptions + periodOtherIncome;
+  // Volume global plateforme (au prix facturé aux clients)
+  const periodPlatformVolume = allPlatformOrders
+    .filter(o => isTxInPeriod(o, periodFilter))
+    .reduce((acc, o) => acc + o.total, 0);
 
   // Settle supplier deposit (1-click action)
   const handleSettleSupplierDeposit = async (supplier: UserSupplier) => {
@@ -506,87 +547,201 @@ export default function AdminFinancePage() {
         </motion.div>
       )}
 
-      {/* Sélecteur de Période Comptable Centrale : Journalier (24h) vs Historique */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-[#C7D300]/20 text-[#C7D300] rounded-xl shrink-0">
-            <Calendar size={20} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-bold text-white">
-                Période Comptable : <span className="text-[#C7D300]">{getPeriodLabel()}</span>
-              </h3>
-              {periodFilter === "today" && (
-                <span className="text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Journalier (24h)
-                </span>
-              )}
+      {/* Sélecteur de Période Comptable Centrale : Calendrier interactif & Raccourcis */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col gap-3">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-[#C7D300]/20 text-[#C7D300] rounded-xl shrink-0">
+              <Calendar size={20} />
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {periodFilter === "today" 
-                ? "Affichage des écritures des dernières 24h. Après 24h, les recettes et charges basculent dans l'historique."
-                : `Comptabilité filtrée pour la période : ${getPeriodLabel()}.`}
-            </p>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-bold text-white">
+                  Période Comptable : <span className="text-[#C7D300]">{getPeriodLabel()}</span>
+                </h3>
+                {periodFilter === "today" && (
+                  <span className="text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Journalier (24h)
+                  </span>
+                )}
+                {periodFilter === "custom" && (
+                  <span className="text-[11px] bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                    📅 Date Calendrier active
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {periodFilter === "today" 
+                  ? "Affichage des écritures des dernières 24h. Vous pouvez sélectionner n'importe quelle date au calendrier ci-dessous."
+                  : periodFilter === "custom"
+                  ? `Comptabilité filtrée sur votre sélection du calendrier : ${getPeriodLabel()}.`
+                  : `Comptabilité filtrée pour la période : ${getPeriodLabel()}.`}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto p-1 bg-black/30 border border-white/10 rounded-xl">
+            <button
+              onClick={() => {
+                setPeriodFilter("today");
+                setSelectedCalendarDate("");
+                setCalendarStartDate("");
+                setCalendarEndDate("");
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                periodFilter === "today"
+                  ? "bg-[#C7D300] text-gray-950 shadow-sm"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <span>⚡ Aujourd'hui (24h)</span>
+            </button>
+            <button
+              onClick={() => {
+                setPeriodFilter("yesterday");
+                setSelectedCalendarDate("");
+                setCalendarStartDate("");
+                setCalendarEndDate("");
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                periodFilter === "yesterday"
+                  ? "bg-white text-gray-950 shadow-sm font-bold"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Hier
+            </button>
+            <button
+              onClick={() => {
+                setPeriodFilter("last7days");
+                setSelectedCalendarDate("");
+                setCalendarStartDate("");
+                setCalendarEndDate("");
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                periodFilter === "last7days"
+                  ? "bg-white text-gray-950 shadow-sm font-bold"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              7 derniers jours
+            </button>
+            <button
+              onClick={() => {
+                setPeriodFilter("this_month");
+                setSelectedCalendarDate("");
+                setCalendarStartDate("");
+                setCalendarEndDate("");
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                periodFilter === "this_month"
+                  ? "bg-white text-gray-950 shadow-sm font-bold"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Ce mois
+            </button>
+            <button
+              onClick={() => {
+                setPeriodFilter("all");
+                setSelectedCalendarDate("");
+                setCalendarStartDate("");
+                setCalendarEndDate("");
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
+                periodFilter === "all"
+                  ? "bg-white text-gray-950 shadow-sm font-bold"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <span>📚 Tout l'historique</span>
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto p-1 bg-black/30 border border-white/10 rounded-xl">
-          <button
-            onClick={() => setPeriodFilter("today")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
-              periodFilter === "today"
-                ? "bg-[#C7D300] text-gray-950 shadow-sm"
-                : "text-gray-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            <span>⚡ Aujourd'hui (24h)</span>
-          </button>
-          <button
-            onClick={() => setPeriodFilter("yesterday")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
-              periodFilter === "yesterday"
-                ? "bg-white text-gray-950 shadow-sm font-bold"
-                : "text-gray-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            Hier
-          </button>
-          <button
-            onClick={() => setPeriodFilter("last7days")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
-              periodFilter === "last7days"
-                ? "bg-white text-gray-950 shadow-sm font-bold"
-                : "text-gray-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            7 derniers jours
-          </button>
-          <button
-            onClick={() => setPeriodFilter("this_month")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
-              periodFilter === "this_month"
-                ? "bg-white text-gray-950 shadow-sm font-bold"
-                : "text-gray-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            Ce mois
-          </button>
-          <button
-            onClick={() => setPeriodFilter("all")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1 ${
-              periodFilter === "all"
-                ? "bg-white text-gray-950 shadow-sm font-bold"
-                : "text-gray-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            <span>📚 Tout l'historique</span>
-          </button>
+        {/* Bloc Calendrier Interactif */}
+        <div className="pt-2.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 bg-black/40 border border-white/15 rounded-xl px-3 py-1.5">
+              <span className="text-gray-300 font-medium flex items-center gap-1.5">
+                <Calendar size={14} className="text-[#C7D300]" />
+                <span>Sélectionner une date précise au calendrier :</span>
+              </span>
+              <input
+                type="date"
+                value={selectedCalendarDate}
+                onChange={(e) => {
+                  setSelectedCalendarDate(e.target.value);
+                  setCalendarStartDate("");
+                  setCalendarEndDate("");
+                  setPeriodFilter("custom");
+                }}
+                className="bg-white/10 border border-white/20 rounded-lg px-2.5 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300] cursor-pointer"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowRangePicker(!showRangePicker)}
+              className="text-[#C7D300] hover:underline text-xs font-medium cursor-pointer flex items-center gap-1"
+            >
+              <span>{showRangePicker ? "▾ Masquer la plage" : "▸ Ou filtrer par plage personnalisée (Du ... Au ...)"}</span>
+            </button>
+          </div>
+
+          {periodFilter === "custom" && (
+            <button
+              type="button"
+              onClick={() => {
+                setPeriodFilter("today");
+                setSelectedCalendarDate("");
+                setCalendarStartDate("");
+                setCalendarEndDate("");
+                setShowRangePicker(false);
+              }}
+              className="text-xs bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+            >
+              ✕ Revenir à Aujourd'hui (24h)
+            </button>
+          )}
         </div>
+
+        {/* Plage personnalisée dépliable */}
+        {showRangePicker && (
+          <div className="p-3 bg-black/40 border border-white/10 rounded-xl flex flex-wrap items-center gap-3 text-xs animate-fade-in">
+            <span className="text-gray-400 font-semibold">Période personnalisée :</span>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-300">Du :</span>
+              <input
+                type="date"
+                value={calendarStartDate}
+                onChange={(e) => {
+                  setCalendarStartDate(e.target.value);
+                  setSelectedCalendarDate("");
+                  setPeriodFilter("custom");
+                }}
+                className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300] cursor-pointer"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-300">Au :</span>
+              <input
+                type="date"
+                value={calendarEndDate}
+                onChange={(e) => {
+                  setCalendarEndDate(e.target.value);
+                  setSelectedCalendarDate("");
+                  setPeriodFilter("custom");
+                }}
+                className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300] cursor-pointer"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Financial Overview Cards (6 Cards with Capital & Intérêts) */}
+      {/* Financial Overview Cards (6 Cards confidentielles : pas de marges fournisseurs) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {/* 1. Solde de Caisse Consolidé */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
@@ -624,34 +779,34 @@ export default function AdminFinancePage() {
           <span className="text-[11px] text-gray-400 mt-1 block">Charges & sorties</span>
         </div>
 
-        {/* 4. Capital Récupéré (Prix d'achat des produits vendus) */}
+        {/* 4. Ventes Directes Rayons */}
         <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-indigo-300 text-xs font-semibold uppercase tracking-wider">Capital Récupéré</h3>
+            <h3 className="text-indigo-300 text-xs font-semibold uppercase tracking-wider">Ventes Directes Rayons</h3>
             <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400">
-              <Landmark size={18} />
+              <ShoppingBag size={18} />
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-black text-indigo-400 mt-3">${periodCapital.toFixed(2)}</p>
-          <span className="text-[11px] text-indigo-300/80 mt-1 block">Fonds propres amortis</span>
+          <p className="text-2xl sm:text-3xl font-black text-indigo-400 mt-3">${periodAdminSalesTotal.toFixed(2)}</p>
+          <span className="text-[11px] text-indigo-300/80 mt-1 block">Boutique officielle Rayons</span>
         </div>
 
-        {/* 5. Intérêts Réalisés (Marge nette) */}
+        {/* 5. Volume Global des Ventes Plateforme */}
         <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-emerald-300 text-xs font-semibold uppercase tracking-wider">Intérêts (Bénéfice)</h3>
+            <h3 className="text-emerald-300 text-xs font-semibold uppercase tracking-wider">Volume Global Ventes</h3>
             <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400">
               <TrendingUp size={18} />
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-black text-emerald-400 mt-3">+${periodNetProfit.toFixed(2)}</p>
-          <span className="text-[11px] text-emerald-300/80 mt-1 block">Marge nette {getPeriodLabel()}</span>
+          <p className="text-2xl sm:text-3xl font-black text-emerald-400 mt-3">${periodPlatformVolume.toFixed(2)}</p>
+          <span className="text-[11px] text-emerald-300/80 mt-1 block">Commandes livrées ({getPeriodLabel()})</span>
         </div>
 
         {/* 6. Abonnements Fournisseurs */}
         <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Abonnements</h3>
+            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Abonnements ($50)</h3>
             <div className="p-2 bg-[#C7D300]/20 rounded-lg text-[#C7D300]">
               <ArrowDownRight size={18} />
             </div>

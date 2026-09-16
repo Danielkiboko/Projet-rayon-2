@@ -42,7 +42,11 @@ export default function SupplierFinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState("ALL");
-  const [periodFilter, setPeriodFilter] = useState<"today" | "yesterday" | "last7days" | "this_month" | "all">("today");
+  const [periodFilter, setPeriodFilter] = useState<"today" | "yesterday" | "last7days" | "this_month" | "all" | "custom">("today");
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>("");
+  const [calendarStartDate, setCalendarStartDate] = useState<string>("");
+  const [calendarEndDate, setCalendarEndDate] = useState<string>("");
+  const [showRangePicker, setShowRangePicker] = useState<boolean>(false);
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -520,7 +524,7 @@ export default function SupplierFinancePage() {
     return isNaN(parsed) ? 0 : parsed;
   };
 
-  const isTxInPeriod = (t: any, period: "today" | "yesterday" | "last7days" | "this_month" | "all"): boolean => {
+  const isTxInPeriod = (t: any, period: "today" | "yesterday" | "last7days" | "this_month" | "all" | "custom"): boolean => {
     if (period === "all") return true;
     const time = getTxTimestamp(t);
     if (!time) return true;
@@ -543,6 +547,26 @@ export default function SupplierFinancePage() {
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
       return time >= startOfMonth;
     }
+    if (period === "custom") {
+      if (selectedCalendarDate && !calendarStartDate && !calendarEndDate) {
+        const [y, m, d] = selectedCalendarDate.split("-").map(Number);
+        const dayStart = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+        const dayEnd = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+        return time >= dayStart && time <= dayEnd;
+      }
+      let match = true;
+      if (calendarStartDate) {
+        const [y, m, d] = calendarStartDate.split("-").map(Number);
+        const start = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+        if (time < start) match = false;
+      }
+      if (calendarEndDate) {
+        const [y, m, d] = calendarEndDate.split("-").map(Number);
+        const end = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
+        if (time > end) match = false;
+      }
+      return match;
+    }
     return true;
   };
 
@@ -553,6 +577,25 @@ export default function SupplierFinancePage() {
       case "last7days": return "7 derniers jours";
       case "this_month": return "Ce mois";
       case "all": return "Tout l'historique";
+      case "custom":
+        if (selectedCalendarDate && !calendarStartDate && !calendarEndDate) {
+          const [y, m, d] = selectedCalendarDate.split("-");
+          return `Journée du ${d}/${m}/${y}`;
+        }
+        if (calendarStartDate && calendarEndDate) {
+          const [y1, m1, d1] = calendarStartDate.split("-");
+          const [y2, m2, d2] = calendarEndDate.split("-");
+          return `Du ${d1}/${m1}/${y1} au ${d2}/${m2}/${y2}`;
+        }
+        if (calendarStartDate) {
+          const [y, m, d] = calendarStartDate.split("-");
+          return `Depuis le ${d}/${m}/${y}`;
+        }
+        if (calendarEndDate) {
+          const [y, m, d] = calendarEndDate.split("-");
+          return `Jusqu'au ${d}/${m}/${y}`;
+        }
+        return "Date du calendrier";
     }
   };
 
@@ -716,84 +759,199 @@ export default function SupplierFinancePage() {
         </div>
       )}
 
-      {/* Sélecteur de Période Comptable : Journalier (24h) vs Historique */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-primary/20 text-primary-light rounded-xl shrink-0">
-            <Calendar size={20} />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-bold text-white">
-                Période Comptable : <span className="text-primary-light">{getPeriodLabel()}</span>
-              </h3>
-              {periodFilter === "today" && (
-                <span className="text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Journalier (24h en direct)
-                </span>
-              )}
+      {/* Sélecteur de Période Comptable : Calendrier interactif & Raccourcis */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col gap-3">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-primary/20 text-primary-light rounded-xl shrink-0">
+              <Calendar size={20} />
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {periodFilter === "today" 
-                ? "Affichage direct des entrées/sorties des dernières 24h. Après 24h, les écritures basculent automatiquement dans l'historique."
-                : `Comptabilité filtrée pour la période sélectionnée : ${getPeriodLabel()}.`}
-            </p>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-bold text-white">
+                  Période Comptable : <span className="text-primary-light">{getPeriodLabel()}</span>
+                </h3>
+                {periodFilter === "today" && (
+                  <span className="text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Journalier (24h en direct)
+                  </span>
+                )}
+                {periodFilter === "custom" && (
+                  <span className="text-[11px] bg-primary/20 text-primary-light border border-primary/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                    📅 Date Calendrier active
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {periodFilter === "today" 
+                  ? "Affichage direct des écritures des dernières 24h. Vous pouvez sélectionner n'importe quelle date au calendrier ci-dessous."
+                  : periodFilter === "custom"
+                  ? `Comptabilité filtrée sur votre sélection du calendrier : ${getPeriodLabel()}.`
+                  : `Comptabilité filtrée pour la période sélectionnée : ${getPeriodLabel()}.`}
+              </p>
+            </div>
+          </div>
+
+          {/* Raccourcis temporels */}
+          <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto p-1 bg-black/30 border border-white/10 rounded-xl">
+            <button
+              onClick={() => {
+                setPeriodFilter("today");
+                setSelectedCalendarDate("");
+                setCalendarStartDate("");
+                setCalendarEndDate("");
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
+                periodFilter === "today"
+                  ? "bg-primary text-white shadow-sm"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <span>⚡ Aujourd'hui (24h)</span>
+            </button>
+            <button
+              onClick={() => {
+                setPeriodFilter("yesterday");
+                setSelectedCalendarDate("");
+                setCalendarStartDate("");
+                setCalendarEndDate("");
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                periodFilter === "yesterday"
+                  ? "bg-white text-gray-950 shadow-sm font-bold"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Hier
+            </button>
+            <button
+              onClick={() => {
+                setPeriodFilter("last7days");
+                setSelectedCalendarDate("");
+                setCalendarStartDate("");
+                setCalendarEndDate("");
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                periodFilter === "last7days"
+                  ? "bg-white text-gray-950 shadow-sm font-bold"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              7 derniers jours
+            </button>
+            <button
+              onClick={() => {
+                setPeriodFilter("this_month");
+                setSelectedCalendarDate("");
+                setCalendarStartDate("");
+                setCalendarEndDate("");
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer ${
+                periodFilter === "this_month"
+                  ? "bg-white text-gray-950 shadow-sm font-bold"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Ce mois
+            </button>
+            <button
+              onClick={() => {
+                setPeriodFilter("all");
+                setSelectedCalendarDate("");
+                setCalendarStartDate("");
+                setCalendarEndDate("");
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
+                periodFilter === "all"
+                  ? "bg-white text-gray-950 shadow-sm font-bold"
+                  : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <span>📚 Tout l'historique</span>
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto p-1 bg-black/30 border border-white/10 rounded-xl">
-          <button
-            onClick={() => setPeriodFilter("today")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
-              periodFilter === "today"
-                ? "bg-primary text-white shadow-sm"
-                : "text-gray-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            <span>⚡ Aujourd'hui (24h)</span>
-          </button>
-          <button
-            onClick={() => setPeriodFilter("yesterday")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
-              periodFilter === "yesterday"
-                ? "bg-white text-gray-950 shadow-sm font-bold"
-                : "text-gray-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            Hier
-          </button>
-          <button
-            onClick={() => setPeriodFilter("last7days")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
-              periodFilter === "last7days"
-                ? "bg-white text-gray-950 shadow-sm font-bold"
-                : "text-gray-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            7 derniers jours
-          </button>
-          <button
-            onClick={() => setPeriodFilter("this_month")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
-              periodFilter === "this_month"
-                ? "bg-white text-gray-950 shadow-sm font-bold"
-                : "text-gray-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            Ce mois
-          </button>
-          <button
-            onClick={() => setPeriodFilter("all")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1 ${
-              periodFilter === "all"
-                ? "bg-white text-gray-950 shadow-sm font-bold"
-                : "text-gray-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            <span>📚 Tout l'historique</span>
-          </button>
+        {/* Bloc Calendrier Interactif */}
+        <div className="pt-2.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2 bg-black/40 border border-white/15 rounded-xl px-3 py-1.5">
+              <span className="text-gray-300 font-medium flex items-center gap-1.5">
+                <Calendar size={14} className="text-primary-light" />
+                <span>Sélectionner une date précise au calendrier :</span>
+              </span>
+              <input
+                type="date"
+                value={selectedCalendarDate}
+                onChange={(e) => {
+                  setSelectedCalendarDate(e.target.value);
+                  setCalendarStartDate("");
+                  setCalendarEndDate("");
+                  setPeriodFilter("custom");
+                }}
+                className="bg-white/10 border border-white/20 rounded-lg px-2.5 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowRangePicker(!showRangePicker)}
+              className="text-primary-light hover:underline text-xs font-medium cursor-pointer flex items-center gap-1"
+            >
+              <span>{showRangePicker ? "▾ Masquer la plage" : "▸ Ou filtrer par plage personnalisée (Du ... Au ...)"}</span>
+            </button>
+          </div>
+
+          {periodFilter === "custom" && (
+            <button
+              type="button"
+              onClick={() => {
+                setPeriodFilter("today");
+                setSelectedCalendarDate("");
+                setCalendarStartDate("");
+                setCalendarEndDate("");
+                setShowRangePicker(false);
+              }}
+              className="text-xs bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+            >
+              ✕ Revenir à Aujourd'hui (24h)
+            </button>
+          )}
         </div>
+
+        {/* Plage personnalisée dépliable */}
+        {showRangePicker && (
+          <div className="p-3 bg-black/40 border border-white/10 rounded-xl flex flex-wrap items-center gap-3 text-xs animate-fade-in">
+            <span className="text-gray-400 font-semibold">Période personnalisée :</span>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-300">Du :</span>
+              <input
+                type="date"
+                value={calendarStartDate}
+                onChange={(e) => {
+                  setCalendarStartDate(e.target.value);
+                  setSelectedCalendarDate("");
+                  setPeriodFilter("custom");
+                }}
+                className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-300">Au :</span>
+              <input
+                type="date"
+                value={calendarEndDate}
+                onChange={(e) => {
+                  setCalendarEndDate(e.target.value);
+                  setSelectedCalendarDate("");
+                  setPeriodFilter("custom");
+                }}
+                className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* KPI Cards */}
