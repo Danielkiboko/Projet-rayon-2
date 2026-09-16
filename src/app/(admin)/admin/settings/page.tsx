@@ -40,7 +40,7 @@ interface Category {
 
 const DEFAULT_SETTINGS: PlatformSettings = {
   monthlySubscriptionPrice: 50,
-  trialDurationDays: 30,
+  trialDurationDays: 15,
   defaultDeliveryFee: 0,
   adminShopName: "Rayons Officiel",
   adminContactPhone: "",
@@ -161,7 +161,7 @@ export default function AdminSettingsPage() {
     try {
       const dataToSave: Record<string, any> = {
         monthlySubscriptionPrice: Number(settings.monthlySubscriptionPrice) || 50,
-        trialDurationDays: Number(settings.trialDurationDays) || 30,
+        trialDurationDays: Number(settings.trialDurationDays) || 15,
         defaultDeliveryFee: Number(settings.defaultDeliveryFee) || 0,
         adminShopName: settings.adminShopName || "Rayons Officiel",
         adminContactPhone: settings.adminContactPhone || "",

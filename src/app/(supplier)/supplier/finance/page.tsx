@@ -90,6 +90,31 @@ export default function SupplierFinancePage() {
     }
 
     if (user) {
+      // Synchronisation de sécurité : Période d'essai officielle stricte de 15 jours (gérée par l'admin)
+      if (
+        userData?.subscriptionStatus === "TRIAL" && 
+        !userData?.adminCustomTrial && 
+        userData?.createdAt &&
+        activeSupplierId
+      ) {
+        try {
+          const created = userData.createdAt.toDate ? userData.createdAt.toDate() : new Date(userData.createdAt);
+          const maxTrialEnd = new Date(created);
+          maxTrialEnd.setDate(maxTrialEnd.getDate() + 15);
+          const currentEnd = userData.subscriptionEndDate?.toDate 
+            ? userData.subscriptionEndDate.toDate() 
+            : (userData.subscriptionEndDate ? new Date(userData.subscriptionEndDate) : null);
+          
+          if (!currentEnd || currentEnd.getTime() > maxTrialEnd.getTime() + 86400000) {
+            updateDoc(doc(db, "users", activeSupplierId), {
+              subscriptionEndDate: maxTrialEnd,
+              trialPeriodDays: 15
+            }).catch(e => console.warn("Sync trial end date:", e));
+          }
+        } catch (e) {
+          console.warn("Error auto-syncing trial:", e);
+        }
+      }
 
       // 1. Fetch transactions (Livre de Caisse & Opérations)
       const qTx = query(
@@ -732,14 +757,18 @@ export default function SupplierFinancePage() {
             </div>
             <div>
               <h3 className="font-bold text-sm text-white">
-                {subscriptionInfo.isBlocked ? "Compte Suspendu : Dépôt Mensuel Attendu ($50)" :
-                 subscriptionInfo.isTrial ? `Période d'essai active : 15 Jours (${subscriptionInfo.daysLeft}j restants)` :
-                 "Abonnement Partenaire Rayons.net Actif"}
+                {subscriptionInfo.isBlocked 
+                  ? "Compte Suspendu : Dépôt Mensuel Attendu ($50)" 
+                  : subscriptionInfo.isTrial 
+                  ? `Période d'essai active : ${subscriptionInfo.daysLeft} jour${subscriptionInfo.daysLeft > 1 ? "s" : ""} restant${subscriptionInfo.daysLeft > 1 ? "s" : ""}` 
+                  : "Abonnement Partenaire Rayons.net Actif"}
               </h3>
               <p className="text-xs opacity-80 mt-0.5">
-                {subscriptionInfo.isBlocked ? "Le délai est dépassé. Régularisez votre dépôt pour débloquer la publication de vos articles et la messagerie client." :
-                 subscriptionInfo.isTrial ? `Prochaine échéance du premier dépôt le ${subscriptionInfo.formattedDueDate}. Profitez de vos 15 jours offerts.` :
-                 `Votre compte est en règle jusqu'au ${subscriptionInfo.formattedDueDate}.`}
+                {subscriptionInfo.isBlocked 
+                  ? "Le délai est dépassé. Régularisez votre dépôt pour débloquer la publication de vos articles et la messagerie client." 
+                  : subscriptionInfo.isTrial 
+                  ? `Échéance du premier dépôt le ${subscriptionInfo.formattedDueDate}. Période d'essai de 15 jours gérée par l'administration.` 
+                  : `Votre compte est en règle jusqu'au ${subscriptionInfo.formattedDueDate}.`}
               </p>
             </div>
           </div>
@@ -747,7 +776,7 @@ export default function SupplierFinancePage() {
           <div>
             <button
               onClick={handlePayDeposit}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
                 subscriptionInfo.isBlocked 
                   ? "bg-red-600 hover:bg-red-500 text-white animate-pulse" 
                   : "bg-white/10 hover:bg-white/20 text-white border border-white/20"
@@ -759,151 +788,57 @@ export default function SupplierFinancePage() {
         </div>
       )}
 
-      {/* Sélecteur de Période Comptable : Calendrier interactif & Raccourcis */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col gap-3">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-primary/20 text-primary-light rounded-xl shrink-0">
-              <Calendar size={20} />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm font-bold text-white">
-                  Période Comptable : <span className="text-primary-light">{getPeriodLabel()}</span>
-                </h3>
-                {periodFilter === "today" && (
-                  <span className="text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    Journalier (24h en direct)
-                  </span>
-                )}
-                {periodFilter === "custom" && (
-                  <span className="text-[11px] bg-primary/20 text-primary-light border border-primary/40 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                    📅 Date Calendrier active
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {periodFilter === "today" 
-                  ? "Affichage direct des écritures des dernières 24h. Vous pouvez sélectionner n'importe quelle date au calendrier ci-dessous."
-                  : periodFilter === "custom"
-                  ? `Comptabilité filtrée sur votre sélection du calendrier : ${getPeriodLabel()}.`
-                  : `Comptabilité filtrée pour la période sélectionnée : ${getPeriodLabel()}.`}
-              </p>
-            </div>
+      {/* Sélecteur de Date Comptable Épuré : Calendrier & Aujourd'hui (24h) */}
+      <div className="bg-[#0B0F17]/80 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-primary/15 text-primary-light rounded-xl shrink-0 border border-primary/20">
+            <Calendar size={20} />
           </div>
-
-          {/* Raccourcis temporels */}
-          <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto p-1 bg-black/30 border border-white/10 rounded-xl">
-            <button
-              onClick={() => {
-                setPeriodFilter("today");
-                setSelectedCalendarDate("");
-                setCalendarStartDate("");
-                setCalendarEndDate("");
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
-                periodFilter === "today"
-                  ? "bg-primary text-white shadow-sm"
-                  : "text-gray-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              <span>⚡ Aujourd'hui (24h)</span>
-            </button>
-            <button
-              onClick={() => {
-                setPeriodFilter("yesterday");
-                setSelectedCalendarDate("");
-                setCalendarStartDate("");
-                setCalendarEndDate("");
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer ${
-                periodFilter === "yesterday"
-                  ? "bg-white text-gray-950 shadow-sm font-bold"
-                  : "text-gray-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              Hier
-            </button>
-            <button
-              onClick={() => {
-                setPeriodFilter("last7days");
-                setSelectedCalendarDate("");
-                setCalendarStartDate("");
-                setCalendarEndDate("");
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer ${
-                periodFilter === "last7days"
-                  ? "bg-white text-gray-950 shadow-sm font-bold"
-                  : "text-gray-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              7 derniers jours
-            </button>
-            <button
-              onClick={() => {
-                setPeriodFilter("this_month");
-                setSelectedCalendarDate("");
-                setCalendarStartDate("");
-                setCalendarEndDate("");
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer ${
-                periodFilter === "this_month"
-                  ? "bg-white text-gray-950 shadow-sm font-bold"
-                  : "text-gray-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              Ce mois
-            </button>
-            <button
-              onClick={() => {
-                setPeriodFilter("all");
-                setSelectedCalendarDate("");
-                setCalendarStartDate("");
-                setCalendarEndDate("");
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
-                periodFilter === "all"
-                  ? "bg-white text-gray-950 shadow-sm font-bold"
-                  : "text-gray-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              <span>📚 Tout l'historique</span>
-            </button>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-white">
+                Période Comptable : <span className="text-primary-light">{getPeriodLabel()}</span>
+              </h3>
+              {periodFilter === "today" ? (
+                <span className="text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  Journalier (24h en direct)
+                </span>
+              ) : (
+                <span className="text-[11px] bg-primary/20 text-primary-light border border-primary/40 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                  📅 Date sélectionnée
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {periodFilter === "today" 
+                ? "Écritures des dernières 24h. Choisissez une date précise au calendrier pour consulter une autre journée."
+                : `Comptabilité filtrée pour : ${getPeriodLabel()}.`}
+            </p>
           </div>
         </div>
 
-        {/* Bloc Calendrier Interactif */}
-        <div className="pt-2.5 border-t border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2 bg-black/40 border border-white/15 rounded-xl px-3 py-1.5">
-              <span className="text-gray-300 font-medium flex items-center gap-1.5">
-                <Calendar size={14} className="text-primary-light" />
-                <span>Sélectionner une date précise au calendrier :</span>
-              </span>
-              <input
-                type="date"
-                value={selectedCalendarDate}
-                onChange={(e) => {
-                  setSelectedCalendarDate(e.target.value);
-                  setCalendarStartDate("");
-                  setCalendarEndDate("");
-                  setPeriodFilter("custom");
-                }}
-                className="bg-white/10 border border-white/20 rounded-lg px-2.5 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowRangePicker(!showRangePicker)}
-              className="text-primary-light hover:underline text-xs font-medium cursor-pointer flex items-center gap-1"
-            >
-              <span>{showRangePicker ? "▾ Masquer la plage" : "▸ Ou filtrer par plage personnalisée (Du ... Au ...)"}</span>
-            </button>
+        {/* Contrôles Calendrier & Reset Aujourd'hui */}
+        <div className="flex items-center gap-2.5 flex-wrap w-full md:w-auto justify-start md:justify-end">
+          <div className="flex items-center gap-2 bg-black/40 border border-white/15 rounded-xl px-3 py-1.5">
+            <span className="text-xs text-gray-300 font-medium flex items-center gap-1.5">
+              <Calendar size={14} className="text-primary-light" />
+              <span className="hidden sm:inline">Choisir une date :</span>
+            </span>
+            <input
+              type="date"
+              value={selectedCalendarDate}
+              onChange={(e) => {
+                setSelectedCalendarDate(e.target.value);
+                setCalendarStartDate("");
+                setCalendarEndDate("");
+                setPeriodFilter("custom");
+              }}
+              className="bg-white/10 border border-white/20 rounded-lg px-2.5 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+            />
           </div>
 
-          {periodFilter === "custom" && (
+          {periodFilter === "custom" ? (
             <button
               type="button"
               onClick={() => {
@@ -913,17 +848,37 @@ export default function SupplierFinancePage() {
                 setCalendarEndDate("");
                 setShowRangePicker(false);
               }}
-              className="text-xs bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+              className="text-xs bg-primary hover:bg-primary-light text-gray-950 font-bold px-3 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
             >
-              ✕ Revenir à Aujourd'hui (24h)
+              <span>⚡ Revenir à Aujourd'hui (24h)</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setPeriodFilter("today");
+                setSelectedCalendarDate("");
+              }}
+              className="text-xs bg-primary/20 text-primary-light font-bold px-3 py-2 rounded-xl border border-primary/30 flex items-center gap-1.5"
+            >
+              <span>⚡ Aujourd'hui (24h)</span>
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={() => setShowRangePicker(!showRangePicker)}
+            className="text-xs text-gray-400 hover:text-white px-2 py-1 transition-colors cursor-pointer"
+            title="Plage de dates (Du / Au)"
+          >
+            {showRangePicker ? "▾ Masquer plage" : "▸ Plage"}
+          </button>
         </div>
 
-        {/* Plage personnalisée dépliable */}
+        {/* Plage personnalisée si dépliée */}
         {showRangePicker && (
-          <div className="p-3 bg-black/40 border border-white/10 rounded-xl flex flex-wrap items-center gap-3 text-xs animate-fade-in">
-            <span className="text-gray-400 font-semibold">Période personnalisée :</span>
+          <div className="w-full pt-3 border-t border-white/10 flex flex-wrap items-center gap-3 text-xs animate-fade-in">
+            <span className="text-gray-400 font-semibold">Plage personnalisée :</span>
             <div className="flex items-center gap-2">
               <span className="text-gray-300">Du :</span>
               <input

@@ -44,7 +44,9 @@ export default function SuppliersPage() {
   const [selectedSupplierToApprove, setSelectedSupplierToApprove] = useState<Supplier | null>(null);
   const [selectedSupplierForAccess, setSelectedSupplierForAccess] = useState<Supplier | null>(null);
   const [newSubDate, setNewSubDate] = useState("");
-  const [daysToAdd, setDaysToAdd] = useState<number>(30);
+  const [daysToAdd, setDaysToAdd] = useState<number>(15);
+  const [selectedSubStatus, setSelectedSubStatus] = useState<"TRIAL" | "ACTIVE" | "SUSPENDED_PAYMENT">("TRIAL");
+  const [customExpiryDate, setCustomExpiryDate] = useState<string>("");
   
   // Rayon tab filter state: 'all' | 'immo' | 'mode' | 'connect' | 'saveurs'
   const [selectedRayonFilter, setSelectedRayonFilter] = useState<"all" | "immo" | "mode" | "connect" | "saveurs">("all");
@@ -195,31 +197,48 @@ export default function SuppliersPage() {
     }
   };
 
+  const openSubModal = (supplier: Supplier) => {
+    setSelectedSupplierId(supplier.id);
+    setSelectedSupplierSub(supplier);
+    const status = supplier.subscriptionStatus || "TRIAL";
+    setSelectedSubStatus(status === "ACTIVE" ? "ACTIVE" : status === "SUSPENDED_PAYMENT" ? "SUSPENDED_PAYMENT" : "TRIAL");
+    setDaysToAdd(15);
+    setCustomExpiryDate("");
+    setIsSubModalOpen(true);
+  };
+
   const handleUpdateSubscription = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedSupplierId) return;
     setIsLoading(true);
     try {
       const ref = doc(db, "users", selectedSupplierId);
       
-      // Compute new end date: take existing end date (if in the future) or now,
-      // then add the requested days on top so remaining days are preserved.
-      let baseDate = new Date();
-      if (selectedSupplierSub?.subscriptionEndDate) {
-        const existing = selectedSupplierSub.subscriptionEndDate.toDate
-          ? selectedSupplierSub.subscriptionEndDate.toDate()
-          : new Date(selectedSupplierSub.subscriptionEndDate);
-        if (existing > baseDate) {
-          baseDate = existing;
+      let newEndDate: Date;
+      if (customExpiryDate) {
+        newEndDate = new Date(customExpiryDate);
+        newEndDate.setHours(23, 59, 59, 999);
+      } else {
+        let baseDate = new Date();
+        if (selectedSupplierSub?.subscriptionEndDate) {
+          const existing = selectedSupplierSub.subscriptionEndDate.toDate
+            ? selectedSupplierSub.subscriptionEndDate.toDate()
+            : new Date(selectedSupplierSub.subscriptionEndDate);
+          if (existing > baseDate) {
+            baseDate = existing;
+          }
         }
+        newEndDate = new Date(baseDate);
+        newEndDate.setDate(newEndDate.getDate() + Number(daysToAdd));
       }
-      const newEndDate = new Date(baseDate);
-      newEndDate.setDate(newEndDate.getDate() + Number(daysToAdd));
 
       await updateDoc(ref, {
         subscriptionEndDate: newEndDate,
-        subscriptionStatus: "ACTIVE"
+        subscriptionStatus: selectedSubStatus,
+        adminCustomTrial: true,
+        trialPeriodDays: 15
       });
-      setSuccessMessage(`Abonnement prolongé de ${daysToAdd} jours. Nouvelle échéance : ${newEndDate.toLocaleDateString("fr-FR")}`);
+      setSuccessMessage(`Statut et échéance mis à jour (${selectedSubStatus === "TRIAL" ? "Période d'essai" : selectedSubStatus === "ACTIVE" ? "Abonnement Actif" : "Suspendu"}). Nouvelle échéance : ${newEndDate.toLocaleDateString("fr-FR")}`);
       setIsSubModalOpen(false);
       setSelectedSupplierSub(null);
       fetchSuppliers();
@@ -911,37 +930,43 @@ export default function SuppliersPage() {
                         ) : (
                           <div className="flex flex-col">
                             {(() => {
-                              let statusStr = supplier.subscriptionStatus || "Non défini";
-                              let statusClass = "text-gray-400";
-                              
-                              if (statusStr === "ACTIVE" || statusStr === "TRIAL") {
-                                if (supplier.subscriptionEndDate) {
-                                  const endDate = new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate);
-                                  if (new Date() > endDate) {
-                                    statusStr = "EXPIRÉ";
-                                    statusClass = "text-red-500 font-bold";
-                                  } else {
-                                    statusClass = statusStr === "TRIAL" ? "text-blue-400" : "text-green-400";
-                                  }
-                                } else {
-                                  statusClass = statusStr === "TRIAL" ? "text-blue-400" : "text-green-400";
-                                }
-                              } else {
-                                statusClass = "text-red-400";
+                              const status = supplier.subscriptionStatus || "TRIAL";
+                              const endDate = supplier.subscriptionEndDate ? new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate) : null;
+                              const daysLeft = endDate ? Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+                              const isExpired = daysLeft <= 0;
+
+                              if (isExpired) {
+                                return (
+                                  <span className="inline-flex items-center gap-1 text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-md w-max">
+                                    ⛔ Expiré ({daysLeft <= 0 ? `${Math.abs(daysLeft)}j de retard` : ""})
+                                  </span>
+                                );
                               }
 
-                              return <span className={statusClass}>{statusStr}</span>;
+                              if (status === "TRIAL") {
+                                return (
+                                  <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-300 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md w-max">
+                                    ⏱️ Essai ({daysLeft}j restants)
+                                  </span>
+                                );
+                              }
+
+                              return (
+                                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md w-max">
+                                  ✅ Actif ({daysLeft}j restants)
+                                </span>
+                              );
                             })()}
                             {supplier.subscriptionEndDate && (
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-gray-400 mt-1">
                                 Échéance: {new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate).toLocaleDateString("fr-FR")}
                               </span>
                             )}
                             <button 
-                              onClick={() => { setSelectedSupplierId(supplier.id); setSelectedSupplierSub(supplier); setDaysToAdd(30); setIsSubModalOpen(true); }}
-                              className="text-xs text-primary-light mt-1 text-left hover:underline"
+                              onClick={() => openSubModal(supplier)}
+                              className="text-xs text-primary-light font-medium mt-1 text-left hover:underline flex items-center gap-1 cursor-pointer"
                             >
-                              Prolonger
+                              <span>⚙️ Gérer l'abonnement / Essai</span>
                             </button>
                           </div>
                         )}
@@ -1326,25 +1351,28 @@ export default function SuppliersPage() {
         )}
       </AnimatePresence>
 
-      {/* Subscription Update Modal */}
+      {/* Subscription & Trial Management Modal */}
       <AnimatePresence>
         {isSubModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-sm bg-[#140b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+              className="w-full max-w-md bg-[#0B0F17] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
             >
-              <div className="flex items-center justify-between p-6 border-b border-white/10">
-                <h2 className="text-xl font-semibold text-white">Prolonger Abonnement</h2>
-                <button onClick={() => { setIsSubModalOpen(false); setSelectedSupplierSub(null); }} className="text-gray-400 hover:text-white">
-                  <X size={24} />
+              <div className="flex items-center justify-between p-5 border-b border-white/10">
+                <div>
+                  <h2 className="text-lg font-bold text-white">Gérer Période d'Essai & Abonnement</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">Partenaire : <span className="text-white font-semibold">{selectedSupplierSub?.name}</span></p>
+                </div>
+                <button onClick={() => { setIsSubModalOpen(false); setSelectedSupplierSub(null); }} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/5 cursor-pointer">
+                  <X size={20} />
                 </button>
               </div>
 
-              <form onSubmit={handleUpdateSubscription} className="p-6 space-y-4">
-                {/* Current subscription status */}
+              <form onSubmit={handleUpdateSubscription} className="p-5 space-y-4">
+                {/* État actuel du partenaire */}
                 {selectedSupplierSub && (() => {
                   const currentEnd = selectedSupplierSub.subscriptionEndDate
                     ? (selectedSupplierSub.subscriptionEndDate.toDate
@@ -1354,78 +1382,142 @@ export default function SuppliersPage() {
                   const daysLeft = currentEnd
                     ? Math.ceil((currentEnd.getTime() - Date.now()) / 86400000)
                     : null;
+                  const status = selectedSupplierSub.subscriptionStatus || "TRIAL";
                   return (
-                    <div className="bg-white/5 border border-white/10 rounded-lg p-3 space-y-1">
-                      <p className="text-xs text-gray-400 uppercase font-semibold">Abonnement actuel</p>
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-1 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400 uppercase font-semibold text-[10px]">Statut en base :</span>
+                        <span className={`px-2 py-0.5 rounded-full font-bold ${
+                          status === "TRIAL" ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" :
+                          status === "ACTIVE" ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" :
+                          "bg-red-500/20 text-red-300 border border-red-500/30"
+                        }`}>
+                          {status === "TRIAL" ? "Période d'essai" : status === "ACTIVE" ? "Abonnement Actif" : "Suspendu"}
+                        </span>
+                      </div>
                       {currentEnd ? (
-                        <>
-                          <p className="text-sm text-white">
-                            Échéance : <span className="font-semibold">{currentEnd.toLocaleDateString("fr-FR")}</span>
-                          </p>
-                          <p className={`text-sm font-medium ${daysLeft && daysLeft > 0 ? 'text-green-400' : 'text-red-400'}`}>
-                            {daysLeft && daysLeft > 0 ? `${daysLeft} jour(s) restant(s)` : `Expiré depuis ${Math.abs(daysLeft || 0)} jour(s)`}
-                          </p>
-                        </>
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-gray-300">Échéance actuelle :</span>
+                          <span className="font-semibold text-white">{currentEnd.toLocaleDateString("fr-FR")} ({daysLeft && daysLeft > 0 ? `${daysLeft}j restants` : `Expiré`})</span>
+                        </div>
                       ) : (
-                        <p className="text-sm text-gray-500">Aucun abonnement actif</p>
+                        <p className="text-gray-400 pt-1">Aucune date d'échéance renseignée.</p>
                       )}
-                      <p className="text-xs text-gray-500 pt-1">Les jours restants seront préservés et les nouveaux jours s'ajouteront par-dessus.</p>
                     </div>
                   );
                 })()}
 
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-300">Nombre de jours à ajouter</label>
+                {/* 1. Choix du statut d'utilisation */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-300">Statut du compte fournisseur</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSubStatus("TRIAL")}
+                      className={`p-2 rounded-xl text-xs font-bold transition-all border text-center cursor-pointer ${
+                        selectedSubStatus === "TRIAL"
+                          ? "bg-blue-500/20 text-blue-300 border-blue-500/50 shadow-sm"
+                          : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
+                      }`}
+                    >
+                      ⏱️ Essai (15j)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSubStatus("ACTIVE")}
+                      className={`p-2 rounded-xl text-xs font-bold transition-all border text-center cursor-pointer ${
+                        selectedSubStatus === "ACTIVE"
+                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-sm"
+                          : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
+                      }`}
+                    >
+                      ✅ Actif (Payé)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSubStatus("SUSPENDED_PAYMENT")}
+                      className={`p-2 rounded-xl text-xs font-bold transition-all border text-center cursor-pointer ${
+                        selectedSubStatus === "SUSPENDED_PAYMENT"
+                          ? "bg-red-500/20 text-red-300 border-red-500/50 shadow-sm"
+                          : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
+                      }`}
+                    >
+                      ⛔ Suspendu
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Nombre de jours à accorder ou date précise */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-300">Durée ou prolongation</label>
                   <div className="flex items-center gap-2">
                     {[15, 30, 60, 90].map(d => (
                       <button
                         key={d}
                         type="button"
-                        onClick={() => setDaysToAdd(d)}
-                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          daysToAdd === d
-                            ? 'bg-primary text-white'
+                        onClick={() => {
+                          setDaysToAdd(d);
+                          setCustomExpiryDate("");
+                        }}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          daysToAdd === d && !customExpiryDate
+                            ? 'bg-primary text-gray-950 shadow-sm'
                             : 'bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10'
                         }`}
                       >
-                        {d}j
+                        {d === 15 ? "15j (Essai)" : `+${d}j`}
                       </button>
                     ))}
                   </div>
-                  <input
-                    type="number"
-                    min={1}
-                    max={365}
-                    value={daysToAdd}
-                    onChange={(e) => setDaysToAdd(Number(e.target.value))}
-                    className="w-full mt-2 px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white"
-                    placeholder="Ou entrez un nombre personnalisé"
-                  />
+
+                  <div className="pt-2">
+                    <label className="text-[11px] text-gray-400 block mb-1">Ou fixer une date d'échéance précise au calendrier :</label>
+                    <input
+                      type="date"
+                      value={customExpiryDate}
+                      onChange={(e) => setCustomExpiryDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                    />
+                  </div>
                 </div>
 
-                {/* Preview of new end date */}
+                {/* Aperçu de la nouvelle échéance */}
                 {selectedSupplierSub && (() => {
-                  const currentEnd = selectedSupplierSub.subscriptionEndDate
-                    ? (selectedSupplierSub.subscriptionEndDate.toDate
-                        ? selectedSupplierSub.subscriptionEndDate.toDate()
-                        : new Date(selectedSupplierSub.subscriptionEndDate))
-                    : null;
-                  const base = currentEnd && currentEnd > new Date() ? currentEnd : new Date();
-                  const preview = new Date(base);
-                  preview.setDate(preview.getDate() + Number(daysToAdd));
+                  let preview: Date;
+                  if (customExpiryDate) {
+                    preview = new Date(customExpiryDate);
+                  } else {
+                    const currentEnd = selectedSupplierSub.subscriptionEndDate
+                      ? (selectedSupplierSub.subscriptionEndDate.toDate
+                          ? selectedSupplierSub.subscriptionEndDate.toDate()
+                          : new Date(selectedSupplierSub.subscriptionEndDate))
+                      : null;
+                    const base = currentEnd && currentEnd > new Date() ? currentEnd : new Date();
+                    preview = new Date(base);
+                    preview.setDate(preview.getDate() + Number(daysToAdd));
+                  }
                   return (
-                    <p className="text-xs text-gray-400">
-                      Nouvelle échéance prévue : <span className="text-white font-semibold">{preview.toLocaleDateString("fr-FR")}</span>
-                    </p>
+                    <div className="p-2.5 bg-primary/10 border border-primary/20 rounded-xl text-xs text-gray-300 flex items-center justify-between">
+                      <span>Nouvelle échéance calculée :</span>
+                      <span className="text-primary-light font-bold">{preview.toLocaleDateString("fr-FR")}</span>
+                    </div>
                   );
                 })()}
                 
                 <div className="pt-2 flex justify-end space-x-3">
-                  <button type="button" onClick={() => { setIsSubModalOpen(false); setSelectedSupplierSub(null); }} className="px-4 py-2 text-gray-400 hover:text-white transition-colors">
+                  <button 
+                    type="button" 
+                    onClick={() => { setIsSubModalOpen(false); setSelectedSupplierSub(null); }} 
+                    className="px-4 py-2 text-xs font-semibold text-gray-400 hover:text-white transition-colors cursor-pointer"
+                  >
                     Annuler
                   </button>
-                  <button type="submit" disabled={isLoading} className="bg-primary hover:bg-primary-light text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50">
-                    {isLoading ? "En cours..." : `Ajouter ${daysToAdd} jour(s)`}
+                  <button 
+                    type="submit" 
+                    disabled={isLoading} 
+                    className="bg-primary hover:bg-primary-light text-gray-950 font-bold px-5 py-2 rounded-xl text-xs transition-all shadow-md cursor-pointer disabled:opacity-50"
+                  >
+                    {isLoading ? "Enregistrement..." : "Appliquer"}
                   </button>
                 </div>
               </form>

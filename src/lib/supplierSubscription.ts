@@ -94,15 +94,29 @@ export function evaluateSupplierSubscription(userData: any): SupplierSubscriptio
     };
   }
 
-  const endDate = userData.subscriptionEndDate.toDate 
+  const isTrial = userData.subscriptionStatus === "TRIAL";
+  const created = userData.createdAt?.toDate 
+    ? userData.createdAt.toDate() 
+    : (userData.createdAt ? new Date(userData.createdAt) : null);
+
+  let endDate = userData.subscriptionEndDate.toDate 
     ? userData.subscriptionEndDate.toDate() 
     : new Date(userData.subscriptionEndDate);
+
+  // Règle d'entreprise stricte : Le trial est de 15 jours maximum à la création, non 30 jours.
+  // Si le compte a été initialisé avec 30 jours par erreur et sans personnalisation admin explicite,
+  // on recadre l'échéance à 15 jours à compter de la création.
+  if (isTrial && !userData.adminCustomTrial && created) {
+    const maxOfficialTrialEnd = new Date(created);
+    maxOfficialTrialEnd.setDate(maxOfficialTrialEnd.getDate() + TRIAL_DURATION_DAYS);
+    if (endDate.getTime() > maxOfficialTrialEnd.getTime()) {
+      endDate = maxOfficialTrialEnd;
+    }
+  }
 
   const now = new Date();
   const diffTime = endDate.getTime() - now.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  const isTrial = userData.subscriptionStatus === "TRIAL";
 
   if (diffDays <= 0) {
     return {

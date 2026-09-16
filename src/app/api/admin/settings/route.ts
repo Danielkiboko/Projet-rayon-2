@@ -16,7 +16,7 @@ export async function POST(req: Request) {
 
     const dataToSave: Record<string, any> = {
       monthlySubscriptionPrice: Number(settings.monthlySubscriptionPrice) || 50,
-      trialDurationDays: Number(settings.trialDurationDays) || 30,
+      trialDurationDays: Number(settings.trialDurationDays) || 15,
       defaultDeliveryFee: Number(settings.defaultDeliveryFee) || 0,
       adminShopName: settings.adminShopName || "Rayons Officiel",
       adminContactPhone: settings.adminContactPhone || "",
