@@ -16,27 +16,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized: Invalid token' }, { status: 401 });
     }
 
-    let callerRole = decodedToken.role;
     const callerUid = decodedToken.uid;
     const callerEmail = (decodedToken.email || '').toLowerCase().trim();
-    const isSuperAdmin = callerEmail === "danielkiboko218@gmail.com";
 
-    // Fallback to Firestore if token has no role claim
-    if (!callerRole) {
-      try {
-        const userDoc = await adminDb.collection('users').doc(callerUid).get();
-        if (userDoc.exists) {
-          callerRole = userDoc.data()?.role;
-        }
-      } catch (dbErr) {
-        console.warn('Could not fetch caller doc from Firestore:', dbErr);
+    // Check latest role from Firestore first
+    let firestoreRole: string | null = null;
+    try {
+      const userDoc = await adminDb.collection('users').doc(callerUid).get();
+      if (userDoc.exists) {
+        firestoreRole = userDoc.data()?.role;
       }
+    } catch (dbErr) {
+      console.warn('Could not fetch caller doc from Firestore:', dbErr);
     }
 
-    const normalizedRole = (callerRole || '').toString().toLowerCase();
-    const isAuthorizedAdmin = isSuperAdmin || 
-      ['superadmin', 'super_admin', 'admin', 'sub_admin'].includes(normalizedRole);
-    const isSupplierCaller = ['supplier', 'supplier_immo', 'sub_supplier'].includes(normalizedRole);
+    const rawRole = (firestoreRole || decodedToken.role || '').toString().toUpperCase();
+    const isSuperAdminCaller = callerEmail === "danielkiboko218@gmail.com" || rawRole === 'SUPER_ADMIN' || rawRole === 'SUPERADMIN';
+    const isSubAdminCaller = ['SUB_ADMIN', 'SUBADMIN', 'ADMIN'].includes(rawRole);
+    const isAuthorizedAdmin = isSuperAdminCaller || isSubAdminCaller;
+    const isSupplierCaller = ['SUPPLIER', 'SUPPLIER_IMMO', 'SUB_SUPPLIER'].includes(rawRole);
 
     const body = await req.json();
     const { uid, collectionName } = body;
@@ -45,11 +43,38 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing uid' }, { status: 400 });
     }
 
+    // CRITICAL SECURITY: The Super Admin can NEVER be deleted or revoked by anyone!
+    let targetDocSnap: any = null;
+    try {
+      targetDocSnap = await adminDb.collection('users').doc(uid).get();
+      if (targetDocSnap.exists) {
+        const targetData = targetDocSnap.data();
+        const targetEmail = (targetData?.email || '').toLowerCase().trim();
+        const targetRole = (targetData?.role || '').toString().toUpperCase();
+        if (targetEmail === 'danielkiboko218@gmail.com' || targetRole === 'SUPER_ADMIN' || targetRole === 'SUPERADMIN') {
+          return NextResponse.json({ 
+            error: 'Action interdite : Le compte Super Administrateur (Directeur Général) ne peut jamais être révoqué ni supprimé.' 
+          }, { status: 403 });
+        }
+
+        // Sub-Admins cannot delete other internal staff members
+        if (isSubAdminCaller && !isSuperAdminCaller) {
+          const staffRoles = ['SUB_ADMIN', 'SUBADMIN', 'ADMIN', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS'];
+          if (staffRoles.includes(targetRole) || targetData?.isInternalStaff) {
+            return NextResponse.json({ 
+              error: 'Action interdite : Un Sous-Administrateur ne peut pas révoquer ni supprimer un membre de l\'équipe administrative.' 
+            }, { status: 403 });
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('Error checking target user before deletion:', err);
+    }
+
     if (!isAuthorizedAdmin) {
       // Si ce n'est pas un admin, vérifier si le demandeur est le parentSupplier du compte à supprimer
       if (isSupplierCaller) {
-        const targetDoc = await adminDb.collection('users').doc(uid).get();
-        const targetData = targetDoc.data();
+        const targetData = targetDocSnap?.data();
         if (!targetData || (targetData.parentSupplierId !== callerUid && targetData.createdBy !== callerUid)) {
           return NextResponse.json({ error: 'Forbidden: You can only delete your own sub-agents' }, { status: 403 });
         }

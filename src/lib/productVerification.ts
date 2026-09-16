@@ -31,17 +31,19 @@ export function evaluateProductVerification(product: any): ProductVerificationSt
     };
   }
 
-  // 1. Vérification si c'est un produit de l'Admin
-  const isAdmin = 
-    product.isAdminProduct === true || 
-    product.isOfficialRayons === true ||
-    product.supplierRole === "ADMIN" || 
-    product.supplierRole === "admin" || 
-    product.supplierEmail === "danielkiboko218@gmail.com" ||
-    product.supplierId === "admin" ||
-    !product.supplierId; // Si pas de supplierId spécifié sur un produit initial
+  // 1. Vérification stricte : Seul un produit DIRECTEMENT publié par l'Admin est "Certifié • Officiel Rayons".
+  // Un produit créé par un fournisseur (même validé par l'admin) appartient au fournisseur et sa réputation dépend uniquement de la notation client.
+  const isDirectAdminProduct = Boolean(
+    (product.isAdminProduct === true || product.isOfficialRayons === true) &&
+    (
+      product.supplierEmail === "danielkiboko218@gmail.com" ||
+      product.supplierId === "admin" ||
+      product.supplierRole === "SUPER_ADMIN" ||
+      product.supplierRole === "superAdmin"
+    )
+  );
 
-  if (isAdmin) {
+  if (isDirectAdminProduct) {
     return {
       isVerified: true,
       isAdminProduct: true,

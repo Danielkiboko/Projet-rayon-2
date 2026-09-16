@@ -284,7 +284,11 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
       try {
         const prod = products.find(p => p.id === id);
         await updateDoc(doc(db, "products", id), {
-          status: "Disponible"
+          status: "Disponible",
+          isAdminProduct: false,
+          isOfficialRayons: false,
+          approvedByAdmin: true,
+          approvedAt: serverTimestamp(),
         });
         if (prod && prod.supplierId) {
           await addDoc(collection(db, "inapp_notifications"), {

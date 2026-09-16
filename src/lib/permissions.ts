@@ -16,9 +16,14 @@ export const isTeamMember = (userData: any): boolean => {
   return ["SUB_ADMIN", "ADMIN_FINANCE", "ADMIN_DB", "ADMIN_TECH", "ADMIN_OPS", "SUPER_ADMIN", "ADMIN"].includes(role);
 };
 
-const isSubAdmin = (userData: any): boolean => {
+export const isSubAdmin = (userData: any): boolean => {
   const role = (userData?.role || "").toUpperCase();
   return ["SUB_ADMIN", "ADMIN_FINANCE", "ADMIN_DB", "ADMIN_TECH", "ADMIN_OPS", "ADMIN"].includes(role);
+};
+
+export const isGeneralSubAdmin = (userData: any): boolean => {
+  const role = (userData?.role || "").toUpperCase();
+  return role === "SUB_ADMIN" || role === "SUBADMIN" || role === "ADMIN";
 };
 
 /**
@@ -33,26 +38,26 @@ export const hasAdminAccess = (user: any, userData: any): boolean => {
  */
 export const canAccessFinance = (user: any, userData: any): boolean => {
   const role = (userData?.role || "").toUpperCase();
-  return isSuperAdmin(user, userData) || role === "ADMIN_FINANCE" || role === "SUB_ADMIN";
+  return isSuperAdmin(user, userData) || role === "ADMIN_FINANCE" || role === "SUB_ADMIN" || role === "ADMIN";
 };
 
 export const canAccessDatabase = (user: any, userData: any): boolean => {
   const role = (userData?.role || "").toUpperCase();
-  return isSuperAdmin(user, userData) || role === "ADMIN_DB" || role === "ADMIN_TECH" || role === "SUB_ADMIN";
+  return isSuperAdmin(user, userData) || role === "ADMIN_DB" || role === "ADMIN_TECH" || role === "SUB_ADMIN" || role === "ADMIN";
 };
 
 export const canAccessOperations = (user: any, userData: any): boolean => {
   const role = (userData?.role || "").toUpperCase();
-  return isSuperAdmin(user, userData) || role === "ADMIN_OPS" || role === "SUB_ADMIN";
+  return isSuperAdmin(user, userData) || role === "ADMIN_OPS" || role === "SUB_ADMIN" || role === "ADMIN";
 };
 
 export const getRoleTitle = (role?: string): string => {
   const r = (role || "").toUpperCase();
   if (r.includes("SUPER")) return "Directeur Général (Super Admin)";
+  if (r === "SUB_ADMIN" || r === "SUBADMIN" || r === "ADMIN") return "Sous-Administrateur Général";
   if (r.includes("FINANCE")) return "Gestionnaire Financier & Comptabilité";
   if (r.includes("DB") || r.includes("TECH")) return "Gestionnaire Base de Données & Catalogue";
   if (r.includes("OPS")) return "Gestionnaire des Opérations & Logistique";
-  if (r === "SUB_ADMIN") return "Administrateur Délégué";
   return "Collaborateur";
 };
 

@@ -231,13 +231,16 @@ export default function AdminSettingsPage() {
     );
   };
 
-  if (!isSuper) {
+  const userRole = (userData?.role || "").toUpperCase();
+  const canManageSettings = isSuper || userRole === "SUB_ADMIN" || userRole === "ADMIN";
+
+  if (!canManageSettings) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center">
           <AlertTriangle size={48} className="mx-auto mb-4 text-red-500/50" />
           <h2 className="text-white font-bold text-xl">Accès Restreint</h2>
-          <p className="text-gray-400 mt-2 text-sm">Seul le Super Administrateur peut gérer ces paramètres.</p>
+          <p className="text-gray-400 mt-2 text-sm">Seuls la direction et les administrateurs délégués peuvent gérer ces paramètres.</p>
         </div>
       </div>
     );

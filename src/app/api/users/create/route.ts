@@ -23,32 +23,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `Unauthorized: Invalid token. Details: ${error.message}` }, { status: 401 });
     }
 
-    let callerRole = decodedToken.role;
     const callerUid = decodedToken.uid;
     const callerEmail = (decodedToken.email || '').toLowerCase().trim();
 
-    // Bootstrap rule: If the caller is a designated superAdmin
-    const isSuperAdminEmail = callerEmail === 'danielkiboko218@gmail.com';
-    if (!callerRole && isSuperAdminEmail) {
-      callerRole = 'superAdmin';
-    }
-
-    // Fallback to Firestore if token has no role claim
-    if (!callerRole) {
-      try {
-        const userDoc = await adminDb.collection('users').doc(callerUid).get();
-        if (userDoc.exists) {
-          callerRole = userDoc.data()?.role;
-        }
-      } catch (dbErr) {
-        console.warn('Could not fetch caller doc from Firestore:', dbErr);
+    // Check latest role from Firestore first (source of truth), then fallback to token claim
+    let firestoreRole: string | null = null;
+    try {
+      const userDoc = await adminDb.collection('users').doc(callerUid).get();
+      if (userDoc.exists) {
+        firestoreRole = userDoc.data()?.role;
       }
+    } catch (dbErr) {
+      console.warn('Could not fetch caller doc from Firestore:', dbErr);
     }
 
-    const normalizedRole = (callerRole || '').toString().toLowerCase();
-    const isAdminCaller = isSuperAdminEmail || 
-      ['superadmin', 'super_admin', 'admin', 'sub_admin'].includes(normalizedRole);
-    const isSupplierCaller = ['supplier', 'supplier_immo', 'sub_supplier'].includes(normalizedRole);
+    const rawRole = (firestoreRole || decodedToken.role || '').toString().toUpperCase();
+    const isSuperAdminEmail = callerEmail === 'danielkiboko218@gmail.com';
+    const isSuperAdminCaller = isSuperAdminEmail || rawRole === 'SUPER_ADMIN' || rawRole === 'SUPERADMIN';
+    const isSubAdminCaller = ['SUB_ADMIN', 'SUBADMIN', 'ADMIN'].includes(rawRole);
+    const isAdminCaller = isSuperAdminCaller || isSubAdminCaller;
+    const isSupplierCaller = ['SUPPLIER', 'SUPPLIER_IMMO', 'SUB_SUPPLIER', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT', 'SUPPLIER_SAVEURS', 'FOURNISSEUR'].includes(rawRole);
 
     if (!isAdminCaller && !isSupplierCaller) {
       return NextResponse.json({ error: 'Forbidden: Insufficient privileges to create users' }, { status: 403 });
@@ -66,8 +60,16 @@ export async function POST(req: Request) {
     if (isSupplierCaller && !['driver', 'SUB_SUPPLIER'].includes(roleToCreate)) {
       return NextResponse.json({ error: 'Forbidden: Suppliers can only create drivers and sub-suppliers' }, { status: 403 });
     }
-    if (normalizedRole === 'admin' && roleToCreate === 'superAdmin') {
-      return NextResponse.json({ error: 'Forbidden: Admins cannot create super admins' }, { status: 403 });
+    
+    // Non-super admins can NEVER create or promote someone to Super Admin!
+    const roleUpper = roleToCreate.toUpperCase();
+    if (!isSuperAdminCaller && (roleUpper === 'SUPER_ADMIN' || roleUpper === 'SUPERADMIN')) {
+      return NextResponse.json({ error: 'Action interdite : Seul le Super Administrateur peut créer un Super Admin.' }, { status: 403 });
+    }
+
+    // Only Super Admin can create internal staff members (Sub Admin, Admin Finance, Admin DB, etc.)
+    if (!isSuperAdminCaller && ['SUB_ADMIN', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS'].includes(roleUpper)) {
+      return NextResponse.json({ error: 'Action interdite : Seul le Super Administrateur peut nommer des collaborateurs internes.' }, { status: 403 });
     }
 
     // 4. Create or Retrieve the User in Firebase Auth
@@ -89,7 +91,7 @@ export async function POST(req: Request) {
     // 5. Set Custom Claims (Role & Creation lineage)
     const claims: any = {
       role: roleToCreate,
-      createdBy: isSupplierCaller ? callerUid : (callerRole || 'superAdmin'),
+      createdBy: isSupplierCaller ? callerUid : (rawRole || 'superAdmin'),
     };
     if (extraData?.parentSupplierId) {
       claims.parentSupplierId = extraData.parentSupplierId;
@@ -126,7 +128,7 @@ export async function POST(req: Request) {
       displayName,
       role: roleToCreate,
       createdBy: claims.createdBy,
-      creatorRole: callerRole || 'superAdmin',
+      creatorRole: rawRole || 'superAdmin',
       createdAt: new Date(),
       status: 'active',
       ...additionalData

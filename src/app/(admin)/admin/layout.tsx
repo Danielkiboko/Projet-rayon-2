@@ -163,6 +163,11 @@ export default function AdminLayout({
   const filteredMenuItems = ADMIN_MENU.filter((item) => {
     if (isSuper) return true;
 
+    // Sub-Admin sees all modules exactly like the Super Admin
+    if (userRole === "SUB_ADMIN" || userRole === "SUBADMIN" || userRole === "ADMIN") {
+      return true;
+    }
+
     if (userRole === "ADMIN_FINANCE") {
       return ["/admin/dashboard", "/admin/finance", "/admin/orders", "/admin/settings"].includes(item.href);
     }
@@ -173,12 +178,13 @@ export default function AdminLayout({
       return ["/admin/dashboard", "/admin/orders", "/admin/drivers", "/admin/clients", "/admin/settings"].includes(item.href);
     }
     
-    // Sub admin sees everything except Health and Team (reserved for Super Admin)
-    return !["/admin/health", "/admin/team"].includes(item.href);
+    return !["/admin/health"].includes(item.href);
   });
 
   const roleBadgeValue = isSuper 
     ? "SUPER ADMIN" 
+    : userRole === "SUB_ADMIN" || userRole === "SUBADMIN" || userRole === "ADMIN"
+    ? "SOUS-ADMINISTRATEUR"
     : userRole === "ADMIN_FINANCE" 
     ? "GESTIONNAIRE FINANCE"
     : userRole === "ADMIN_DB" || userRole === "ADMIN_TECH"
@@ -189,6 +195,8 @@ export default function AdminLayout({
 
   const userRoleTitle = isSuper 
     ? "Directeur Général (Super Admin)" 
+    : userRole === "SUB_ADMIN" || userRole === "SUBADMIN" || userRole === "ADMIN"
+    ? "Sous-Administrateur Général (Adjoint)"
     : userRole === "ADMIN_FINANCE" 
     ? "Responsable Finances & Caisse"
     : userRole === "ADMIN_DB" || userRole === "ADMIN_TECH"
