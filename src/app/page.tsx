@@ -632,9 +632,9 @@ export default function Home() {
                 </div>
 
                 {loading ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
-                    {[1, 2, 3, 4].map(i => (
-                      <div key={i} className="animate-pulse bg-white rounded-2xl h-64 border border-gray-100" />
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                    {[1, 2, 3, 4, 5, 6].map(i => (
+                      <div key={i} className="animate-pulse bg-white rounded-xl h-44 border border-gray-100" />
                     ))}
                   </div>
                 ) : items.length === 0 ? (
@@ -642,7 +642,7 @@ export default function Home() {
                     <p className="text-gray-400 font-medium">Bientôt de nouveaux articles dans ce rayon.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
                     {items.map((item) => {
                       const itemName = item.title?.fr || item.title || item.name || "Article";
                       const itemImage = item.image || item.images?.[0] || "https://images.unsplash.com/photo-1522071820081-009f0129c71c";
@@ -653,37 +653,37 @@ export default function Home() {
                       return (
                         <div
                           key={item.id}
-                          className="group bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 border border-gray-100 flex flex-col"
+                          className="group bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100 flex flex-col"
                         >
-                          <div className="relative aspect-square overflow-hidden bg-gray-100">
+                          <div className="relative h-32 overflow-hidden bg-gray-100">
                             <OptimizedImage
                               src={itemImage}
                               alt={itemName}
                               fill
-                              sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
                               className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
                             />
-                            <button className="absolute top-3 right-3 w-8 h-8 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 shadow-sm transition-all active:scale-90">
-                              <Heart size={15} />
+                            <button className="absolute top-2 right-2 w-6 h-6 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 shadow-sm transition-all active:scale-90">
+                              <Heart size={12} />
                             </button>
                           </div>
-                          <div className="p-4 flex flex-col flex-1">
-                            <p className="text-xs font-semibold text-gray-400 mb-1 truncate">{itemCategory}</p>
-                            <h3 className="font-bold text-gray-900 text-sm leading-snug mb-2 line-clamp-2 group-hover:text-[#0F1D27] transition-colors">
+                          <div className="p-2.5 flex flex-col flex-1">
+                            <p className="text-[10px] font-semibold text-gray-400 mb-0.5 truncate">{itemCategory}</p>
+                            <h3 className="font-semibold text-gray-900 text-xs leading-snug mb-1 line-clamp-2 group-hover:text-[#0F1D27] transition-colors">
                               {itemName}
                             </h3>
-                            <div className="mt-auto flex items-center justify-between pt-3 border-t border-gray-50">
-                              <span className="font-bold text-base text-gray-900">
+                            <div className="mt-auto flex items-center justify-between pt-2 border-t border-gray-50">
+                              <span className="font-bold text-sm text-gray-900">
                                 {formatPrice(item.price)}
-                                {isImmoSection && item.immoBranch === "hotel" && <span className="text-xs text-gray-400 font-normal"> / nuit</span>}
-                                {isImmoSection && item.typeTransaction?.toLowerCase().includes("locat") && <span className="text-xs text-gray-400 font-normal"> / mois</span>}
+                                {isImmoSection && item.immoBranch === "hotel" && <span className="text-[10px] text-gray-400 font-normal"> / nuit</span>}
+                                {isImmoSection && item.typeTransaction?.toLowerCase().includes("locat") && <span className="text-[10px] text-gray-400 font-normal"> / mois</span>}
                               </span>
                               <button
                                 onClick={() => openChatForProduct({ id: item.id, supplierId: item.supplierId || "admin", name: itemName })}
-                                className="w-8 h-8 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center hover:bg-[#0F1D27] hover:text-white transition-all active:scale-90"
+                                className="w-6 h-6 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center hover:bg-[#0F1D27] hover:text-white transition-all active:scale-90"
                                 title="Poser une question"
                               >
-                                <MessageCircle size={15} />
+                                <MessageCircle size={12} />
                               </button>
                             </div>
                           </div>
