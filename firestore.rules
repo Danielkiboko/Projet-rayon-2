@@ -66,7 +66,10 @@ service cloud.firestore {
       allow create: if isSuperAdmin() || isAdmin() || ownsSupplierData(request.resource.data.supplierId);
       allow read, update, delete: if (
         isSuperAdmin() || isAdmin() || (
-          ownsSupplierData(resource.data.supplierId)
+          ownsSupplierData(resource.data.supplierId) ||
+          (resource.data.keys().hasAll(['parentSupplierId']) && ownsSupplierData(resource.data.parentSupplierId))
+        ) || (
+          request.auth != null && request.auth.uid == driverId
         ) || (
           isDriver() && request.auth.uid == driverId
         )
@@ -119,7 +122,11 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
       allow read, write: if isSuperAdmin() || isAdmin();
-      allow read, update: if ownsSupplierData(resource.data.parentSupplierId);
+      allow read, update: if (
+        (resource.data.keys().hasAll(['parentSupplierId']) && ownsSupplierData(resource.data.parentSupplierId)) ||
+        (resource.data.keys().hasAll(['createdBy']) && ownsSupplierData(resource.data.createdBy)) ||
+        (resource.data.keys().hasAll(['supplierId']) && ownsSupplierData(resource.data.supplierId))
+      );
     }
 
     // Chats collection

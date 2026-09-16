@@ -27,34 +27,71 @@ export default function DriverDashboard() {
 
     const setupMissionsListener = async () => {
       try {
-        const driverDoc = await getDoc(doc(db, "drivers", user.uid));
         let supplierId = "admin";
-        
-        if (driverDoc.exists()) {
-          const data = driverDoc.data();
-          supplierId = data.supplierId || "admin";
-          setDriverInfo(data);
+        let resolvedDriverData: any = null;
+
+        // A. Vérification dans la collection drivers
+        try {
+          const driverDoc = await getDoc(doc(db, "drivers", user.uid));
+          if (driverDoc.exists()) {
+            resolvedDriverData = driverDoc.data();
+            supplierId = resolvedDriverData.supplierId || "admin";
+          }
+        } catch (e) {
+          console.warn("Could not read drivers doc:", e);
         }
 
-        // Query 1: Available Orders (CONFIRMED_AWAITING_DRIVER)
-        let qAvailable;
-        if (supplierId === "admin") {
-          qAvailable = query(
-            collection(db, "orders"), 
-            where("status", "==", "CONFIRMED_AWAITING_DRIVER"),
-            orderBy("createdAt", "desc")
-          );
-        } else {
-          qAvailable = query(
-            collection(db, "orders"), 
-            where("supplierIds", "array-contains", supplierId),
-            where("status", "==", "CONFIRMED_AWAITING_DRIVER"),
-            orderBy("createdAt", "desc")
-          );
+        // B. Vérification de secours dans la collection users
+        if (supplierId === "admin" || !resolvedDriverData) {
+          try {
+            const userDoc = await getDoc(doc(db, "users", user.uid));
+            if (userDoc.exists()) {
+              const uData = userDoc.data();
+              resolvedDriverData = { ...uData, ...resolvedDriverData };
+              if (uData.supplierId && uData.supplierId !== "admin") {
+                supplierId = uData.supplierId;
+              } else if (uData.parentSupplierId) {
+                supplierId = uData.parentSupplierId;
+              } else if (uData.createdBy && uData.createdBy !== "admin" && uData.createdBy !== "superAdmin") {
+                supplierId = uData.createdBy;
+              }
+            }
+          } catch (e) {
+            console.warn("Could not read users doc:", e);
+          }
         }
+
+        setDriverInfo({ ...userData, ...resolvedDriverData, supplierId });
+
+        // Query 1: Available Orders (sans index composite pour une fiabilité 100%)
+        const qAvailable = query(
+          collection(db, "orders"), 
+          where("status", "==", "CONFIRMED_AWAITING_DRIVER")
+        );
 
         unsubAvailable = onSnapshot(qAvailable, (snapshot) => {
-          const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          let orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+          // RÈGLE D'AFFAIRE STRICTE :
+          // 1. Si le livreur a été créé par un fournisseur (supplierId !== 'admin') :
+          //    Il ne reçoit et ne voit QUE les courses créées par son fournisseur.
+          // 2. Si le livreur a été créé par l'administration (supplierId === 'admin') :
+          //    Il peut recevoir TOUTES les commandes de la plateforme.
+          if (supplierId && supplierId !== "admin" && supplierId !== "superAdmin") {
+            orders = orders.filter((order: any) => {
+              const orderSupplierId = order.supplierId;
+              const orderSupplierIds = Array.isArray(order.supplierIds) ? order.supplierIds : [];
+              return orderSupplierId === supplierId || orderSupplierIds.includes(supplierId);
+            });
+          }
+
+          // Tri en mémoire par date de création décroissante
+          orders.sort((a: any, b: any) => {
+            const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0);
+            const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0);
+            return timeB - timeA;
+          });
+
           setAvailableOrders(orders);
           setIsLoading(false);
         }, (err) => {
@@ -62,16 +99,23 @@ export default function DriverDashboard() {
           setIsLoading(false);
         });
 
-        // Query 2: My Orders (ACCEPTED, ARRIVED_AWAITING_PAYMENT)
+        // Query 2: My Orders (sans index composite)
         const qMyOrders = query(
           collection(db, "orders"),
-          where("driverId", "==", user.uid),
-          where("status", "in", ["ACCEPTED", "ARRIVED_AWAITING_PAYMENT"]),
-          orderBy("createdAt", "desc")
+          where("driverId", "==", user.uid)
         );
 
         unsubMyOrders = onSnapshot(qMyOrders, (snapshot) => {
-          const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          let orders = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter((o: any) => o.status === "ACCEPTED" || o.status === "ARRIVED_AWAITING_PAYMENT");
+
+          orders.sort((a: any, b: any) => {
+            const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : (a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0);
+            const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : (b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0);
+            return timeB - timeA;
+          });
+
           setMyOrders(orders);
         }, (err) => {
           console.warn("Driver my orders listener warning:", err.message);

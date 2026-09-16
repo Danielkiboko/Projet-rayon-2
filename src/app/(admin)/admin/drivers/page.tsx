@@ -34,16 +34,17 @@ export default function DriversPage() {
     setIsLoading(true);
     try {
       const { limit } = await import("firebase/firestore");
-      const q = query(collection(db, "users"), where("role", "==", "driver"), limit(50));
+      const q = query(collection(db, "users"), where("role", "==", "driver"), limit(100));
       const querySnapshot = await getDocs(q);
       const driversData: Driver[] = [];
       querySnapshot.forEach((doc) => {
         const data = doc.data();
+        const effectiveSupplierId = data.supplierId || data.parentSupplierId || data.createdBy || "admin";
         driversData.push({
           id: doc.id,
           name: data.displayName || "Sans nom",
           email: data.email || "",
-          supplierId: data.createdBy || "admin",
+          supplierId: effectiveSupplierId,
           status: data.status === "active" ? "Actif" : "Inactif",
         });
       });

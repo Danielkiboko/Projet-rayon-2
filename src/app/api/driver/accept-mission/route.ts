@@ -46,6 +46,32 @@ export async function POST(req: NextRequest) {
         throw new Error("ORDER_ALREADY_ASSIGNED");
       }
 
+      // Vérification d'affiliation : un livreur créé par un fournisseur ne peut accepter que les courses de son fournisseur
+      const driverDocRef = adminDb.collection("drivers").doc(driverId);
+      const driverSnap = await transaction.get(driverDocRef);
+      let driverSupplierId = driverSnap.data()?.supplierId;
+
+      if (!driverSupplierId || driverSupplierId === "admin") {
+        const userDocRef = adminDb.collection("users").doc(driverId);
+        const userSnap = await transaction.get(userDocRef);
+        const uData = userSnap.data();
+        if (uData?.supplierId && uData.supplierId !== "admin") {
+          driverSupplierId = uData.supplierId;
+        } else if (uData?.parentSupplierId) {
+          driverSupplierId = uData.parentSupplierId;
+        } else if (uData?.createdBy && uData.createdBy !== "admin" && uData.createdBy !== "superAdmin") {
+          driverSupplierId = uData.createdBy;
+        }
+      }
+
+      if (driverSupplierId && driverSupplierId !== "admin" && driverSupplierId !== "superAdmin") {
+        const orderSupplierId = orderData.supplierId;
+        const orderSupplierIds = Array.isArray(orderData.supplierIds) ? orderData.supplierIds : [];
+        if (orderSupplierId !== driverSupplierId && !orderSupplierIds.includes(driverSupplierId)) {
+          throw new Error("UNAUTHORIZED_SUPPLIER_MISSION");
+        }
+      }
+
       // Assignation atomique exclusive au premier livreur
       transaction.update(orderRef, {
         status: "ACCEPTED",
@@ -97,6 +123,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, code: "NOT_FOUND", message: "Commande introuvable." },
         { status: 404 }
+      );
+    }
+
+    if (error.message === "UNAUTHORIZED_SUPPLIER_MISSION") {
+      return NextResponse.json(
+        { 
+          success: false, 
+          code: "UNAUTHORIZED", 
+          message: "Action non autorisée : cette course n'appartient pas au fournisseur auquel vous êtes affilié." 
+        },
+        { status: 403 }
       );
     }
 

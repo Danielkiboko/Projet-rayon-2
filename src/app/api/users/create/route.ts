@@ -93,13 +93,18 @@ export async function POST(req: Request) {
       role: roleToCreate,
       createdBy: isSupplierCaller ? callerUid : (rawRole || 'superAdmin'),
     };
-    if (extraData?.parentSupplierId) {
-      claims.parentSupplierId = extraData.parentSupplierId;
+    if (extraData?.parentSupplierId || (isSupplierCaller && roleToCreate === 'driver')) {
+      claims.parentSupplierId = extraData?.parentSupplierId || callerUid;
     }
     await adminAuth.setCustomUserClaims(userRecord.uid, claims);
 
     let additionalData = { ...extraData };
-    if (roleToCreate === 'supplier' || roleToCreate === 'SUPPLIER_IMMO' || roleToCreate === 'SUPPLIER_SAVEURS' || roleToCreate === 'SUPPLIER_MODE' || roleToCreate === 'SUPPLIER_CONNECT' || roleToCreate === 'SUPPLIER') {
+    if (roleToCreate === 'driver') {
+      const assignedSupplierId = isSupplierCaller ? callerUid : (extraData?.supplierId || 'admin');
+      additionalData.supplierId = assignedSupplierId;
+      additionalData.parentSupplierId = isSupplierCaller ? callerUid : (extraData?.parentSupplierId || null);
+      additionalData.createdBy = claims.createdBy;
+    } else if (roleToCreate === 'supplier' || roleToCreate === 'SUPPLIER_IMMO' || roleToCreate === 'SUPPLIER_SAVEURS' || roleToCreate === 'SUPPLIER_MODE' || roleToCreate === 'SUPPLIER_CONNECT' || roleToCreate === 'SUPPLIER') {
       if (extraData?.isOfficialAdminStore || extraData?.isAdminSupplier) {
         additionalData.subscriptionStatus = 'ACTIVE';
         additionalData.subscriptionEndDate = null;
@@ -152,8 +157,12 @@ export async function POST(req: Request) {
         status: 'active'
       }, { merge: true });
     } else if (roleToCreate === 'driver') {
+      const assignedSupplierId = isSupplierCaller ? callerUid : (extraData?.supplierId || 'admin');
       await adminDb.collection('drivers').doc(userRecord.uid).set({
-        supplierId: isSupplierCaller ? callerUid : 'admin',
+        driverId: userRecord.uid,
+        supplierId: assignedSupplierId,
+        parentSupplierId: isSupplierCaller ? callerUid : null,
+        createdBy: claims.createdBy,
         email,
         displayName,
         createdAt: new Date(),

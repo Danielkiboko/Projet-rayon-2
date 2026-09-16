@@ -35,17 +35,54 @@ export default function SupplierDriversPage() {
     if (!user) return;
     setIsLoading(true);
     try {
-      const q = query(
-        collection(db, "users"),
-        where("role", "==", "driver"),
-        where("createdBy", "==", activeSupplierId)
-      );
-      const snapshot = await getDocs(q);
-      const fetchedDrivers = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Driver[];
-      setDrivers(fetchedDrivers);
+      const driversMap = new Map<string, Driver>();
+
+      // 1. Récupération prioritaire depuis la collection "drivers" dédiée aux livreurs du fournisseur
+      try {
+        const qDrivers = query(
+          collection(db, "drivers"),
+          where("supplierId", "==", activeSupplierId)
+        );
+        const snapDrivers = await getDocs(qDrivers);
+        snapDrivers.docs.forEach(d => {
+          const data = d.data();
+          driversMap.set(d.id, {
+            id: d.id,
+            displayName: data.displayName || "Livreur",
+            email: data.email || "",
+            status: data.status || "active",
+            ...data
+          } as Driver);
+        });
+      } catch (dErr) {
+        console.warn("Drivers collection fetch warning:", dErr);
+      }
+
+      // 2. Récupération complémentaire depuis la collection "users"
+      try {
+        const qUsers = query(
+          collection(db, "users"),
+          where("role", "==", "driver"),
+          where("createdBy", "==", activeSupplierId)
+        );
+        const snapUsers = await getDocs(qUsers);
+        snapUsers.docs.forEach(u => {
+          const data = u.data();
+          if (!driversMap.has(u.id)) {
+            driversMap.set(u.id, {
+              id: u.id,
+              displayName: data.displayName || "Livreur",
+              email: data.email || "",
+              status: data.status || "active",
+              ...data
+            } as Driver);
+          }
+        });
+      } catch (uErr) {
+        console.warn("Users collection fetch warning:", uErr);
+      }
+
+      setDrivers(Array.from(driversMap.values()));
     } catch (err) {
       console.error("Error fetching drivers:", err);
     } finally {
@@ -82,7 +119,11 @@ export default function SupplierDriversPage() {
           displayName: newDriverName,
           roleToCreate: "driver",
           notificationMethod,
-          phoneNumber: notificationMethod === 'sms' ? phoneNumber : undefined
+          phoneNumber: notificationMethod === 'sms' ? phoneNumber : undefined,
+          extraData: {
+            parentSupplierId: activeSupplierId,
+            supplierId: activeSupplierId,
+          }
         }),
       });
 
