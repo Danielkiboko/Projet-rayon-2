@@ -22,9 +22,13 @@ interface Message {
   proforma?: {
     productId?: string;
     productName?: string;
+    brand?: string;
     quantity: number;
+    unitPrice?: number;
+    totalPrice?: number;
     price: number;
     deliveryFee: number;
+    type?: 'hotel' | 'product';
     status: 'pending' | 'paid' | 'delivered';
     orderId?: string;
   };
@@ -188,47 +192,70 @@ export function ChatBox({ chatId, otherUserName = "Utilisateur" }: ChatBoxProps)
                   }`}
                 >
                   {msg.type === 'proforma' && msg.proforma ? (
-                    <div className="flex flex-col space-y-3 min-w-[220px]">
+                    <div className="flex flex-col space-y-3 min-w-[240px]">
                       <div className={`font-bold border-b ${isMe ? 'border-blue-400' : 'border-gray-200'} pb-2 mb-1 flex items-center justify-between`}>
                         <span className="flex items-center gap-2"><FileText size={16} /> Offre Proforma</span>
-                        {msg.proforma.status === 'paid' && <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded font-bold">Payé</span>}
+                        {msg.proforma.status === 'paid' && <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded font-bold">Payé / Validé</span>}
                         {msg.proforma.status === 'pending' && <span className="bg-orange-100 text-orange-800 text-xs px-2 py-0.5 rounded font-bold">En attente</span>}
                       </div>
-                      <p className="font-semibold text-base">{msg.proforma.productName}</p>
-                      <div className={`flex justify-between text-xs ${isMe ? 'text-blue-100' : 'text-gray-600'}`}>
-                        <span>Quantité:</span>
-                        <span className={`font-medium ${isMe ? 'text-white' : 'text-gray-900'}`}>{msg.proforma.quantity}</span>
-                      </div>
-                      <div className={`flex justify-between text-xs ${isMe ? 'text-blue-100' : 'text-gray-600'}`}>
-                        <span>Prix Total Prod.:</span>
-                        <span className={`font-medium ${isMe ? 'text-white' : 'text-gray-900'}`}>{msg.proforma.price} $</span>
-                      </div>
-                      <div className={`flex justify-between text-xs ${isMe ? 'text-blue-100' : 'text-gray-600'}`}>
-                        <span>Frais Livraison:</span>
-                        <span className={`font-medium ${isMe ? 'text-white' : 'text-gray-900'}`}>{msg.proforma.deliveryFee} $</span>
+                      <p className="font-bold text-base">{msg.proforma.productName}</p>
+                      
+                      <div className={`space-y-1.5 text-xs ${isMe ? 'text-blue-100' : 'text-gray-600'} bg-black/5 dark:bg-white/5 p-2.5 rounded-xl`}>
+                        <div className="flex justify-between">
+                          <span>Quantité :</span>
+                          <span className={`font-bold ${isMe ? 'text-white' : 'text-gray-900'}`}>{msg.proforma.quantity} pièce(s)</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Prix unitaire :</span>
+                          <span className={`font-medium ${isMe ? 'text-white' : 'text-gray-900'}`}>
+                            ${Number(msg.proforma.unitPrice || (msg.proforma.price / (msg.proforma.quantity || 1))).toFixed(2)} / pc
+                          </span>
+                        </div>
+                        <div className="flex justify-between border-t border-gray-200/40 dark:border-white/10 pt-1">
+                          <span>Sous-total articles :</span>
+                          <span className={`font-bold ${isMe ? 'text-white' : 'text-emerald-600'}`}>
+                            {`${msg.proforma.quantity} × $${Number(msg.proforma.unitPrice || (msg.proforma.price / (msg.proforma.quantity || 1))).toFixed(2)} = $${Number(msg.proforma.totalPrice || msg.proforma.price).toFixed(2)}`}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Frais de livraison :</span>
+                          <span className={`font-medium ${isMe ? 'text-white' : 'text-gray-900'}`}>${Number(msg.proforma.deliveryFee ?? 3).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between font-bold border-t border-gray-200/40 dark:border-white/10 pt-1 text-sm">
+                          <span>Total Commande :</span>
+                          <span className={isMe ? 'text-white' : 'text-gray-900'}>
+                            ${(Number(msg.proforma.totalPrice || msg.proforma.price) + Number(msg.proforma.deliveryFee ?? 3)).toFixed(2)}
+                          </span>
+                        </div>
                       </div>
                       
-                      <div className={`mt-3 pt-3 border-t ${isMe ? 'border-blue-400' : 'border-gray-200'}`}>
-                        <div className="flex justify-between font-bold mb-3">
-                          <span>À Payer (Livraison):</span>
-                          <span>{msg.proforma.deliveryFee} $</span>
+                      <div className={`mt-2 pt-2 border-t ${isMe ? 'border-blue-400' : 'border-gray-200'}`}>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className={isMe ? 'text-blue-100' : 'text-gray-500'}>À payer au livreur en espèces :</span>
+                          <span className={`font-bold ${isMe ? 'text-white' : 'text-gray-900'}`}>${Number(msg.proforma.totalPrice || msg.proforma.price).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-sm mb-3">
+                          <span>À Payer Maintenant (Livraison):</span>
+                          <span className="text-primary font-black">${Number(msg.proforma.deliveryFee ?? 3).toFixed(2)}</span>
                         </div>
                         
                         {!isMe && msg.proforma.status === 'pending' && (
                           <button 
                             onClick={() => handlePayDelivery(msg)}
-                            className="w-full bg-gray-900 text-white py-2.5 rounded-lg font-medium hover:bg-gray-800 transition-colors flex items-center justify-center shadow-sm"
+                            className="w-full bg-primary hover:bg-primary-dark text-white py-2.5 rounded-xl font-bold transition-all flex items-center justify-center shadow-md text-sm"
                           >
-                            Payer la Livraison
+                            Payer la Livraison (${Number(msg.proforma.deliveryFee ?? 3).toFixed(2)})
                           </button>
                         )}
                         
                         {msg.proforma.status === 'paid' && (
                           <div className="flex flex-col space-y-2 text-center mt-2">
-                            <p className="text-xs text-green-600 font-medium bg-green-50 p-2 rounded-lg">Livraison payée. Le produit sera payé à la livraison.</p>
+                            <p className="text-xs text-green-600 font-medium bg-green-50 p-2 rounded-lg">
+                              Livraison confirmée ! Le montant des articles (${Number(msg.proforma.totalPrice || msg.proforma.price).toFixed(2)}) sera remis en espèces au livreur à la réception.
+                            </p>
                             {msg.proforma.orderId && (
-                              <a href={`/order/${msg.proforma.orderId}/tracking`} className="w-full bg-blue-50 text-blue-700 py-2 rounded-lg font-medium text-sm hover:bg-blue-100 transition-colors block text-center mt-2">
-                                Suivre la livraison
+                              <a href={`/order/${msg.proforma.orderId}/tracking`} className="w-full bg-blue-50 text-blue-700 py-2 rounded-lg font-medium text-sm hover:bg-blue-100 transition-colors block text-center mt-1">
+                                Suivre la livraison en direct
                               </a>
                             )}
                           </div>

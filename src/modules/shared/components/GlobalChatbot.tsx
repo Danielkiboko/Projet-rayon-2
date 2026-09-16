@@ -512,39 +512,68 @@ export function GlobalChatbot() {
                   <div key={msg.id} className={`flex flex-col max-w-[85%] ${isMe ? 'self-end' : 'self-start'}`}>
                     <div className={`p-3 rounded-2xl text-sm ${isMe ? 'bg-gray-900 text-white rounded-br-sm' : (msg.type === 'proforma' ? 'bg-white border-2 border-gray-900 text-gray-900 rounded-bl-sm' : 'bg-white border border-gray-200 text-gray-900 rounded-bl-sm')}`}>
                       {msg.type === 'proforma' && msg.proforma ? (
-                        <div className="flex flex-col space-y-2 min-w-[200px]">
+                        <div className="flex flex-col space-y-2 min-w-[240px]">
                           <div className="font-bold border-b border-gray-200 pb-2 mb-1 flex items-center justify-between">
                             <span>{isHotelProforma ? '🏨 Devis Séjour Hôtel' : '📄 Offre Proforma'}</span>
                             {msg.proforma.status === 'paid' && <span className="bg-green-100 text-green-800 text-xs px-2 py-0.5 rounded font-bold">Confirmé</span>}
                             {msg.proforma.status === 'pending' && <span className="bg-orange-100 text-orange-800 text-xs px-2 py-0.5 rounded font-bold">En attente</span>}
                           </div>
                           <p className="font-semibold text-base">{msg.proforma.productName}</p>
-                          <div className="flex justify-between text-xs text-gray-600">
-                            <span>{isHotelProforma ? 'Nuitées / Séjour :' : 'Quantité :'}</span>
-                            <span className="font-medium text-gray-900">{msg.proforma.quantity}</span>
-                          </div>
-                          <div className="flex justify-between text-xs text-gray-600">
-                            <span>{isHotelProforma ? 'Montant Total Séjour :' : 'Prix Total Prod. :'}</span>
-                            <span className="font-medium text-gray-900">{msg.proforma.price} $</span>
-                          </div>
-                          {!isHotelProforma && (
-                            <div className="flex justify-between text-xs text-gray-600">
-                              <span>Frais Livraison:</span>
-                              <span className="font-medium text-gray-900">{msg.proforma.deliveryFee} $</span>
-                            </div>
-                          )}
                           
-                          <div className="mt-3 pt-3 border-t border-gray-200">
-                            <div className="flex justify-between font-bold mb-3">
+                          <div className="space-y-1 text-xs text-gray-600 bg-gray-50 p-2.5 rounded-xl">
+                            <div className="flex justify-between">
+                              <span>{isHotelProforma ? 'Nuitées / Séjour :' : 'Quantité :'}</span>
+                              <span className="font-bold text-gray-900">{msg.proforma.quantity} {isHotelProforma ? 'nuit(s)' : 'pièce(s)'}</span>
+                            </div>
+                            {!isHotelProforma && (
+                              <div className="flex justify-between">
+                                <span>Prix unitaire :</span>
+                                <span className="font-medium text-gray-900">
+                                  ${Number(msg.proforma.unitPrice || (msg.proforma.price / (msg.proforma.quantity || 1))).toFixed(2)} / pc
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex justify-between border-t border-gray-200 pt-1">
+                              <span>{isHotelProforma ? 'Montant Total Séjour :' : 'Sous-total articles :'}</span>
+                              <span className="font-bold text-emerald-600">
+                                {!isHotelProforma
+                                  ? `${msg.proforma.quantity} × $${Number(msg.proforma.unitPrice || (msg.proforma.price / (msg.proforma.quantity || 1))).toFixed(2)} = $${Number(msg.proforma.totalPrice || msg.proforma.price).toFixed(2)}`
+                                  : `$${Number(msg.proforma.price).toFixed(2)}`}
+                              </span>
+                            </div>
+                            {!isHotelProforma && (
+                              <div className="flex justify-between">
+                                <span>Frais de livraison :</span>
+                                <span className="font-medium text-gray-900">${Number(msg.proforma.deliveryFee ?? 3).toFixed(2)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between font-bold border-t border-gray-200 pt-1 text-sm">
+                              <span>{isHotelProforma ? 'Total Séjour :' : 'Total Commande :'}</span>
+                              <span className="text-gray-900">
+                                ${(Number(msg.proforma.totalPrice || msg.proforma.price) + (isHotelProforma ? 0 : Number(msg.proforma.deliveryFee ?? 3))).toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                            {!isHotelProforma && (
+                              <div className="flex justify-between text-xs mb-1">
+                                <span className="text-gray-500">À régler en espèces au livreur :</span>
+                                <span className="font-bold text-gray-900">${Number(msg.proforma.totalPrice || msg.proforma.price).toFixed(2)}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between font-bold mb-3 text-sm">
                               <span>{isHotelProforma ? 'Total à Régler :' : 'À Payer Maintenant (Livraison):'}</span>
-                              <span>{isHotelProforma ? `${msg.proforma.price} $` : `${msg.proforma.deliveryFee} $`}</span>
+                              <span className="text-blue-600 font-black">
+                                ${isHotelProforma ? Number(msg.proforma.price).toFixed(2) : Number(msg.proforma.deliveryFee ?? 3).toFixed(2)}
+                              </span>
                             </div>
                             
                             {msg.proforma.status === 'pending' && (
                               <button 
                                 onClick={() => handlePayDelivery(msg)}
                                 disabled={payingMessageId === msg.id}
-                                className="w-full bg-gray-900 text-white py-2.5 rounded-lg font-medium hover:bg-gray-800 disabled:opacity-60 transition-colors flex items-center justify-center shadow-sm text-xs cursor-pointer"
+                                className="w-full bg-gray-900 text-white py-2.5 rounded-xl font-bold hover:bg-gray-800 disabled:opacity-60 transition-colors flex items-center justify-center shadow-sm text-xs cursor-pointer"
                               >
                                 {payingMessageId === msg.id ? (
                                   <span className="flex items-center gap-1.5">
@@ -552,21 +581,21 @@ export function GlobalChatbot() {
                                     <span>Validation en cours...</span>
                                   </span>
                                 ) : (
-                                  isHotelProforma ? 'Confirmer la Réservation' : 'Payer la Livraison (Valider)'
+                                  isHotelProforma ? 'Confirmer la Réservation' : `Payer la Livraison ($${Number(msg.proforma.deliveryFee ?? 3).toFixed(2)})`
                                 )}
                               </button>
                             )}
                             
                             {msg.proforma.status === 'paid' && (
                               <div className="flex flex-col space-y-2 text-center mt-2">
-                                <p className="text-xs text-green-600 font-medium">
+                                <p className="text-xs text-green-600 font-medium bg-green-50 p-2 rounded-lg">
                                   {isHotelProforma 
-                                    ? 'Réservation confirmée avec succès auprès de l\'hôtel !' 
-                                    : 'Livraison payée. Le livreur est en route ! Le produit sera payé à la livraison.'}
+                                    ? 'Réservation confirmée avec succès auprès de l\'établissement !' 
+                                    : `Livraison payée. Le montant des articles ($${Number(msg.proforma.totalPrice || msg.proforma.price).toFixed(2)}) sera remis en espèces au livreur.`}
                                 </p>
                                 {msg.proforma.orderId && !isHotelProforma && (
-                                  <a href={`/order/${msg.proforma.orderId}/tracking`} className="w-full bg-gray-100 text-gray-900 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors">
-                                    Suivre la livraison
+                                  <a href={`/order/${msg.proforma.orderId}/tracking`} className="w-full bg-gray-100 text-gray-900 py-2 rounded-lg font-medium text-sm hover:bg-gray-200 transition-colors block text-center mt-1">
+                                    Suivre la livraison en direct
                                   </a>
                                 )}
                               </div>
