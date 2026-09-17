@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Wallet, ArrowDownRight, ArrowUpRight, Plus, Download, X, Search, Home, Hotel, Sparkles, Sliders, ShieldAlert, CheckCircle, Lock, Clock, Phone, Loader2, Calendar, TrendingUp, Landmark } from "lucide-react";
+import { Wallet, ArrowDownRight, ArrowUpRight, Plus, Download, X, Search, Home, Hotel, Sparkles, Sliders, ShieldAlert, CheckCircle, Clock, Phone, Loader2, Calendar, TrendingUp, Landmark } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, where, doc, updateDoc, limit } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
@@ -698,7 +698,7 @@ export default function SupplierFinancePage() {
           </button>
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center space-x-1.5 bg-primary hover:bg-primary-light text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors shadow-sm"
+            className="flex items-center space-x-1.5 bg-[#C7D300] hover:bg-[#b0ba00] text-[#0F1D27] px-4 py-2 rounded-xl text-xs font-extrabold transition-all shadow-md cursor-pointer"
           >
             <Plus size={16} />
             <span>Ajouter Opération</span>
@@ -714,8 +714,8 @@ export default function SupplierFinancePage() {
         </div>
       )}
 
-      {/* Supplier Deposit & Subscription Status Card */}
-      {(userData?.isOfficialAdminStore || userData?.isAdminSupplier) ? (
+      {/* Supplier Deposit & Subscription Status Card (Uniquement pour boutique officielle admin) */}
+      {(userData?.isOfficialAdminStore || userData?.isAdminSupplier) && (
         <div className="p-4 rounded-2xl border bg-amber-500/15 border-amber-500/30 text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div className="p-3 rounded-xl shrink-0 bg-amber-500/20 text-amber-400">
@@ -737,67 +737,18 @@ export default function SupplierFinancePage() {
             Exempté de tenue de compte
           </div>
         </div>
-      ) : (
-        <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-          subscriptionInfo.isBlocked 
-            ? "bg-red-500/15 border-red-500/30 text-red-200"
-            : subscriptionInfo.isTrial 
-            ? "bg-blue-500/10 border-blue-500/25 text-blue-200"
-            : "bg-emerald-500/10 border-emerald-500/25 text-emerald-200"
-        }`}>
-          <div className="flex items-center gap-3.5">
-            <div className={`p-3 rounded-xl shrink-0 ${
-              subscriptionInfo.isBlocked ? "bg-red-500/20 text-red-400" :
-              subscriptionInfo.isTrial ? "bg-blue-500/20 text-blue-400" :
-              "bg-emerald-500/20 text-emerald-400"
-            }`}>
-              {subscriptionInfo.isBlocked ? <Lock size={22} /> :
-               subscriptionInfo.isTrial ? <Clock size={22} /> :
-               <CheckCircle size={22} />}
-            </div>
-            <div>
-              <h3 className="font-bold text-sm text-white">
-                {subscriptionInfo.isBlocked 
-                  ? "Compte Suspendu : Dépôt Mensuel Attendu ($50)" 
-                  : subscriptionInfo.isTrial 
-                  ? `Période d'essai active : ${subscriptionInfo.daysLeft} jour${subscriptionInfo.daysLeft > 1 ? "s" : ""} restant${subscriptionInfo.daysLeft > 1 ? "s" : ""}` 
-                  : "Abonnement Partenaire Rayons.net Actif"}
-              </h3>
-              <p className="text-xs opacity-80 mt-0.5">
-                {subscriptionInfo.isBlocked 
-                  ? "Le délai est dépassé. Régularisez votre dépôt pour débloquer la publication de vos articles et la messagerie client." 
-                  : subscriptionInfo.isTrial 
-                  ? `Échéance du premier dépôt le ${subscriptionInfo.formattedDueDate}. Période d'essai de 15 jours gérée par l'administration.` 
-                  : `Votre compte est en règle jusqu'au ${subscriptionInfo.formattedDueDate}.`}
-              </p>
-            </div>
-          </div>
-
-          <div>
-            <button
-              onClick={handlePayDeposit}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
-                subscriptionInfo.isBlocked 
-                  ? "bg-red-600 hover:bg-red-500 text-white animate-pulse" 
-                  : "bg-white/10 hover:bg-white/20 text-white border border-white/20"
-              }`}
-            >
-              {subscriptionInfo.isBlocked ? "Régulariser Maintenant ($50)" : "Régler d'avance ($50)"}
-            </button>
-          </div>
-        </div>
       )}
 
       {/* Sélecteur de Date Comptable Épuré : Calendrier & Aujourd'hui (24h) */}
       <div className="bg-[#0B0F17]/80 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-primary/15 text-primary-light rounded-xl shrink-0 border border-primary/20">
+          <div className="p-2.5 bg-[#C7D300]/15 text-[#C7D300] rounded-xl shrink-0 border border-[#C7D300]/30">
             <Calendar size={20} />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h3 className="text-sm font-bold text-white">
-                Période Comptable : <span className="text-primary-light">{getPeriodLabel()}</span>
+                Période Comptable : <span className="text-[#C7D300] font-bold">{getPeriodLabel()}</span>
               </h3>
               {periodFilter === "today" ? (
                 <span className="text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1.5">
@@ -805,7 +756,7 @@ export default function SupplierFinancePage() {
                   Journalier (24h en direct)
                 </span>
               ) : (
-                <span className="text-[11px] bg-primary/20 text-primary-light border border-primary/40 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                <span className="text-[11px] bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/40 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
                   📅 Date sélectionnée
                 </span>
               )}
@@ -822,7 +773,7 @@ export default function SupplierFinancePage() {
         <div className="flex items-center gap-2.5 flex-wrap w-full md:w-auto justify-start md:justify-end">
           <div className="flex items-center gap-2 bg-black/40 border border-white/15 rounded-xl px-3 py-1.5">
             <span className="text-xs text-gray-300 font-medium flex items-center gap-1.5">
-              <Calendar size={14} className="text-primary-light" />
+              <Calendar size={14} className="text-[#C7D300]" />
               <span className="hidden sm:inline">Choisir une date :</span>
             </span>
             <input
@@ -834,7 +785,7 @@ export default function SupplierFinancePage() {
                 setCalendarEndDate("");
                 setPeriodFilter("custom");
               }}
-              className="bg-white/10 border border-white/20 rounded-lg px-2.5 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+              className="bg-white/10 border border-white/20 rounded-lg px-2.5 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300] cursor-pointer"
             />
           </div>
 
@@ -848,7 +799,7 @@ export default function SupplierFinancePage() {
                 setCalendarEndDate("");
                 setShowRangePicker(false);
               }}
-              className="text-xs bg-primary hover:bg-primary-light text-gray-950 font-bold px-3 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+              className="text-xs bg-[#C7D300] hover:bg-[#b0ba00] text-[#0F1D27] font-extrabold px-3.5 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
             >
               <span>⚡ Revenir à Aujourd'hui (24h)</span>
             </button>
@@ -859,7 +810,7 @@ export default function SupplierFinancePage() {
                 setPeriodFilter("today");
                 setSelectedCalendarDate("");
               }}
-              className="text-xs bg-primary/20 text-primary-light font-bold px-3 py-2 rounded-xl border border-primary/30 flex items-center gap-1.5"
+              className="text-xs bg-[#C7D300]/20 text-[#C7D300] font-extrabold px-3.5 py-2 rounded-xl border border-[#C7D300]/40 flex items-center gap-1.5 shadow-sm"
             >
               <span>⚡ Aujourd'hui (24h)</span>
             </button>
@@ -889,7 +840,7 @@ export default function SupplierFinancePage() {
                   setSelectedCalendarDate("");
                   setPeriodFilter("custom");
                 }}
-                className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300] cursor-pointer"
               />
             </div>
             <div className="flex items-center gap-2">
@@ -902,7 +853,7 @@ export default function SupplierFinancePage() {
                   setSelectedCalendarDate("");
                   setPeriodFilter("custom");
                 }}
-                className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer"
+                className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300] cursor-pointer"
               />
             </div>
           </div>
@@ -912,11 +863,11 @@ export default function SupplierFinancePage() {
       {/* KPI Cards */}
       {isImmo ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+          <div className="bg-[#0F1D27] border border-[#C7D300]/30 rounded-2xl p-5 shadow-lg">
             <div className="flex items-center justify-between">
-              <h3 className="text-gray-400 text-xs font-semibold uppercase">Caisse Magasin (Dispo)</h3>
-              <div className="p-2 bg-blue-500/20 rounded-lg">
-                <Wallet className="text-blue-400" size={18} />
+              <h3 className="text-[#C7D300] text-xs font-bold uppercase tracking-wider">Caisse Magasin (Dispo)</h3>
+              <div className="p-2 bg-[#C7D300]/15 rounded-lg border border-[#C7D300]/25">
+                <Wallet className="text-[#C7D300]" size={18} />
               </div>
             </div>
             <p className="text-2xl font-bold text-white mt-3">${storeAvailableBalance.toFixed(2)}</p>
@@ -981,11 +932,11 @@ export default function SupplierFinancePage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           {/* 1. Caisse Magasin Disponible */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
+          <div className="bg-[#0F1D27] border border-[#C7D300]/30 rounded-2xl p-5 shadow-lg">
             <div className="flex items-center justify-between">
-              <h3 className="text-gray-400 text-xs font-semibold uppercase">Caisse Magasin</h3>
-              <div className="p-2 bg-blue-500/20 rounded-lg">
-                <Wallet className="text-blue-400" size={18} />
+              <h3 className="text-[#C7D300] text-xs font-bold uppercase tracking-wider">Caisse Magasin</h3>
+              <div className="p-2 bg-[#C7D300]/15 rounded-lg border border-[#C7D300]/25">
+                <Wallet className="text-[#C7D300]" size={18} />
               </div>
             </div>
             <p className="text-2xl sm:text-3xl font-bold text-white mt-3">${storeAvailableBalance.toFixed(2)}</p>
