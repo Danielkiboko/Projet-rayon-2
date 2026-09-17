@@ -16,7 +16,7 @@ import {
   collection, query, where, getDocs, addDoc, updateDoc, 
   deleteDoc, doc, serverTimestamp, orderBy, onSnapshot, limit 
 } from "firebase/firestore";
-import { useCurrency } from "@/context/CurrencyContext";
+import { useCurrency, CurrencyCode } from "@/context/CurrencyContext";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
 
 interface PropertyManagerProps {
@@ -26,7 +26,8 @@ interface PropertyManagerProps {
 export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
   const { user, userData } = useAuth();
   const subscriptionInfo = evaluateSupplierSubscription(userData);
-  const { formatPrice, currency } = useCurrency();
+  const { formatPrice, currency, rates } = useCurrency();
+  const [inputCurrency, setInputCurrency] = useState<CurrencyCode>("USD");
   
   const [properties, setProperties] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -151,6 +152,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
 
   const resetForm = () => {
     setEditingId(null);
+    setInputCurrency("USD");
     setImmoBranch("habitation");
     setPropertyTitle("");
     setPropertyType("appartement");
@@ -190,7 +192,13 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
     setPropertyType(property.type || (isHotel ? "hotel" : "appartement"));
     setHotelSubtype(property.hotelDetails?.subtype || "chambre_standard");
     setTypeTransaction(property.typeTransaction || (isHotel ? "Réservation / Nuitée" : "À Louer"));
-    setPropertyPrice(property.price?.toString() || "");
+    if (property.inputCurrency) {
+      setInputCurrency(property.inputCurrency);
+      setPropertyPrice(property.originalInputPrice !== undefined ? String(property.originalInputPrice) : (property.price?.toString() || ""));
+    } else {
+      setInputCurrency("USD");
+      setPropertyPrice(property.price?.toString() || "");
+    }
     setPropertyLocation(property.location || "");
     setPropertyCoords(property.propertyCoords || null);
     setPropertyDesc(property.description || "");
@@ -301,6 +309,16 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
       }
     }
 
+    const rawPrice = parseFloat(propertyPrice.toString().replace(/[^0-9.]/g, '') || "0");
+    const fcRate = rates?.FC || 2850;
+    const eurRate = rates?.EUR || 0.92;
+    let canonicalPrice = rawPrice;
+    if (inputCurrency === "FC") {
+      canonicalPrice = Number((rawPrice / fcRate).toFixed(2));
+    } else if (inputCurrency === "EUR") {
+      canonicalPrice = Number((rawPrice / eurRate).toFixed(2));
+    }
+
     const propertyData = {
       title: { fr: propertyTitle, en: propertyTitle }, // Simulating i18n
       immoBranch: isHotel ? "hotel" : "habitation",
@@ -308,7 +326,10 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
       category: "immo",
       rayon: "immo",
       typeTransaction: normalizedTransaction,
-      price: parseFloat(propertyPrice.toString().replace(/[^0-9.]/g, '') || "0"),
+      price: canonicalPrice,
+      inputCurrency: inputCurrency,
+      originalInputPrice: rawPrice,
+      appliedExchangeRate: rates?.[inputCurrency] || 1,
       location: propertyLocation,
       description: propertyDesc,
       image: imagePreview || (isHotel ? "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=800" : "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=800"),
@@ -1046,22 +1067,80 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
                   )}
                 </div>
 
+                {/* Sélecteur de Devise & Taux de Change pour la Soumission Immo */}
+                <div className="p-3.5 bg-[#0F1D27] border border-[#C7D300]/30 rounded-xl space-y-2.5 shadow-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white uppercase tracking-wider">Devise de tarification</span>
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-[#C7D300] text-[#0F1D27]">
+                          {inputCurrency === "USD" ? "$ Dollar US" : inputCurrency === "FC" ? "FC Franc Congolais" : "€ Euro"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-300 mt-0.5">
+                        Fixez le loyer ou prix de vente dans la devise communiquée par le bailleur. Le site l'adaptera au visiteur.
+                      </p>
+                    </div>
+
+                    {/* Choix devise : USD / FC / EUR */}
+                    <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 shrink-0">
+                      {(["USD", "FC", "EUR"] as CurrencyCode[]).map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setInputCurrency(c)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                            inputCurrency === c
+                              ? "bg-[#C7D300] text-[#0F1D27] shadow-md"
+                              : "text-gray-300 hover:text-white"
+                          }`}
+                        >
+                          {c === "USD" ? "$ USD" : c === "FC" ? "FC (CDF)" : "€ EUR"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Taux plateforme informatif */}
+                  <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-white/10 text-[11px] text-gray-400">
+                    <span>Taux actif : <strong className="text-[#C7D300]">1 $ USD = {(rates?.FC || 2850).toLocaleString("fr-FR")} FC</strong> | <strong className="text-[#C7D300]">1 $ USD = {rates?.EUR || 0.92} €</strong></span>
+                    {inputCurrency !== "USD" && (
+                      <span className="text-amber-400 font-medium">Conversion automatique vers USD ($) pour le catalogue</span>
+                    )}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-300">
                       {immoBranch === "hotel" 
-                        ? `Tarif par nuitée (${currency} / nuit)` 
-                        : (typeTransaction === "À Vendre" ? `Prix de vente total (${currency})` : `Loyer mensuel (${currency} / mois)`)
+                        ? `Tarif par nuitée (${inputCurrency} / nuit)` 
+                        : (typeTransaction === "À Vendre" ? `Prix de vente total (${inputCurrency})` : `Loyer mensuel (${inputCurrency} / mois)`)
                       }
                     </label>
                     <input
-                      type="text"
+                      type="number"
+                      step="any"
+                      min="0"
                       required
                       value={propertyPrice}
                       onChange={(e) => setPropertyPrice(e.target.value)}
-                      placeholder={immoBranch === "hotel" ? "Ex: 120" : (typeTransaction === "À Vendre" ? "Ex: 150000" : "Ex: 600")}
-                      className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white"
+                      placeholder={immoBranch === "hotel" ? (inputCurrency === "FC" ? "Ex: 285000" : "Ex: 100") : (typeTransaction === "À Vendre" ? (inputCurrency === "FC" ? "Ex: 285000000" : "Ex: 150000") : (inputCurrency === "FC" ? "Ex: 850000" : "Ex: 300"))}
+                      className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white"
                     />
+                    <div className="text-[11px] text-gray-400 min-h-[16px]">
+                      {propertyPrice && !isNaN(parseFloat(propertyPrice)) ? (
+                        inputCurrency === "FC" ? (
+                          <span className="text-[#C7D300] font-semibold">≈ ${(parseFloat(propertyPrice) / (rates?.FC || 2850)).toFixed(2)} USD (converti au catalogue)</span>
+                        ) : inputCurrency === "USD" ? (
+                          <span className="text-[#C7D300] font-semibold">≈ {Math.round(parseFloat(propertyPrice) * (rates?.FC || 2850)).toLocaleString("fr-FR")} FC</span>
+                        ) : (
+                          <span className="text-[#C7D300] font-semibold">≈ ${(parseFloat(propertyPrice) / (rates?.EUR || 0.92)).toFixed(2)} USD</span>
+                        )
+                      ) : (
+                        <span>Tarif officiel affiché aux clients</span>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-300">Localisation</label>

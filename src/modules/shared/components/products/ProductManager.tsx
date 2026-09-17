@@ -16,7 +16,7 @@ import {
   collection, query, where, getDocs, addDoc, updateDoc, 
   deleteDoc, doc, serverTimestamp, orderBy, onSnapshot, limit 
 } from "firebase/firestore";
-import { useCurrency } from "@/context/CurrencyContext";
+import { useCurrency, CurrencyCode } from "@/context/CurrencyContext";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
 import { Lock } from "lucide-react";
 
@@ -27,7 +27,7 @@ interface ProductManagerProps {
 export default function ProductManager({ isAdmin }: ProductManagerProps) {
   const { user, userData } = useAuth();
   const activeSupplierId = userData?.parentSupplierId || user?.uid;
-  const { formatPrice, currency } = useCurrency();
+  const { formatPrice, currency, rates } = useCurrency();
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -40,6 +40,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [inputCurrency, setInputCurrency] = useState<CurrencyCode>("USD");
   const [productTitle, setProductTitle] = useState("");
   const [productBrand, setProductBrand] = useState("");
   const [productCategory, setProductCategory] = useState("");
@@ -124,6 +125,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
 
   const resetForm = () => {
     setEditingId(null);
+    setInputCurrency("USD");
     setProductTitle("");
     setProductBrand("");
     setProductCategory("");
@@ -165,8 +167,15 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
     }
     
     setProductBrand(product.brand || "");
-    setProductPrice(product.price?.toString() || "");
-    setProductPurchasePrice(product.purchasePrice?.toString() || "");
+    if (product.inputCurrency) {
+      setInputCurrency(product.inputCurrency);
+      setProductPrice(product.originalInputPrice !== undefined ? String(product.originalInputPrice) : (product.price?.toString() || ""));
+      setProductPurchasePrice(product.originalPurchasePrice !== undefined ? String(product.originalPurchasePrice) : (product.purchasePrice?.toString() || ""));
+    } else {
+      setInputCurrency("USD");
+      setProductPrice(product.price?.toString() || "");
+      setProductPurchasePrice(product.purchasePrice?.toString() || "");
+    }
     setProductStock(product.stock?.toString() || "");
     setProductCategory(product.category || "");
     setProductDesc(product.description || "");
@@ -198,8 +207,8 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
       return c || "general";
     })();
 
-    const parsedPrice = parseFloat(productPrice);
-    const parsedPurchasePrice = parseFloat(productPurchasePrice);
+    const rawPrice = parseFloat(productPrice);
+    const rawPurchasePrice = parseFloat(productPurchasePrice);
     const parsedStock = parseInt(productStock || "0", 10);
 
     if (!productTitle.trim()) {
@@ -208,12 +217,42 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
       return;
     }
 
+    // Conversion dynamique vers la devise de base USD ($) selon le taux actif de la plateforme
+    const fcRate = rates?.FC || 2850;
+    const eurRate = rates?.EUR || 0.92;
+    let canonicalPrice = 0;
+    let canonicalPurchasePrice = 0;
+
+    if (!isNaN(rawPrice) && rawPrice > 0) {
+      if (inputCurrency === "FC") {
+        canonicalPrice = Number((rawPrice / fcRate).toFixed(2));
+      } else if (inputCurrency === "EUR") {
+        canonicalPrice = Number((rawPrice / eurRate).toFixed(2));
+      } else {
+        canonicalPrice = rawPrice;
+      }
+    }
+
+    if (!isNaN(rawPurchasePrice) && rawPurchasePrice > 0) {
+      if (inputCurrency === "FC") {
+        canonicalPurchasePrice = Number((rawPurchasePrice / fcRate).toFixed(2));
+      } else if (inputCurrency === "EUR") {
+        canonicalPurchasePrice = Number((rawPurchasePrice / eurRate).toFixed(2));
+      } else {
+        canonicalPurchasePrice = rawPurchasePrice;
+      }
+    }
+
     const productData: any = {
       title: { fr: productTitle.trim(), en: productTitle.trim() },
       category: normalizedCategory,
       rayon: normalizedCategory,
-      price: isNaN(parsedPrice) ? 0 : parsedPrice,
-      purchasePrice: isNaN(parsedPurchasePrice) ? 0 : parsedPurchasePrice,
+      price: canonicalPrice,
+      purchasePrice: canonicalPurchasePrice,
+      inputCurrency: inputCurrency,
+      originalInputPrice: isNaN(rawPrice) ? 0 : rawPrice,
+      originalPurchasePrice: isNaN(rawPurchasePrice) ? 0 : rawPurchasePrice,
+      appliedExchangeRate: rates?.[inputCurrency] || 1,
       stock: isNaN(parsedStock) ? 0 : parsedStock,
       description: productDesc.trim(),
       image: imagePreview || "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400",
@@ -885,36 +924,103 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                   </div>
                 </div>
 
+                {/* Sélecteur de Devise & Taux de Change pour la Soumission */}
+                <div className="p-3.5 bg-[#0F1D27] border border-[#C7D300]/30 rounded-xl space-y-2.5 shadow-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white uppercase tracking-wider">Devise de tarification</span>
+                        <span className="px-2 py-0.5 rounded-full text-[11px] font-extrabold bg-[#C7D300] text-[#0F1D27]">
+                          {inputCurrency === "USD" ? "$ Dollar US" : inputCurrency === "FC" ? "FC Franc Congolais" : "€ Euro"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-300 mt-0.5">
+                        Indiquez vos prix dans la devise de votre choix. Le catalogue client s'ajustera automatiquement en direct.
+                      </p>
+                    </div>
+
+                    {/* Choix devise : USD / FC / EUR */}
+                    <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/10 shrink-0">
+                      {(["USD", "FC", "EUR"] as CurrencyCode[]).map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          onClick={() => setInputCurrency(c)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                            inputCurrency === c
+                              ? "bg-[#C7D300] text-[#0F1D27] shadow-md"
+                              : "text-gray-300 hover:text-white"
+                          }`}
+                        >
+                          {c === "USD" ? "$ USD" : c === "FC" ? "FC (CDF)" : "€ EUR"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Taux plateforme informatif */}
+                  <div className="flex items-center justify-between flex-wrap gap-2 pt-2 border-t border-white/10 text-[11px] text-gray-400">
+                    <span>Taux plateforme actif : <strong className="text-[#C7D300]">1 $ USD = {(rates?.FC || 2850).toLocaleString("fr-FR")} FC</strong> | <strong className="text-[#C7D300]">1 $ USD = {rates?.EUR || 0.92} €</strong></span>
+                    {inputCurrency !== "USD" && (
+                      <span className="text-amber-400 font-medium">Conversion automatique vers USD ($) à la soumission</span>
+                    )}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-300">
-                      Prix d'achat (Capital: {currency})
+                      Prix d'achat (Capital : {inputCurrency})
                     </label>
                     <input
                       type="number"
-                      step="0.01"
+                      step="any"
                       min="0"
                       value={productPurchasePrice}
                       onChange={(e) => setProductPurchasePrice(e.target.value)}
-                      placeholder="Ex: 120.00"
-                      className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white"
+                      placeholder={inputCurrency === "FC" ? "Ex: 28500" : inputCurrency === "EUR" ? "Ex: 45.00" : "Ex: 120.00"}
+                      className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white"
                     />
-                    <span className="text-[11px] text-gray-400">Capital investi / pièce</span>
+                    <div className="text-[11px] text-gray-400 min-h-[16px]">
+                      {productPurchasePrice && !isNaN(parseFloat(productPurchasePrice)) ? (
+                        inputCurrency === "FC" ? (
+                          <span className="text-[#C7D300]">≈ ${(parseFloat(productPurchasePrice) / (rates?.FC || 2850)).toFixed(2)} USD</span>
+                        ) : inputCurrency === "USD" ? (
+                          <span className="text-[#C7D300]">≈ {Math.round(parseFloat(productPurchasePrice) * (rates?.FC || 2850)).toLocaleString("fr-FR")} FC</span>
+                        ) : (
+                          <span className="text-[#C7D300]">≈ ${(parseFloat(productPurchasePrice) / (rates?.EUR || 0.92)).toFixed(2)} USD</span>
+                        )
+                      ) : (
+                        <span>Capital investi / pièce</span>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-300">
-                      Prix de vente (Client: {currency})
+                      Prix de vente (Client : {inputCurrency})
                     </label>
                     <input
                       type="number"
-                      step="0.01"
+                      step="any"
                       required
                       value={productPrice}
                       onChange={(e) => setProductPrice(e.target.value)}
-                      placeholder="Ex: 199.99"
-                      className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white"
+                      placeholder={inputCurrency === "FC" ? "Ex: 57000" : inputCurrency === "EUR" ? "Ex: 75.00" : "Ex: 199.99"}
+                      className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white"
                     />
-                    <span className="text-[11px] text-gray-400">Prix public en magasin</span>
+                    <div className="text-[11px] text-gray-400 min-h-[16px]">
+                      {productPrice && !isNaN(parseFloat(productPrice)) ? (
+                        inputCurrency === "FC" ? (
+                          <span className="text-[#C7D300] font-semibold">≈ ${(parseFloat(productPrice) / (rates?.FC || 2850)).toFixed(2)} USD</span>
+                        ) : inputCurrency === "USD" ? (
+                          <span className="text-[#C7D300] font-semibold">≈ {Math.round(parseFloat(productPrice) * (rates?.FC || 2850)).toLocaleString("fr-FR")} FC</span>
+                        ) : (
+                          <span className="text-[#C7D300] font-semibold">≈ ${(parseFloat(productPrice) / (rates?.EUR || 0.92)).toFixed(2)} USD</span>
+                        )
+                      ) : (
+                        <span>Prix public en magasin</span>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
