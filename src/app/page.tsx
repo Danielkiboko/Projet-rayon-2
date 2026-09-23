@@ -174,7 +174,7 @@ const whyFeatures = [
 
 export default function Home() {
   const { user, userData, signOut } = useAuth();
-  const { toggleChat, openChatForProduct } = useChat();
+  const { openChatForProduct } = useChat();
   const { currency, setCurrency, formatPrice } = useCurrency();
   const { totalItems, openCart } = useCart();
 
@@ -318,9 +318,7 @@ export default function Home() {
                 </span>
               )}
             </button>
-            <button onClick={toggleChat} className="relative p-2.5 text-[#0F1D27] hover:bg-gray-100 rounded-full transition-colors group" title="Messagerie">
-              <MessageCircle size={21} className="group-hover:scale-110 transition-transform" />
-            </button>
+
           </div>
         </div>
 
