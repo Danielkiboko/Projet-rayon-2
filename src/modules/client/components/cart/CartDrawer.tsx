@@ -40,7 +40,7 @@ export function CartDrawer() {
     totalItems 
   } = useCart();
   const { user, userData } = useAuth();
-  const { formatPrice } = useCurrency();
+  const { formatPrice, currency } = useCurrency();
   const router = useRouter();
 
   const [step, setStep] = useState<"cart" | "checkout">("cart");
@@ -123,7 +123,7 @@ export function CartDrawer() {
         deliveryFee: deliveryFee,
         totalAmount: grandTotal,
         remainingBalance: grandTotal,
-        currency: "$",
+        currency: currency,
         deliveryDetails: {
           city: "Kinshasa",
           commune: selectedCommune,
@@ -171,7 +171,7 @@ export function CartDrawer() {
           clientId: user.uid,
           type: "order",
           title: "Commande confirmée 🎉",
-          message: `Votre commande #${orderId.slice(-6)} (${items.length} article(s) - $${grandTotal.toFixed(2)}) a bien été validée. Livraison vers ${selectedCommune}.`,
+          message: `Votre commande #${orderId.slice(-6)} (${items.length} article(s) - ${formatPrice(grandTotal)}) a bien été validée. Livraison vers ${selectedCommune}.`,
           link: "/dashboard/client",
         });
       }
@@ -233,7 +233,7 @@ export function CartDrawer() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Total réglé / dû :</span>
-                  <span className="font-bold text-emerald-600 text-sm">${createdOrder.totalAmount}</span>
+                  <span className="font-bold text-emerald-600 text-sm">{formatPrice(createdOrder.totalAmount)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-500">Mode :</span>
@@ -426,7 +426,7 @@ export function CartDrawer() {
                     >
                       {KINSHASA_COMMUNES.map((comm) => (
                         <option key={comm.name} value={comm.name}>
-                          {comm.name} — Frais de livraison : ${comm.fee}
+                          {comm.name} — Frais de livraison : {formatPrice(comm.fee)}
                         </option>
                       ))}
                     </select>
@@ -516,7 +516,7 @@ export function CartDrawer() {
                   ) : (
                     <>
                       <ShoppingBag size={15} />
-                      <span>Confirmer la commande (${grandTotal.toFixed(2)})</span>
+                      <span>Confirmer la commande ({formatPrice(grandTotal)})</span>
                     </>
                   )}
                 </button>

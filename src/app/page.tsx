@@ -303,9 +303,6 @@ export default function Home() {
                 <Link href="/login" className="text-sm font-semibold text-gray-600 hover:text-[#0F1D27] px-3 py-2 rounded-full transition-colors">
                   Connexion
                 </Link>
-                <Link href="/supplier/register" className="text-sm font-bold text-[#0F1D27] bg-[#C7D300] hover:bg-[#b5c000] px-4 py-2 rounded-full transition-all shadow-sm shadow-[#C7D300]/30">
-                  Devenir partenaire
-                </Link>
               </div>
             )}
             <NotificationBell />
@@ -354,25 +351,53 @@ export default function Home() {
           HERO — Humain, narratif, premium
       ═══════════════════════════════════════════════════════ */}
       <section className="relative min-h-[88vh] flex items-center bg-[#0F1D27] overflow-hidden">
-        {/* Background image */}
-        <OptimizedImage
-          src="https://images.unsplash.com/photo-1556761175-5973dc0f32d7?auto=format&fit=crop&q=80&w=2400"
-          alt="Rayons marketplace"
-          fill
-          priority
-          className="absolute inset-0 object-cover opacity-25 mix-blend-luminosity"
-          sizes="100vw"
-        />
-        {/* Gradient layers */}
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0F1D27] via-[#0F1D27]/90 to-[#0F1D27]/70" />
+        {/* Subtle dark background gradient */}
+        <div className="absolute inset-0 bg-gradient-to-r from-[#0F1D27] via-[#0F1D27]/95 to-[#0F1D27]/60" />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0F1D27] via-transparent to-transparent" />
 
         {/* Decorative blobs */}
-        <div className="absolute top-20 right-0 w-[500px] h-[500px] bg-[#C7D300]/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-20 right-[45%] w-[400px] h-[400px] bg-[#C7D300]/5 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-20 w-[300px] h-[300px] bg-[#4C6EF5]/8 rounded-full blur-3xl pointer-events-none" />
 
+        {/* RIGHT — Supermarket photo panel */}
+        <div
+          className="absolute right-0 top-0 bottom-0 w-[52%] hidden lg:block"
+          style={{
+            opacity: heroVisible ? 1 : 0,
+            transition: "opacity 1.2s ease 0.3s",
+          }}
+        >
+          <OptimizedImage
+            src="/supermarket-hero.jpg"
+            alt="Rayons d'un supermarché — Rayons marketplace"
+            fill
+            priority
+            className="object-cover"
+            sizes="52vw"
+          />
+          {/* Left fade to blend with dark background */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0F1D27] via-[#0F1D27]/30 to-transparent" />
+          {/* Bottom fade */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0F1D27]/60 via-transparent to-transparent" />
+          {/* Floating badge */}
+          <div
+            className="absolute bottom-12 right-8 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-5 py-4 flex items-center gap-3"
+            style={{
+              opacity: heroVisible ? 1 : 0,
+              transform: heroVisible ? "translateY(0)" : "translateY(16px)",
+              transition: "opacity 1.2s ease 0.8s, transform 1.2s ease 0.8s",
+            }}
+          >
+            <span className="text-2xl">🛒</span>
+            <div>
+              <p className="text-white font-bold text-sm">4 800+ produits</p>
+              <p className="text-gray-400 text-xs">disponibles maintenant</p>
+            </div>
+          </div>
+        </div>
+
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-20 w-full">
-          <div className="max-w-3xl">
+          <div className="max-w-3xl lg:max-w-[52%]">
 
             {/* Human trust signal */}
             <div
@@ -469,7 +494,7 @@ export default function Home() {
         </div>
 
         {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 text-white/30 animate-bounce">
+        <div className="absolute bottom-8 left-1/4 -translate-x-1/2 flex flex-col items-center gap-1 text-white/30 animate-bounce">
           <ChevronDown size={22} />
         </div>
       </section>

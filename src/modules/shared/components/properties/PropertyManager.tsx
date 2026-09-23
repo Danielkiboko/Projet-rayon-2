@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { 
   Plus, X, Search, Home, Image as ImageIcon, AlertCircle, 
   MapPin, CheckCircle, XCircle, Trash2, Building, Eye, Edit,
-  Star, Coffee, Car, Plane, Zap, Wifi, Waves, Shield, Clock, Sparkles, Bed, Hotel, Lock
+  Star, Coffee, Car, Plane, Zap, Wifi, Waves, Shield, Clock, Sparkles, Bed, Hotel, Lock, Landmark
 } from "lucide-react";
 import { useProductAiAssistant, handleImageUploadShared } from "@/hooks/useProductAiAssistant";
 import AiAssistantChat from "@/modules/shared/components/shared/AiAssistantChat";
@@ -50,6 +50,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
   const [propertyType, setPropertyType] = useState("appartement");
   const [typeTransaction, setTypeTransaction] = useState("À Louer");
   const [propertyPrice, setPropertyPrice] = useState("");
+  const [purchasePrice, setPurchasePrice] = useState("");
   const [propertyLocation, setPropertyLocation] = useState("");
   const [propertyCoords, setPropertyCoords] = useState<{lat: number, lng: number} | null>(null);
   const [isFetchingGps, setIsFetchingGps] = useState(false);
@@ -159,6 +160,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
     setHotelSubtype("chambre_standard");
     setTypeTransaction("À Louer");
     setPropertyPrice("");
+    setPurchasePrice("");
     setPropertyLocation("");
     setPropertyCoords(null);
     setPropertyDesc("");
@@ -199,6 +201,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
       setInputCurrency("USD");
       setPropertyPrice(property.price?.toString() || "");
     }
+    setPurchasePrice(property.purchasePrice !== undefined ? String(property.purchasePrice) : "");
     setPropertyLocation(property.location || "");
     setPropertyCoords(property.propertyCoords || null);
     setPropertyDesc(property.description || "");
@@ -319,6 +322,18 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
       canonicalPrice = Number((rawPrice / eurRate).toFixed(2));
     }
 
+    // Prix d'achat (capital investi) — converti en USD canonique
+    const rawPurchase = parseFloat(purchasePrice.toString().replace(/[^0-9.]/g, '') || "0");
+    let canonicalPurchasePrice = rawPurchase;
+    if (inputCurrency === "FC") {
+      canonicalPurchasePrice = Number((rawPurchase / fcRate).toFixed(2));
+    } else if (inputCurrency === "EUR") {
+      canonicalPurchasePrice = Number((rawPurchase / eurRate).toFixed(2));
+    }
+    const grossMargin = canonicalPrice > 0 && canonicalPurchasePrice > 0
+      ? Number((canonicalPrice - canonicalPurchasePrice).toFixed(2))
+      : 0;
+
     const propertyData = {
       title: { fr: propertyTitle, en: propertyTitle }, // Simulating i18n
       immoBranch: isHotel ? "hotel" : "habitation",
@@ -330,6 +345,9 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
       inputCurrency: inputCurrency,
       originalInputPrice: rawPrice,
       appliedExchangeRate: rates?.[inputCurrency] || 1,
+      // Comptabilité : capital investi & marge brute
+      purchasePrice: canonicalPurchasePrice > 0 ? canonicalPurchasePrice : null,
+      grossMargin: grossMargin > 0 ? grossMargin : null,
       location: propertyLocation,
       description: propertyDesc,
       image: imagePreview || (isHotel ? "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&q=80&w=800" : "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=800"),
@@ -1159,6 +1177,85 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
                     </div>
                   </div>
                 </div>
+
+                {/* ── Prix d'achat (Capital investi) — Comptabilité fournisseur ── */}
+                {!isAdmin && (
+                  <div className="p-4 bg-[#C7D300]/8 border border-[#C7D300]/25 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between border-b border-[#C7D300]/20 pb-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-[#C7D300] flex items-center gap-1.5">
+                        <Landmark size={14} className="text-[#C7D300]" />
+                        Prix d&apos;achat / Capital investi (Comptabilité privée)
+                      </span>
+                      <span className="text-[11px] text-gray-400">Visible uniquement par vous — jamais affiché aux clients</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-sm font-medium text-gray-300">
+                          {immoBranch === "hotel"
+                            ? `Coût d'exploitation / nuit (${inputCurrency})`
+                            : `Prix d'achat du bien (${inputCurrency})`
+                          }
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          value={purchasePrice}
+                          onChange={(e) => setPurchasePrice(e.target.value)}
+                          placeholder={inputCurrency === "FC" ? "Ex: 142500000" : "Ex: 50000"}
+                          className="w-full px-4 py-2 bg-black/20 border border-[#C7D300]/30 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white"
+                        />
+                        <p className="text-[11px] text-gray-400">Sert à calculer votre marge / intérêt dans la Caisse</p>
+                      </div>
+                      {purchasePrice && !isNaN(parseFloat(purchasePrice)) && propertyPrice && !isNaN(parseFloat(propertyPrice)) && (
+                        <div className="bg-black/20 rounded-xl p-3 space-y-2 text-xs">
+                          <p className="text-gray-400 font-semibold uppercase tracking-wider text-[10px]">Aperçu comptable</p>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Capital investi :</span>
+                            <span className="font-bold text-white">
+                              {inputCurrency === "FC"
+                                ? `$${(parseFloat(purchasePrice) / (rates?.FC || 2850)).toFixed(2)}`
+                                : inputCurrency === "EUR"
+                                ? `$${(parseFloat(purchasePrice) / (rates?.EUR || 0.92)).toFixed(2)}`
+                                : `$${parseFloat(purchasePrice).toFixed(2)}`
+                              }
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-400">Prix de vente/loyer :</span>
+                            <span className="font-bold text-white">
+                              {inputCurrency === "FC"
+                                ? `$${(parseFloat(propertyPrice) / (rates?.FC || 2850)).toFixed(2)}`
+                                : inputCurrency === "EUR"
+                                ? `$${(parseFloat(propertyPrice) / (rates?.EUR || 0.92)).toFixed(2)}`
+                                : `$${parseFloat(propertyPrice).toFixed(2)}`
+                              }
+                            </span>
+                          </div>
+                          <div className="flex justify-between border-t border-white/10 pt-2">
+                            <span className="text-[#C7D300] font-bold">Marge / Intérêt :</span>
+                            <span className="font-extrabold text-[#C7D300]">
+                              {(() => {
+                                const fcRate = rates?.FC || 2850;
+                                const eurRate = rates?.EUR || 0.92;
+                                const sell = inputCurrency === "FC" ? parseFloat(propertyPrice) / fcRate
+                                           : inputCurrency === "EUR" ? parseFloat(propertyPrice) / eurRate
+                                           : parseFloat(propertyPrice);
+                                const buy = inputCurrency === "FC" ? parseFloat(purchasePrice) / fcRate
+                                          : inputCurrency === "EUR" ? parseFloat(purchasePrice) / eurRate
+                                          : parseFloat(purchasePrice);
+                                const margin = sell - buy;
+                                return margin >= 0
+                                  ? `+$${margin.toFixed(2)}`
+                                  : `-$${Math.abs(margin).toFixed(2)}`;
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* ── Gestion Bailleur & Mandat de gestion (Habitation) ── */}
                 {immoBranch === "habitation" && (

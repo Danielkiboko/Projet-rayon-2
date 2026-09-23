@@ -9,6 +9,7 @@ import { ArrowLeft, MapPin, Package, CheckCircle, Truck, Phone, Download, FileTe
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
 import { generateOrderInvoicePDF } from "@/lib/invoiceGenerator";
+import { useCurrency } from "@/context/CurrencyContext";
 
 // Dynamically import the map component so it doesn't break SSR
 const TrackingMap = dynamic(() => import("@/modules/client/components/TrackingMap"), {
@@ -23,6 +24,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
   const orderId = resolvedParams.id;
   
   const [order, setOrder] = useState<any>(null);
+  const { formatPrice, currency } = useCurrency();
 
   useEffect(() => {
     if (loading) return;
@@ -170,7 +172,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
             {order.items?.map((item: any, i: number) => (
               <div key={i} className="flex justify-between items-center text-sm">
                 <span className="text-gray-600">{item.quantity}x {item.productName}</span>
-                <span className="font-medium">{item.price} $</span>
+                <span className="font-medium">{formatPrice(item.price)}</span>
               </div>
             ))}
           </div>
@@ -178,16 +180,16 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
           <div className="bg-gray-50 rounded-xl p-4">
             <div className="flex justify-between items-center mb-2 text-sm">
               <span className="text-gray-600">Frais de livraison (Déjà payé)</span>
-              <span className="font-medium">{order.deliveryFee} $</span>
+              <span className="font-medium">{formatPrice(order.deliveryFee)}</span>
             </div>
             <div className="flex justify-between items-center font-bold text-lg border-t border-gray-200 pt-2 mt-2">
               <span>Solde à payer</span>
-              <span>{order.totalAmount} $</span>
+              <span>{formatPrice(order.totalAmount)}</span>
             </div>
           </div>
 
           <button 
-            onClick={() => generateOrderInvoicePDF(order, null, "$")}
+            onClick={() => generateOrderInvoicePDF(order, null, currency)}
             className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-900 py-3 rounded-xl font-bold text-sm mt-3 transition-colors border border-gray-200 shadow-xs"
           >
             <Download size={16} />
@@ -198,7 +200,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
             onClick={handlePayRemaining}
             className="w-full bg-primary text-white py-4 rounded-xl font-bold text-lg mt-3 hover:bg-primary-light transition-colors shadow-lg"
           >
-            Payer à la livraison ({order.totalAmount} $)
+            Payer à la livraison ({formatPrice(order.totalAmount)})
           </button>
         </div>
       </main>

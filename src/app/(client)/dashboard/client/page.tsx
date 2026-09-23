@@ -25,10 +25,12 @@ import { generateOrderInvoicePDF, generateHotelBookingReceiptPDF } from "@/lib/i
 import { ClientChatsWidget } from "@/modules/supplier/components/ClientChatsWidget";
 import NotificationBell from "@/modules/shared/components/notifications/NotificationBell";
 import ProfileUpdateModal from "@/modules/supplier/components/ProfileUpdateModal";
+import { useCurrency } from "@/context/CurrencyContext";
 
 export default function ClientDashboard() {
   const { user, userData, signOut } = useAuth();
   const router = useRouter();
+  const { formatPrice, currency } = useCurrency();
   
   const [activeTab, setActiveTab] = useState<"orders" | "visits" | "hotels" | "messages">("orders");
   const [orders, setOrders] = useState<any[]>([]);
@@ -239,18 +241,23 @@ export default function ClientDashboard() {
                               {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "Date récente"}
                             </div>
                           </div>
-                          <span className="text-xs font-semibold px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full w-fit">
-                            {order.status || "En cours"}
-                          </span>
+                           <span className="text-xs font-semibold px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full w-fit">
+                            {order.status === "CONFIRMED_AWAITING_DRIVER" ? "En attente de livreur" :
+                             order.status === "ACCEPTED" ? "Livreur assigné" :
+                             order.status === "ARRIVED_AWAITING_PAYMENT" ? "Livreur sur place" :
+                             order.status === "COMPLETED" ? "Livré ✓" :
+                             order.status === "CANCELLED" ? "Annulé" :
+                             order.status || "En cours"}
+                           </span>
                         </div>
                         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-gray-100">
                           <div className="text-sm text-gray-500">
-                            Total TTC : <span className="font-bold text-gray-900">${order.totalAmount}</span>
+                            Total TTC : <span className="font-bold text-gray-900">{formatPrice(order.totalAmount)}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
-                              onClick={() => generateOrderInvoicePDF(order, null, "$")}
+                              onClick={() => generateOrderInvoicePDF(order, null, currency)}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
                               title="Télécharger la facture officielle PDF"
                             >
@@ -347,7 +354,7 @@ export default function ClientDashboard() {
                             <div>
                               <span className="text-gray-400 block font-medium">Total estimé</span>
                               <div className="font-bold text-primary text-sm mt-1">
-                                {booking.totalPrice ? `$${booking.totalPrice}` : "Sur devis / À l'arrivée"}
+                                {booking.totalPrice ? formatPrice(booking.totalPrice) : "Sur devis / À l'arrivée"}
                               </div>
                             </div>
                           </div>
