@@ -97,6 +97,16 @@ export default function SupplierMessagesPage() {
     return () => unsubscribe();
   }, [user, activeSupplierId]);
 
+  // Mark a chat as read by the supplier (reset unreadSupplier flag)
+  const markChatAsRead = async (chatId: string) => {
+    if (!chatId) return;
+    try {
+      await updateDoc(doc(db, "chats", chatId), { unreadSupplier: false });
+    } catch (err) {
+      console.warn("Could not mark chat as read:", err);
+    }
+  };
+
   // Fetch messages for active chat
   useEffect(() => {
     if (!activeChatId) {
@@ -114,6 +124,8 @@ export default function SupplierMessagesPage() {
       })) as ChatMessage[];
       setChatMessages(msgs);
     });
+    // Reset the unread flag as soon as messages load
+    markChatAsRead(activeChatId);
     return () => unsubscribe();
   }, [activeChatId]);
 
@@ -404,7 +416,10 @@ export default function SupplierMessagesPage() {
                   return (
                     <button
                       key={chat.id}
-                      onClick={() => setActiveChatId(chat.id)}
+                      onClick={() => {
+                        setActiveChatId(chat.id);
+                        markChatAsRead(chat.id);
+                      }}
                       className={`w-full p-4 text-left transition-colors flex items-center space-x-3 hover:bg-white/5 ${
                         activeChatId === chat.id ? "bg-white/10 border-l-4 border-primary" : "border-l-4 border-transparent"
                       }`}
