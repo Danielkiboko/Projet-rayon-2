@@ -1,29 +1,33 @@
-name: Deploy to Hostinger via FTP
+name: 🚀 Deploy to Vercel
 
 on:
   push:
     branches:
       - main
-      - master # In case your main branch is called master
+  pull_request:
+    branches:
+      - main
 
 jobs:
-  build-and-deploy:
+  # ── Job 1: Vérification du build ──────────────────────────────
+  build-check:
+    name: 🔨 Build & Lint Check
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: 📥 Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: ⚙️ Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install Dependencies
-        run: npm ci --legacy-peer-deps || npm install --legacy-peer-deps
+      - name: 📦 Install dependencies
+        run: npm ci --legacy-peer-deps
 
-      - name: Build Next.js app
+      - name: 🏗️ Build Next.js
         run: npm run build
         env:
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
@@ -33,22 +37,33 @@ jobs:
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
           FIREBASE_SERVICE_ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+          NEXT_PUBLIC_GOOGLE_ADSENSE_ID: ${{ secrets.NEXT_PUBLIC_GOOGLE_ADSENSE_ID }}
 
-      - name: Prepare Standalone Directory
-        run: |
-          # The standalone build doesn't include public and static folders automatically
-          cp -r public .next/standalone/
-          cp -r .next/static .next/standalone/.next/
+  # ── Job 2: Déploiement Vercel (uniquement sur main) ───────────
+  deploy:
+    name: 🌐 Deploy to Vercel Production
+    runs-on: ubuntu-latest
+    needs: build-check
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 
-      - name: Deploy to Hostinger via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js 20
+        uses: actions/setup-node@v4
         with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: .next/standalone/
-          server-dir: ./public_html/ # Assurez-vous que c'est le bon dossier sur Hostinger
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 📦 Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: 🔗 Pull Vercel environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: 🏗️ Build for Vercel
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: 🚀 Deploy to Vercel Production
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
