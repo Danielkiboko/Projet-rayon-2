@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Search, Plus, Bell, Home, X, DollarSign, FileText, ClipboardCheck, Wrench, ShieldCheck, History } from "lucide-react";
+import { Users, Search, Plus, Bell, Home, X, DollarSign, FileText, ClipboardCheck, Wrench, ShieldCheck, History, TrendingUp, TrendingDown, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { auth, db } from "@/lib/firebase";
 import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc, serverTimestamp } from "firebase/firestore";
@@ -128,6 +128,75 @@ export default function SupplierTenantsPage() {
       setIsLoadingHistory(false);
     }
   };
+
+  // Treasury state
+  type MonthRow = { month: string; label: string; income: number; charges: number; net: number; };
+  const [treasuryRows, setTreasuryRows] = useState<MonthRow[]>([]);
+  const [isTreasuryOpen, setIsTreasuryOpen] = useState(true);
+  const [isLoadingTreasury, setIsLoadingTreasury] = useState(false);
+
+  useEffect(() => {
+    if (!activeSupplierId) return;
+    const loadTreasury = async () => {
+      setIsLoadingTreasury(true);
+      try {
+        // Payments (loyers)
+        const paymentsSnap = await getDocs(
+          query(collection(db, "payments"), where("supplierId", "==", activeSupplierId))
+        );
+        // Maintenance tickets
+        const maintenanceSnap = await getDocs(
+          query(collection(db, "maintenance_tickets"), where("supplierId", "==", activeSupplierId))
+        );
+
+        const incomeByMonth: Record<string, number> = {};
+        const chargesByMonth: Record<string, number> = {};
+
+        paymentsSnap.docs.forEach(d => {
+          const data = d.data();
+          const date: Date = data.createdAt?.toDate?.() || new Date();
+          const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+          incomeByMonth[key] = (incomeByMonth[key] || 0) + Number(data.amount || 0);
+        });
+
+        maintenanceSnap.docs.forEach(d => {
+          const data = d.data();
+          const date: Date = data.createdAt?.toDate?.() || new Date();
+          const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+          chargesByMonth[key] = (chargesByMonth[key] || 0) + Number(data.cost || 0);
+        });
+
+        // Merge all months
+        const allKeys = new Set([...Object.keys(incomeByMonth), ...Object.keys(chargesByMonth)]);
+        const rows: MonthRow[] = Array.from(allKeys)
+          .sort((a, b) => b.localeCompare(a)) // desc
+          .slice(0, 12) // 12 derniers mois
+          .map(key => {
+            const [y, m] = key.split("-");
+            const label = new Date(Number(y), Number(m) - 1, 1)
+              .toLocaleString("fr-FR", { month: "long", year: "numeric" });
+            const income = incomeByMonth[key] || 0;
+            const charges = chargesByMonth[key] || 0;
+            return { month: key, label, income, charges, net: income - charges };
+          });
+
+        // Always show current month even if empty
+        const now = new Date();
+        const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        if (!rows.find(r => r.month === currentKey)) {
+          const label = now.toLocaleString("fr-FR", { month: "long", year: "numeric" });
+          rows.unshift({ month: currentKey, label, income: 0, charges: 0, net: 0 });
+        }
+
+        setTreasuryRows(rows);
+      } catch (err) {
+        console.error("Error loading treasury:", err);
+      } finally {
+        setIsLoadingTreasury(false);
+      }
+    };
+    loadTreasury();
+  }, [activeSupplierId]);
 
   const fetchData = async () => {
     if (!user) return;
@@ -610,6 +679,118 @@ export default function SupplierTenantsPage() {
             {tenants.reduce((sum, t) => sum + (t.status === "PARTI" ? (t.debtAmount || 0) : 0), 0)} $
           </p>
         </div>
+      </div>
+
+      {/* ── TABLEAU DE TRÉSORERIE IMMO ───────────────────────── */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
+        <button
+          onClick={() => setIsTreasuryOpen(v => !v)}
+          className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+        >
+          <div className="flex items-center gap-2.5">
+            <TrendingUp size={18} className="text-emerald-400" />
+            <span className="font-semibold text-white text-sm">Trésorerie Immobilière — Loyers vs Charges</span>
+            {!isLoadingTreasury && treasuryRows.length > 0 && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                {treasuryRows.length} mois
+              </span>
+            )}
+          </div>
+          <ChevronDown size={16} className={`text-gray-400 transition-transform ${isTreasuryOpen ? "rotate-180" : ""}`} />
+        </button>
+
+        {isTreasuryOpen && (
+          <div className="border-t border-white/10">
+            {isLoadingTreasury ? (
+              <div className="p-6 text-center text-gray-400 text-sm">Chargement de la trésorerie...</div>
+            ) : treasuryRows.length === 0 ? (
+              <div className="p-6 text-center text-gray-500 text-sm">Aucune donnée financière disponible. Enregistrez des paiements et des tickets de maintenance pour voir la trésorerie.</div>
+            ) : (
+              <>
+                {/* Summary totals */}
+                <div className="grid grid-cols-3 divide-x divide-white/10 bg-black/20">
+                  <div className="p-3 text-center">
+                    <p className="text-xs text-gray-400">Total Loyers (12m)</p>
+                    <p className="text-lg font-bold text-emerald-400">
+                      {treasuryRows.reduce((s, r) => s + r.income, 0).toLocaleString("fr-FR")} $
+                    </p>
+                  </div>
+                  <div className="p-3 text-center">
+                    <p className="text-xs text-gray-400">Total Charges (12m)</p>
+                    <p className="text-lg font-bold text-red-400">
+                      {treasuryRows.reduce((s, r) => s + r.charges, 0).toLocaleString("fr-FR")} $
+                    </p>
+                  </div>
+                  <div className="p-3 text-center">
+                    <p className="text-xs text-gray-400">Résultat Net (12m)</p>
+                    <p className={`text-lg font-bold ${
+                      treasuryRows.reduce((s, r) => s + r.net, 0) >= 0 ? "text-emerald-400" : "text-red-400"
+                    }`}>
+                      {treasuryRows.reduce((s, r) => s + r.net, 0).toLocaleString("fr-FR")} $
+                    </p>
+                  </div>
+                </div>
+
+                {/* Month-by-month table */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-xs uppercase text-gray-400 bg-black/10">
+                        <th className="px-4 py-2.5 text-left">Mois</th>
+                        <th className="px-4 py-2.5 text-right">Loyers encaissés</th>
+                        <th className="px-4 py-2.5 text-right">Charges maintenance</th>
+                        <th className="px-4 py-2.5 text-right">Résultat net</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {treasuryRows.map((row, idx) => {
+                        const isCurrentMonth = idx === 0;
+                        return (
+                          <tr key={row.month} className={`transition-colors hover:bg-white/5 ${
+                            isCurrentMonth ? "bg-white/3" : ""
+                          }`}>
+                            <td className="px-4 py-3">
+                              <span className={`text-sm font-medium capitalize ${
+                                isCurrentMonth ? "text-white" : "text-gray-300"
+                              }`}>{row.label}</span>
+                              {isCurrentMonth && (
+                                <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 font-semibold">En cours</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span className="font-semibold text-emerald-400">
+                                {row.income > 0 ? `+${row.income.toLocaleString("fr-FR")} $` : <span className="text-gray-500">—</span>}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <span className="font-semibold text-red-400">
+                                {row.charges > 0 ? `-${row.charges.toLocaleString("fr-FR")} $` : <span className="text-gray-500">—</span>}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {row.net > 0 ? (
+                                  <TrendingUp size={13} className="text-emerald-400" />
+                                ) : row.net < 0 ? (
+                                  <TrendingDown size={13} className="text-red-400" />
+                                ) : null}
+                                <span className={`font-bold ${
+                                  row.net > 0 ? "text-emerald-400" : row.net < 0 ? "text-red-400" : "text-gray-500"
+                                }`}>
+                                  {row.net === 0 ? "—" : `${row.net > 0 ? "+" : ""}${row.net.toLocaleString("fr-FR")} $`}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
