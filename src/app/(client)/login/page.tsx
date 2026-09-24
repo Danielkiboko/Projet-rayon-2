@@ -25,9 +25,10 @@ function LoginContent() {
 
   useEffect(() => {
     if (reason === "inactivity") {
-      setError("Nous avons remarqué votre inactivité pendant 10 minutes, c'est pourquoi nous vous avons déconnecté automatiquement.");
+      setError("Vous avez été déconnecté automatiquement pour inactivité. Veuillez vous reconnecter pour continuer.");
     }
   }, [reason]);
+
 
   useEffect(() => {
     if (!loading && user) {
