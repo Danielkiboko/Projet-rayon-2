@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Search, Plus, Bell, Home, X, DollarSign, FileText, ClipboardCheck, Wrench, ShieldCheck } from "lucide-react";
+import { Users, Search, Plus, Bell, Home, X, DollarSign, FileText, ClipboardCheck, Wrench, ShieldCheck, History } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { auth, db } from "@/lib/firebase";
 import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc, serverTimestamp } from "firebase/firestore";
@@ -99,6 +99,35 @@ export default function SupplierTenantsPage() {
   const [maintenanceCost, setMaintenanceCost] = useState<number | "">("");
   const [maintenanceChargedTo, setMaintenanceChargedTo] = useState<"BAILLEUR" | "LOCATAIRE">("BAILLEUR");
   const [maintenanceCategory, setMaintenanceCategory] = useState("Plomberie");
+
+  // Payment History Modal State
+  type Payment = { id: string; amount: number; currency: string; reference: string; createdAt: any; };
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [historyTenant, setHistoryTenant] = useState<Tenant | null>(null);
+  const [tenantPayments, setTenantPayments] = useState<Payment[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  const loadTenantPayments = async (tenant: Tenant) => {
+    setHistoryTenant(tenant);
+    setIsHistoryModalOpen(true);
+    setTenantPayments([]);
+    setIsLoadingHistory(true);
+    try {
+      const q = query(
+        collection(db, "payments"),
+        where("tenantId", "==", tenant.id)
+      );
+      const snap = await getDocs(q);
+      const list = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as Payment))
+        .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+      setTenantPayments(list);
+    } catch (err) {
+      console.error("Error loading payment history:", err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
 
   const fetchData = async () => {
     if (!user) return;
@@ -703,6 +732,16 @@ export default function SupplierTenantsPage() {
                           <span>Réparation</span>
                         </button>
 
+                        {/* Bouton Historique Paiements */}
+                        <button
+                          onClick={() => loadTenantPayments(tenant)}
+                          title="Historique des paiements de loyer"
+                          className="px-2 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded text-xs flex items-center gap-1 transition-all"
+                        >
+                          <History size={13} />
+                          <span>Historique</span>
+                        </button>
+
                         {tenant.status !== "PARTI" ? (
                           <>
                             <button 
@@ -1073,6 +1112,113 @@ export default function SupplierTenantsPage() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* PAYMENT HISTORY MODAL */}
+      <AnimatePresence>
+        {isHistoryModalOpen && historyTenant && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-lg bg-[#140b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[88vh] flex flex-col"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-5 border-b border-white/10 bg-black/30 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-500/15 rounded-lg">
+                    <History size={18} className="text-indigo-400" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white">Historique des Paiements</h3>
+                    <p className="text-xs text-gray-400">{historyTenant.name} — {historyTenant.propertyName}{historyTenant.unitName ? ` (${historyTenant.unitName})` : ""}</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsHistoryModalOpen(false)} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/10">
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Stats bar */}
+              <div className="grid grid-cols-3 divide-x divide-white/10 bg-white/3 border-b border-white/10 shrink-0">
+                <div className="p-3 text-center">
+                  <p className="text-xs text-gray-400">Paiements</p>
+                  <p className="text-lg font-bold text-white">{tenantPayments.length}</p>
+                </div>
+                <div className="p-3 text-center">
+                  <p className="text-xs text-gray-400">Total encaissé</p>
+                  <p className="text-lg font-bold text-emerald-400">
+                    {tenantPayments.reduce((s, p) => s + (p.amount || 0), 0).toLocaleString()} $
+                  </p>
+                </div>
+                <div className="p-3 text-center">
+                  <p className="text-xs text-gray-400">Loyer mensuel</p>
+                  <p className="text-lg font-bold text-indigo-400">{historyTenant.rentAmount} $</p>
+                </div>
+              </div>
+
+              {/* Timeline */}
+              <div className="flex-1 overflow-y-auto p-4">
+                {isLoadingHistory ? (
+                  <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
+                    Chargement de l&apos;historique...
+                  </div>
+                ) : tenantPayments.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-40 text-gray-500">
+                    <DollarSign size={32} className="mb-2 opacity-30" />
+                    <p className="text-sm">Aucun paiement enregistré pour ce locataire.</p>
+                    <p className="text-xs mt-1 text-gray-600">Les paiements futurs apparaîtront ici.</p>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    {/* Ligne verticale timeline */}
+                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-white/10" />
+
+                    <div className="space-y-3 pl-10">
+                      {tenantPayments.map((pmt, idx) => {
+                        const date = pmt.createdAt?.toDate?.()
+                          ? pmt.createdAt.toDate().toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })
+                          : "—";
+                        const isFirst = idx === 0;
+                        return (
+                          <div key={pmt.id} className="relative">
+                            {/* Dot timeline */}
+                            <div className={`absolute -left-[26px] top-3 w-3 h-3 rounded-full border-2 ${isFirst ? "bg-emerald-400 border-emerald-400" : "bg-white/20 border-white/30"}`} />
+
+                            <div className={`rounded-xl p-3.5 border ${isFirst ? "bg-emerald-500/5 border-emerald-500/20" : "bg-white/3 border-white/8"}`}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs text-gray-400">{date}</p>
+                                  <p className="text-sm font-medium text-white truncate mt-0.5">
+                                    {(pmt as any).reference || `Loyer — ${date}`}
+                                  </p>
+                                </div>
+                                <span className={`text-sm font-bold shrink-0 ${isFirst ? "text-emerald-400" : "text-white"}`}>
+                                  +{Number(pmt.amount).toLocaleString("fr-FR")} $
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t border-white/10 bg-black/20 shrink-0 flex justify-end">
+                <button
+                  onClick={() => setIsHistoryModalOpen(false)}
+                  className="px-4 py-2 text-sm text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                >
+                  Fermer
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
