@@ -172,7 +172,7 @@ export default function SuppliersPage() {
 
   const openAccessModal = (supplier: Supplier) => {
     setSelectedSupplierForAccess(supplier);
-    setSelectedRayons(supplier.assignedRayons || (supplier.rayon ? [supplier.rayon] : []));
+    setSelectedRayons(getSupplierRayons(supplier));
     setIsAccessModalOpen(true);
   };
 

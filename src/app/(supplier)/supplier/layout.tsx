@@ -8,7 +8,7 @@ import { ShieldAlert, LayoutDashboard, Package, ShoppingCart, Truck, Wallet, Cre
 import { themeConfig } from "@/lib/themeConfig";
 import ProfileUpdateModal from "@/modules/supplier/components/ProfileUpdateModal";
 import DashboardLayout from "@/modules/shared/components/layouts/DashboardLayout";
-import { isSupplier, getSupplierType } from "@/lib/permissions";
+import { isSupplier, getSupplierType, getSupplierAvailableRayons } from "@/lib/permissions";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
 import { recordSubscriptionDeposit } from "@/lib/accountingLedger";
 
@@ -30,7 +30,7 @@ export default function SupplierLayout({
   useEffect(() => {
     if (userData) {
       const saved = localStorage.getItem("activeSupplierRayon");
-      const available = userData.assignedRayons || [];
+      const available = getSupplierAvailableRayons(userData);
       if (saved && available.includes(saved)) {
         setActiveRayon(saved);
       } else if (available.length > 0) {
@@ -190,7 +190,7 @@ export default function SupplierLayout({
     });
   }
 
-  const availableRayons = userData?.assignedRayons || [];
+  const availableRayons = getSupplierAvailableRayons(userData);
 
   const handlePayDeposit = async () => {
     const depositAmount = userData?.depositAmount || 50;
@@ -225,7 +225,7 @@ export default function SupplierLayout({
 
   const handleSwitchRayon = (r: string) => {
     localStorage.setItem("activeSupplierRayon", r);
-    window.location.reload();
+    window.location.href = "/supplier";
   };
 
   return (

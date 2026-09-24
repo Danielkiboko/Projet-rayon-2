@@ -7,6 +7,7 @@ import ModeDashboard from "@/modules/supplier/components/dashboards/ModeDashboar
 import ConnectDashboard from "@/modules/supplier/components/dashboards/ConnectDashboard";
 import SaveursDashboard from "@/modules/supplier/components/dashboards/SaveursDashboard";
 import { ShieldAlert } from "lucide-react";
+import { getSupplierAvailableRayons, getSupplierType } from "@/lib/permissions";
 
 export default function SupplierDashboardRouter() {
   const { user, userData, loading } = useAuth();
@@ -29,26 +30,15 @@ export default function SupplierDashboardRouter() {
   useEffect(() => {
     if (userData) {
       const saved = localStorage.getItem("activeSupplierRayon");
-      const available = userData.assignedRayons || [];
-      
-      let service = userData?.serviceAttached || "default";
-      
-      const isImmoSupplier = 
-        userData?.role === "SUPPLIER_IMMO" || 
-        userData?.businessType === "IMMOBILIER" || 
-        userData?.rayon?.type === "REAL_ESTATE" || 
-        userData?.rayon === "immo";
-
-      if (isImmoSupplier) {
-        service = "immo";
-      }
+      const available = getSupplierAvailableRayons(userData);
 
       if (saved && available.includes(saved)) {
         setCurrentService(saved);
       } else if (available.length > 0) {
         setCurrentService(available[0]);
       } else {
-        setCurrentService(service);
+        const defaultType = getSupplierType(userData);
+        setCurrentService(defaultType);
       }
     }
   }, [userData]);

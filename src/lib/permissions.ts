@@ -78,24 +78,85 @@ export const isSupplier = (userData: any): boolean => {
 };
 
 /**
+ * Returns all rayons available to a supplier (from assignedRayons array, role, businessType, rayon field, serviceAttached).
+ * Ensures consistency across the entire app.
+ */
+export const getSupplierAvailableRayons = (userData: any): string[] => {
+  if (!userData) return [];
+  const set = new Set<string>();
+
+  // 1. Explicit assignedRayons
+  if (Array.isArray(userData.assignedRayons)) {
+    userData.assignedRayons.forEach((r: any) => {
+      if (typeof r === "string" && r.trim()) set.add(r.toLowerCase().trim());
+    });
+  }
+
+  // 2. Primary rayon field
+  if (userData.rayon && typeof userData.rayon === "string" && userData.rayon !== "Non assigné") {
+    set.add(userData.rayon.toLowerCase().trim());
+  }
+
+  // 3. Service attached
+  if (userData.serviceAttached && typeof userData.serviceAttached === "string") {
+    set.add(userData.serviceAttached.toLowerCase().trim());
+  }
+
+  // 4. Role or businessType indicators for Immo
+  if (
+    userData.role === "SUPPLIER_IMMO" ||
+    userData.role === "supplier_immo" ||
+    userData.businessType === "IMMOBILIER" ||
+    (typeof userData.rayon === "string" && userData.rayon.toLowerCase().includes("immo"))
+  ) {
+    set.add("immo");
+  }
+
+  // 5. Role or businessType indicators for Saveurs
+  if (
+    userData.role === "SUPPLIER_SAVEURS" ||
+    userData.role === "supplier_saveurs" ||
+    userData.businessType === "RESTAURATION" ||
+    (typeof userData.rayon === "string" && (
+      userData.rayon.toLowerCase().includes("saveur") ||
+      userData.rayon.toLowerCase().includes("resto") ||
+      userData.rayon.toLowerCase().includes("cuisine")
+    ))
+  ) {
+    set.add("saveurs");
+  }
+
+  // 6. Role indicators for Mode / Connect
+  if (userData.role === "SUPPLIER_MODE" || userData.role === "supplier_mode") {
+    set.add("mode");
+  }
+  if (userData.role === "SUPPLIER_CONNECT" || userData.role === "supplier_connect") {
+    set.add("connect");
+  }
+
+  return Array.from(set);
+};
+
+/**
  * Determines the specific supplier service type (immo, mode, connect, or default).
  * Centralizes the logic to avoid duplicated checks across the app.
  */
 export const getSupplierType = (userData: any): "immo" | "mode" | "connect" | "saveurs" | "default" => {
+  const available = getSupplierAvailableRayons(userData);
+
   // If running in browser and user has a saved active rayon from assigned rayons, respect it
   if (typeof window !== "undefined") {
     const active = localStorage.getItem("activeSupplierRayon");
     if (active && (active === "immo" || active === "mode" || active === "connect" || active === "saveurs")) {
-      const assigned = userData?.assignedRayons;
-      if (!assigned || (Array.isArray(assigned) && assigned.includes(active))) {
+      if (available.length === 0 || available.includes(active)) {
         return active;
       }
     }
   }
 
-  // If user has specific assignedRayons array, use the first one
-  if (Array.isArray(userData?.assignedRayons) && userData.assignedRayons.length > 0) {
-    const first = userData.assignedRayons[0];
+  // If user has specific available rayons, use the first one
+  if (available.length > 0) {
+    const first = available[0];
     if (first === "immo" || first === "mode" || first === "connect" || first === "saveurs") {
       return first;
     }

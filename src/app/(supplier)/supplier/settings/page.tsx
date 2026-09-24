@@ -74,48 +74,8 @@ export default function SupplierSettingsPage() {
     }
   };
 
-  // Helper to format date
-  const formatDate = (timestamp: any) => {
-    if (!timestamp) return "Non définie";
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString("fr-FR");
-  };
-
-  const isSubscriptionExpired = () => {
-    if (!userData?.subscriptionEndDate) return false;
-    const endDate = userData.subscriptionEndDate.toDate ? userData.subscriptionEndDate.toDate() : new Date(userData.subscriptionEndDate);
-    return new Date() > endDate;
-  };
-
   return (
     <div className="space-y-6">
-      {/* Subscription Banner */}
-      <div className={`p-4 rounded-xl border flex items-center justify-between ${
-        isSubscriptionExpired() 
-          ? "bg-red-500/10 border-red-500/20 text-red-400"
-          : userData?.subscriptionStatus === "TRIAL"
-          ? "bg-blue-500/10 border-blue-500/20 text-blue-400"
-          : "bg-green-500/10 border-green-500/20 text-green-400"
-      }`}>
-        <div>
-          <h2 className="font-semibold text-lg">
-            Abonnement: {
-              isSubscriptionExpired() ? "Expiré" 
-              : userData?.subscriptionStatus === "TRIAL" ? "Période d'essai (15 Jours)" 
-              : "Actif"
-            }
-          </h2>
-          <p className="text-sm opacity-80 mt-1">
-            Date de fin: {formatDate(userData?.subscriptionEndDate)}
-          </p>
-        </div>
-        {isSubscriptionExpired() && (
-          <button className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-lg transition-colors">
-            Renouveler
-          </button>
-        )}
-      </div>
-
       <div>
         <h1 className="text-2xl font-bold text-white">Paramètres</h1>
         <p className="text-sm text-gray-400">Gérez les informations de votre compte fournisseur.</p>
