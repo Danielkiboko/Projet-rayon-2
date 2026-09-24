@@ -10,7 +10,9 @@ import {
   Package,
   Activity,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Mail,
+  Send
 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
@@ -33,6 +35,34 @@ export default function AdminDashboardPage() {
   });
 
   const [dataLoading, setDataLoading] = useState(true);
+  const [isSendingReports, setIsSendingReports] = useState(false);
+
+  const handleTriggerDailyReports = async () => {
+    if (!confirm("Voulez-vous générer et envoyer les rapports journaliers maintenant (aux fournisseurs et par email à l'admin) ?")) {
+      return;
+    }
+
+    setIsSendingReports(true);
+    try {
+      const res = await fetch("/api/cron/daily-reports", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        alert(
+          `✅ Rapports journaliers envoyés avec succès !\n` +
+          `• Fournisseurs notifiés : ${data.suppliersNotified}\n` +
+          `• Rapport consolidé envoyé par email à : ${data.adminEmails?.join(", ")}\n` +
+          `• Volume d'affaires du jour : ${data.metrics?.totalGlobalTurnover?.toLocaleString("fr-FR")} $`
+        );
+      } else {
+        alert(`❌ Erreur: ${data.error || "Impossible d'envoyer les rapports"}`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(`Erreur: ${err.message || "Erreur de connexion"}`);
+    } finally {
+      setIsSendingReports(false);
+    }
+  };
 
   // Protect route
   useEffect(() => {
@@ -142,9 +172,19 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold text-white tracking-tight">Centre de Régulation</h2>
-        <p className="text-gray-400 mt-1 text-sm">Gérez les accès, validez les comptes et approuvez les annonces.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Centre de Régulation</h2>
+          <p className="text-gray-400 mt-1 text-sm">Gérez les accès, validez les comptes et suivez l'activité journalière.</p>
+        </div>
+        <button
+          onClick={handleTriggerDailyReports}
+          disabled={isSendingReports}
+          className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-sm font-semibold flex items-center gap-2 shadow-lg transition-all disabled:opacity-50 shrink-0"
+        >
+          <Mail size={16} className={isSendingReports ? "animate-spin" : ""} />
+          <span>{isSendingReports ? "Envoi des rapports en cours..." : "Envoyer les Rapports Journaliers (17h)"}</span>
+        </button>
       </div>
 
       {/* SECTION VALIDATION */}
