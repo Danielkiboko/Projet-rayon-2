@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
-import { ChevronLeft, MapPin, Phone, MessageSquare, Navigation, CheckCircle2, DollarSign, Loader2 } from "lucide-react";
+import { ChevronLeft, MapPin, Phone, Navigation, CheckCircle2, DollarSign, Loader2, ExternalLink, MessageCircle } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { doc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
@@ -222,10 +222,25 @@ export default function MissionDetails({ params }: { params?: { id: string } }) 
             <h2 className="text-2xl font-bold text-white mb-1">{clientName}</h2>
             <p className="text-gray-400 text-sm">{clientPhone}</p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex space-x-2">
             {clientPhone && (
-              <a href={`tel:${clientPhone}`} className="w-10 h-10 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center hover:bg-green-500/30 transition-colors border border-green-500/30">
+              <a
+                href={`tel:${clientPhone}`}
+                className="w-10 h-10 bg-green-500/20 text-green-400 rounded-full flex items-center justify-center hover:bg-green-500/30 transition-colors border border-green-500/30"
+                title="Appeler le client"
+              >
                 <Phone size={18} />
+              </a>
+            )}
+            {clientPhone && (
+              <a
+                href={`https://wa.me/${clientPhone.replace(/[^0-9]/g, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-10 h-10 bg-[#25D366]/20 text-[#25D366] rounded-full flex items-center justify-center hover:bg-[#25D366]/30 transition-colors border border-[#25D366]/30"
+                title="WhatsApp"
+              >
+                <MessageCircle size={18} />
               </a>
             )}
           </div>
@@ -236,18 +251,30 @@ export default function MissionDetails({ params }: { params?: { id: string } }) 
             <div className="mt-1">
               <MapPin size={18} className="text-primary-light" />
             </div>
-            <div>
+            <div className="flex-1">
               <p className="text-xs text-gray-400 font-medium mb-1">Adresse de livraison</p>
               <p className="text-sm font-bold text-white">{clientAddress}</p>
+              {clientAddress && clientAddress !== "Adresse non spécifiée" && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(clientAddress)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mt-2 text-[11px] font-semibold text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  <ExternalLink size={11} /> Ouvrir dans Google Maps
+                </a>
+              )}
             </div>
           </div>
 
           <div className="flex justify-between p-4 bg-black/20 rounded-2xl border border-white/5">
             <div>
-              <p className="text-xs text-gray-400 mb-1">Colis</p>
+              <p className="text-xs text-gray-400 mb-1">Articles</p>
               <div className="space-y-1">
                 {order.items?.map((item: any, idx: number) => (
-                  <p key={idx} className="text-sm font-bold text-white">{item.quantity}x {item.name}</p>
+                  <p key={idx} className="text-sm font-bold text-white">
+                    {item.quantity}x {item.productName || item.name || item.title?.fr || "Article"}
+                  </p>
                 ))}
               </div>
             </div>
