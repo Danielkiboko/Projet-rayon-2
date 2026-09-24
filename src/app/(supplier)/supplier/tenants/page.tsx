@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Search, Plus, Bell, Home, X, DollarSign, FileText, ClipboardCheck, Wrench, ShieldCheck, History, TrendingUp, TrendingDown, ChevronDown } from "lucide-react";
+import { Users, Search, Plus, Bell, Home, X, DollarSign, FileText, ClipboardCheck, Wrench, ShieldCheck, History, TrendingUp, TrendingDown, ChevronDown, MessageSquare } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { auth, db } from "@/lib/firebase";
 import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc, serverTimestamp } from "firebase/firestore";
@@ -197,6 +197,60 @@ export default function SupplierTenantsPage() {
     };
     loadTreasury();
   }, [activeSupplierId]);
+
+  // ── RELANCES ───────────────────────────────────────
+  const handleSendReminder = async (tenant: Tenant) => {
+    const agencyName = userData?.company || userData?.name || "votre agence";
+    const days = tenant.nextPayment
+      ? Math.ceil((new Date().getTime() - new Date(tenant.nextPayment).getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+    const dayLabel = days > 0 ? `${days} jour(s) de retard` : "retard de paiement";
+
+    const message = [
+      `Bonjour ${tenant.name},`,
+      ``,
+      `🔔 *RELANCE DE LOYER — ${agencyName}*`,
+      ``,
+      `Nous vous informons que votre loyer pour le bien : *${tenant.propertyName}${tenant.unitName ? ` (${tenant.unitName})` : ""}* est en attente de règlement.`,
+      ``,
+      `• Montant dû : *${tenant.rentAmount.toLocaleString("fr-FR")} $*`,
+      `• Échéance dépassée : ${dayLabel}`,
+      ``,
+      `Merci de régulariser votre situation dans les plus brefs délais afin d’éviter des pénalités.`,
+      ``,
+      `Cordialement,`,
+      `${agencyName}`
+    ].join("\n");
+
+    // Tracer la relance dans Firestore
+    try {
+      await addDoc(collection(db, "relances"), {
+        supplierId: activeSupplierId,
+        tenantId: tenant.id,
+        tenantName: tenant.name,
+        tenantPhone: tenant.phone || "",
+        propertyName: tenant.propertyName,
+        amountDue: tenant.rentAmount,
+        channel: "WhatsApp",
+        sentAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.warn("Relance non enregistrée (non bloquant) :", err);
+    }
+
+    // Ouvrir WhatsApp
+    const phone = (tenant.phone || "").replace(/[^0-9]/g, "");
+    const waUrl = phone
+      ? `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+      : `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, "_blank");
+  };
+
+  const handleBulkReminder = () => {
+    const overdue = tenants.filter(t => t.status === "En retard");
+    if (overdue.length === 0) return;
+    overdue.forEach(t => handleSendReminder(t));
+  };
 
   const fetchData = async () => {
     if (!user) return;
@@ -660,8 +714,20 @@ export default function SupplierTenantsPage() {
             <p className="text-sm text-gray-400">En retard de loyer</p>
             <p className="text-2xl font-bold text-red-400 mt-1">{tenants.filter(t => t.status === "En retard").length}</p>
           </div>
-          <div className="p-3 bg-red-400/10 text-red-400 rounded-lg">
-            <Bell size={20} />
+          <div className="flex flex-col items-end gap-2">
+            <div className="p-3 bg-red-400/10 text-red-400 rounded-lg">
+              <Bell size={20} />
+            </div>
+            {tenants.filter(t => t.status === "En retard").length > 0 && (
+              <button
+                onClick={handleBulkReminder}
+                title="Envoyer une relance WhatsApp à tous les locataires en retard"
+                className="flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-orange-500/15 hover:bg-orange-500/25 text-orange-400 border border-orange-500/30 transition-all"
+              >
+                <MessageSquare size={11} />
+                Tout relancer
+              </button>
+            )}
           </div>
         </div>
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
@@ -922,6 +988,18 @@ export default function SupplierTenantsPage() {
                           <History size={13} />
                           <span>Historique</span>
                         </button>
+
+                        {/* Bouton Relance WhatsApp (uniquement si en retard) */}
+                        {tenant.status === "En retard" && (
+                          <button
+                            onClick={() => handleSendReminder(tenant)}
+                            title="Envoyer une relance de loyer par WhatsApp"
+                            className="px-2 py-1 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded text-xs flex items-center gap-1 transition-all animate-pulse hover:animate-none"
+                          >
+                            <MessageSquare size={13} />
+                            <span>Relancer</span>
+                          </button>
+                        )}
 
                         {tenant.status !== "PARTI" ? (
                           <>
