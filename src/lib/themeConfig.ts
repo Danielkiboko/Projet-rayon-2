@@ -8,7 +8,8 @@ import {
   Settings,
   Wallet,
   Truck,
-  MessageSquare
+  MessageSquare,
+  BarChart3
 } from "lucide-react";
 
 export type ServiceType = "mode" | "immo" | "connect" | "saveurs" | "default";
@@ -18,6 +19,7 @@ export interface MenuItem {
   href: string;
   icon: React.ElementType;
   badge?: number;
+  locked?: boolean;
 }
 
 export interface ServiceTheme {
@@ -35,14 +37,15 @@ export interface ServiceTheme {
 }
 
 const standardProductMenu: MenuItem[] = [
-  { title: "Dashboard", href: "/supplier", icon: LayoutDashboard },
-  { title: "Mes Produits", href: "/supplier/products", icon: Package },
-  { title: "Commandes", href: "/supplier/orders", icon: ShoppingCart },
-  { title: "Messages", href: "/supplier/messages", icon: MessageSquare },
+  { title: "Dashboard",          href: "/supplier",          icon: LayoutDashboard },
+  { title: "Mes Produits",       href: "/supplier/products", icon: Package },
+  { title: "Commandes",          href: "/supplier/orders",   icon: ShoppingCart },
+  { title: "Messages",           href: "/supplier/messages", icon: MessageSquare },
   { title: "Proformas & Factures", href: "/supplier/invoices", icon: FileText },
-  { title: "Livre de caisse", href: "/supplier/finance", icon: Wallet },
-  { title: "Livreurs", href: "/supplier/drivers", icon: Truck },
-  { title: "Paramètres", href: "/supplier/settings", icon: Settings },
+  { title: "Livre de caisse",    href: "/supplier/finance",  icon: Wallet },
+  { title: "Rapports",           href: "/supplier/reports",  icon: BarChart3 },
+  { title: "Livreurs",           href: "/supplier/drivers",  icon: Truck },
+  { title: "Paramètres",         href: "/supplier/settings", icon: Settings },
 ];
 
 export const themeConfig: Record<ServiceType, ServiceTheme> = {
@@ -58,9 +61,9 @@ export const themeConfig: Record<ServiceType, ServiceTheme> = {
       activeMenuText: "text-[#C7D300]",
     },
     menu: [
-      { title: "Dashboard", href: "/supplier", icon: LayoutDashboard },
-      { title: "Livre de caisse", href: "/supplier/finance", icon: Wallet },
-      { title: "Paramètres", href: "/supplier/settings", icon: Settings },
+      { title: "Dashboard",       href: "/supplier",          icon: LayoutDashboard },
+      { title: "Livre de caisse", href: "/supplier/finance",  icon: Wallet },
+      { title: "Paramètres",      href: "/supplier/settings", icon: Settings },
     ]
   },
   mode: {
@@ -88,13 +91,14 @@ export const themeConfig: Record<ServiceType, ServiceTheme> = {
       activeMenuText: "text-[#4C6EF5]",
     },
     menu: [
-      { title: "Dashboard", href: "/supplier", icon: LayoutDashboard },
-      { title: "Mes Biens", href: "/supplier/properties", icon: Building },
-      { title: "Locataires", href: "/supplier/tenants", icon: Users },
-      { title: "Messages", href: "/supplier/messages", icon: MessageSquare },
+      { title: "Dashboard",          href: "/supplier",          icon: LayoutDashboard },
+      { title: "Mes Biens",          href: "/supplier/properties", icon: Building },
+      { title: "Locataires",         href: "/supplier/tenants",  icon: Users },
+      { title: "Messages",           href: "/supplier/messages", icon: MessageSquare },
       { title: "Proformas & Factures", href: "/supplier/invoices", icon: FileText },
-      { title: "Livre de caisse", href: "/supplier/finance", icon: Wallet },
-      { title: "Paramètres", href: "/supplier/settings", icon: Settings },
+      { title: "Livre de caisse",    href: "/supplier/finance",  icon: Wallet },
+      { title: "Rapports",           href: "/supplier/reports",  icon: BarChart3 },
+      { title: "Paramètres",         href: "/supplier/settings", icon: Settings },
     ]
   },
   connect: {

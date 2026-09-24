@@ -11,20 +11,6 @@ import { getSupplierAvailableRayons, getSupplierType } from "@/lib/permissions";
 
 export default function SupplierDashboardRouter() {
   const { user, userData, loading } = useAuth();
-  
-  if (loading) {
-    return <div className="h-64 flex items-center justify-center text-white animate-pulse">Chargement de votre espace...</div>;
-  }
-
-  if (!user || !userData) {
-    return (
-      <div className="h-64 flex flex-col items-center justify-center text-gray-400">
-        <ShieldAlert size={48} className="text-red-500 mb-4" />
-        <p>Veuillez vous connecter pour accéder à votre espace fournisseur.</p>
-      </div>
-    );
-  }
-
   const [currentService, setCurrentService] = useState<string>("default");
 
   useEffect(() => {
@@ -43,7 +29,20 @@ export default function SupplierDashboardRouter() {
     }
   }, [userData]);
 
-  // Afficher le composant correspondant au rayon
+  if (loading) {
+    return <div className="h-64 flex items-center justify-center text-white animate-pulse">Chargement de votre espace...</div>;
+  }
+
+  if (!user || !userData) {
+    return (
+      <div className="h-64 flex flex-col items-center justify-center text-gray-400">
+        <ShieldAlert size={48} className="text-red-500 mb-4" />
+        <p>Veuillez vous connecter pour accéder à votre espace fournisseur.</p>
+      </div>
+    );
+  }
+
+  // Afficher le composant correspondant au rayon actif
   switch (currentService) {
     case "immo":
       return <ImmoDashboard />;
@@ -54,7 +53,6 @@ export default function SupplierDashboardRouter() {
     case "saveurs":
       return <SaveursDashboard />;
     default:
-      // Vue par défaut générique
       return (
         <div className="bg-[#1a1a1a] border border-white/5 rounded-2xl p-8 shadow-sm text-center">
           <h2 className="text-xl font-bold text-white mb-2">Bienvenue sur votre espace</h2>

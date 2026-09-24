@@ -48,6 +48,12 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
   const [productPurchasePrice, setProductPurchasePrice] = useState("");
   const [productStock, setProductStock] = useState("");
   const [productDesc, setProductDesc] = useState("");
+  const [productSizes, setProductSizes] = useState<string[]>([]);
+  const [productColors, setProductColors] = useState<string[]>([]);
+  const [productOptions, setProductOptions] = useState<string[]>([]);  // Pour Saveurs : "sans piment", "épicé", etc.
+  const [sizeInput, setSizeInput] = useState("");
+  const [colorInput, setColorInput] = useState("");
+  const [optionInput, setOptionInput] = useState("");
 
   const {
     chatMessages,
@@ -133,6 +139,12 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
     setProductPurchasePrice("");
     setProductStock("");
     setProductDesc("");
+    setProductSizes([]);
+    setProductColors([]);
+    setProductOptions([]);
+    setSizeInput("");
+    setColorInput("");
+    setOptionInput("");
     setImagePreview(null);
     setImageFile(null);
     resetChat();
@@ -179,6 +191,9 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
     setProductStock(product.stock?.toString() || "");
     setProductCategory(product.category || "");
     setProductDesc(product.description || "");
+    setProductSizes(Array.isArray(product.sizes) ? product.sizes : []);
+    setProductColors(Array.isArray(product.colors) ? product.colors : []);
+    setProductOptions(Array.isArray(product.options) ? product.options : []);
     setImagePreview(product.image || "");
     setIsModalOpen(true);
   };
@@ -256,6 +271,9 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
       stock: isNaN(parsedStock) ? 0 : parsedStock,
       description: productDesc.trim(),
       image: imagePreview || "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400",
+      sizes: productSizes.filter(Boolean),
+      colors: productColors.filter(Boolean),
+      options: productOptions.filter(Boolean),
     };
 
     if (productBrand.trim()) {
@@ -1097,6 +1115,88 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                     <option className="bg-[#1a1a1a]" value="general">📦 Général (Divers)</option>
                   </select>
                 </div>
+
+                {/* ── Variantes : Tailles & Couleurs (Mode/Connect) ou Options (Saveurs) ── */}
+                {(productCategory === "mode" || productCategory === "connect") && (
+                  <div className="space-y-3 p-4 bg-white/5 rounded-xl border border-white/10">
+                    <p className="text-sm font-semibold text-white">Variantes disponibles</p>
+                    {/* Tailles */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-gray-400">Tailles (ex: XS, S, M, L, XL, 42, 44...)</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text" value={sizeInput} onChange={e => setSizeInput(e.target.value)}
+                          onKeyDown={e => { if ((e.key === 'Enter' || e.key === ',') && sizeInput.trim()) { e.preventDefault(); setProductSizes(s => [...new Set([...s, sizeInput.trim().toUpperCase()])]) ; setSizeInput(''); } }}
+                          placeholder="Taper une taille + Entrée"
+                          className="flex-1 px-3 py-1.5 bg-black/20 border border-white/10 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                        <button type="button" onClick={() => { if (sizeInput.trim()) { setProductSizes(s => [...new Set([...s, sizeInput.trim().toUpperCase()])]); setSizeInput(''); } }}
+                          className="px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-white rounded-lg text-xs font-bold transition-all">+</button>
+                      </div>
+                      {productSizes.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {productSizes.map(s => (
+                            <span key={s} className="flex items-center gap-1 px-2 py-0.5 bg-white/10 text-white text-xs rounded-md font-medium">
+                              {s}
+                              <button type="button" onClick={() => setProductSizes(prev => prev.filter(x => x !== s))} className="text-gray-400 hover:text-red-400 transition-colors">×</button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {/* Couleurs */}
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-gray-400">Couleurs (ex: Noir, Blanc, Rouge...)</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text" value={colorInput} onChange={e => setColorInput(e.target.value)}
+                          onKeyDown={e => { if ((e.key === 'Enter' || e.key === ',') && colorInput.trim()) { e.preventDefault(); setProductColors(s => [...new Set([...s, colorInput.trim()])]); setColorInput(''); } }}
+                          placeholder="Taper une couleur + Entrée"
+                          className="flex-1 px-3 py-1.5 bg-black/20 border border-white/10 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                        <button type="button" onClick={() => { if (colorInput.trim()) { setProductColors(s => [...new Set([...s, colorInput.trim()])]); setColorInput(''); } }}
+                          className="px-3 py-1.5 bg-primary/20 hover:bg-primary/30 text-white rounded-lg text-xs font-bold transition-all">+</button>
+                      </div>
+                      {productColors.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {productColors.map(c => (
+                            <span key={c} className="flex items-center gap-1 px-2 py-0.5 bg-white/10 text-white text-xs rounded-md font-medium">
+                              {c}
+                              <button type="button" onClick={() => setProductColors(prev => prev.filter(x => x !== c))} className="text-gray-400 hover:text-red-400 transition-colors">×</button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {productCategory === "saveurs" && (
+                  <div className="space-y-2 p-4 bg-[#FF6B35]/5 rounded-xl border border-[#FF6B35]/20">
+                    <p className="text-sm font-semibold text-white">Options / Personnalisations</p>
+                    <label className="text-xs font-medium text-gray-400">Exemples : Sans piment, Épicé, Sauce à part, Végétarien...</label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text" value={optionInput} onChange={e => setOptionInput(e.target.value)}
+                        onKeyDown={e => { if ((e.key === 'Enter' || e.key === ',') && optionInput.trim()) { e.preventDefault(); setProductOptions(s => [...new Set([...s, optionInput.trim()])]); setOptionInput(''); } }}
+                        placeholder="Option + Entrée"
+                        className="flex-1 px-3 py-1.5 bg-black/20 border border-[#FF6B35]/20 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#FF6B35]"
+                      />
+                      <button type="button" onClick={() => { if (optionInput.trim()) { setProductOptions(s => [...new Set([...s, optionInput.trim()])]); setOptionInput(''); } }}
+                        className="px-3 py-1.5 bg-[#FF6B35]/20 hover:bg-[#FF6B35]/30 text-[#FF6B35] rounded-lg text-xs font-bold transition-all">+</button>
+                    </div>
+                    {productOptions.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mt-1">
+                        {productOptions.map(o => (
+                          <span key={o} className="flex items-center gap-1 px-2 py-0.5 bg-[#FF6B35]/10 text-[#FF6B35] text-xs rounded-md font-medium border border-[#FF6B35]/20">
+                            {o}
+                            <button type="button" onClick={() => setProductOptions(prev => prev.filter(x => x !== o))} className="text-[#FF6B35]/60 hover:text-red-400 transition-colors">×</button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-300">Description</label>
