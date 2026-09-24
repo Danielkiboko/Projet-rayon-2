@@ -30,8 +30,6 @@ export async function POST(request: Request) {
             uData?.email === "sumaililaurent4@gmail.com"
           )) {
             resolvedSenderId = "MUTAMULIS";
-          } else if (!resolvedSenderId && (uData?.company || uData?.agencyName || uData?.companyName)) {
-            resolvedSenderId = (uData.company || uData.agencyName || uData.companyName).replace(/[^a-zA-Z0-9]/g, "").slice(0, 11);
           }
         }
       } catch (err) {

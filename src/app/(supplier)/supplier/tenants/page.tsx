@@ -213,9 +213,11 @@ export default function SupplierTenantsPage() {
   };
 
   const getSmsSenderId = () => {
+    // 1. Sender ID explicitement configuré et validé par l'administrateur
     if (userData?.senderId || userData?.smsSenderId || userData?.customSenderId) {
       return (userData.senderId || userData.smsSenderId || userData.customSenderId).replace(/[^a-zA-Z0-9]/g, "").slice(0, 11);
     }
+    // 2. Laurent Sumaili (Sender ID officiel agréé : MUTAMULIS)
     if (
       userData?.email === "sumaililaurent4@gmail.com" ||
       userData?.displayName?.toLowerCase().includes("mutamulis") ||
@@ -224,11 +226,7 @@ export default function SupplierTenantsPage() {
     ) {
       return "MUTAMULIS";
     }
-    const name = userData?.company || userData?.companyName || userData?.agencyName || userData?.displayName || userData?.name;
-    if (name) {
-      const clean = name.replace(/[^a-zA-Z0-9]/g, "").slice(0, 11);
-      if (clean) return clean;
-    }
+    // 3. Pour tout autre nouveau fournisseur : défaut officiel Rayon
     return "Rayon";
   };
 
