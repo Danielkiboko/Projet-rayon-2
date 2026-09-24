@@ -5,9 +5,10 @@ import { StoreTemplate } from "@/modules/client/components/rayon/StoreTemplate";
 const DICT = {
   fr: {
     home: "Accueil",
-    connect: "Rayons Connect",
-    immo: "Rayons Immo",
-    mode: "Rayons Mode",
+    connect: "Connect",
+    immo: "Immo",
+    mode: "Mode",
+    saveurs: "Saveurs",
     login: "Se connecter",
     title: "La Nouvelle Collection",
     subtitle: "Découvrez notre sélection de vêtements, chaussures et accessoires tendance.",
@@ -16,9 +17,10 @@ const DICT = {
   },
   en: {
     home: "Home",
-    connect: "Connect Store",
-    immo: "Immo Store",
-    mode: "Fashion Store",
+    connect: "Connect",
+    immo: "Immo",
+    mode: "Fashion",
+    saveurs: "Flavors",
     login: "Login",
     title: "New Collection",
     subtitle: "Discover our selection of trendy clothes, shoes and accessories.",

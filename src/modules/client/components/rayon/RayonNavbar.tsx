@@ -1,7 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { Home as HomeIcon, Wifi, Building2, Globe, Shirt, User, UtensilsCrossed, ShoppingBag } from "lucide-react";
+import { Home as HomeIcon, Wifi, Building2, Globe, Shirt, User, UtensilsCrossed, ShoppingBag, Menu, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
@@ -15,20 +16,39 @@ interface RayonNavbarProps {
   t: any;
 }
 
+const cleanLabel = (text?: string, fallback: string = ""): string => {
+  if (!text) return fallback;
+  return text.replace(/^Rayons?\s+/i, "").trim() || fallback;
+};
+
 export function RayonNavbar({ category, lang, setLang, t }: RayonNavbarProps) {
   const { user, signOut } = useAuth();
   const { totalItems, openCart } = useCart();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const homeLabel = t?.home || "Accueil";
+  const connectLabel = cleanLabel(t?.connect, "Connect");
+  const immoLabel = cleanLabel(t?.immo, "Immo");
+  const modeLabel = cleanLabel(t?.mode, "Mode");
+  const saveursLabel = cleanLabel(t?.saveurs, "Saveurs");
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-xs">
       <nav className="flex items-center justify-between p-4 lg:px-8 max-w-7xl mx-auto">
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="lg:hidden p-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+            aria-label="Menu"
+          >
+            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
           <RayonsLogo rayon={category} size="md" href="/" />
         </div>
         
         <div className="hidden lg:flex items-center space-x-1 bg-gray-50/80 p-1 rounded-full border border-gray-100">
           <Link href="/" className="flex items-center px-4 py-2 hover:bg-white rounded-full text-sm font-medium text-gray-600 hover:text-[#0F1D27] transition-all">
-            <HomeIcon size={16} className="mr-2" /> {t.home}
+            <HomeIcon size={16} className="mr-2" /> {homeLabel}
           </Link>
           
           <Link 
@@ -39,7 +59,7 @@ export function RayonNavbar({ category, lang, setLang, t }: RayonNavbarProps) {
                 : 'text-gray-600 hover:text-[#00B5A5] hover:bg-white/60'
             }`}
           >
-            <Wifi size={16} className="mr-2 text-[#00B5A5]" /> {t.connect || 'Connect'}
+            <Wifi size={16} className="mr-2 text-[#00B5A5]" /> {connectLabel}
           </Link>
 
           <Link 
@@ -50,7 +70,7 @@ export function RayonNavbar({ category, lang, setLang, t }: RayonNavbarProps) {
                 : 'text-gray-600 hover:text-[#4C6EF5] hover:bg-white/60'
             }`}
           >
-            <Building2 size={16} className="mr-2 text-[#4C6EF5]" /> {t.immo || 'Immo'}
+            <Building2 size={16} className="mr-2 text-[#4C6EF5]" /> {immoLabel}
           </Link>
           
           <Link 
@@ -61,7 +81,7 @@ export function RayonNavbar({ category, lang, setLang, t }: RayonNavbarProps) {
                 : 'text-gray-600 hover:text-[#D4B08C] hover:bg-white/60'
             }`}
           >
-            <Shirt size={16} className="mr-2 text-[#D4B08C]" /> {t.mode || 'Mode'}
+            <Shirt size={16} className="mr-2 text-[#D4B08C]" /> {modeLabel}
           </Link>
 
           <Link 
@@ -72,7 +92,7 @@ export function RayonNavbar({ category, lang, setLang, t }: RayonNavbarProps) {
                 : 'text-gray-600 hover:text-[#FF6B35] hover:bg-white/60'
             }`}
           >
-            <UtensilsCrossed size={16} className="mr-2 text-[#FF6B35]" /> {t.saveurs || 'Saveurs'}
+            <UtensilsCrossed size={16} className="mr-2 text-[#FF6B35]" /> {saveursLabel}
           </Link>
         </div>
         
@@ -124,6 +144,32 @@ export function RayonNavbar({ category, lang, setLang, t }: RayonNavbarProps) {
           )}
         </div>
       </nav>
+
+      {/* Mobile Menu */}
+      {mobileMenuOpen && (
+        <div className="lg:hidden border-t border-gray-100 bg-white px-4 py-3 flex flex-col gap-1 shadow-md">
+          {[
+            { href: "/", icon: HomeIcon, label: homeLabel, color: "#0F1D27", active: false },
+            { href: "/rayon/connect", icon: Wifi, label: connectLabel, color: "#00B5A5", active: category === "connect" },
+            { href: "/rayon/immo", icon: Building2, label: immoLabel, color: "#4C6EF5", active: category === "immo" },
+            { href: "/rayon/mode", icon: Shirt, label: modeLabel, color: "#D4B08C", active: category === "mode" },
+            { href: "/rayon/saveurs", icon: UtensilsCrossed, label: saveursLabel, color: "#FF6B35", active: category === "saveurs" },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
+                item.active ? "bg-gray-100 font-bold" : "hover:bg-gray-50 font-medium text-gray-700"
+              }`}
+            >
+              <item.icon size={18} style={{ color: item.color }} />
+              <span className="text-sm">{item.label}</span>
+            </Link>
+          ))}
+        </div>
+      )}
     </header>
   );
 }
+

@@ -24,8 +24,10 @@ import { useSearchParams } from "next/navigation";
 const DICT = {
   fr: {
     home: "Accueil",
-    connect: "Rayons Connect",
-    immo: "Rayons Immo",
+    connect: "Connect",
+    immo: "Immo",
+    mode: "Mode",
+    saveurs: "Saveurs",
     login: "Se connecter",
     title: "Trouvez le bien de vos rêves",
     subtitle: "Découvrez notre sélection exclusive : habitations de standing (villas, appartements) et établissements hôteliers de prestige.",
@@ -38,8 +40,10 @@ const DICT = {
   },
   en: {
     home: "Home",
-    connect: "Connect Store",
-    immo: "Immo Store",
+    connect: "Connect",
+    immo: "Immo",
+    mode: "Fashion",
+    saveurs: "Flavors",
     login: "Login",
     title: "Find your dream home",
     subtitle: "Discover our exclusive selection: residential homes (villas, apartments) and prestigious hotels.",

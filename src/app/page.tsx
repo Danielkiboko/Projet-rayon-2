@@ -326,10 +326,10 @@ export default function Home() {
         {mobileMenuOpen && (
           <div className="lg:hidden border-t border-gray-100 bg-white px-4 py-3 flex flex-col gap-1">
             {[
-              { href: "/rayon/connect", icon: Wifi, label: "Rayons Connect", color: "#00B5A5" },
-              { href: "/rayon/immo", icon: Building, label: "Rayons Immo", color: "#4C6EF5" },
-              { href: "/rayon/mode", icon: Shirt, label: "Rayons Mode", color: "#9C764D" },
-              { href: "/rayon/saveurs", icon: UtensilsCrossed, label: "Rayons Saveurs", color: "#FF6B35" },
+              { href: "/rayon/connect", icon: Wifi, label: "Connect", color: "#00B5A5" },
+              { href: "/rayon/immo", icon: Building, label: "Immo", color: "#4C6EF5" },
+              { href: "/rayon/mode", icon: Shirt, label: "Mode", color: "#9C764D" },
+              { href: "/rayon/saveurs", icon: UtensilsCrossed, label: "Saveurs", color: "#FF6B35" },
             ].map(item => (
               <Link
                 key={item.href}
