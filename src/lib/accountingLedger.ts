@@ -222,3 +222,86 @@ export async function recordSubscriptionDeposit(params: {
 
   return entry;
 }
+
+/**
+ * Enregistrer un encaissement de loyer immobilier (module Immo)
+ * Alimente le grand livre comptable ET les transactions du fournisseur.
+ */
+export async function recordRentPayment(params: {
+  supplierId: string;
+  supplierName?: string;
+  tenantId: string;
+  tenantName: string;
+  propertyId: string;
+  propertyName: string;
+  unitName?: string;
+  amount: number;
+  currency?: string;
+  reference?: string;
+  periodicity?: string;
+  paymentMethod?: string;
+}): Promise<AccountingEntry> {
+  const {
+    supplierId,
+    supplierName = "Partenaire Immo",
+    tenantId,
+    tenantName,
+    propertyId,
+    propertyName,
+    unitName,
+    amount,
+    currency = "USD",
+    reference,
+    periodicity = "Mensuel",
+    paymentMethod = "Caisse / Mobile Money"
+  } = params;
+
+  if (!amount || amount <= 0) {
+    throw new Error("Le montant du loyer doit être supérieur à zéro.");
+  }
+
+  const entryNumber = generateEntryNumber();
+  const year = new Date().getFullYear();
+  const month = new Date().toLocaleString("fr-FR", { month: "long" });
+  const ref = reference || `LOYER-${year}-${Math.floor(10000 + Math.random() * 90000)}`;
+  const unitLabel = unitName ? ` — Unité: ${unitName}` : "";
+  const label = `Encaissement loyer [${periodicity}] — ${propertyName}${unitLabel} — Locataire: ${tenantName} (${month} ${year}) — ${paymentMethod}`;
+
+  const entry: AccountingEntry = {
+    entryNumber,
+    date: serverTimestamp(),
+    journal: "CS",
+    journalName: "Journal de Caisse (Espèces)",
+    referencePiece: ref,
+    label,
+    debit: amount,   // Entrée d'argent (encaissement loyer)
+    credit: 0,
+    currency,
+    actorType: "SUPPLIER",
+    supplierId,
+    supplierName,
+    category: "Revenu Locatif",
+    status: "VALIDATED"
+  };
+
+  // 1. Grand livre central
+  await addDoc(collection(db, "accounting_ledger"), entry);
+
+  // 2. Transactions fournisseur (tableau Finance du fournisseur)
+  await addDoc(collection(db, "supplier_transactions"), {
+    type: "INCOME",
+    category: "Loyer",
+    amount,
+    currency,
+    description: label,
+    referenceId: ref,
+    propertyId,
+    tenantId,
+    tenantName,
+    status: "COMPLETED",
+    supplierId,
+    createdAt: serverTimestamp()
+  });
+
+  return entry;
+}

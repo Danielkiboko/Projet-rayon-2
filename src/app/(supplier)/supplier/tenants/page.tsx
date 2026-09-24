@@ -7,6 +7,7 @@ import { auth, db } from "@/lib/firebase";
 import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 import { generateFormalLeasePDF, generateInspectionChecklistPDF } from "@/lib/leaseGenerator";
+import { recordRentPayment } from "@/lib/accountingLedger";
 
 interface Tenant {
   id: string;
@@ -441,6 +442,25 @@ export default function SupplierTenantsPage() {
         createdBy: activeSupplierId,
         reference: paymentReference || `Loyer ${new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}`
       });
+
+      // 1b. Écriture comptable dans le grand livre
+      try {
+        await recordRentPayment({
+          supplierId: activeSupplierId!,
+          supplierName: userData?.company || userData?.name || "Partenaire Immo",
+          tenantId: tenantToPay.id,
+          tenantName: tenantToPay.name,
+          propertyId: tenantToPay.propertyId,
+          propertyName: tenantToPay.propertyName,
+          unitName: tenantToPay.unitName || undefined,
+          amount: Number(paymentAmount),
+          currency: "USD",
+          reference: paymentReference || undefined,
+          periodicity: tenantToPay.periodicity || "Mensuel",
+        });
+      } catch (ledgerErr) {
+        console.warn("Écriture comptable loyer non enregistrée (non bloquant) :", ledgerErr);
+      }
 
       // 2. Update tenant's nextPayment
       if (tenantToPay.nextPayment) {
