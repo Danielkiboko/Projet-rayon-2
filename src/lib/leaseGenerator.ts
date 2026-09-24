@@ -44,7 +44,7 @@ export interface LeaseData {
   noticePeriodMonths?: number; // délai de préavis, ex: 3 mois
 }
 
-export async function generateFormalLeasePDF(data: LeaseData) {
+export async function generateFormalLeasePDF(data: LeaseData, options?: { autoDownload?: boolean }) {
   const { default: jsPDF } = await import("jspdf");
   await import("jspdf-autotable");
 
@@ -61,6 +61,7 @@ export async function generateFormalLeasePDF(data: LeaseData) {
   const dateObj = data.createdAt ? new Date(data.createdAt) : new Date();
   const year = dateObj.getFullYear();
   const leaseRef = data.leaseNumber || `BAIL-${year}-${Math.floor(10000 + Math.random() * 90000)}`;
+  const agencyTitle = (data.agencyName || "MUTAMULIS").trim().toUpperCase();
 
   // --- PAGE 1 : EN-TÊTE & ARTICLES 1 À 5 ---
   // Header background
@@ -69,30 +70,28 @@ export async function generateFormalLeasePDF(data: LeaseData) {
   doc.setFillColor(accentColor[0], accentColor[1], accentColor[2]);
   doc.rect(0, 36, 210, 2.5, "F");
 
-  // Logo Rayons
+  // Primary Agency Brand (ex: MUTAMULIS)
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(20);
+  doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text("RAYONS", 14, 16);
-  doc.setTextColor(199, 211, 0);
-  doc.text(".NET", 48, 16);
+  doc.text(agencyTitle, 14, 16);
 
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(200, 210, 240);
-  doc.text("RAYONS IMMO • CONTRAT OFFICIEL DE GESTION LOCATIVE", 14, 24);
+  doc.setTextColor(200, 215, 245);
+  doc.text("CONTRAT OFFICIEL DE GESTION LOCATIVE", 14, 24);
   doc.text(`Réf. : ${leaseRef} | Date : ${dateObj.toLocaleDateString("fr-FR")}`, 14, 30);
 
   // Agency info top right
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(255, 255, 255);
-  doc.text(data.agencyName || "AGENCE IMMOBILIÈRE PARTENAIRE", 196, 14, { align: "right" });
+  doc.text(data.agencyAddress || "Kinshasa, RDC", 196, 14, { align: "right" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.setTextColor(210, 210, 210);
+  doc.setTextColor(210, 215, 225);
   if (data.agencyPhone) doc.text(`Tél : ${data.agencyPhone}`, 196, 20, { align: "right" });
-  if (data.agencyAddress) doc.text(data.agencyAddress, 196, 25, { align: "right" });
+  if (data.agencyEmail) doc.text(data.agencyEmail, 196, 25, { align: "right" });
   if (data.agencyRccm) doc.text(`RCCM : ${data.agencyRccm} | NIF : ${data.agencyNif || "N/A"}`, 196, 30, { align: "right" });
 
   // Title Banner
@@ -120,14 +119,18 @@ export async function generateFormalLeasePDF(data: LeaseData) {
   doc.text("1. LE BAILLEUR (ou son mandataire légal) :", 16, y);
   y += 5;
   doc.setFont("helvetica", "normal");
-  doc.text(`Nom de l'Agence / Gestionnaire : ${data.agencyName}`, 20, y);
+  doc.text(`Nom de l'Agence / Mandataire : ${agencyTitle}`, 20, y);
   y += 4.5;
   if (data.ownerName) {
     doc.text(`Agissant pour le compte du Propriétaire : ${data.ownerName}`, 20, y);
     y += 4.5;
   }
-  doc.text(`Adresse : ${data.agencyAddress || "Kinshasa, RDC"} | Contact : ${data.agencyPhone || "N/A"}`, 20, y);
+  doc.text(`Adresse : ${data.agencyAddress || "Kinshasa, RDC"}${data.agencyPhone ? ` | Contact : ${data.agencyPhone}` : ""}`, 20, y);
   y += 4.5;
+  if (data.agencyEmail) {
+    doc.text(`Email officiel : ${data.agencyEmail}`, 20, y);
+    y += 4.5;
+  }
   doc.text("Ci-après dénommé « LE BAILLEUR », d'une part,", 20, y);
   y += 8;
 
@@ -203,7 +206,7 @@ export async function generateFormalLeasePDF(data: LeaseData) {
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
-  doc.text("CONTRAT DE BAIL — CONDITIONS GÉNÉRALES & SIGNATURES", 14, 12);
+  doc.text(`CONTRAT DE BAIL — ${agencyTitle}`, 14, 12);
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.text(`Réf : ${leaseRef} | Page 2/2`, 196, 12, { align: "right" });
@@ -268,7 +271,7 @@ export async function generateFormalLeasePDF(data: LeaseData) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
   doc.setTextColor(100, 100, 100);
-  doc.text(`Représenté par : ${data.agencyName}`, 18, y2 + 14);
+  doc.text(`Agence / Mandataire : ${agencyTitle}`, 18, y2 + 14);
   doc.text("Mention : « Lu et approuvé »", 18, y2 + 19);
   doc.text("Signature & Cachet :", 18, y2 + 25);
 
@@ -288,9 +291,19 @@ export async function generateFormalLeasePDF(data: LeaseData) {
   // Footer
   doc.setFontSize(7);
   doc.setTextColor(150, 150, 150);
-  doc.text("Document certifié généré sur Rayons.net — Plateforme Sécurisée de Gestion Immobilière", 105, 288, { align: "center" });
+  doc.text(`Document contractuel certifié conforme — Émis par ${agencyTitle}`, 105, 288, { align: "center" });
 
-  doc.save(`Contrat_Bail_${data.tenantName.replace(/\s+/g, "_")}_${leaseRef}.pdf`);
+  const fileName = `Contrat_Bail_${data.tenantName.replace(/\s+/g, "_")}_${leaseRef}.pdf`;
+  if (options?.autoDownload !== false) {
+    doc.save(fileName);
+  }
+
+  return {
+    doc,
+    base64: doc.output("datauristring"),
+    blob: doc.output("blob"),
+    fileName
+  };
 }
 
 // -------------------------------------------------------------
@@ -317,6 +330,8 @@ export async function generateInspectionChecklistPDF(data: {
   const primaryColor = [15, 29, 39];
   const accentColor = [76, 110, 245];
 
+  const agencyTitle = (data.agencyName || "MUTAMULIS").trim().toUpperCase();
+
   // Header
   doc.setFillColor(15, 29, 39);
   doc.rect(0, 0, 210, 30, "F");
@@ -326,7 +341,7 @@ export async function generateInspectionChecklistPDF(data: {
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("RAYONS IMMO", 14, 15);
+  doc.text(agencyTitle, 14, 15);
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(200, 210, 240);
@@ -471,24 +486,24 @@ export async function generateRentReceiptPDF(data: RentReceiptData) {
   const dateStr = data.paymentDate || now.toLocaleDateString("fr-FR");
   const period  = data.periodLabel  || now.toLocaleString("fr-FR", { month: "long", year: "numeric" });
 
+  const agencyTitle = (data.agencyName || "MUTAMULIS").trim().toUpperCase();
+
   // ── HEADER ──────────────────────────────────────────────────
   doc.setFillColor(...(primaryColor as [number,number,number]));
   doc.rect(0, 0, 210, 34, "F");
   doc.setFillColor(...(accentColor as [number,number,number]));
   doc.rect(0, 34, 210, 2, "F");
 
-  // Logo
+  // Prominent Agency Name
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(20);
+  doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
-  doc.text("RAYONS", 14, 16);
-  doc.setTextColor(199, 211, 0);
-  doc.text(".NET", 48, 16);
+  doc.text(agencyTitle, 14, 16);
 
   doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(200, 210, 240);
-  doc.text("RAYONS IMMO • QUITTANCE DE LOYER OFFICIELLE", 14, 23);
+  doc.text("QUITTANCE DE LOYER OFFICIELLE", 14, 23);
   doc.text(`Réf. : ${receiptRef} | Émise le : ${dateStr}`, 14, 29);
 
   // Agence (droite)
@@ -638,7 +653,7 @@ export async function generateRentReceiptPDF(data: RentReceiptData) {
   // ── FOOTER ───────────────────────────────────────────────────
   doc.setFontSize(7);
   doc.setTextColor(160, 160, 160);
-  doc.text("Document officiel généré sur Rayons.net — Gestion Locative Certifiée", 105, 288, { align: "center" });
+  doc.text(`Document officiel de gestion locative — Émis par ${data.agencyName || "MUTAMULIS"}`, 105, 288, { align: "center" });
 
   doc.save(`Quittance_Loyer_${data.tenantName.replace(/\s+/g, "_")}_${period.replace(/\s+/g, "_")}_${receiptRef}.pdf`);
 }

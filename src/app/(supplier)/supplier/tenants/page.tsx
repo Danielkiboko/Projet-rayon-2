@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Search, Plus, Bell, Home, X, DollarSign, FileText, ClipboardCheck, Wrench, ShieldCheck, History, TrendingUp, TrendingDown, ChevronDown, MessageSquare } from "lucide-react";
+import { Users, Search, Plus, Bell, Home, X, DollarSign, FileText, ClipboardCheck, Wrench, ShieldCheck, History, TrendingUp, TrendingDown, ChevronDown, MessageSquare, Mail, Send } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { auth, db } from "@/lib/firebase";
 import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc, serverTimestamp } from "firebase/firestore";
@@ -99,6 +99,7 @@ export default function SupplierTenantsPage() {
   const [maintenanceCost, setMaintenanceCost] = useState<number | "">("");
   const [maintenanceChargedTo, setMaintenanceChargedTo] = useState<"BAILLEUR" | "LOCATAIRE">("BAILLEUR");
   const [maintenanceCategory, setMaintenanceCategory] = useState("Plomberie");
+  const [sendingEmailTenantId, setSendingEmailTenantId] = useState<string | null>(null);
 
   // Payment History Modal State
   type Payment = { id: string; amount: number; currency: string; reference: string; createdAt: any; };
@@ -198,9 +199,105 @@ export default function SupplierTenantsPage() {
     loadTreasury();
   }, [activeSupplierId]);
 
+  // ── HELPER AGENCE ÉMETTRICE ─────────────────────────
+  const getAgencyName = () => {
+    return userData?.company || userData?.agencyName || userData?.displayName || userData?.name || "MUTAMULIS";
+  };
+
+  const getAgencyDetails = () => {
+    const name = getAgencyName();
+    return {
+      name,
+      phone: userData?.phone || "",
+      email: userData?.email || user?.email || "",
+      address: userData?.address || "Kinshasa, RDC",
+      rccm: userData?.rccm || "",
+      nif: userData?.nif || "",
+      idNat: userData?.idNat || "",
+    };
+  };
+
+  // ── ENVOI BAIL PAR EMAIL ─────────────────────────────
+  const handleSendLeaseByEmail = async (tenant: Tenant) => {
+    if (!tenant.email) {
+      alert(`Le locataire ${tenant.name} n'a pas d'adresse email enregistrée.`);
+      return;
+    }
+
+    setSendingEmailTenantId(tenant.id);
+    try {
+      const prop = properties.find(p => p.id === tenant.propertyId);
+      const agency = getAgencyDetails();
+
+      // Générer le PDF sans téléchargement direct
+      const leaseResult = await generateFormalLeasePDF({
+        agencyName: agency.name,
+        agencyPhone: agency.phone,
+        agencyEmail: agency.email,
+        agencyAddress: agency.address,
+        agencyRccm: agency.rccm,
+        agencyNif: agency.nif,
+        agencyIdNat: agency.idNat,
+        ownerName: prop?.ownerName || undefined,
+
+        tenantName: tenant.name,
+        tenantPhone: tenant.phone,
+        tenantEmail: tenant.email,
+        tenantIdCard: tenant.tenantIdCard,
+
+        propertyName: tenant.propertyName,
+        unitName: tenant.unitName,
+        propertyAddress: tenant.propertyAddress || prop?.location || "Kinshasa, RDC",
+
+        monthlyRent: tenant.rentAmount,
+        depositAmount: tenant.depositAmount || (tenant.rentAmount * (tenant.depositMonths || 3)),
+        depositMonths: tenant.depositMonths || 3,
+        paymentPeriodicity: tenant.periodicity || "Mensuel",
+        paymentDueDay: tenant.paymentDueDay || 5,
+
+        leaseType: tenant.leaseType || "Habitation",
+        startDate: tenant.leaseStartDate || new Date().toLocaleDateString("fr-FR"),
+        endDate: tenant.leaseEndDate || undefined,
+      }, { autoDownload: false });
+
+      // Envoi du document officiel par email
+      const res = await fetch("/api/immo/send-lease", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenantEmail: tenant.email,
+          tenantName: tenant.name,
+          agencyName: agency.name,
+          agencyPhone: agency.phone,
+          agencyEmail: agency.email,
+          propertyName: tenant.propertyName,
+          unitName: tenant.unitName,
+          propertyAddress: tenant.propertyAddress || prop?.location || "Kinshasa, RDC",
+          rentAmount: tenant.rentAmount,
+          currency: "USD",
+          startDate: tenant.leaseStartDate || new Date().toLocaleDateString("fr-FR"),
+          pdfBase64: leaseResult.base64,
+          fileName: leaseResult.fileName,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert(`✅ Contrat de bail officiel PDF envoyé avec succès à ${tenant.email} au nom de ${agency.name} !`);
+      } else {
+        alert(`❌ Erreur lors de l'envoi de l'email : ${data.error || "Une erreur est survenue"}`);
+      }
+    } catch (err: any) {
+      console.error("Erreur envoi email bail:", err);
+      alert(`Erreur: ${err.message || "Impossible d'envoyer l'email"}`);
+    } finally {
+      setSendingEmailTenantId(null);
+    }
+  };
+
   // ── RELANCES ───────────────────────────────────────
   const handleSendReminder = async (tenant: Tenant) => {
-    const agencyName = userData?.company || userData?.name || "votre agence";
+    const agencyName = getAgencyName();
     const days = tenant.nextPayment
       ? Math.ceil((new Date().getTime() - new Date(tenant.nextPayment).getTime()) / (1000 * 60 * 60 * 24))
       : 0;
@@ -400,7 +497,102 @@ export default function SupplierTenantsPage() {
         }
       }
 
-      alert("Locataire ajouté avec succès !");
+      // --- GÉNÉRATION AUTOMATIQUE DU CONTRAT DE BAIL OFFICIEL AU NOM DE L'AGENCE (MUTAMULIS) ---
+      const agency = getAgencyDetails();
+      let leaseResult: { base64: string; fileName: string } | null = null;
+      try {
+        leaseResult = await generateFormalLeasePDF({
+          agencyName: agency.name,
+          agencyPhone: agency.phone,
+          agencyEmail: agency.email,
+          agencyAddress: agency.address,
+          agencyRccm: agency.rccm,
+          agencyNif: agency.nif,
+          agencyIdNat: agency.idNat,
+          ownerName: selectedProperty?.ownerName || undefined,
+
+          tenantName: name,
+          tenantPhone: phone,
+          tenantEmail: email,
+          tenantIdCard: tenantIdCard || "",
+
+          propertyName: selectedProperty?.title?.fr || "Propriété",
+          unitName: unitName,
+          propertyAddress: selectedProperty?.location || "Kinshasa, RDC",
+
+          monthlyRent: Number(rentAmount),
+          depositAmount: calculatedDeposit,
+          depositMonths: Number(depositMonths || 3),
+          paymentPeriodicity: periodicity || "Mensuel",
+          paymentDueDay: Number(paymentDueDay || 5),
+
+          leaseType: leaseType || "Habitation",
+          startDate: leaseStartDate || new Date().toLocaleDateString("fr-FR"),
+          endDate: leaseEndDate || undefined,
+        }, { autoDownload: true });
+      } catch (pdfErr) {
+        console.warn("Erreur génération PDF bail à la création :", pdfErr);
+      }
+
+      // --- ENVOI DIRECT DU CONTRAT PDF PAR EMAIL AU LOCATAIRE ---
+      let emailSuccess = false;
+      if (email && leaseResult?.base64) {
+        try {
+          const emailRes = await fetch("/api/immo/send-lease", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tenantEmail: email,
+              tenantName: name,
+              agencyName: agency.name,
+              agencyPhone: agency.phone,
+              agencyEmail: agency.email,
+              propertyName: selectedProperty?.title?.fr || "Propriété",
+              unitName: unitName,
+              propertyAddress: selectedProperty?.location || "Kinshasa, RDC",
+              rentAmount: Number(rentAmount),
+              currency: "USD",
+              startDate: leaseStartDate || new Date().toLocaleDateString("fr-FR"),
+              pdfBase64: leaseResult.base64,
+              fileName: leaseResult.fileName,
+            }),
+          });
+          const emailData = await emailRes.json();
+          emailSuccess = !!emailData.success;
+        } catch (emailErr) {
+          console.warn("Erreur envoi email locataire :", emailErr);
+        }
+      }
+
+      // --- NOTIFICATION SMS AU LOCATAIRE (SENDER ID DE L'AGENCE : MUTAMULIS) ---
+      if (phone) {
+        try {
+          const cleanPhone = phone.replace(/[^0-9]/g, "");
+          const smsText = `Bonjour ${name}, votre contrat de bail avec ${agency.name} pour ${selectedProperty?.title?.fr || "votre logement"} a bien été enregistré.${email && emailSuccess ? " Le contrat PDF officiel vous a été envoyé par email." : ""} Bienvenue !`;
+          await fetch("/api/sms", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              to: cleanPhone,
+              message: smsText,
+              customSenderId: agency.name.replace(/[^a-zA-Z0-9]/g, "").slice(0, 11) || "MUTAMULIS",
+            }),
+          });
+        } catch (smsErr) {
+          console.warn("SMS locataire non envoyé :", smsErr);
+        }
+      }
+
+      const alertMessage = [
+        `✅ Locataire ${name} enregistré avec succès !`,
+        `• Contrat officiel généré et téléchargé au nom de "${agency.name}"`,
+        email 
+          ? (emailSuccess ? `• 📩 Contrat PDF officiel envoyé directement par email à ${email}` : `• ⚠️ Email en attente d'envoi vers ${email}`)
+          : `• ℹ️ Aucun email renseigné pour l'envoi du contrat`,
+        phone ? `• 📱 Notification SMS envoyée au ${phone}` : null
+      ].filter(Boolean).join("\n");
+
+      alert(alertMessage);
       setIsModalOpen(false);
       setName("");
       setPhone("");
@@ -424,15 +616,16 @@ export default function SupplierTenantsPage() {
 
   const handleDownloadLease = async (tenant: Tenant) => {
     const prop = properties.find(p => p.id === tenant.propertyId);
+    const agency = getAgencyDetails();
     try {
       await generateFormalLeasePDF({
-        agencyName: userData?.company || userData?.name || "AGENCE IMMOBILIÈRE RAYONS",
-        agencyPhone: userData?.phone || "",
-        agencyEmail: userData?.email || user?.email || "",
-        agencyAddress: userData?.address || "Kinshasa, RDC",
-        agencyRccm: userData?.rccm || "",
-        agencyNif: userData?.nif || "",
-        agencyIdNat: userData?.idNat || "",
+        agencyName: agency.name,
+        agencyPhone: agency.phone,
+        agencyEmail: agency.email,
+        agencyAddress: agency.address,
+        agencyRccm: agency.rccm,
+        agencyNif: agency.nif,
+        agencyIdNat: agency.idNat,
         ownerName: prop?.ownerName || undefined,
 
         tenantName: tenant.name,
@@ -461,10 +654,11 @@ export default function SupplierTenantsPage() {
   };
 
   const handleDownloadInspection = async (tenant: Tenant, type: "ENTRÉE" | "SORTIE") => {
+    const agency = getAgencyDetails();
     try {
       await generateInspectionChecklistPDF({
         inspectionType: type,
-        agencyName: userData?.company || userData?.name || "AGENCE IMMOBILIÈRE RAYONS",
+        agencyName: agency.name,
         tenantName: tenant.name,
         propertyName: tenant.propertyName,
         unitName: tenant.unitName,
@@ -597,9 +791,10 @@ export default function SupplierTenantsPage() {
 
       // 1b. Écriture comptable dans le grand livre
       try {
+        const agency = getAgencyDetails();
         await recordRentPayment({
           supplierId: activeSupplierId!,
-          supplierName: userData?.company || userData?.name || "Partenaire Immo",
+          supplierName: agency.name,
           tenantId: tenantToPay.id,
           tenantName: tenantToPay.name,
           propertyId: tenantToPay.propertyId,
@@ -617,12 +812,13 @@ export default function SupplierTenantsPage() {
       // 1c. Générer et télécharger la quittance de loyer PDF
       try {
         const period = new Date().toLocaleString("fr-FR", { month: "long", year: "numeric" });
+        const agency = getAgencyDetails();
         await generateRentReceiptPDF({
-          agencyName: userData?.company || userData?.name || "AGENCE IMMOBILIÈRE RAYONS",
-          agencyPhone: userData?.phone || "",
-          agencyEmail: userData?.email || user?.email || "",
-          agencyAddress: userData?.address || "Kinshasa, RDC",
-          agencyRccm: userData?.rccm || "",
+          agencyName: agency.name,
+          agencyPhone: agency.phone,
+          agencyEmail: agency.email,
+          agencyAddress: agency.address,
+          agencyRccm: agency.rccm,
           tenantName: tenantToPay.name,
           tenantPhone: tenantToPay.phone || "",
           tenantEmail: tenantToPay.email || "",
@@ -955,6 +1151,19 @@ export default function SupplierTenantsPage() {
                           <FileText size={13} />
                           <span>Bail</span>
                         </button>
+
+                        {/* Bouton Envoi Bail par Email */}
+                        {tenant.email && (
+                          <button
+                            onClick={() => handleSendLeaseByEmail(tenant)}
+                            disabled={sendingEmailTenantId === tenant.id}
+                            title={`Envoyer le contrat de bail par email à ${tenant.email}`}
+                            className="px-2 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded text-xs flex items-center gap-1 transition-all disabled:opacity-50"
+                          >
+                            <Mail size={13} className={sendingEmailTenantId === tenant.id ? "animate-spin" : ""} />
+                            <span>{sendingEmailTenantId === tenant.id ? "Envoi..." : "Email"}</span>
+                          </button>
+                        )}
 
                         {/* Bouton État des Lieux */}
                         <button
