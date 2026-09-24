@@ -573,9 +573,11 @@ export default function SupplierTenantsPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              phone: cleanPhone,
               to: cleanPhone,
               message: smsText,
               customSenderId: agency.name.replace(/[^a-zA-Z0-9]/g, "").slice(0, 11) || "MUTAMULIS",
+              supplierId: activeSupplierId,
             }),
           });
         } catch (smsErr) {
