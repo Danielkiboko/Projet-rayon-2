@@ -414,3 +414,231 @@ export async function generateInspectionChecklistPDF(data: {
 
   doc.save(`Etat_des_lieux_${data.inspectionType}_${data.tenantName.replace(/\s+/g, "_")}.pdf`);
 }
+
+// -------------------------------------------------------------
+// QUITTANCE / REÇU DE LOYER OFFICIEL
+// -------------------------------------------------------------
+export interface RentReceiptData {
+  receiptRef?: string;
+
+  // Agence / Bailleur
+  agencyName: string;
+  agencyPhone?: string;
+  agencyEmail?: string;
+  agencyAddress?: string;
+  agencyRccm?: string;
+  agencyNif?: string;
+
+  // Locataire
+  tenantName: string;
+  tenantPhone?: string;
+  tenantEmail?: string;
+
+  // Bien
+  propertyName: string;
+  unitName?: string;
+  propertyAddress?: string;
+
+  // Paiement
+  amount: number;
+  currency?: string;
+  periodicity?: string;
+  paymentReference?: string;
+  paymentMethod?: string;
+  periodLabel?: string; // ex: "Octobre 2024"
+  paymentDate?: string; // ex: "24/09/2024"
+
+  // Bail
+  monthlyRent?: number;
+  leaseStartDate?: string;
+}
+
+export async function generateRentReceiptPDF(data: RentReceiptData) {
+  const { default: jsPDF } = await import("jspdf");
+  const autoTableModule = await import("jspdf-autotable");
+  const autoTable = (autoTableModule.default || autoTableModule) as any;
+
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+  const currency = data.currency || "USD";
+  const primaryColor = [15, 29, 39];
+  const accentColor  = [76, 110, 245];
+  const greenColor   = [34, 197, 94];
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const receiptRef = data.receiptRef || `QIT-${year}-${Math.floor(10000 + Math.random() * 90000)}`;
+  const dateStr = data.paymentDate || now.toLocaleDateString("fr-FR");
+  const period  = data.periodLabel  || now.toLocaleString("fr-FR", { month: "long", year: "numeric" });
+
+  // ── HEADER ──────────────────────────────────────────────────
+  doc.setFillColor(...(primaryColor as [number,number,number]));
+  doc.rect(0, 0, 210, 34, "F");
+  doc.setFillColor(...(accentColor as [number,number,number]));
+  doc.rect(0, 34, 210, 2, "F");
+
+  // Logo
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  doc.text("RAYONS", 14, 16);
+  doc.setTextColor(199, 211, 0);
+  doc.text(".NET", 48, 16);
+
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(200, 210, 240);
+  doc.text("RAYONS IMMO • QUITTANCE DE LOYER OFFICIELLE", 14, 23);
+  doc.text(`Réf. : ${receiptRef} | Émise le : ${dateStr}`, 14, 29);
+
+  // Agence (droite)
+  doc.setFontSize(8.5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(255, 255, 255);
+  doc.text(data.agencyName, 196, 12, { align: "right" });
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(210, 210, 210);
+  if (data.agencyPhone)   doc.text(`Tél : ${data.agencyPhone}`, 196, 18, { align: "right" });
+  if (data.agencyAddress) doc.text(data.agencyAddress, 196, 23, { align: "right" });
+  if (data.agencyRccm)    doc.text(`RCCM : ${data.agencyRccm}`, 196, 28, { align: "right" });
+
+  // ── BADGE REÇU ──────────────────────────────────────────────
+  doc.setFillColor(...(greenColor as [number,number,number]));
+  doc.roundedRect(14, 42, 182, 16, 3, 3, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.text(`✔ QUITTANCE DE LOYER — ${period.toUpperCase()}`, 105, 52, { align: "center" });
+
+  // ── PARTIES ─────────────────────────────────────────────────
+  let y = 66;
+
+  // Bailleur
+  doc.setFillColor(245, 247, 252);
+  doc.roundedRect(14, y, 87, 26, 2, 2, "F");
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...(primaryColor as [number,number,number]));
+  doc.text("BAILLEUR / AGENCE", 18, y + 7);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(50, 50, 50);
+  doc.text(data.agencyName, 18, y + 13);
+  if (data.agencyPhone) doc.text(`Tél : ${data.agencyPhone}`, 18, y + 18.5);
+  if (data.agencyEmail) doc.text(`Email : ${data.agencyEmail}`, 18, y + 23.5);
+
+  // Locataire
+  doc.setFillColor(245, 247, 252);
+  doc.roundedRect(109, y, 87, 26, 2, 2, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...(primaryColor as [number,number,number]));
+  doc.text("LOCATAIRE (PRENEUR)", 113, y + 7);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(50, 50, 50);
+  doc.text(data.tenantName, 113, y + 13);
+  if (data.tenantPhone) doc.text(`Tél : ${data.tenantPhone}`, 113, y + 18.5);
+  if (data.tenantEmail) doc.text(`Email : ${data.tenantEmail}`, 113, y + 23.5);
+
+  y += 34;
+
+  // ── BIEN LOUÉ ────────────────────────────────────────────────
+  doc.setFillColor(230, 240, 255);
+  doc.roundedRect(14, y, 182, 14, 2, 2, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...(primaryColor as [number,number,number]));
+  doc.text("BIEN LOUÉ :", 18, y + 6);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(30, 30, 30);
+  const propLabel = `${data.propertyName}${data.unitName ? ` — Porte/Unité : ${data.unitName}` : ""}${data.propertyAddress ? ` — ${data.propertyAddress}` : ""}`;
+  doc.text(propLabel, 50, y + 6);
+  y += 22;
+
+  // ── TABLEAU DE DÉTAIL DU PAIEMENT ────────────────────────────
+  autoTable(doc, {
+    startY: y,
+    head: [["Désignation", "Détail / Référence", "Montant"]],
+    body: [
+      [
+        `Loyer ${data.periodicity || "Mensuel"} — ${period}`,
+        `Réf. paiement : ${data.paymentReference || receiptRef}\nMode : ${data.paymentMethod || "Caisse / Mobile Money"}\nPériode couverte : ${period}`,
+        `${Number(data.amount).toLocaleString("fr-FR")} ${currency}`
+      ],
+      ...(data.monthlyRent && data.amount !== data.monthlyRent ? [[
+        "Rappel : Loyer mensuel de référence",
+        `Fixé par bail du ${data.leaseStartDate || "—"}`,
+        `${Number(data.monthlyRent).toLocaleString("fr-FR")} ${currency}`
+      ]] : []),
+      ["TOTAL ENCAISSÉ", `Paiement reçu le ${dateStr}`, `${Number(data.amount).toLocaleString("fr-FR")} ${currency}`]
+    ],
+    theme: "grid",
+    headStyles: {
+      fillColor: primaryColor as [number,number,number],
+      textColor: [255, 255, 255],
+      fontSize: 8.5,
+      fontStyle: "bold",
+      halign: "center"
+    },
+    styles: { fontSize: 8, cellPadding: 4, textColor: [30, 30, 30] },
+    columnStyles: {
+      0: { fontStyle: "bold", cellWidth: 65 },
+      1: { cellWidth: 90 },
+      2: { fontStyle: "bold", halign: "right", cellWidth: 27 }
+    },
+    willDrawCell: (hookData: any) => {
+      // Mettre la ligne TOTAL en vert
+      if (hookData.row.index === hookData.table.body.length - 1) {
+        doc.setFillColor(220, 252, 231);
+      }
+    }
+  });
+
+  const finalY = (doc as any).lastAutoTable?.finalY || 180;
+
+  // ── MENTION LÉGALE ───────────────────────────────────────────
+  let mY = finalY + 10;
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(80, 80, 80);
+  const mention = `La présente quittance atteste que ${data.agencyName} déclare avoir reçu de ${data.tenantName} la somme de ${Number(data.amount).toLocaleString("fr-FR")} ${currency} au titre du loyer de la période ${period} pour le bien désigné ci-dessus, et que ce paiement est complet pour la période considérée.`;
+  const mentionLines = doc.splitTextToSize(mention, 182);
+  doc.text(mentionLines, 14, mY);
+  mY += mentionLines.length * 4 + 8;
+
+  // ── SIGNATURES ───────────────────────────────────────────────
+  const bW = 86;
+  const bH = 36;
+
+  // Bailleur
+  doc.setDrawColor(200, 210, 230);
+  doc.setFillColor(250, 252, 255);
+  doc.roundedRect(14, mY, bW, bH, 2, 2, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...(primaryColor as [number,number,number]));
+  doc.text("LE BAILLEUR / L'AGENCE", 18, mY + 8);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 100, 100);
+  doc.text(data.agencyName, 18, mY + 14);
+  doc.text("Signature & Cachet :", 18, mY + 22);
+
+  // Locataire
+  doc.roundedRect(110, mY, bW, bH, 2, 2, "FD");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...(primaryColor as [number,number,number]));
+  doc.text("LE LOCATAIRE", 114, mY + 8);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 100, 100);
+  doc.text(data.tenantName, 114, mY + 14);
+  doc.text("Bon reçu :", 114, mY + 22);
+
+  // ── FOOTER ───────────────────────────────────────────────────
+  doc.setFontSize(7);
+  doc.setTextColor(160, 160, 160);
+  doc.text("Document officiel généré sur Rayons.net — Gestion Locative Certifiée", 105, 288, { align: "center" });
+
+  doc.save(`Quittance_Loyer_${data.tenantName.replace(/\s+/g, "_")}_${period.replace(/\s+/g, "_")}_${receiptRef}.pdf`);
+}

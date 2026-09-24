@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { auth, db } from "@/lib/firebase";
 import { collection, getDocs, query, where, addDoc, updateDoc, doc, getDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
-import { generateFormalLeasePDF, generateInspectionChecklistPDF } from "@/lib/leaseGenerator";
+import { generateFormalLeasePDF, generateInspectionChecklistPDF, generateRentReceiptPDF } from "@/lib/leaseGenerator";
 import { recordRentPayment } from "@/lib/accountingLedger";
 
 interface Tenant {
@@ -460,6 +460,34 @@ export default function SupplierTenantsPage() {
         });
       } catch (ledgerErr) {
         console.warn("Écriture comptable loyer non enregistrée (non bloquant) :", ledgerErr);
+      }
+
+      // 1c. Générer et télécharger la quittance de loyer PDF
+      try {
+        const period = new Date().toLocaleString("fr-FR", { month: "long", year: "numeric" });
+        await generateRentReceiptPDF({
+          agencyName: userData?.company || userData?.name || "AGENCE IMMOBILIÈRE RAYONS",
+          agencyPhone: userData?.phone || "",
+          agencyEmail: userData?.email || user?.email || "",
+          agencyAddress: userData?.address || "Kinshasa, RDC",
+          agencyRccm: userData?.rccm || "",
+          tenantName: tenantToPay.name,
+          tenantPhone: tenantToPay.phone || "",
+          tenantEmail: tenantToPay.email || "",
+          propertyName: tenantToPay.propertyName,
+          unitName: tenantToPay.unitName || undefined,
+          amount: Number(paymentAmount),
+          currency: "USD",
+          periodicity: tenantToPay.periodicity || "Mensuel",
+          paymentReference: paymentReference || undefined,
+          paymentMethod: "Caisse / Mobile Money",
+          periodLabel: period,
+          paymentDate: new Date().toLocaleDateString("fr-FR"),
+          monthlyRent: tenantToPay.rentAmount,
+          leaseStartDate: tenantToPay.leaseStartDate || undefined,
+        });
+      } catch (pdfErr) {
+        console.warn("Génération PDF quittance non bloquante :", pdfErr);
       }
 
       // 2. Update tenant's nextPayment
