@@ -321,8 +321,15 @@ export async function POST(req: Request) {
         const callerDoc = await adminDb.collection('users').doc(callerUid).get();
         if (callerDoc.exists) {
           const callerData = callerDoc.data();
-          if (callerData?.displayName && callerData.displayName.toLowerCase().includes('laurent sumaili')) {
-            customSenderId = 'MUTAMULIS';
+          if (
+            callerData?.senderId ||
+            callerData?.customSenderId ||
+            callerData?.smsSenderId ||
+            (callerData?.displayName && (callerData.displayName.toLowerCase().includes('laurent') || callerData.displayName.toLowerCase().includes('mutamulis'))) ||
+            (callerData?.lastName && callerData.lastName.toLowerCase().includes('sumaili')) ||
+            callerData?.email === 'sumaililaurent4@gmail.com'
+          ) {
+            customSenderId = callerData?.senderId || callerData?.customSenderId || callerData?.smsSenderId || 'MUTAMULIS';
           }
         }
 

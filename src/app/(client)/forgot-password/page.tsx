@@ -24,16 +24,36 @@ export default function ForgotPasswordPage() {
     setError("");
     
     try {
-      await sendPasswordResetEmail(auth, email);
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 404) {
+          setError("Aucun compte ne correspond à cette adresse email.");
+          return;
+        }
+        throw new Error(data.error || "Erreur lors de l'envoi de l'email.");
+      }
+
       setSuccess(true);
-    } catch (err: any) {
-      console.log("Erreur de réinitialisation :", err.message);
-      if (err.code === "auth/user-not-found") {
-        setError("Aucun compte ne correspond à cette adresse email.");
-      } else if (err.code === "auth/invalid-email") {
-        setError("Adresse email invalide.");
-      } else {
-        setError("Une erreur est survenue. Veuillez réessayer plus tard.");
+    } catch (apiErr: any) {
+      // Fallback to client-side Firebase Auth reset if needed
+      try {
+        await sendPasswordResetEmail(auth, email);
+        setSuccess(true);
+      } catch (err: any) {
+        console.error("Erreur de réinitialisation :", err.message);
+        if (err.code === "auth/user-not-found") {
+          setError("Aucun compte ne correspond à cette adresse email.");
+        } else if (err.code === "auth/invalid-email") {
+          setError("Adresse email invalide.");
+        } else {
+          setError(apiErr.message || "Une erreur est survenue. Veuillez réessayer plus tard.");
+        }
       }
     } finally {
       setIsLoading(false);

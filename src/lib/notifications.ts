@@ -31,9 +31,9 @@ export async function sendEmail(to: string, subject: string, text: string) {
   }
 }
 
-export async function sendSMS(phone: string, message: string) {
+export async function sendSMS(phone: string, message: string, customSenderId?: string) {
   try {
-    const result = await sendMobiShastraSMS({ mobileNo: phone, message });
+    const result = await sendMobiShastraSMS({ mobileNo: phone, message, customSenderId });
     return result;
   } catch (err) {
     console.error("Erreur d'envoi SMS via lib/sms:", err);
