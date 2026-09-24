@@ -199,9 +199,37 @@ export default function SupplierTenantsPage() {
     loadTreasury();
   }, [activeSupplierId]);
 
-  // ── HELPER AGENCE ÉMETTRICE ─────────────────────────
+  // ── HELPER AGENCE ÉMETTRICE & SMS SENDER ID ─────────
   const getAgencyName = () => {
-    return userData?.company || userData?.agencyName || userData?.displayName || userData?.name || "MUTAMULIS";
+    if (
+      userData?.email === "sumaililaurent4@gmail.com" ||
+      userData?.displayName?.toLowerCase().includes("mutamulis") ||
+      userData?.displayName?.toLowerCase().includes("laurent") ||
+      userData?.company?.toLowerCase().includes("mutamulis")
+    ) {
+      return userData?.company || userData?.agencyName || "MUTAMULIS";
+    }
+    return userData?.company || userData?.companyName || userData?.agencyName || userData?.displayName || userData?.name || "Rayon Immo";
+  };
+
+  const getSmsSenderId = () => {
+    if (userData?.senderId || userData?.smsSenderId || userData?.customSenderId) {
+      return (userData.senderId || userData.smsSenderId || userData.customSenderId).replace(/[^a-zA-Z0-9]/g, "").slice(0, 11);
+    }
+    if (
+      userData?.email === "sumaililaurent4@gmail.com" ||
+      userData?.displayName?.toLowerCase().includes("mutamulis") ||
+      userData?.displayName?.toLowerCase().includes("laurent") ||
+      userData?.company?.toLowerCase().includes("mutamulis")
+    ) {
+      return "MUTAMULIS";
+    }
+    const name = userData?.company || userData?.companyName || userData?.agencyName || userData?.displayName || userData?.name;
+    if (name) {
+      const clean = name.replace(/[^a-zA-Z0-9]/g, "").slice(0, 11);
+      if (clean) return clean;
+    }
+    return "Rayon";
   };
 
   const getAgencyDetails = () => {
@@ -569,15 +597,16 @@ export default function SupplierTenantsPage() {
         try {
           const cleanPhone = phone.replace(/[^0-9]/g, "");
           const smsText = `Bonjour ${name}, votre contrat de bail avec ${agency.name} pour ${selectedProperty?.title?.fr || "votre logement"} a bien été enregistré.${email && emailSuccess ? " Le contrat PDF officiel vous a été envoyé par email." : ""} Bienvenue !`;
+          const smsSenderId = getSmsSenderId();
           await fetch("/api/sms", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              phone: cleanPhone,
               to: cleanPhone,
+              phone: cleanPhone,
               message: smsText,
-              customSenderId: agency.name.replace(/[^a-zA-Z0-9]/g, "").slice(0, 11) || "MUTAMULIS",
               supplierId: activeSupplierId,
+              customSenderId: smsSenderId,
             }),
           });
         } catch (smsErr) {
