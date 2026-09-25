@@ -64,11 +64,13 @@ export function Footer() {
 
         <div className="max-w-7xl mx-auto px-4 mt-12 pt-8 border-t border-white/10 text-center flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-gray-400 text-xs">© 2026 Rayons.net. Tous droits réservés.</p>
-          <div className="flex items-center gap-6 text-xs text-gray-400">
+          <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-gray-400">
             <Link href="/rayon/connect" className="hover:text-[#00B5A5] transition-colors">Connect</Link>
             <Link href="/rayon/immo" className="hover:text-[#4C6EF5] transition-colors">Immo & Hôtels</Link>
             <Link href="/rayon/mode" className="hover:text-[#D4B08C] transition-colors">Mode</Link>
             <Link href="/rayon/saveurs" className="hover:text-[#FF6B35] transition-colors">Saveurs</Link>
+            <span className="text-white/20 hidden sm:inline">|</span>
+            <Link href="/legal" className="text-[#C7D300] hover:underline transition-colors font-medium">Conditions d'utilisation & Confidentialité</Link>
           </div>
         </div>
       </footer>
