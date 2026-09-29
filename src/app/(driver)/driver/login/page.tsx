@@ -47,7 +47,7 @@ export default function DriverLogin() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-gradient-to-b from-[#140b2e] to-[#0b061c]">
+    <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-gradient-to-b from-[#0F1D27] to-[#0B151C]">
       <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-8 shadow-lg shadow-primary/20">
         <Navigation size={32} className="text-white" />
       </div>

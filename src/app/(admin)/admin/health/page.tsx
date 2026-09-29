@@ -78,13 +78,13 @@ export default function HealthDashboard() {
 
       <KpiGrid kpis={kpiData} />
 
-      <div className="bg-[#130b29] border border-white/10 rounded-2xl p-6">
-        <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-          <Bug className="text-purple-400" /> Journal des Erreurs (Runtime)
+      <div className="bg-[#0F1D27] border border-white/10 rounded-3xl p-6 shadow-xl">
+        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+          <Bug className="text-[#C7D300]" /> Journal des Erreurs (Runtime)
         </h2>
         
         {loading ? (
-          <div className="flex justify-center p-8"><RefreshCw className="animate-spin text-purple-400" /></div>
+          <div className="flex justify-center p-8"><RefreshCw className="animate-spin text-[#C7D300]" /></div>
         ) : logs.length === 0 ? (
           <div className="text-center p-8 text-gray-400">Aucune erreur enregistrée. Le système est sain !</div>
         ) : (

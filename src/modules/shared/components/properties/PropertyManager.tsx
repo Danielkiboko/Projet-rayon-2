@@ -891,9 +891,9 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-2xl bg-[#140b2e] border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[90vh] my-4"
+              className="w-full max-w-2xl bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[90vh] my-4"
             >
-              <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0 bg-[#140b2e]">
+              <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0 bg-[#0F1D27]">
                 <h2 className="text-xl font-semibold text-white">Ajouter une propriété</h2>
                 <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white transition-colors">
                   <X size={24} />
@@ -1323,7 +1323,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
                         <select 
                           value={hotelStars} 
                           onChange={(e) => setHotelStars(e.target.value)}
-                          className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500 [&>option]:bg-[#140b2e]"
+                          className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-amber-500 [&>option]:bg-[#0F1D27]"
                         >
                           <option value="5">⭐⭐⭐⭐⭐ 5 Étoiles (Luxe)</option>
                           <option value="4">⭐⭐⭐⭐ 4 Étoiles (Standing)</option>
@@ -1486,7 +1486,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
                                 <select 
                                   value={unit.type} 
                                   onChange={(e) => handleUpdateUnit(lIndex, uIndex, 'type', e.target.value)}
-                                  className="w-full sm:w-36 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white focus:outline-none [&>option]:bg-[#140b2e]"
+                                  className="w-full sm:w-36 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm text-white focus:outline-none [&>option]:bg-[#0F1D27]"
                                 >
                                   <option value="appartement">Appart. / Local</option>
                                   <option value="chambre">Chambre Hôtel</option>
@@ -1552,9 +1552,9 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-3xl bg-[#140b2e] border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[90vh] my-4"
+              className="w-full max-w-3xl bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[90vh] my-4"
             >
-              <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0 bg-[#140b2e]">
+              <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0 bg-[#0F1D27]">
                 <h2 className="text-xl font-semibold text-white">Prévisualisation de l'annonce</h2>
                 <button onClick={() => setPreviewProperty(null)} className="text-gray-400 hover:text-white transition-colors">
                   <X size={24} />
@@ -1648,7 +1648,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
               </div>
 
               {/* Actions Footer */}
-              <div className="flex items-center justify-end gap-3 p-4 border-t border-white/10 shrink-0 bg-[#140b2e]">
+              <div className="flex items-center justify-end gap-3 p-4 border-t border-white/10 shrink-0 bg-[#0F1D27]">
                 <button
                   type="button"
                   onClick={() => setPreviewProperty(null)}

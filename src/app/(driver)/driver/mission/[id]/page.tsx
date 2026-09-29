@@ -214,7 +214,7 @@ export default function MissionDetails({ params }: { params?: { id: string } }) 
       </div>
 
       {/* Mission Info Sheet */}
-      <div className="bg-[#140b2e] flex-1 -mt-6 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-20 p-6 flex flex-col">
+      <div className="bg-[#0F1D27] flex-1 -mt-6 rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)] z-20 p-6 flex flex-col">
         <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-6" />
 
         <div className="flex justify-between items-start mb-6">

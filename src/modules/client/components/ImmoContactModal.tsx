@@ -197,7 +197,7 @@ export function ImmoContactModal({ isOpen, onClose, property }: ImmoContactModal
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-[#140b2e] border border-white/10 rounded-2xl shadow-2xl z-[101] overflow-hidden"
+            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl z-[101] overflow-hidden"
           >
             {isSubmitted ? (
               <div className="p-8 flex flex-col items-center justify-center text-center">
@@ -296,7 +296,7 @@ export function ImmoContactModal({ isOpen, onClose, property }: ImmoContactModal
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <label className="text-xs font-medium text-gray-400">Voyageurs</label>
-                          <select name="guests" className="w-full px-3 py-2.5 bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-white text-xs [&>option]:bg-[#140b2e]">
+                          <select name="guests" className="w-full px-3 py-2.5 bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-white text-xs [&>option]:bg-[#0F1D27]">
                             <option value="1">1 Adulte</option>
                             <option value="2">2 Adultes</option>
                             <option value="3">3 Personnes</option>

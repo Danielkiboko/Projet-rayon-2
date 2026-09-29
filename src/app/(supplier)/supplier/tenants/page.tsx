@@ -1283,9 +1283,9 @@ export default function SupplierTenantsPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-xl bg-[#140b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto"
+              className="w-full max-w-xl bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] overflow-y-auto"
             >
-              <div className="flex items-center justify-between p-6 border-b border-white/10 sticky top-0 bg-[#140b2e] z-10">
+              <div className="flex items-center justify-between p-6 border-b border-white/10 sticky top-0 bg-[#0F1D27] z-10">
                 <div>
                   <h2 className="text-xl font-bold text-white">Nouveau Bail & Locataire</h2>
                   <p className="text-xs text-gray-400">Établissez le contrat, la garantie locative et les détails d'occupation.</p>
@@ -1299,7 +1299,7 @@ export default function SupplierTenantsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-gray-300 uppercase">Type de Bail</label>
-                    <select value={leaseType} onChange={(e: any) => setLeaseType(e.target.value)} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white text-sm [&>option]:bg-[#140b2e]">
+                    <select value={leaseType} onChange={(e: any) => setLeaseType(e.target.value)} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white text-sm [&>option]:bg-[#0F1D27]">
                       <option value="Habitation">Bail d'Habitation (Résidentiel)</option>
                       <option value="Commercial">Bail Commercial / Bureaux</option>
                       <option value="Mixte">Usage Mixte</option>
@@ -1329,7 +1329,7 @@ export default function SupplierTenantsPage() {
                 {/* Propriété & Sous-unité */}
                 <div className="space-y-1 pt-1">
                   <label className="text-xs font-semibold text-gray-300 uppercase">Propriété louée *</label>
-                  <select required value={selectedPropertyId} onChange={(e) => setSelectedPropertyId(e.target.value)} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white text-sm [&>option]:bg-[#140b2e]">
+                  <select required value={selectedPropertyId} onChange={(e) => setSelectedPropertyId(e.target.value)} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white text-sm [&>option]:bg-[#0F1D27]">
                     <option value="">Sélectionner une propriété...</option>
                     {properties.map(p => (
                       <option key={p.id} value={p.id}>{p.title?.fr || "Propriété sans titre"} — {p.price} $/mois</option>
@@ -1341,7 +1341,7 @@ export default function SupplierTenantsPage() {
                   <div className="grid grid-cols-2 gap-4 border-l-2 border-primary/50 pl-4 py-2 bg-white/5 rounded-r-lg">
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-gray-300">Niveau / Étage</label>
-                      <select required value={selectedLevelId} onChange={(e) => setSelectedLevelId(e.target.value)} className="w-full px-3 py-1.5 bg-black/30 border border-white/10 rounded-lg text-white text-sm [&>option]:bg-[#140b2e]">
+                      <select required value={selectedLevelId} onChange={(e) => setSelectedLevelId(e.target.value)} className="w-full px-3 py-1.5 bg-black/30 border border-white/10 rounded-lg text-white text-sm [&>option]:bg-[#0F1D27]">
                         <option value="">Sélectionner...</option>
                         {levels.map((l: any) => (
                           <option key={l.id} value={l.id}>{l.name}</option>
@@ -1351,7 +1351,7 @@ export default function SupplierTenantsPage() {
                     {selectedLevelId && (
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-gray-300">Sous-unité (Porte)</label>
-                        <select required value={selectedUnitId} onChange={(e) => setSelectedUnitId(e.target.value)} className="w-full px-3 py-1.5 bg-black/30 border border-white/10 rounded-lg text-white text-sm [&>option]:bg-[#140b2e]">
+                        <select required value={selectedUnitId} onChange={(e) => setSelectedUnitId(e.target.value)} className="w-full px-3 py-1.5 bg-black/30 border border-white/10 rounded-lg text-white text-sm [&>option]:bg-[#0F1D27]">
                           <option value="">Sélectionner...</option>
                           {units.filter((u: any) => (u.capacity || 1) > 0).map((u: any) => (
                             <option key={u.id} value={u.id}>{u.name} ({u.type})</option>
@@ -1413,7 +1413,7 @@ export default function SupplierTenantsPage() {
                   <div className="grid grid-cols-3 gap-3 mt-3">
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-gray-300">Périodicité</label>
-                      <select required value={periodicity} onChange={(e) => setPeriodicity(e.target.value)} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white text-sm [&>option]:bg-[#140b2e]">
+                      <select required value={periodicity} onChange={(e) => setPeriodicity(e.target.value)} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white text-sm [&>option]:bg-[#0F1D27]">
                         <option value="Mensuel">Mensuel</option>
                         <option value="Trimestriel">Trimestriel</option>
                         <option value="Annuel">Annuel</option>
@@ -1452,9 +1452,9 @@ export default function SupplierTenantsPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md bg-[#140b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+              className="w-full max-w-md bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
             >
-              <div className="flex items-center justify-between p-6 border-b border-white/10 bg-[#140b2e]">
+              <div className="flex items-center justify-between p-6 border-b border-white/10 bg-[#0F1D27]">
                 <div className="flex items-center gap-2">
                   <Wrench className="text-amber-400" size={20} />
                   <h2 className="text-lg font-bold text-white">Signaler un Incident / Réparation</h2>
@@ -1471,7 +1471,7 @@ export default function SupplierTenantsPage() {
 
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-gray-300 uppercase">Catégorie</label>
-                  <select value={maintenanceCategory} onChange={(e) => setMaintenanceCategory(e.target.value)} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white text-sm [&>option]:bg-[#140b2e]">
+                  <select value={maintenanceCategory} onChange={(e) => setMaintenanceCategory(e.target.value)} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white text-sm [&>option]:bg-[#0F1D27]">
                     <option value="Plomberie">Plomberie & Fuites d'eau</option>
                     <option value="Électricité">Électricité & SNEL / Disjoncteur</option>
                     <option value="Climatisation">Climatisation & Froid</option>
@@ -1493,7 +1493,7 @@ export default function SupplierTenantsPage() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-semibold text-gray-300 uppercase">Imputation (Qui paie ?)</label>
-                    <select value={maintenanceChargedTo} onChange={(e: any) => setMaintenanceChargedTo(e.target.value)} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white text-sm [&>option]:bg-[#140b2e]">
+                    <select value={maintenanceChargedTo} onChange={(e: any) => setMaintenanceChargedTo(e.target.value)} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white text-sm [&>option]:bg-[#0F1D27]">
                       <option value="BAILLEUR">À la charge du Bailleur</option>
                       <option value="LOCATAIRE">À la charge du Locataire</option>
                     </select>
@@ -1522,9 +1522,9 @@ export default function SupplierTenantsPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-sm bg-[#140b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+              className="w-full max-w-sm bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
             >
-              <div className="flex items-center justify-between p-6 border-b border-white/10 bg-[#140b2e]">
+              <div className="flex items-center justify-between p-6 border-b border-white/10 bg-[#0F1D27]">
                 <h2 className="text-lg font-semibold text-white">Déclarer un départ & Clôture du Bail</h2>
                 <button onClick={() => setIsDepartureModalOpen(false)} className="text-gray-400 hover:text-white">
                   <X size={20} />
@@ -1543,7 +1543,7 @@ export default function SupplierTenantsPage() {
 
                 <div className="space-y-1">
                   <label className="text-xs font-semibold text-gray-300 uppercase">Sort de la Garantie Locative (Caution)</label>
-                  <select value={depositRestitutionStatus} onChange={(e: any) => setDepositRestitutionStatus(e.target.value)} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white text-xs [&>option]:bg-[#140b2e]">
+                  <select value={depositRestitutionStatus} onChange={(e: any) => setDepositRestitutionStatus(e.target.value)} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white text-xs [&>option]:bg-[#0F1D27]">
                     <option value="RESTITUTED">Restituée intégralement au locataire</option>
                     <option value="DEDUCTED">Retenue (déduite pour impayés ou réparations)</option>
                   </select>
@@ -1576,9 +1576,9 @@ export default function SupplierTenantsPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-sm bg-[#140b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+              className="w-full max-w-sm bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
             >
-              <div className="flex items-center justify-between p-6 border-b border-white/10 bg-[#140b2e]">
+              <div className="flex items-center justify-between p-6 border-b border-white/10 bg-[#0F1D27]">
                 <h2 className="text-lg font-semibold text-white">Enregistrer un paiement de loyer</h2>
                 <button onClick={() => setIsPaymentModalOpen(false)} className="text-gray-400 hover:text-white">
                   <X size={20} />
@@ -1622,7 +1622,7 @@ export default function SupplierTenantsPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-lg bg-[#140b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[88vh] flex flex-col"
+              className="w-full max-w-lg bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[88vh] flex flex-col"
             >
               {/* Header */}
               <div className="flex items-center justify-between p-5 border-b border-white/10 bg-black/30 shrink-0">

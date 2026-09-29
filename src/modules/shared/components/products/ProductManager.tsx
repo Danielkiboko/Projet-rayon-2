@@ -876,9 +876,9 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-2xl bg-[#140b2e] border border-white/10 rounded-2xl shadow-2xl flex flex-col max-h-[90vh] my-4"
+              className="w-full max-w-2xl bg-[#0F1D27] border border-white/10 rounded-3xl shadow-2xl flex flex-col max-h-[90vh] my-4"
             >
-              <div className="flex items-center justify-between p-4 border-b border-white/10 shrink-0 bg-[#140b2e]">
+              <div className="flex items-center justify-between p-5 border-b border-white/10 shrink-0 bg-[#0F1D27]">
                 <h2 className="text-xl font-semibold text-white">
                   {editingId ? "Modifier le produit" : "Ajouter un produit"}
                 </h2>

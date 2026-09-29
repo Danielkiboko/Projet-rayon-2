@@ -54,7 +54,7 @@ function SessionWarningModal({
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="w-full max-w-sm bg-[#140b2e] border border-orange-500/40 rounded-2xl shadow-2xl p-6 text-center"
+        className="w-full max-w-sm bg-[#0F1D27] border border-orange-500/40 rounded-3xl shadow-2xl p-6 text-center"
       >
         {/* Icône */}
         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">

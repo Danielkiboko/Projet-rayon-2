@@ -29,7 +29,7 @@ export default function ActionCard({
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.5, duration: 0.4 }}
-      className="bg-[#1a1a1a] border border-white/5 rounded-2xl p-6 shadow-sm relative overflow-hidden"
+      className="bg-[#0F1D27] border border-white/10 rounded-3xl p-6 shadow-xl relative overflow-hidden"
     >
       <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl -mr-10 -mt-10 ${bgGradientColor}`} />
       <h2 className="text-base font-semibold text-white mb-4 text-center relative z-10">{title}</h2>

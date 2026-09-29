@@ -651,7 +651,7 @@ export default function AdminTeamPage() {
                                 value={member.role}
                                 onChange={(e) => handleChangeRole(member.id, e.target.value)}
                                 disabled={isUpdating}
-                                className="text-xs bg-black/40 border border-white/10 rounded-lg px-2.5 py-1 text-gray-300 focus:outline-none focus:border-indigo-500 [&>option]:bg-[#140b2e]"
+                                className="text-xs bg-black/40 border border-white/10 rounded-lg px-2.5 py-1 text-gray-300 focus:outline-none focus:border-indigo-500 [&>option]:bg-[#0F1D27]"
                               >
                                 <option value="SUB_ADMIN">🛡️ Sous-Administrateur Général</option>
                                 <option value="ADMIN_FINANCE">💼 Finance & Caisse</option>
@@ -854,7 +854,7 @@ export default function AdminTeamPage() {
                 <select
                   value={selectedPromoteRole}
                   onChange={(e: any) => setSelectedPromoteRole(e.target.value)}
-                  className="px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 [&>option]:bg-[#140b2e]"
+                  className="px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 [&>option]:bg-[#0F1D27]"
                 >
                   <option value="SUB_ADMIN">🛡️ Nommer Sous-Administrateur Général (Accès complet)</option>
                   <option value="ADMIN_FINANCE">💼 Nommer Gestionnaire Finance</option>
@@ -932,9 +932,9 @@ export default function AdminTeamPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-lg bg-[#140b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+              className="w-full max-w-lg bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
             >
-              <div className="flex items-center justify-between p-6 border-b border-white/10 bg-[#140b2e]">
+              <div className="flex items-center justify-between p-6 border-b border-white/10 bg-[#0F1D27]">
                 <div>
                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
                     <Users size={20} className="text-indigo-400" />

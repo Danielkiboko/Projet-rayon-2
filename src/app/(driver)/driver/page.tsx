@@ -285,7 +285,7 @@ export default function DriverDashboard() {
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-[#140b2e] border border-primary/40 rounded-2xl p-4 shadow-[0_0_20px_rgba(139,92,246,0.1)] hover:border-primary/60 transition-all"
+                  className="bg-[#0F1D27] border border-primary/40 rounded-2xl p-4 shadow-[0_0_20px_rgba(139,92,246,0.1)] hover:border-primary/60 transition-all"
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-2">
@@ -354,7 +354,7 @@ export default function DriverDashboard() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.06 }}
-              className="bg-[#140b2e] border border-white/10 rounded-2xl p-4 hover:border-white/20 transition-all"
+              className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 hover:border-white/20 transition-all"
             >
               <div className="flex justify-between items-start mb-3">
                 <div className="flex items-center gap-2">

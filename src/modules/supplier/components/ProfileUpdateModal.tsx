@@ -80,7 +80,7 @@ export default function ProfileUpdateModal({ user, userData, onSuccess }: Profil
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-md bg-[#140b2e] border border-primary/30 rounded-2xl shadow-2xl overflow-hidden relative"
+        className="w-full max-w-md bg-[#0F1D27] border border-[#C7D300]/30 rounded-3xl shadow-2xl overflow-hidden relative"
       >
         {/* Close Button */}
         <button

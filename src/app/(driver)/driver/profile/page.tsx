@@ -137,7 +137,7 @@ export default function DriverProfilePage() {
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-[#140b2e] border border-white/10 rounded-2xl p-6 mb-5 flex items-center gap-4"
+        className="bg-[#0F1D27] border border-white/10 rounded-2xl p-6 mb-5 flex items-center gap-4"
       >
         <div className="relative">
           <div className="w-20 h-20 rounded-full bg-primary/20 border-2 border-primary/50 flex items-center justify-center text-2xl font-black text-primary-light">
@@ -196,7 +196,7 @@ export default function DriverProfilePage() {
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="bg-[#140b2e] border border-white/10 rounded-2xl p-5 space-y-4"
+        className="bg-[#0F1D27] border border-white/10 rounded-2xl p-5 space-y-4"
       >
         <h3 className="text-sm font-bold text-white uppercase tracking-wider">Informations</h3>
 

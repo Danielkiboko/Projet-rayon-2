@@ -1011,7 +1011,7 @@ export default function SuppliersPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md bg-[#140b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+              className="w-full max-w-md bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
             >
               <div className="flex items-center justify-between p-6 border-b border-white/10">
                 <h2 className="text-xl font-semibold text-white">Gérer les accès</h2>
@@ -1069,9 +1069,9 @@ export default function SuppliersPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-lg bg-[#140b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
+              className="w-full max-w-lg bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
             >
-              <div className="flex items-center justify-between p-6 border-b border-white/10 sticky top-0 bg-[#140b2e] z-10">
+              <div className="flex items-center justify-between p-6 border-b border-white/10 sticky top-0 bg-[#0F1D27] z-10">
                 <h2 className="text-xl font-semibold text-white">Créer un compte</h2>
                 <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white">
                   <X size={24} />
@@ -1534,7 +1534,7 @@ export default function SuppliersPage() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-2xl bg-[#140b2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+              className="w-full max-w-2xl bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
             >
               <div className="flex items-center justify-between p-6 border-b border-white/10 shrink-0">
                 <h2 className="text-xl font-semibold text-white">Examiner les modifications</h2>

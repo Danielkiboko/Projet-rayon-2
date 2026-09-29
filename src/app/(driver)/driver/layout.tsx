@@ -23,7 +23,7 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
 
       {/* Bottom Nav — masquée sur la page mission (elle a son propre layout plein écran) */}
       {!isMission && (
-        <nav className="absolute bottom-0 w-full h-16 bg-[#140b2e] border-t border-white/10 flex justify-around items-center px-2 z-50">
+        <nav className="absolute bottom-0 w-full h-16 bg-[#0F1D27] border-t border-white/10 flex justify-around items-center px-2 z-50">
           <NavItem href="/driver" label="Missions" icon={ListTodo} active={pathname === "/driver"} />
           <NavItem href="/driver/history" label="Historique" icon={History} active={pathname === "/driver/history"} />
           <NavItem href="/driver/profile" label="Profil" icon={User} active={pathname === "/driver/profile"} />

@@ -165,7 +165,7 @@ export default function ProductDetails({ params }: { params: { id: string } }) {
           {/* Colonne Image */}
           <div className="lg:w-1/2">
             <div className="sticky top-24">
-              <div className="relative aspect-square md:aspect-video lg:aspect-square bg-[#140b2e] rounded-3xl overflow-hidden border border-white/10">
+              <div className="relative aspect-square md:aspect-video lg:aspect-square bg-[#0F1D27] rounded-3xl overflow-hidden border border-white/10">
                 <OptimizedImage
                   src={productData.image}
                   alt={productData.title[lang]}
@@ -264,7 +264,7 @@ export default function ProductDetails({ params }: { params: { id: string } }) {
             <div className="w-full h-[1px] bg-white/10 mb-8" />
 
             {/* Bulk Pricing Card */}
-            <div className="bg-[#140b2e] border border-white/10 rounded-2xl p-6 mb-8">
+            <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-6 mb-8">
               <h3 className="text-sm font-bold text-white mb-4 flex items-center">
                 <PackageOpen size={18} className="mr-2 text-primary-light" />
                 {lang === "fr" ? "Tarifs de gros (B2B)" : "Bulk Pricing (B2B)"}
