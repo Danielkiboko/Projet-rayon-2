@@ -183,7 +183,7 @@ export default function AdminDashboardPage() {
           className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-sm font-semibold flex items-center gap-2 shadow-lg transition-all disabled:opacity-50 shrink-0"
         >
           <Mail size={16} className={isSendingReports ? "animate-spin" : ""} />
-          <span>{isSendingReports ? "Envoi des rapports en cours..." : "Envoyer les Rapports Journaliers (17h)"}</span>
+          <span>{isSendingReports ? "Envoi des rapports en cours..." : "Envoyer les Rapports Journaliers (7h00)"}</span>
         </button>
       </div>
 

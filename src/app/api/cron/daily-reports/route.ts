@@ -7,6 +7,17 @@ import { FieldValue } from "firebase-admin/firestore";
 // Vercel Cron Secret (optionnel)
 const CRON_SECRET = process.env.CRON_SECRET;
 
+function parseDate(val: any): Date | null {
+  if (!val) return null;
+  if (val.toDate && typeof val.toDate === "function") return val.toDate();
+  if (typeof val === "number") return new Date(val);
+  if (typeof val === "string") {
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return null;
+}
+
 export async function GET(req: Request) {
   return handleDailyReports(req);
 }
@@ -22,105 +33,163 @@ async function handleDailyReports(req: Request) {
     const secretParam = searchParams.get("secret");
 
     if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}` && secretParam !== CRON_SECRET) {
-      // Allow internal manual triggers or authorized cron
-      console.log("Cron secret check passed or skipped for internal execution.");
+      console.log("[DailyReport] Cron secret check passed or skipped for internal execution.");
     }
 
     const now = new Date();
-    // Start of current day in local time (00:00:00)
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-    const dateFormatted = now.toLocaleDateString("fr-FR", {
+    const periodParam = searchParams.get("period"); // 'yesterday' | 'today' | auto
+
+    // Détermination de la période de rapport :
+    // Si le rapport tourne le matin à 7h (avant 12h00) ou si period === 'yesterday',
+    // on dresse le bilan complet de la veille (J-1 de 00:00:00 à 23:59:59.999).
+    // Si déclenché l'après-midi manuellement, on dresse le bilan du jour même (J).
+    const isMorningRun = periodParam === "yesterday" || (!periodParam && now.getHours() < 12);
+
+    let periodStart: Date;
+    let periodEnd: Date;
+    let reportTargetDate: Date;
+
+    if (isMorningRun) {
+      // Journée d'hier (J-1)
+      reportTargetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      periodStart = new Date(reportTargetDate.getFullYear(), reportTargetDate.getMonth(), reportTargetDate.getDate(), 0, 0, 0, 0);
+      periodEnd = new Date(reportTargetDate.getFullYear(), reportTargetDate.getMonth(), reportTargetDate.getDate(), 23, 59, 59, 999);
+    } else {
+      // Journée d'aujourd'hui (J)
+      reportTargetDate = now;
+      periodStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      periodEnd = now;
+    }
+
+    const dateFormatted = reportTargetDate.toLocaleDateString("fr-FR", {
       weekday: "long",
       year: "numeric",
       month: "long",
       day: "numeric",
     });
 
-    console.log(`[DailyReport] Generating reports for: ${dateFormatted} since ${startOfDay.toISOString()}`);
+    const isWithinPeriod = (date: Date | null) => {
+      if (!date) return false;
+      return date >= periodStart && date <= periodEnd;
+    };
 
-    // 1. Récupérer tous les fournisseurs
-    const suppliersSnap = await adminDb.collection("users")
-      .where("role", "==", "supplier")
-      .get();
+    console.log(`[DailyReport] Generating 07h00 reports for target date: ${dateFormatted} [${periodStart.toISOString()} -> ${periodEnd.toISOString()}]`);
 
-    const suppliersList: any[] = [];
-    suppliersSnap.forEach((doc: any) => {
-      suppliersList.push({ id: doc.id, ...doc.data() });
-    });
+    // ─────────────────────────────────────────────────────────────
+    // 1. Récupération de TOUS les Fournisseurs (Multi-sources & Tous rôles)
+    // ─────────────────────────────────────────────────────────────
+    const suppliersMap = new Map<string, any>();
 
-    // 2. Récupérer les commandes du jour
+    // Source A : Collection "suppliers" (fournisseurs enregistrés)
+    try {
+      const suppliersSnap = await adminDb.collection("suppliers").get();
+      suppliersSnap.forEach((doc: any) => {
+        const d = doc.data();
+        suppliersMap.set(doc.id, {
+          id: doc.id,
+          ...d,
+          email: (d.email || "").trim(),
+          phone: (d.phone || "").trim(),
+          company: d.company || d.companyName || d.agencyName || d.displayName || d.name || "Partenaire",
+          displayName: d.displayName || d.name || d.company || "Partenaire",
+          senderId: d.senderId || d.customSenderId || d.smsSenderId,
+        });
+      });
+    } catch (err) {
+      console.warn("[DailyReport] Warning fetching suppliers collection:", err);
+    }
+
+    // Source B : Collection "users" avec rôles 'supplier', 'SUPPLIER_IMMO', 'SUPPLIER_FOOD', 'SUPPLIER_MODE', etc.
+    const adminEmails = new Set<string>(["admin@rayons.net", "danielkiboko218@gmail.com"]);
+    let newUsersCount = 0;
+
+    try {
+      const usersSnap = await adminDb.collection("users").get();
+      usersSnap.forEach((doc: any) => {
+        const d = doc.data();
+        const role = (d.role || "").toString().toLowerCase();
+        const roles = Array.isArray(d.roles) ? d.roles.map((r: any) => r.toString().toLowerCase()) : [];
+        const isSupplier = role.includes("supplier") || roles.some((r: string) => r.includes("supplier"));
+        const isAdmin = role.includes("admin") || roles.some((r: string) => r.includes("admin"));
+
+        if (isAdmin && d.email) {
+          adminEmails.add(d.email.trim().toLowerCase());
+        }
+
+        if (isSupplier) {
+          const existing = suppliersMap.get(doc.id) || {};
+          suppliersMap.set(doc.id, {
+            ...existing,
+            id: doc.id,
+            ...d,
+            email: (d.email || existing.email || "").trim(),
+            phone: (d.phone || existing.phone || "").trim(),
+            company: d.company || d.companyName || d.agencyName || existing.company || d.displayName || d.name || "Partenaire",
+            displayName: d.displayName || d.name || existing.displayName || d.company || "Partenaire",
+            senderId: d.senderId || existing.senderId,
+            role: d.role || existing.role,
+          });
+        }
+
+        // Compter les nouvelles inscriptions de la période
+        const uDate = parseDate(d.createdAt);
+        if (isWithinPeriod(uDate)) {
+          newUsersCount++;
+        }
+      });
+    } catch (err) {
+      console.warn("[DailyReport] Warning fetching users collection:", err);
+    }
+
+    const suppliersList = Array.from(suppliersMap.values());
+    console.log(`[DailyReport] Total active suppliers detected: ${suppliersList.length}`);
+
+    // ─────────────────────────────────────────────────────────────
+    // 2. Récupération des Commandes de la période
+    // ─────────────────────────────────────────────────────────────
     const ordersSnap = await adminDb.collection("orders").get();
-    const todayOrders: any[] = [];
+    const periodOrders: any[] = [];
     ordersSnap.forEach((doc: any) => {
       const data = doc.data();
-      let orderDate: Date | null = null;
-      if (data.createdAt?.toDate) {
-        orderDate = data.createdAt.toDate();
-      } else if (data.createdAt) {
-        orderDate = new Date(data.createdAt);
-      }
-      if (orderDate && orderDate >= startOfDay) {
-        todayOrders.push({ id: doc.id, ...data });
+      const orderDate = parseDate(data.createdAt);
+      if (isWithinPeriod(orderDate)) {
+        periodOrders.push({ id: doc.id, ...data });
       }
     });
 
-    // 3. Récupérer les paiements de loyers du jour
+    // ─────────────────────────────────────────────────────────────
+    // 3. Récupération des Paiements de Loyers de la période
+    // ─────────────────────────────────────────────────────────────
     const paymentsSnap = await adminDb.collection("payments").get();
-    const todayPayments: any[] = [];
+    const periodPayments: any[] = [];
     paymentsSnap.forEach((doc: any) => {
       const data = doc.data();
-      let payDate: Date | null = null;
-      if (data.createdAt?.toDate) {
-        payDate = data.createdAt.toDate();
-      } else if (data.createdAt) {
-        payDate = new Date(data.createdAt);
-      }
-      if (payDate && payDate >= startOfDay) {
-        todayPayments.push({ id: doc.id, ...data });
+      const payDate = parseDate(data.createdAt);
+      if (isWithinPeriod(payDate)) {
+        periodPayments.push({ id: doc.id, ...data });
       }
     });
 
-    // 4. Récupérer les nouveaux locataires du jour
+    // ─────────────────────────────────────────────────────────────
+    // 4. Récupération des Locataires et Vigilance Échéances
+    // ─────────────────────────────────────────────────────────────
     const tenantsSnap = await adminDb.collection("tenants").get();
-    const todayTenants: any[] = [];
+    const periodTenants: any[] = [];
     let overdueTenantsCount = 0;
     tenantsSnap.forEach((doc: any) => {
       const data = doc.data();
-      let createdDate: Date | null = null;
-      if (data.createdAt?.toDate) {
-        createdDate = data.createdAt.toDate();
-      } else if (data.createdAt) {
-        createdDate = new Date(data.createdAt);
-      }
-      if (createdDate && createdDate >= startOfDay) {
-        todayTenants.push({ id: doc.id, ...data });
+      const createdDate = parseDate(data.createdAt);
+      if (isWithinPeriod(createdDate)) {
+        periodTenants.push({ id: doc.id, ...data });
       }
       if (data.status === "En retard" || data.status === "LATE") {
         overdueTenantsCount++;
       }
     });
 
-    // 5. Récupérer les nouveaux utilisateurs du jour
-    const usersSnap = await adminDb.collection("users").get();
-    let newUsersToday = 0;
-    const adminEmails = new Set<string>(["admin@rayons.net", "danielkiboko218@gmail.com"]);
-    usersSnap.forEach((doc: any) => {
-      const data = doc.data();
-      if (data.role === "admin" && data.email) {
-        adminEmails.add(data.email.trim().toLowerCase());
-      }
-      let uDate: Date | null = null;
-      if (data.createdAt?.toDate) {
-        uDate = data.createdAt.toDate();
-      } else if (data.createdAt) {
-        uDate = new Date(data.createdAt);
-      }
-      if (uDate && uDate >= startOfDay) {
-        newUsersToday++;
-      }
-    });
-
-    // 6. Calculs Globaux (Admin)
+    // ─────────────────────────────────────────────────────────────
+    // 5. Calculs Globaux (Admin)
+    // ─────────────────────────────────────────────────────────────
     let globalSalesRevenue = 0;
     let globalRentRevenue = 0;
     const rayonBreakdown: Record<string, { count: number; revenue: number }> = {
@@ -130,7 +199,7 @@ async function handleDailyReports(req: Request) {
       immo: { count: 0, revenue: 0 },
     };
 
-    todayOrders.forEach(o => {
+    periodOrders.forEach(o => {
       const amount = Number(o.totalAmount || o.total || 0);
       globalSalesRevenue += amount;
       const r = (o.rayon || "saveurs").toLowerCase();
@@ -139,7 +208,7 @@ async function handleDailyReports(req: Request) {
       rayonBreakdown[r].revenue += amount;
     });
 
-    todayPayments.forEach(p => {
+    periodPayments.forEach(p => {
       const amount = Number(p.amount || 0);
       globalRentRevenue += amount;
       rayonBreakdown.immo.count += 1;
@@ -148,17 +217,19 @@ async function handleDailyReports(req: Request) {
 
     const totalGlobalTurnover = globalSalesRevenue + globalRentRevenue;
 
-    // 7. Envoi des rapports individuels aux fournisseurs
+    // ─────────────────────────────────────────────────────────────
+    // 6. Envoi des rapports personnalisés à TOUS les Fournisseurs
+    // ─────────────────────────────────────────────────────────────
     let suppliersNotified = 0;
 
     for (const supplier of suppliersList) {
       const supId = supplier.id;
-      const supName = supplier.company || supplier.companyName || supplier.agencyName || supplier.displayName || supplier.name || "Partenaire";
+      const supName = supplier.company || supplier.displayName || "Partenaire";
       const supEmail = supplier.email?.trim();
       const supPhone = supplier.phone?.trim();
 
-      // Filtrer les commandes de ce fournisseur
-      const supOrders = todayOrders.filter(o => 
+      // Filtrer les commandes concernant CE fournisseur uniquement
+      const supOrders = periodOrders.filter(o => 
         o.supplierId === supId || 
         (Array.isArray(o.supplierIds) && o.supplierIds.includes(supId)) ||
         (Array.isArray(o.items) && o.items.some((it: any) => it.supplierId === supId))
@@ -166,34 +237,42 @@ async function handleDailyReports(req: Request) {
 
       let supOrderRevenue = 0;
       supOrders.forEach(o => {
-        if (Array.isArray(o.items)) {
+        if (Array.isArray(o.items) && o.items.length > 0) {
           const myItems = o.items.filter((it: any) => it.supplierId === supId);
-          supOrderRevenue += myItems.reduce((acc: number, it: any) => acc + (Number(it.price || 0) * Number(it.quantity || 1)), 0);
+          if (myItems.length > 0) {
+            supOrderRevenue += myItems.reduce((acc: number, it: any) => acc + (Number(it.price || 0) * Number(it.quantity || 1)), 0);
+          } else {
+            supOrderRevenue += Number(o.totalAmount || o.total || 0);
+          }
         } else if (o.supplierId === supId) {
           supOrderRevenue += Number(o.totalAmount || o.total || 0);
         }
       });
 
-      // Filtrer les loyers encaissés par ce fournisseur
-      const supPayments = todayPayments.filter(p => p.supplierId === supId);
+      // Filtrer les loyers encaissés par ce fournisseur (Immo)
+      const supPayments = periodPayments.filter(p => 
+        p.supplierId === supId || p.agencyId === supId || p.ownerId === supId || p.bailleurId === supId
+      );
       const supRentRevenue = supPayments.reduce((acc, p) => acc + Number(p.amount || 0), 0);
 
-      // Filtrer les nouveaux baux de ce fournisseur
-      const supTenants = todayTenants.filter(t => t.supplierId === supId);
+      // Filtrer les nouveaux baux / locataires de ce fournisseur
+      const supTenants = periodTenants.filter(t => 
+        t.supplierId === supId || t.agencyId === supId || t.ownerId === supId
+      );
 
       const totalSupRevenue = supOrderRevenue + supRentRevenue;
       const totalSupOperations = supOrders.length + supPayments.length + supTenants.length;
 
-      // ── A. Notification in-app dans le tableau de bord ──
+      // ── A. Notification in-app dans le tableau de bord du fournisseur ──
       try {
         const notifSummary = totalSupOperations > 0
-          ? `Bilan du jour : ${supOrders.length} commande(s) (${supOrderRevenue.toFixed(2)}$), ${supPayments.length} loyer(s) encaissé(s) (${supRentRevenue.toFixed(2)}$), ${supTenants.length} nouveau(x) locataire(s).`
-          : `Aucune nouvelle opération enregistrée aujourd'hui. Vos catalogues et biens restent actifs et visibles.`;
+          ? `Bilan du ${dateFormatted} : ${supOrders.length} commande(s) (${supOrderRevenue.toFixed(2)}$), ${supPayments.length} loyer(s) encaissé(s) (${supRentRevenue.toFixed(2)}$), ${supTenants.length} nouveau(x) locataire(s). Total: +${totalSupRevenue.toFixed(2)}$.`
+          : `Bilan du ${dateFormatted} : Aucune nouvelle transaction enregistrée sur votre espace. Vos biens et articles restent visibles et actifs.`;
 
         await adminDb.collection("inapp_notifications").add({
           supplierId: supId,
           type: "system",
-          title: `📊 Rapport Journalier — ${now.toLocaleDateString("fr-FR")}`,
+          title: `📊 Rapport Journalier (07h00) — ${dateFormatted}`,
           message: notifSummary,
           link: "/supplier",
           read: false,
@@ -201,28 +280,28 @@ async function handleDailyReports(req: Request) {
           createdAt: FieldValue.serverTimestamp(),
         });
       } catch (inAppErr) {
-        console.warn(`Erreur in-app notification pour ${supId}:`, inAppErr);
+        console.warn(`Erreur in-app notification pour fournisseur ${supId}:`, inAppErr);
       }
 
-      // ── B. Notification Email au Fournisseur ──
+      // ── B. Notification Email personnalisée au Fournisseur ──
       if (supEmail && supEmail.includes("@")) {
         const emailHtml = `
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 620px; margin: 0 auto; padding: 32px 24px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px;">
             <div style="text-align: center; margin-bottom: 28px; border-bottom: 1px solid #edf2f7; padding-bottom: 20px;">
               <h1 style="color: #0F1D27; font-size: 24px; font-weight: 800; margin: 0;">Rayons<span style="color: #C7D300;">.net</span></h1>
-              <p style="color: #718096; font-size: 13px; margin: 4px 0 0 0; text-transform: uppercase; letter-spacing: 1px;">Rapport d'activité journalier (17h00)</p>
+              <p style="color: #718096; font-size: 13px; margin: 4px 0 0 0; text-transform: uppercase; letter-spacing: 1px;">Rapport d'activité journalier (07h00)</p>
             </div>
 
-            <p style="font-size: 16px; color: #1a202c; font-weight: 600; margin-bottom: 16px;">
+            <p style="font-size: 16px; color: #1a202c; font-weight: 600; margin-bottom: 12px;">
               Bonjour ${supName},
             </p>
             <p style="color: #4a5568; font-size: 14px; line-height: 1.6; margin-bottom: 24px;">
-              Voici le récapitulatif de vos activités sur la plateforme Rayons pour la journée du <strong>${dateFormatted}</strong> :
+              Voici le bilan exclusif de vos activités sur la plateforme Rayons pour la journée du <strong>${dateFormatted}</strong> :
             </p>
 
             <div style="display: flex; gap: 12px; margin-bottom: 24px;">
               <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; flex: 1; text-align: center;">
-                <p style="color: #718096; font-size: 12px; margin: 0; text-transform: uppercase;">Commandes du jour</p>
+                <p style="color: #718096; font-size: 12px; margin: 0; text-transform: uppercase;">Commandes traitées</p>
                 <p style="color: #0F1D27; font-size: 24px; font-weight: 800; margin: 6px 0 0 0;">${supOrders.length}</p>
                 <p style="color: #38a169; font-size: 12px; font-weight: 600; margin: 4px 0 0 0;">${supOrderRevenue.toFixed(2)} $</p>
               </div>
@@ -241,7 +320,7 @@ async function handleDailyReports(req: Request) {
             </div>
 
             <div style="background: linear-gradient(135deg, #0F1D27 0%, #1a365d 100%); border-radius: 12px; padding: 20px; color: #ffffff; text-align: center; margin-bottom: 28px;">
-              <p style="font-size: 13px; color: #cbd5e0; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Chiffre d'Affaires Encaissé Aujourd'hui</p>
+              <p style="font-size: 13px; color: #cbd5e0; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Chiffre d'Affaires Encaissé</p>
               <p style="font-size: 32px; font-weight: 800; color: #C7D300; margin: 8px 0 0 0;">+${totalSupRevenue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} $</p>
             </div>
 
@@ -252,7 +331,7 @@ async function handleDailyReports(req: Request) {
             </div>
 
             <p style="color: #a0aec0; font-size: 12px; text-align: center; margin: 0; border-top: 1px solid #edf2f7; padding-top: 20px;">
-              Rapport généré automatiquement par la plateforme Rayons.net — Kinshasa, RDC
+              Rapport matinal (07h00) généré automatiquement par la plateforme Rayons.net — Kinshasa, RDC
             </p>
           </div>
         `;
@@ -260,30 +339,32 @@ async function handleDailyReports(req: Request) {
         try {
           await sendEmail({
             to: supEmail,
-            subject: `📊 Bilan de votre journée (${now.toLocaleDateString("fr-FR")}) — Rayons`,
+            subject: `📊 Bilan de votre journée (${dateFormatted}) — Rayons`,
             html: emailHtml,
           });
+          console.log(`[DailyReport] Email sent to supplier ${supEmail} (${supName})`);
         } catch (mailErr) {
           console.warn(`Erreur envoi email fournisseur ${supEmail}:`, mailErr);
         }
       }
 
-      // ── C. Notification SMS (si numéro disponible et opérations ou spécifique) ──
+      // ── C. Notification SMS (si numéro disponible) ──
       if (supPhone) {
         try {
           const cleanPhone = supPhone.replace(/[^0-9]/g, "");
           const senderIdToUse = (
             supplier.senderId ||
-            (supplier.displayName?.toLowerCase().includes("mutamulis") || supplier.email === "sumaililaurent4@gmail.com" ? "MUTAMULIS" : "Rayon")
+            (supplier.company?.toLowerCase().includes("mutamulis") || supplier.displayName?.toLowerCase().includes("mutamulis") || supplier.email === "sumaililaurent4@gmail.com" ? "MUTAMULIS" : "Rayon")
           );
 
-          const smsContent = `Rayons : Rapport du ${now.toLocaleDateString("fr-FR")} pour ${supName} : ${supOrders.length} cmd (${supOrderRevenue.toFixed(1)}$), ${supPayments.length} loyer (${supRentRevenue.toFixed(1)}$). Total: +${totalSupRevenue.toFixed(1)}$.`;
+          const smsContent = `Rayons : Rapport du ${dateFormatted} pour ${supName} : ${supOrders.length} cmd (${supOrderRevenue.toFixed(1)}$), ${supPayments.length} loyer (${supRentRevenue.toFixed(1)}$). Total: +${totalSupRevenue.toFixed(1)}$.`;
 
           await sendMobiShastraSMS({
             mobileNo: cleanPhone,
             message: smsContent,
             customSenderId: senderIdToUse,
           });
+          console.log(`[DailyReport] SMS sent to supplier ${supPhone}`);
         } catch (smsErr) {
           console.warn(`SMS journalier non envoyé à ${supPhone}:`, smsErr);
         }
@@ -292,7 +373,9 @@ async function handleDailyReports(req: Request) {
       suppliersNotified++;
     }
 
-    // 8. Envoi du Rapport Global Consolidé à l'Admin (Daniel Kiboko)
+    // ─────────────────────────────────────────────────────────────
+    // 7. Envoi du Rapport Global Consolidé aux Administrateurs
+    // ─────────────────────────────────────────────────────────────
     const adminHtml = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 680px; margin: 0 auto; padding: 36px 28px; background-color: #ffffff; border: 1px solid #cbd5e0; border-radius: 16px;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #0F1D27; padding-bottom: 16px; margin-bottom: 24px;">
@@ -302,14 +385,14 @@ async function handleDailyReports(req: Request) {
           </div>
           <div style="text-align: right;">
             <span style="background-color: #ebf8ff; color: #2b6cb0; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 20px;">
-              Édition 17h00
+              Édition 07h00
             </span>
             <p style="color: #718096; font-size: 12px; margin: 6px 0 0 0;">${dateFormatted}</p>
           </div>
         </div>
 
         <p style="color: #1a202c; font-size: 15px; margin-bottom: 20px;">
-          Bonjour Daniel, voici le rapport financier et opérationnel de l'ensemble de la plateforme Rayons pour la journée :
+          Bonjour Daniel, voici le rapport financier et opérationnel de l'ensemble de la plateforme Rayons pour la journée du <strong>${dateFormatted}</strong> :
         </p>
 
         <!-- KPI Globaux -->
@@ -335,21 +418,21 @@ async function handleDailyReports(req: Request) {
           <tr>
             <td style="background-color: #f7fafc; border: 1px solid #edf2f7; border-radius: 12px; padding: 16px; width: 50%;">
               <p style="margin: 0; color: #718096; font-size: 12px; text-transform: uppercase;">Commandes traitées</p>
-              <p style="margin: 6px 0 0 0; font-size: 24px; font-weight: 800; color: #0F1D27;">${todayOrders.length}</p>
+              <p style="margin: 6px 0 0 0; font-size: 24px; font-weight: 800; color: #0F1D27;">${periodOrders.length}</p>
             </td>
             <td style="background-color: #f7fafc; border: 1px solid #edf2f7; border-radius: 12px; padding: 16px; width: 50%;">
               <p style="margin: 0; color: #718096; font-size: 12px; text-transform: uppercase;">Quittances loyers émises</p>
-              <p style="margin: 6px 0 0 0; font-size: 24px; font-weight: 800; color: #0F1D27;">${todayPayments.length}</p>
+              <p style="margin: 6px 0 0 0; font-size: 24px; font-weight: 800; color: #0F1D27;">${periodPayments.length}</p>
             </td>
           </tr>
           <tr>
             <td style="background-color: #f7fafc; border: 1px solid #edf2f7; border-radius: 12px; padding: 16px; width: 50%;">
               <p style="margin: 0; color: #718096; font-size: 12px; text-transform: uppercase;">Nouveaux locataires (baux)</p>
-              <p style="margin: 6px 0 0 0; font-size: 24px; font-weight: 800; color: #3182ce;">${todayTenants.length}</p>
+              <p style="margin: 6px 0 0 0; font-size: 24px; font-weight: 800; color: #3182ce;">${periodTenants.length}</p>
             </td>
             <td style="background-color: #f7fafc; border: 1px solid #edf2f7; border-radius: 12px; padding: 16px; width: 50%;">
               <p style="margin: 0; color: #718096; font-size: 12px; text-transform: uppercase;">Nouvelles inscriptions</p>
-              <p style="margin: 6px 0 0 0; font-size: 24px; font-weight: 800; color: #38a169;">+${newUsersToday}</p>
+              <p style="margin: 6px 0 0 0; font-size: 24px; font-weight: 800; color: #38a169;">+${newUsersCount}</p>
             </td>
           </tr>
         </table>
@@ -401,7 +484,7 @@ async function handleDailyReports(req: Request) {
         </div>
 
         <p style="color: #a0aec0; font-size: 12px; text-align: center; margin-top: 24px; border-top: 1px solid #edf2f7; padding-top: 16px;">
-          Rapport automatique quotidien de 17h00 • Rayons.net
+          Rapport automatique quotidien de 07h00 • Rayons.net
         </p>
       </div>
     `;
@@ -411,7 +494,7 @@ async function handleDailyReports(req: Request) {
       try {
         await sendEmail({
           to: email,
-          subject: `📈 Rapport Journalier Plateforme Rayons — ${now.toLocaleDateString("fr-FR")}`,
+          subject: `📈 Rapport Journalier Plateforme Rayons (07h00) — ${dateFormatted}`,
           html: adminHtml,
         });
         console.log(`[DailyReport] Master report successfully sent to admin: ${email}`);
@@ -422,8 +505,10 @@ async function handleDailyReports(req: Request) {
 
     return NextResponse.json({
       success: true,
+      edition: "07h00",
       date: dateFormatted,
-      timestamp: now.toISOString(),
+      periodStart: periodStart.toISOString(),
+      periodEnd: periodEnd.toISOString(),
       suppliersCount: suppliersList.length,
       suppliersNotified,
       adminEmails: Array.from(adminEmails),
@@ -431,10 +516,10 @@ async function handleDailyReports(req: Request) {
         totalGlobalTurnover,
         globalSalesRevenue,
         globalRentRevenue,
-        ordersCount: todayOrders.length,
-        paymentsCount: todayPayments.length,
-        newTenantsCount: todayTenants.length,
-        newUsersToday,
+        ordersCount: periodOrders.length,
+        paymentsCount: periodPayments.length,
+        newTenantsCount: periodTenants.length,
+        newUsersToday: newUsersCount,
         rayonBreakdown,
       },
     });
