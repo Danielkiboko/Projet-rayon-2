@@ -24,6 +24,7 @@ export interface InvoiceData {
   supplierRccm?: string;
   supplierIdNat?: string;
   supplierNif?: string;
+  supplierLogo?: string;
   
   // Client details
   clientName: string;
@@ -157,30 +158,42 @@ export async function generateFormalInvoicePDF(data: InvoiceData) {
   doc.setTextColor(40, 40, 40);
   
   // Left Box: Issuer (Fournisseur / Rayons)
+  let issuerX = 14;
+  if (data.supplierLogo) {
+    try {
+      const logoFmt = data.supplierLogo.includes("webp") ? "WEBP" : data.supplierLogo.includes("png") ? "PNG" : "JPEG";
+      doc.addImage(data.supplierLogo, logoFmt, 14, 46, 18, 18);
+      issuerX = 36;
+    } catch (e) {
+      console.warn("Logo PDF rendering fallback:", e);
+      issuerX = 14;
+    }
+  }
+
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  doc.text("ÉMETTEUR / FOURNISSEUR", 14, 48);
+  doc.text("ÉMETTEUR / FOURNISSEUR", issuerX, 48);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
   doc.setTextColor(15, 29, 39);
-  doc.text(data.supplierName || "Rayons.net Partner", 14, 54);
+  doc.text(data.supplierName || "Rayons.net Partner", issuerX, 54);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(80, 80, 80);
   let currentY = 59;
   if (data.supplierAddress) {
-    doc.text(`Adresse : ${data.supplierAddress}`, 14, currentY);
+    doc.text(`Adresse : ${data.supplierAddress}`, issuerX, currentY);
     currentY += 4.5;
   }
   if (data.supplierPhone) {
-    doc.text(`Tél : ${data.supplierPhone}`, 14, currentY);
+    doc.text(`Tél : ${data.supplierPhone}`, issuerX, currentY);
     currentY += 4.5;
   }
   if (data.supplierEmail) {
-    doc.text(`Email : ${data.supplierEmail}`, 14, currentY);
+    doc.text(`Email : ${data.supplierEmail}`, issuerX, currentY);
     currentY += 4.5;
   }
   if (data.supplierRccm || data.supplierNif || data.supplierIdNat) {
@@ -189,7 +202,7 @@ export async function generateFormalInvoicePDF(data: InvoiceData) {
       data.supplierNif ? `NIF : ${data.supplierNif}` : null,
       data.supplierIdNat ? `Id.Nat : ${data.supplierIdNat}` : null
     ].filter(Boolean).join(" | ");
-    doc.text(legals, 14, currentY);
+    doc.text(legals, issuerX, currentY);
     currentY += 4.5;
   }
 
@@ -425,10 +438,14 @@ export async function generateOrderInvoicePDF(order: any, supplier?: any, curren
     rayon: (order.rayon as any) || (order.category?.toLowerCase().includes("saveur") ? "saveurs" : order.category?.toLowerCase().includes("connect") ? "connect" : "mode"),
     createdAt: order.createdAt,
     status: order.status || "COMPLETED",
-    supplierName: supplier?.displayName || supplier?.name || order.supplierName || "Fournisseur Rayons.net",
+    supplierName: supplier?.displayName || supplier?.company || supplier?.name || order.supplierName || "Fournisseur Rayons.net",
     supplierPhone: supplier?.phone || supplier?.phoneNumber,
     supplierEmail: supplier?.email,
     supplierAddress: supplier?.address,
+    supplierRccm: supplier?.rccm || order.supplierRccm,
+    supplierIdNat: supplier?.idNat || order.supplierIdNat,
+    supplierNif: supplier?.nif || order.supplierNif,
+    supplierLogo: supplier?.logoUrl || supplier?.logo || supplier?.pendingProfile?.logoUrl || order.supplierLogo,
     clientName,
     clientPhone,
     clientAddress,
@@ -477,6 +494,7 @@ export async function generateHotelBookingReceiptPDF(booking: any, currency = "U
     status: booking.status === "CONFIRMED" || booking.status === "CHECKED_OUT" ? "PAID" : "UNPAID",
     supplierName: booking.propertyTitle || "Établissement Hôtelier Partenaire",
     supplierAddress: booking.propertyLocation || "Kinshasa, RDC",
+    supplierLogo: booking.supplierLogo || booking.hotelLogo || booking.logoUrl,
     clientName: booking.guestName || "Client Voyageur",
     clientPhone: booking.guestPhone || "",
     stayDetails: {
