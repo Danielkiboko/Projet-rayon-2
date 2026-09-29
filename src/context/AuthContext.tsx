@@ -108,9 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [countdown, setCountdown] = useState(60);
   const router = useRouter();
 
-  const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
   const warningTimer = useRef<NodeJS.Timeout | null>(null);
-  const countdownInterval = useRef<NodeJS.Timeout | null>(null);
 
   // ── Déconnexion effective ──
   const performSignOut = useCallback(async (reason: "inactivity" | "manual" = "manual") => {
@@ -127,75 +125,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push(reason === "inactivity" ? "/login?reason=inactivity" : "/login");
   }, [user, router]);
 
-  // ── Effacer tous les timers ──
-  const clearAllTimers = useCallback(() => {
-    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
-    if (warningTimer.current) clearTimeout(warningTimer.current);
-    if (countdownInterval.current) clearInterval(countdownInterval.current);
-    inactivityTimer.current = null;
-    warningTimer.current = null;
-    countdownInterval.current = null;
-  }, []);
+  // ── Compte à rebours dédié (modal actif) ──
+  useEffect(() => {
+    if (!showWarning) {
+      setCountdown(60);
+      return;
+    }
 
-  // ── Démarrer le compte à rebours (modal) ──
-  const startCountdown = useCallback(() => {
     setCountdown(60);
-    setShowWarning(true);
-    let secs = 60;
-    countdownInterval.current = setInterval(() => {
-      secs -= 1;
-      setCountdown(secs);
-      if (secs <= 0) {
-        clearInterval(countdownInterval.current!);
-        countdownInterval.current = null;
+    let remaining = 60;
+    const interval = setInterval(() => {
+      remaining -= 1;
+      setCountdown(remaining);
+      if (remaining <= 0) {
+        clearInterval(interval);
         performSignOut("inactivity");
       }
     }, 1000);
-  }, [performSignOut]);
 
-  // ── Rester connecté (reset tout) ──
+    return () => clearInterval(interval);
+  }, [showWarning, performSignOut]);
+
+  // ── Rester connecté (ferme la modal et relance le timer) ──
   const handleStay = useCallback(() => {
-    clearAllTimers();
     setShowWarning(false);
     setCountdown(60);
-    // resetTimer sera rappelé via les event listeners
     window.dispatchEvent(new Event("mousemove"));
-  }, [clearAllTimers]);
+  }, []);
 
   // ── Setup du timer d'inactivité ──
   useEffect(() => {
     const timeoutMs = getTimeoutMs(userData?.role);
     if (!user || !timeoutMs) {
-      clearAllTimers();
+      if (warningTimer.current) clearTimeout(warningTimer.current);
       return;
     }
 
-    const warnAt = timeoutMs - WARN_BEFORE_MS;
+    const warnAt = Math.max(timeoutMs - WARN_BEFORE_MS, 10000);
 
-    const resetTimer = () => {
-      if (showWarning) return; // ne pas reset si le modal est visible
-      clearAllTimers();
+    const resetInactivity = () => {
+      // Si la modal est déjà affichée, l'utilisateur doit cliquer explicitement sur "Rester connecté"
+      if (showWarning) return;
 
-      // Timer 1 : afficher l'avertissement
+      if (warningTimer.current) clearTimeout(warningTimer.current);
       warningTimer.current = setTimeout(() => {
-        startCountdown();
-      }, Math.max(warnAt, 10000)); // minimum 10s pour éviter les bugs
-
-      // Timer 2 : déconnexion forcée (backup si modal ignoré)
-      inactivityTimer.current = setTimeout(() => {
-        performSignOut("inactivity");
-      }, timeoutMs + 5000);
+        setShowWarning(true);
+      }, warnAt);
     };
 
     const events = ["mousemove", "keydown", "scroll", "touchstart", "click"];
-    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
-    resetTimer(); // initialiser au montage
+    events.forEach(e => window.addEventListener(e, resetInactivity, { passive: true }));
+    resetInactivity();
 
     return () => {
-      clearAllTimers();
-      events.forEach(e => window.removeEventListener(e, resetTimer));
+      if (warningTimer.current) clearTimeout(warningTimer.current);
+      events.forEach(e => window.removeEventListener(e, resetInactivity));
     };
-  }, [user, userData?.role, showWarning, clearAllTimers, startCountdown, performSignOut]);
+  }, [user, userData?.role, showWarning]);
 
   // ── Auth state listener ──
   useEffect(() => {
