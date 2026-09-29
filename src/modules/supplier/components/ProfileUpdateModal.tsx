@@ -20,14 +20,15 @@ export default function ProfileUpdateModal({ user, userData, onSuccess }: Profil
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const dismissed = sessionStorage.getItem("profile_update_dismissed");
+      const storageKey = user?.uid ? `profile_update_dismissed_${user.uid}` : "profile_update_dismissed";
+      const dismissed = localStorage.getItem(storageKey) || sessionStorage.getItem(storageKey);
       if (dismissed === "true") {
         setIsDismissed(true);
       }
     }
-  }, []);
+  }, [user?.uid]);
 
-  const needsPhone = !userData?.phone;
+  const needsPhone = !(userData?.phone || userData?.phoneNumber || userData?.pendingProfile?.phone);
 
   // Si tout est à jour ou si l'utilisateur a reporté, on ne bloque pas
   if (!needsPhone || isDismissed) return null;
@@ -35,7 +36,9 @@ export default function ProfileUpdateModal({ user, userData, onSuccess }: Profil
   const handleDismiss = () => {
     setIsDismissed(true);
     if (typeof window !== "undefined") {
-      sessionStorage.setItem("profile_update_dismissed", "true");
+      const storageKey = user?.uid ? `profile_update_dismissed_${user.uid}` : "profile_update_dismissed";
+      localStorage.setItem(storageKey, "true");
+      sessionStorage.setItem(storageKey, "true");
     }
   };
 
@@ -51,10 +54,17 @@ export default function ProfileUpdateModal({ user, userData, onSuccess }: Profil
 
     try {
       const userRef = doc(db, "users", user.uid);
-      await setDoc(userRef, { phone: phone.trim() }, { merge: true });
+      const cleanPhone = phone.trim();
+      await setDoc(userRef, { 
+        phone: cleanPhone,
+        phoneNumber: cleanPhone 
+      }, { merge: true });
+      
       setIsDismissed(true);
       if (typeof window !== "undefined") {
-        sessionStorage.setItem("profile_update_dismissed", "true");
+        const storageKey = user?.uid ? `profile_update_dismissed_${user.uid}` : "profile_update_dismissed";
+        localStorage.setItem(storageKey, "true");
+        sessionStorage.setItem(storageKey, "true");
       }
       onSuccess();
     } catch (err: any) {

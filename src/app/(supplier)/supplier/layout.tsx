@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ShieldAlert, LayoutDashboard, Package, ShoppingCart, Truck, Wallet, CreditCard, Users, Layers, Lock, ArrowRight, Clock } from "lucide-react";
 import { themeConfig } from "@/lib/themeConfig";
-import ProfileUpdateModal from "@/modules/supplier/components/ProfileUpdateModal";
 import DashboardLayout from "@/modules/shared/components/layouts/DashboardLayout";
 import { isSupplier, getSupplierType, getSupplierAvailableRayons } from "@/lib/permissions";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
@@ -239,13 +238,6 @@ export default function SupplierLayout({
       userRole="Partenaire"
       notifications={notifications}
       unreadCount={unreadCount}
-      customProfileModal={
-        <ProfileUpdateModal 
-          user={user} 
-          userData={userData} 
-          onSuccess={() => window.location.reload()} 
-        />
-      }
     >
       {/* ── Rayon Switcher ── */}
       {availableRayons.length > 1 && (
