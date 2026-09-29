@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Package, MapPin, Clock, ChevronRight, User, CheckCircle,
-  Loader2, Bell, TrendingUp, Bike
+  Loader2, Bell, TrendingUp, Bike, LogOut
 } from "lucide-react";
 import {
   collection, query, where, onSnapshot, doc, getDoc, getDocs
@@ -17,7 +17,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export default function DriverDashboard() {
   const router = useRouter();
-  const { user, loading, userData } = useAuth();
+  const { user, loading, userData, signOut } = useAuth();
   const { formatPrice } = useCurrency();
 
   const [availableOrders, setAvailableOrders] = useState<any[]>([]);
@@ -221,13 +221,23 @@ export default function DriverDashboard() {
               : "🌐 Livreur Indépendant"}
           </p>
         </div>
-        <Link href="/driver/profile">
-          <div className="w-12 h-12 bg-primary/15 rounded-full flex items-center justify-center border border-primary/30 hover:bg-primary/25 transition-all">
-            <span className="text-primary-light font-black text-lg">
-              {driverName.charAt(0).toUpperCase()}
-            </span>
-          </div>
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => signOut()}
+            title="Se déconnecter"
+            className="w-10 h-10 rounded-full bg-white/5 border border-white/10 hover:bg-rose-500/15 hover:border-rose-500/30 text-gray-400 hover:text-rose-400 flex items-center justify-center transition-all"
+          >
+            <LogOut size={16} />
+          </button>
+          <Link href="/driver/profile">
+            <div className="w-11 h-11 bg-primary/15 rounded-full flex items-center justify-center border border-primary/30 hover:bg-primary/25 transition-all">
+              <span className="text-primary-light font-black text-base">
+                {driverName.charAt(0).toUpperCase()}
+              </span>
+            </div>
+          </Link>
+        </div>
       </div>
 
       {/* Alerte nouvelle course */}

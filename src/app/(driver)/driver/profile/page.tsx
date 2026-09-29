@@ -10,11 +10,11 @@ import {
 import { motion } from "framer-motion";
 import {
   User, Phone, Mail, Car, MapPin, Star, CheckCircle,
-  Package, TrendingUp, Edit2, Save, X, Camera
+  Package, TrendingUp, Edit2, Save, X, Camera, LogOut
 } from "lucide-react";
 
 export default function DriverProfilePage() {
-  const { user, userData } = useAuth();
+  const { user, userData, signOut } = useAuth();
   const [driverInfo, setDriverInfo] = useState<any>(null);
   const [stats, setStats] = useState({ total: 0, today: 0, earnings: 0, todayEarnings: 0, rating: 5.0 });
   const [loading, setLoading] = useState(true);
@@ -110,14 +110,27 @@ export default function DriverProfilePage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6 mt-2">
         <h1 className="text-xl font-bold text-white">Mon Profil</h1>
-        {!editing ? (
-          <button
-            onClick={() => setEditing(true)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-sm font-medium transition-all"
-          >
-            <Edit2 size={14} /> Modifier
-          </button>
-        ) : (
+        <div className="flex items-center gap-2">
+          {!editing ? (
+            <>
+              <button
+                type="button"
+                onClick={() => signOut()}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 hover:text-rose-300 border border-rose-500/20 rounded-xl text-xs font-bold transition-all"
+                title="Se déconnecter"
+              >
+                <LogOut size={13} />
+                <span>Déconnexion</span>
+              </button>
+              <button
+                onClick={() => setEditing(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all"
+              >
+                <Edit2 size={13} />
+                <span>Modifier</span>
+              </button>
+            </>
+          ) : (
           <div className="flex gap-2">
             <button onClick={() => setEditing(false)} className="p-2 bg-white/10 hover:bg-white/20 text-gray-400 rounded-xl transition-all">
               <X size={16} />
@@ -129,8 +142,9 @@ export default function DriverProfilePage() {
             >
               <Save size={14} /> {saving ? "..." : "Enregistrer"}
             </button>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Avatar + Identité */}
@@ -239,6 +253,23 @@ export default function DriverProfilePage() {
             <p className="text-sm font-medium text-gray-300 truncate">{user?.email || "—"}</p>
           </div>
         </div>
+      </motion.div>
+
+      {/* Bouton de Déconnexion Principal */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25 }}
+        className="mt-6 pt-2"
+      >
+        <button
+          type="button"
+          onClick={() => signOut()}
+          className="w-full flex items-center justify-center gap-2.5 py-3.5 px-4 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 hover:border-rose-500/50 text-rose-400 hover:text-rose-300 font-bold text-sm rounded-2xl transition-all shadow-lg shadow-rose-950/20 active:scale-[0.98]"
+        >
+          <LogOut size={18} />
+          <span>Se déconnecter de l'espace livreur</span>
+        </button>
       </motion.div>
     </div>
   );
