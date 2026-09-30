@@ -3,7 +3,7 @@ import { db } from "@/lib/firebase";
 import { collection, query, where, getDocs, updateDoc, doc, Timestamp } from "firebase/firestore";
 import { sendEmail } from "@/lib/notifications";
 
-// Vercel Cron will hit this route (e.g. every 5-10 minutes)
+// Automated Cron will hit this route (e.g. every 5-10 minutes)
 export async function GET(req: Request) {
   try {
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);

@@ -24,7 +24,6 @@ import { CurrencyProvider } from "@/context/CurrencyContext";
 import { ChatProvider } from "@/context/ChatContext";
 import { CartProvider } from "@/context/CartContext";
 import { ThemeProvider } from "@/modules/shared/components/ThemeProvider";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import AdSense from "@/modules/shared/components/shared/AdSense";
 import { CartDrawer } from "@/modules/client/components/cart/CartDrawer";
 
@@ -51,7 +50,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </CurrencyProvider>
           </AuthProvider>
         </ThemeProvider>
-        <SpeedInsights />
         <AdSense />
         <Toaster position="top-center" />
         

@@ -1,0 +1,28 @@
+name: ⏰ Rapports Quotidiens Automatiques (07h00)
+
+on:
+  schedule:
+    # 06:00 UTC = 07:00 Heure de Kinshasa (UTC+1)
+    - cron: '0 6 * * *'
+  # Permet également de déclencher les rapports manuellement d'un clic depuis l'onglet Actions de GitHub
+  workflow_dispatch:
+
+jobs:
+  execute-cron:
+    name: 📊 Exécution du Rapport Matinal & Vérifications
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📬 Déclenchement du Rapport Journalier Fournisseurs & Admin (07h00)
+        run: |
+          echo "Envoi de la requête du rapport journalier à https://rayons.net/api/cron/daily-reports..."
+          curl -f -s -S --max-time 180 "https://rayons.net/api/cron/daily-reports" || {
+            echo "Échec en GET, tentative en POST..."
+            curl -f -s -S -X POST --max-time 180 "https://rayons.net/api/cron/daily-reports"
+          }
+          echo "✅ Rapport journalier exécuté avec succès !"
+
+      - name: 📑 Contrôle des Baux et Loyers Échus
+        run: |
+          echo "Vérification des baux et notifications locataires..."
+          curl -f -s -S --max-time 120 "https://rayons.net/api/cron/check-leases" || echo "Vérification baux terminée avec avertissement."

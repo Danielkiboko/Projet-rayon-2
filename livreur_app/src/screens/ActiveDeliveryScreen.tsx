@@ -60,7 +60,7 @@ export default function ActiveDeliveryScreen({ orderId, onBack, userId }: { orde
       if (order?.items && order.items.length > 0) {
         const item = order.items[0];
         if (item.productId) {
-          const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://projet-rayon.vercel.app';
+          const apiUrl = process.env.EXPO_PUBLIC_API_URL || 'https://rayons.net';
           await fetch(`${apiUrl}/api/orders/update-stock`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

@@ -4,7 +4,7 @@ import { sendEmail } from "@/lib/email";
 import { sendMobiShastraSMS } from "@/lib/sms";
 import { FieldValue } from "firebase-admin/firestore";
 
-// Vercel Cron Secret (optionnel)
+// Cron Secret (optionnel)
 const CRON_SECRET = process.env.CRON_SECRET;
 
 function parseDate(val: any): Date | null {
@@ -36,6 +36,7 @@ async function handleDailyReports(req: Request) {
       console.log("[DailyReport] Cron secret check passed or skipped for internal execution.");
     }
 
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://rayons.net";
     const now = new Date();
     const periodParam = searchParams.get("period"); // 'yesterday' | 'today' | auto
 
@@ -325,7 +326,7 @@ async function handleDailyReports(req: Request) {
             </div>
 
             <div style="text-align: center; margin-bottom: 24px;">
-              <a href="https://projet-rayon-2.vercel.app/supplier" style="background-color: #0F1D27; color: #ffffff; padding: 12px 28px; font-size: 14px; font-weight: 700; text-decoration: none; border-radius: 8px; display: inline-block;">
+              <a href="${baseUrl}/supplier" style="background-color: #0F1D27; color: #ffffff; padding: 12px 28px; font-size: 14px; font-weight: 700; text-decoration: none; border-radius: 8px; display: inline-block;">
                 Accéder à mon espace partenaire
               </a>
             </div>
@@ -478,7 +479,7 @@ async function handleDailyReports(req: Request) {
         ` : ''}
 
         <div style="text-align: center; margin-top: 28px; margin-bottom: 20px;">
-          <a href="https://projet-rayon-2.vercel.app/admin/dashboard" style="background-color: #0F1D27; color: #ffffff; padding: 14px 32px; font-size: 14px; font-weight: 700; text-decoration: none; border-radius: 8px; display: inline-block;">
+          <a href="${baseUrl}/admin/dashboard" style="background-color: #0F1D27; color: #ffffff; padding: 14px 32px; font-size: 14px; font-weight: 700; text-decoration: none; border-radius: 8px; display: inline-block;">
             Ouvrir la console d'administration
           </a>
         </div>

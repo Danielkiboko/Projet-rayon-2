@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { sendEmail, sendSMS } from '@/lib/notifications';
 
-// Vercel Cron Secret (Optionnel, pour sécuriser l'appel de la route)
+// Cron Secret (Optionnel, pour sécuriser l'appel de la route)
 const CRON_SECRET = process.env.CRON_SECRET;
 
 export async function GET(request: Request) {

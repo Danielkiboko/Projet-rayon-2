@@ -229,7 +229,7 @@ export default function LegalPage() {
 
             <Section title="Hébergement">
               <div className="space-y-2">
-                <p><strong>Hébergeur web :</strong> Vercel Inc., 340 Pine Street Suite 900, San Francisco, CA 94104, USA</p>
+                <p><strong>Hébergeur web :</strong> Hostinger International Ltd., 61 Lordou Vironos Street, 6023 Larnaca, Chypre</p>
                 <p><strong>Base de données :</strong> Google Firebase (Google LLC), 1600 Amphitheatre Parkway, Mountain View, CA 94043, USA</p>
                 <p><strong>Messagerie :</strong> Hostinger International Ltd, 61 Lordou Vironos str., Limassol 4796, Chypre</p>
               </div>
