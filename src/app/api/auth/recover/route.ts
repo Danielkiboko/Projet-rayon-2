@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { adminDb } from "@/lib/firebase-admin";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
@@ -10,13 +11,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Numéro de téléphone requis." }, { status: 400 });
     }
 
-    const q = query(
-      collection(db, "users"),
-      where("phone", "==", phone),
-      limit(1)
-    );
-
-    const snap = await getDocs(q);
+    const snap = await adminDb
+      .collection("users")
+      .where("phone", "==", phone)
+      .limit(1)
+      .get();
 
     if (snap.empty) {
       return NextResponse.json({ error: "Aucun compte trouvé avec ce numéro." }, { status: 404 });
