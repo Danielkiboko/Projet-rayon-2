@@ -17,10 +17,10 @@ jobs:
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          echo "Envoi de la requête du rapport journalier à https://rayons.net/api/cron/daily-reports..."
+          echo "Envoi de la requête du rapport journalier à https://projet-rayon-2.vercel.app/api/cron/daily-reports..."
           RESPONSE=$(curl -f -s -S -w "\n%{http_code}" --max-time 180 \
             -H "Authorization: Bearer $CRON_SECRET" \
-            "https://rayons.net/api/cron/daily-reports")
+            "https://projet-rayon-2.vercel.app/api/cron/daily-reports")
           HTTP_CODE=$(echo "$RESPONSE" | tail -1)
           BODY=$(echo "$RESPONSE" | head -1)
           echo "Code HTTP: $HTTP_CODE"
@@ -38,4 +38,4 @@ jobs:
           echo "Vérification des baux et notifications locataires..."
           curl -s -S --max-time 120 \
             -H "Authorization: Bearer $CRON_SECRET" \
-            "https://rayons.net/api/cron/check-leases" || echo "Vérification baux terminée avec avertissement."
+            "https://projet-rayon-2.vercel.app/api/cron/check-leases" || echo "Vérification baux terminée avec avertissement."
