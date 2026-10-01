@@ -461,7 +461,6 @@ export default function SuppliersPage() {
   const saveursSuppliersCount = suppliers.filter((s) => getSupplierRayons(s).includes("saveurs")).length;
 
   const filteredSuppliers = suppliers.filter((s) => {
-    // 1. Rayon category filter
     if (selectedRayonFilter === "immo") {
       if (!getSupplierRayons(s).includes("immo")) return false;
     } else if (selectedRayonFilter === "mode") {
@@ -472,7 +471,6 @@ export default function SuppliersPage() {
       if (!getSupplierRayons(s).includes("saveurs")) return false;
     }
 
-    // 2. Text search query
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -490,6 +488,43 @@ export default function SuppliersPage() {
     { id: "saveurs", label: "Gastronomie & Cuisine (Saveurs)", icon: "🍽️", desc: "Restaurants, traiteurs & ustensiles" }
   ];
 
+  // ─── État Broadcast ─────────────────────────────────────────────────────────
+  const [isBroadcastOpen, setIsBroadcastOpen] = useState(false);
+  const [broadcastSubject, setBroadcastSubject] = useState("");
+  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [broadcastTarget, setBroadcastTarget] = useState<"all" | "immo" | "mode" | "connect" | "saveurs">("all");
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [broadcastResult, setBroadcastResult] = useState<string | null>(null);
+
+  const handleSendBroadcast = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastSubject.trim() || !broadcastMessage.trim()) return;
+    setIsBroadcasting(true);
+    setBroadcastResult(null);
+    try {
+      const token = await user!.getIdToken();
+      const res = await fetch("/api/admin/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ subject: broadcastSubject, message: broadcastMessage, targetRayon: broadcastTarget }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setBroadcastResult(data.message);
+        setSuccessMessage(data.message);
+        setBroadcastSubject("");
+        setBroadcastMessage("");
+        setTimeout(() => setIsBroadcastOpen(false), 1800);
+      } else {
+        setBroadcastResult(`Erreur : ${data.error}`);
+      }
+    } catch (err: any) {
+      setBroadcastResult(`Erreur réseau : ${err.message}`);
+    } finally {
+      setIsBroadcasting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -506,6 +541,14 @@ export default function SuppliersPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Bouton Message Groupé */}
+          <button
+            onClick={() => { setIsBroadcastOpen(true); setBroadcastResult(null); }}
+            className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2.5 rounded-xl font-medium transition-all"
+          >
+            <span>📣</span>
+            <span>Message groupé</span>
+          </button>
           <button
             onClick={() => handleOpenCreateModal()}
             className="flex items-center space-x-2 bg-gradient-to-r from-primary to-primary-light hover:brightness-110 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-primary/25 transition-all"
@@ -1612,6 +1655,132 @@ export default function SuppliersPage() {
                   {isLoading ? "Approbation..." : "Approuver le profil"}
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Modal Broadcast Message Groupé ─────────────────────────────────── */}
+      <AnimatePresence>
+        {isBroadcastOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-[#0d1117] border border-white/10 rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-white/10 bg-gradient-to-r from-[#1a1a2e] to-[#0f3460]">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <span>📣</span> Message groupé aux fournisseurs
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-1">Email + notification in-app envoyés simultanément</p>
+                </div>
+                <button onClick={() => setIsBroadcastOpen(false)} className="text-gray-400 hover:text-white transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleSendBroadcast} className="p-6 space-y-5">
+                {/* Ciblage par rayon */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Destinataires</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { val: "all", label: "Tous", icon: "👥" },
+                      { val: "immo", label: "Immo", icon: "🏠" },
+                      { val: "mode", label: "Mode", icon: "👗" },
+                      { val: "connect", label: "Connect", icon: "⚡" },
+                      { val: "saveurs", label: "Saveurs", icon: "🍽️" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.val}
+                        type="button"
+                        onClick={() => setBroadcastTarget(opt.val as any)}
+                        className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-all ${
+                          broadcastTarget === opt.val
+                            ? "bg-primary/20 border-primary text-primary"
+                            : "bg-white/5 border-white/10 text-gray-400 hover:border-white/30 hover:text-white"
+                        }`}
+                      >
+                        <span>{opt.icon}</span>
+                        <span>{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sujet */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Objet du message</label>
+                  <input
+                    type="text"
+                    value={broadcastSubject}
+                    onChange={(e) => setBroadcastSubject(e.target.value)}
+                    placeholder="Ex : Mise à jour tarifaire, Nouvelle fonctionnalité..."
+                    required
+                    className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-primary/60 transition-colors"
+                  />
+                </div>
+
+                {/* Message */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Message</label>
+                  <textarea
+                    value={broadcastMessage}
+                    onChange={(e) => setBroadcastMessage(e.target.value)}
+                    placeholder="Rédigez votre message ici..."
+                    required
+                    rows={5}
+                    className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-primary/60 transition-colors resize-none"
+                  />
+                </div>
+
+                {/* Résultat */}
+                {broadcastResult && (
+                  <div className={`p-3 rounded-xl text-sm font-medium ${
+                    broadcastResult.startsWith("Erreur")
+                      ? "bg-red-500/15 border border-red-500/30 text-red-300"
+                      : "bg-green-500/15 border border-green-500/30 text-green-300"
+                  }`}>
+                    {broadcastResult}
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsBroadcastOpen(false)}
+                    className="px-5 py-2.5 text-gray-400 hover:text-white transition-colors text-sm"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isBroadcasting || !broadcastSubject.trim() || !broadcastMessage.trim()}
+                    className="flex items-center gap-2 bg-gradient-to-r from-primary to-primary-light hover:brightness-110 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl font-medium text-sm shadow-lg shadow-primary/25 transition-all"
+                  >
+                    {isBroadcasting ? (
+                      <>
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                        </svg>
+                        <span>Envoi en cours...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>📨</span>
+                        <span>Envoyer le message</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}
