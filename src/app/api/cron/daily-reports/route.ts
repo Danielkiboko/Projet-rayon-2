@@ -24,6 +24,15 @@ function parseDate(val: any): Date | null {
 type RayonType = "immo" | "mode" | "connect" | "saveurs" | "store";
 
 function getRayonType(d: any): RayonType {
+  // Priority 1: role field (most reliable in your Firestore)
+  // Handles: SUPPLIER_IMMO, SUPPLIER_MODE, SUPPLIER_CONNECT, SUPPLIER_SAVEURS
+  const role = (d.role || "").toLowerCase();
+  if (role.includes("immo")) return "immo";
+  if (role.includes("mode")) return "mode";
+  if (role.includes("connect") || role.includes("tech")) return "connect";
+  if (role.includes("food") || role.includes("saveur")) return "saveurs";
+
+  // Priority 2: rayons array
   if (Array.isArray(d.rayons) && d.rayons.length > 0) {
     const r = d.rayons[0].toLowerCase();
     if (r === "immo") return "immo";
@@ -31,16 +40,14 @@ function getRayonType(d: any): RayonType {
     if (r === "connect") return "connect";
     if (r === "saveurs" || r === "food") return "saveurs";
   }
+
+  // Priority 3: rayon field
   const rayon = (d.rayon || "").toLowerCase();
   if (rayon === "immo") return "immo";
   if (rayon === "mode") return "mode";
   if (rayon === "connect") return "connect";
   if (rayon === "saveurs" || rayon === "food") return "saveurs";
-  const role = (d.role || "").toLowerCase();
-  if (role.includes("immo")) return "immo";
-  if (role.includes("mode")) return "mode";
-  if (role.includes("food") || role.includes("saveur")) return "saveurs";
-  if (role.includes("connect") || role.includes("tech")) return "connect";
+
   return "store";
 }
 
@@ -134,7 +141,9 @@ async function handleDailyReports(req: Request) {
         const d = doc.data();
         const role  = (d.role  || "").toString().toLowerCase();
         const roles = Array.isArray(d.roles) ? d.roles.map((r: any) => r.toString().toLowerCase()) : [];
-        const isSupplier = role.includes("supplier") || roles.some((r: string) => r.includes("supplier"));
+        // Matches: supplier, SUPPLIER_IMMO, SUPPLIER_MODE, SUPPLIER_CONNECT, SUPPLIER_SAVEURS, fournisseur, vendor
+        const isSupplier = role.includes("supplier") || role.includes("fournisseur") || role.includes("vendor")
+          || roles.some((r: string) => r.includes("supplier") || r.includes("fournisseur"));
         const isAdmin    = role.includes("admin")    || roles.some((r: string) => r.includes("admin"));
 
         if (isAdmin && d.email) adminEmails.add(d.email.trim().toLowerCase());
