@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { collection, doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
+// ─── Security ────────────────────────────────────────────────────────────────
+// Cet endpoint est réservé au Super Admin et ne doit JAMAIS être appelé
+// publiquement. Il est protégé par le même CRON_SECRET que les jobs cron.
+// Usage : curl -H "x-cron-secret: <votre_secret>" https://.../api/seed
+const CRON_SECRET = process.env.CRON_SECRET;
+
 const PRODUCTS = [
   // --- RAYONS CONNECT (Tech) ---
   {
@@ -156,7 +162,16 @@ const PRODUCTS = [
   }
 ];
 
-export async function GET() {
+export async function GET(request: Request) {
+  // ─── Vérification du secret ───────────────────────────────────────────────
+  const secret = request.headers.get('x-cron-secret');
+  if (!CRON_SECRET || secret !== CRON_SECRET) {
+    return NextResponse.json(
+      { error: 'Accès refusé. Ce endpoint est réservé au Super Admin.' },
+      { status: 401 }
+    );
+  }
+
   try {
     for (const product of PRODUCTS) {
       await setDoc(doc(db, "products", product.id), product);
@@ -166,4 +181,3 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-
