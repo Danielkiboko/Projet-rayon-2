@@ -68,27 +68,36 @@ export async function POST(request: Request) {
       );
     }
 
+    // ─── Résolution du Sender ID ─────────────────────────────────────────────
+    // Règle métier :
+    //   • MUTAMULIS → réservé UNIQUEMENT à M. Laurent (sumaililaurent4@gmail.com)
+    //   • "Rayon"   → sender ID par défaut pour toutes les autres actions
     let resolvedSenderId = customSenderId || senderId;
 
-    // Check if supplierId or userId is provided to lookup custom senderId
     const targetUid = supplierId || userId;
-    if (!resolvedSenderId && targetUid) {
+    if (targetUid) {
       try {
         const uDoc = await adminDb.collection("users").doc(targetUid).get();
         if (uDoc.exists) {
           const uData = uDoc.data();
-          resolvedSenderId = uData?.senderId || uData?.customSenderId || uData?.smsSenderId;
-          if (!resolvedSenderId && (
-            uData?.displayName?.toLowerCase().includes("mutamulis") ||
-            uData?.displayName?.toLowerCase().includes("laurent") ||
-            uData?.email === "sumaililaurent4@gmail.com"
-          )) {
+          // Priorité 1 : sender ID enregistré en base pour cet utilisateur
+          const storedId = uData?.senderId || uData?.customSenderId || uData?.smsSenderId;
+          if (storedId) {
+            resolvedSenderId = storedId;
+          } else if (uData?.email === "sumaililaurent4@gmail.com") {
+            // Priorité 2 : M. Laurent → MUTAMULIS
             resolvedSenderId = "MUTAMULIS";
           }
+          // Tous les autres → pas de surcharge, le défaut "Rayon" s'applique ci-dessous
         }
       } catch (err) {
         console.warn("Could not lookup senderId for target:", err);
       }
+    }
+
+    // Sender ID final : "Rayon" si aucun sender spécifique n'a été résolu
+    if (!resolvedSenderId) {
+      resolvedSenderId = "Rayon";
     }
 
     const result = await sendMobiShastraSMS({

@@ -12,7 +12,7 @@ interface SendSMSOptions {
 export async function sendMobiShastraSMS({ mobileNo, message, isUnicode = false, customSenderId }: SendSMSOptions) {
   const user = process.env.MOBISHASTRA_USER;
   const pwd = process.env.MOBISHASTRA_PWD;
-  const senderId = customSenderId || process.env.MOBISHASTRA_SENDER_ID || "SMS Alert";
+  const senderId = customSenderId || process.env.MOBISHASTRA_SENDER_ID || "Rayon";
 
   if (!user || !pwd) {
     console.error("MobiShastra credentials are not configured in environment variables.");
