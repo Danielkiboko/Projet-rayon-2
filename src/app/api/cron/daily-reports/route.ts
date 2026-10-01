@@ -51,6 +51,41 @@ function getRayonType(d: any): RayonType {
   return "store";
 }
 
+function extractSubAdminRayons(d: any): string[] {
+  const set = new Set<string>();
+  const addIfValid = (val: any) => {
+    if (typeof val !== "string") return;
+    const lower = val.trim().toLowerCase();
+    if (!lower || lower === "non assigné" || lower === "tous" || lower === "all" || lower === "general") return;
+    if (lower.includes("immo") || lower.includes("estate") || lower.includes("logement")) set.add("immo");
+    else if (lower.includes("mode") || lower.includes("fashion") || lower.includes("vetement")) set.add("mode");
+    else if (lower.includes("connect") || lower.includes("tech") || lower.includes("electr")) set.add("connect");
+    else if (lower.includes("saveur") || lower.includes("resto") || lower.includes("food") || lower.includes("cuisine")) set.add("saveurs");
+  };
+
+  if (Array.isArray(d.assignedRayons)) {
+    d.assignedRayons.forEach(addIfValid);
+  } else if (typeof d.assignedRayons === "string") {
+    addIfValid(d.assignedRayons);
+  }
+  if (Array.isArray(d.rayons)) {
+    d.rayons.forEach(addIfValid);
+  }
+  addIfValid(d.rayon);
+  addIfValid(d.serviceAttached);
+  addIfValid(d.department);
+
+  return Array.from(set);
+}
+
+function getSubAdminRoleTitle(role?: string): string {
+  const r = (role || "").toUpperCase();
+  if (r.includes("FINANCE")) return "Gestionnaire Financier & Comptabilité";
+  if (r.includes("DB") || r.includes("TECH")) return "Gestionnaire Base de Données & Catalogue";
+  if (r.includes("OPS")) return "Gestionnaire des Opérations & Logistique";
+  return "Sous-Administrateur";
+}
+
 // ─── Route handlers ───────────────────────────────────────────────────────────
 
 export async function GET(req: Request) {
@@ -133,6 +168,7 @@ async function handleDailyReports(req: Request) {
     }
 
     const adminEmails = new Set<string>(["admin@rayons.net", "danielkiboko218@gmail.com"]);
+    const subAdminsMap = new Map<string, any>();
     let newUsersCount = 0;
 
     try {
@@ -144,11 +180,31 @@ async function handleDailyReports(req: Request) {
         // Matches: supplier, SUPPLIER_IMMO, SUPPLIER_MODE, SUPPLIER_CONNECT, SUPPLIER_SAVEURS, fournisseur, vendor
         const isSupplier = role.includes("supplier") || role.includes("fournisseur") || role.includes("vendor")
           || roles.some((r: string) => r.includes("supplier") || r.includes("fournisseur"));
-        // Seuls SUPER_ADMIN et admin reçoivent le rapport consolidé — pas SUB_ADMIN
+        // Seuls SUPER_ADMIN et admin de direction reçoivent le rapport consolidé complet
         const isAdmin = role === "admin" || role === "super_admin" || role === "superadmin"
           || roles.some((r: string) => r === "admin" || r === "super_admin");
 
+        // Sous-administrateurs (Salem Belo et futurs sub-admins avec tâches/rayons attachés)
+        const isSubAdmin = !isAdmin && (
+          role.includes("sub_admin") || role.includes("subadmin")
+          || role.includes("admin_")
+          || roles.some((r: string) => r.includes("sub_admin") || r.includes("subadmin") || r.includes("admin_"))
+        );
+
         if (isAdmin && d.email) adminEmails.add(d.email.trim().toLowerCase());
+
+        if (isSubAdmin && d.email) {
+          const assignedRayons = extractSubAdminRayons(d);
+          const name = d.displayName || d.name || [d.firstName, d.lastName].filter(Boolean).join(" ") || "Collaborateur";
+          subAdminsMap.set(doc.id, {
+            id: doc.id,
+            email: d.email.trim().toLowerCase(),
+            name,
+            role: d.role || "SUB_ADMIN",
+            roleTitle: getSubAdminRoleTitle(d.role),
+            assignedRayons,
+          });
+        }
 
         if (isSupplier) {
           const existing = suppliersMap.get(doc.id) || {};
@@ -172,14 +228,21 @@ async function handleDailyReports(req: Request) {
     }
 
     const suppliersList = Array.from(suppliersMap.values());
-    // Sécurité : retirer les emails fournisseurs de adminEmails pour éviter tout doublon
+    const subAdminsList = Array.from(subAdminsMap.values());
+
+    // Sécurité : retirer les emails fournisseurs et sous-admins de adminEmails pour éviter tout doublon
     suppliersList.forEach(s => {
       if (s.email) adminEmails.delete(s.email.trim().toLowerCase());
     });
+    subAdminsList.forEach(sa => {
+      if (sa.email) adminEmails.delete(sa.email.trim().toLowerCase());
+    });
+
     // S'assurer que l'admin principal est toujours présent
     adminEmails.add("danielkiboko218@gmail.com");
     adminEmails.add("daniel.k@telkosh.com");
     console.log(`[DailyReport] Total suppliers detected: ${suppliersList.length}`);
+    console.log(`[DailyReport] Total sub-admins detected: ${subAdminsList.length}`);
     console.log(`[DailyReport] Admin emails: ${Array.from(adminEmails).join(", ")}`);
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -520,6 +583,46 @@ async function handleDailyReports(req: Request) {
       }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // 6. Sub-Admin operational & task-based reports
+    // ─────────────────────────────────────────────────────────────────────────
+    let subAdminsNotified = 0;
+    for (const subAdmin of subAdminsList) {
+      if (!subAdmin.email) continue;
+      try {
+        const subAdminHtml = buildSubAdminEmail({
+          dateFormatted,
+          baseUrl,
+          subAdminName: subAdmin.name,
+          roleTitle: subAdmin.roleTitle,
+          assignedRayons: subAdmin.assignedRayons,
+          rayonBreakdown,
+          totalGlobalTurnover,
+          globalSalesRevenue,
+          globalRentRevenue,
+          ordersCount: periodOrders.length,
+          paymentsCount: periodPayments.length,
+          tenantsCount: periodTenants.length,
+          newUsersCount,
+          overdueTenantsCount,
+        });
+
+        const subject = subAdmin.assignedRayons && subAdmin.assignedRayons.length > 0
+          ? `📋 Rapport Quotidien Rayons (${subAdmin.assignedRayons.map((r: string) => r.toUpperCase()).join(", ")}) — ${dateFormatted}`
+          : `📊 Rapport de Coordination Opérationnelle (07h00) — ${dateFormatted}`;
+
+        await sendEmail({
+          to:      subAdmin.email,
+          subject,
+          html:    subAdminHtml,
+        });
+        subAdminsNotified++;
+        console.log(`[DailyReport] ✅ Sub-Admin report → ${subAdmin.email} (${subAdmin.name})`);
+      } catch (err) {
+        console.error(`[DailyReport] Sub-Admin email error (${subAdmin.email}):`, err);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       edition: "07h00",
@@ -528,7 +631,10 @@ async function handleDailyReports(req: Request) {
       periodEnd:   periodEnd.toISOString(),
       suppliersCount:    suppliersList.length,
       suppliersNotified,
-      adminEmails: Array.from(adminEmails),
+      subAdminsCount:    subAdminsList.length,
+      subAdminsNotified,
+      adminEmails:       Array.from(adminEmails),
+      subAdmins:         subAdminsList.map(s => ({ email: s.email, name: s.name, role: s.role, assignedRayons: s.assignedRayons })),
       metrics: {
         totalGlobalTurnover, globalSalesRevenue, globalRentRevenue,
         ordersCount:     periodOrders.length,
@@ -833,4 +939,120 @@ function buildAdminEmail(p: AdminEmailParams): string {
   </div>`;
 }
 
-// Cron Secret (optionnel)
+// ─────────────────────────────────────────────────────────────────────────────
+// 👥  EMAIL BUILDER — SUB-ADMIN (Task & Assigned Rayons based)
+// ─────────────────────────────────────────────────────────────────────────────
+interface SubAdminEmailParams {
+  dateFormatted: string;
+  baseUrl: string;
+  subAdminName: string;
+  roleTitle: string;
+  assignedRayons: string[];
+  rayonBreakdown: Record<string, { count: number; revenue: number }>;
+  totalGlobalTurnover: number;
+  globalSalesRevenue: number;
+  globalRentRevenue: number;
+  ordersCount: number;
+  paymentsCount: number;
+  tenantsCount: number;
+  newUsersCount: number;
+  overdueTenantsCount: number;
+}
+
+function buildSubAdminEmail(p: SubAdminEmailParams): string {
+  const allRayons = [
+    { label: "🍽️ Rayon Saveurs", key: "saveurs" },
+    { label: "👗 Rayon Mode",    key: "mode" },
+    { label: "📱 Rayon Connect", key: "connect" },
+    { label: "🏢 Rayon Immo",    key: "immo" },
+  ];
+
+  const hasSpecificRayons = Array.isArray(p.assignedRayons) && p.assignedRayons.length > 0;
+  const displayedRayons = hasSpecificRayons 
+    ? allRayons.filter(r => p.assignedRayons.includes(r.key))
+    : allRayons;
+
+  const relevantRevenue = hasSpecificRayons
+    ? displayedRayons.reduce((sum, r) => sum + (p.rayonBreakdown[r.key]?.revenue || 0), 0)
+    : p.totalGlobalTurnover;
+
+  const relevantOrders = hasSpecificRayons
+    ? displayedRayons.reduce((sum, r) => sum + (p.rayonBreakdown[r.key]?.count || 0), 0)
+    : p.ordersCount;
+
+  const titleBadge = hasSpecificRayons
+    ? `RAPPORT OPÉRATIONNEL — ${p.assignedRayons.map(r => r.toUpperCase()).join(" & ")}`
+    : `RAPPORT DE COORDINATION & OPÉRATIONS`;
+
+  const bannerTitle = hasSpecificRayons
+    ? `Volume d'Affaires — Rayons Assignés`
+    : `Volume d'Affaires Global de la Plateforme`;
+
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:680px;margin:0 auto;padding:36px 28px;background:#ffffff;border:1px solid #cbd5e0;border-radius:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #0F1D27;padding-bottom:16px;margin-bottom:24px;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h1 style="color:#0F1D27;font-size:26px;font-weight:800;margin:0;">Rayons<span style="color:#C7D300;">.net</span></h1>
+        <p style="color:#4a5568;font-size:12px;font-weight:700;letter-spacing:0.5px;margin:4px 0 0;text-transform:uppercase;">${titleBadge}</p>
+      </div>
+      <div style="text-align:right;">
+        <span style="background:#edf2f7;color:#2d3748;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;">${p.roleTitle}</span>
+        <p style="color:#718096;font-size:12px;margin:6px 0 0;">${p.dateFormatted}</p>
+      </div>
+    </div>
+
+    <p style="color:#1a202c;font-size:15px;margin-bottom:20px;">Bonjour <strong>${p.subAdminName}</strong>, voici votre synthèse opérationnelle ${hasSpecificRayons ? `pour vos rayons assignés (${p.assignedRayons.map(r => r.toUpperCase()).join(", ")})` : "de la plateforme"} pour la journée du <strong>${p.dateFormatted}</strong> :</p>
+
+    <div style="background:linear-gradient(135deg,#0F1D27 0%,#2D3748 100%);border-radius:16px;padding:24px;color:#fff;margin-bottom:24px;">
+      <p style="margin:0;font-size:12px;color:#cbd5e0;text-transform:uppercase;letter-spacing:1px;">${bannerTitle}</p>
+      <p style="margin:8px 0 0;font-size:36px;font-weight:900;color:#C7D300;">+${relevantRevenue.toLocaleString("fr-FR", { minimumFractionDigits: 2 })} $</p>
+      <div style="margin-top:16px;border-top:1px solid rgba(255,255,255,0.15);padding-top:14px;display:flex;gap:24px;flex-wrap:wrap;">
+        <div><span style="color:#a0aec0;font-size:12px;">Opérations / Commandes :</span><span style="color:#fff;font-weight:700;font-size:14px;margin-left:6px;">${relevantOrders}</span></div>
+        ${!hasSpecificRayons || p.assignedRayons.includes("immo") ? `<div><span style="color:#a0aec0;font-size:12px;">Loyers immo :</span><span style="color:#fff;font-weight:700;font-size:14px;margin-left:6px;">${p.globalRentRevenue.toFixed(2)} $</span></div>` : ""}
+      </div>
+    </div>
+
+    <table style="width:100%;border-collapse:separate;border-spacing:10px;margin-bottom:24px;">
+      <tr>
+        <td style="background:#f7fafc;border:1px solid #edf2f7;border-radius:12px;padding:16px;width:33%;text-align:center;">
+          <p style="margin:0;color:#718096;font-size:11px;text-transform:uppercase;font-weight:600;">Commandes</p>
+          <p style="margin:6px 0 0;font-size:24px;font-weight:800;color:#0F1D27;">${relevantOrders}</p>
+        </td>
+        ${!hasSpecificRayons || p.assignedRayons.includes("immo") ? `
+        <td style="background:#f7fafc;border:1px solid #edf2f7;border-radius:12px;padding:16px;width:33%;text-align:center;">
+          <p style="margin:0;color:#718096;font-size:11px;text-transform:uppercase;font-weight:600;">Nouveaux Baux</p>
+          <p style="margin:6px 0 0;font-size:24px;font-weight:800;color:#3182ce;">${p.tenantsCount}</p>
+        </td>` : ""}
+        <td style="background:#f7fafc;border:1px solid #edf2f7;border-radius:12px;padding:16px;width:33%;text-align:center;">
+          <p style="margin:0;color:#718096;font-size:11px;text-transform:uppercase;font-weight:600;">Inscriptions</p>
+          <p style="margin:6px 0 0;font-size:24px;font-weight:800;color:#38a169;">+${p.newUsersCount}</p>
+        </td>
+      </tr>
+    </table>
+
+    <h3 style="color:#0F1D27;font-size:15px;font-weight:700;margin:0 0 12px;">Activité par Rayon ${hasSpecificRayons ? "(Assignés)" : ""}</h3>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;font-size:14px;">
+      <tr style="background:#f1f5f9;text-align:left;color:#475569;font-size:11px;text-transform:uppercase;">
+        <th style="padding:10px 14px;border-radius:8px 0 0 8px;">Rayon</th>
+        <th style="padding:10px 14px;text-align:center;">Opérations</th>
+        <th style="padding:10px 14px;text-align:right;border-radius:0 8px 8px 0;">Volume d'Affaires</th>
+      </tr>
+      ${displayedRayons.map(r => `<tr style="border-bottom:1px solid #edf2f7;">
+        <td style="padding:11px 14px;font-weight:600;color:#0F1D27;">${r.label}</td>
+        <td style="padding:11px 14px;text-align:center;color:#4a5568;">${p.rayonBreakdown[r.key]?.count || 0}</td>
+        <td style="padding:11px 14px;text-align:right;font-weight:700;color:#38a169;">+${(p.rayonBreakdown[r.key]?.revenue || 0).toFixed(2)} $</td>
+      </tr>`).join("")}
+    </table>
+
+    ${(!hasSpecificRayons || p.assignedRayons.includes("immo")) && p.overdueTenantsCount > 0 ? `
+    <div style="background:#fffaf0;border-left:4px solid #dd6b20;padding:14px 18px;border-radius:8px;margin-bottom:24px;">
+      <p style="color:#9c4221;font-size:13px;font-weight:700;margin:0;">⚠️ Suivi Échéances Immo</p>
+      <p style="color:#7b341e;font-size:13px;margin:4px 0 0;">${p.overdueTenantsCount} locataire(s) avec échéance dépassée à relancer.</p>
+    </div>` : ""}
+
+    <div style="text-align:center;margin-bottom:24px;">
+      <a href="${p.baseUrl}/admin/dashboard" style="background:#0F1D27;color:#fff;padding:14px 32px;font-size:14px;font-weight:700;text-decoration:none;border-radius:8px;display:inline-block;">Ouvrir la console d'administration</a>
+    </div>
+
+    <p style="color:#a0aec0;font-size:11px;text-align:center;margin:0;border-top:1px solid #edf2f7;padding-top:16px;">Rapport automatique quotidien 07h00 • Rayons.net Kinshasa, RDC</p>
+  </div>`;
+}
