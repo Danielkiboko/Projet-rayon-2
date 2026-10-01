@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
-import { ArrowLeft, MapPin, Package, CheckCircle, Truck, Phone, Download, FileText } from "lucide-react";
+import { ArrowLeft, MapPin, Package, CheckCircle, Truck, Phone, Download, FileText, LifeBuoy } from "lucide-react";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import "leaflet/dist/leaflet.css";
 import { generateOrderInvoicePDF } from "@/lib/invoiceGenerator";
@@ -202,6 +203,14 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
           >
             Payer à la livraison ({formatPrice(order.totalAmount)})
           </button>
+
+          <Link 
+            href={`/dashboard/client?tab=tickets&orderId=${orderId}`}
+            className="w-full flex items-center justify-center gap-2 text-gray-500 hover:text-purple-600 text-xs py-2.5 transition-colors mt-2 font-medium"
+          >
+            <LifeBuoy size={15} className="text-purple-600" />
+            <span>Un problème avec cette livraison ? Signaler au Support Rayons</span>
+          </Link>
         </div>
       </main>
     </div>

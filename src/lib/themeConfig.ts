@@ -9,7 +9,8 @@ import {
   Wallet,
   Truck,
   MessageSquare,
-  BarChart3
+  BarChart3,
+  LifeBuoy
 } from "lucide-react";
 
 export type ServiceType = "mode" | "immo" | "connect" | "saveurs" | "default";
@@ -44,6 +45,7 @@ const standardProductMenu: MenuItem[] = [
   { title: "Proformas & Factures", href: "/supplier/invoices", icon: FileText },
   { title: "Livre de caisse",    href: "/supplier/finance",  icon: Wallet },
   { title: "Rapports",           href: "/supplier/reports",  icon: BarChart3 },
+  { title: "Tickets & Support",  href: "/supplier/tickets",  icon: LifeBuoy },
   { title: "Livreurs",           href: "/supplier/drivers",  icon: Truck },
   { title: "Paramètres",         href: "/supplier/settings", icon: Settings },
 ];
@@ -63,6 +65,7 @@ export const themeConfig: Record<ServiceType, ServiceTheme> = {
     menu: [
       { title: "Dashboard",       href: "/supplier",          icon: LayoutDashboard },
       { title: "Livre de caisse", href: "/supplier/finance",  icon: Wallet },
+      { title: "Tickets & Support", href: "/supplier/tickets", icon: LifeBuoy },
       { title: "Paramètres",      href: "/supplier/settings", icon: Settings },
     ]
   },
@@ -98,6 +101,7 @@ export const themeConfig: Record<ServiceType, ServiceTheme> = {
       { title: "Proformas & Factures", href: "/supplier/invoices", icon: FileText },
       { title: "Livre de caisse",    href: "/supplier/finance",  icon: Wallet },
       { title: "Rapports",           href: "/supplier/reports",  icon: BarChart3 },
+      { title: "Tickets & Support",  href: "/supplier/tickets",  icon: LifeBuoy },
       { title: "Paramètres",         href: "/supplier/settings", icon: Settings },
     ]
   },

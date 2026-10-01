@@ -17,12 +17,14 @@ import {
   MapPin, 
   Clock, 
   ArrowRight,
-  ExternalLink 
+  ExternalLink,
+  LifeBuoy
 } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { generateOrderInvoicePDF, generateHotelBookingReceiptPDF } from "@/lib/invoiceGenerator";
 import { ClientChatsWidget } from "@/modules/supplier/components/ClientChatsWidget";
+import { ClientTicketsWidget } from "@/modules/tickets/components/ClientTicketsWidget";
 import NotificationBell from "@/modules/shared/components/notifications/NotificationBell";
 import ProfileUpdateModal from "@/modules/supplier/components/ProfileUpdateModal";
 import { useCurrency } from "@/context/CurrencyContext";
@@ -32,11 +34,22 @@ export default function ClientDashboard() {
   const router = useRouter();
   const { formatPrice, currency } = useCurrency();
   
-  const [activeTab, setActiveTab] = useState<"orders" | "visits" | "hotels" | "messages">("orders");
+  const [activeTab, setActiveTab] = useState<"orders" | "visits" | "hotels" | "messages" | "tickets">("orders");
   const [orders, setOrders] = useState<any[]>([]);
   const [visits, setVisits] = useState<any[]>([]);
   const [hotelBookings, setHotelBookings] = useState<any[]>([]);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<number>(0);
+  const [unreadTicketsCount, setUnreadTicketsCount] = useState<number>(0);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab");
+      if (tabParam === "tickets" || tabParam === "orders" || tabParam === "visits" || tabParam === "hotels" || tabParam === "messages") {
+        setActiveTab(tabParam as any);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -106,11 +119,27 @@ export default function ClientDashboard() {
       console.warn("Client chats unread listener warning:", err);
     });
 
+    // 5. Listen to tickets for unread badge
+    const qTickets = query(
+      collection(db, "tickets"),
+      where("creatorId", "==", user.uid)
+    );
+    const unsubTickets = onSnapshot(qTickets, (snapshot) => {
+      let unread = 0;
+      snapshot.docs.forEach(d => {
+        if (d.data().unreadByClient) unread++;
+      });
+      setUnreadTicketsCount(unread);
+    }, (err) => {
+      console.warn("Client tickets unread listener warning:", err);
+    });
+
     return () => {
       unsubOrders();
       unsubVisits();
       unsubHotels();
       unsubChats();
+      unsubTickets();
     };
   }, [user, router]);
 
@@ -210,6 +239,20 @@ export default function ClientDashboard() {
             {unreadMessagesCount > 0 ? (
               <span className="px-2 py-0.5 text-xs rounded-full bg-red-500 text-white font-bold animate-pulse">
                 {unreadMessagesCount}
+              </span>
+            ) : null}
+          </button>
+
+          <button
+            onClick={() => setActiveTab("tickets")}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium whitespace-nowrap transition-colors text-sm ${
+              activeTab === "tickets" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            <LifeBuoy size={17} /> Assistance & Tickets
+            {unreadTicketsCount > 0 ? (
+              <span className="px-2 py-0.5 text-xs rounded-full bg-purple-600 text-white font-bold animate-pulse">
+                {unreadTicketsCount}
               </span>
             ) : null}
           </button>
@@ -452,6 +495,13 @@ export default function ClientDashboard() {
               <Suspense fallback={<div className="min-h-[500px] bg-white rounded-2xl border border-gray-200 flex items-center justify-center text-gray-400">Chargement de la messagerie...</div>}>
                 <ClientChatsWidget embedded={true} />
               </Suspense>
+            </motion.div>
+          )}
+
+          {/* 5. TICKETS & SUPPORT */}
+          {activeTab === "tickets" && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+              <ClientTicketsWidget />
             </motion.div>
           )}
 

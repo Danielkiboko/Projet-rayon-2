@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { ShieldAlert, LayoutDashboard, Package, Users, Settings, UserCheck, Store, Truck, ShoppingCart, Building, Wallet } from "lucide-react";
+import { ShieldAlert, LayoutDashboard, Package, Users, Settings, UserCheck, Store, Truck, ShoppingCart, Building, Wallet, LifeBuoy } from "lucide-react";
 import DashboardLayout from "@/modules/shared/components/layouts/DashboardLayout";
 import { hasAdminAccess, isSuperAdmin } from "@/lib/permissions";
 
@@ -16,6 +16,7 @@ const ADMIN_MENU = [
   { title: "Fournisseurs", href: "/admin/suppliers", icon: Store, colorClass: { bg: "bg-blue-600/10", text: "text-blue-500" } },
   { title: "Livreurs", href: "/admin/drivers", icon: Truck, colorClass: { bg: "bg-blue-600/10", text: "text-blue-500" } },
   { title: "Finances", href: "/admin/finance", icon: Wallet },
+  { title: "Tickets & Support", href: "/admin/tickets", icon: LifeBuoy, colorClass: { bg: "bg-amber-600/10", text: "text-amber-500" } },
   { title: "Santé & Bugs", href: "/admin/health", icon: ShieldAlert },
   { title: "Équipe & Fonctionnaires", href: "/admin/team", icon: Users, colorClass: { bg: "bg-indigo-600/10", text: "text-indigo-400" } },
   { title: "Paramètres", href: "/admin/settings", icon: Settings },
