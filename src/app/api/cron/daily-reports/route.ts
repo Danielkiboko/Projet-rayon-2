@@ -144,7 +144,9 @@ async function handleDailyReports(req: Request) {
         // Matches: supplier, SUPPLIER_IMMO, SUPPLIER_MODE, SUPPLIER_CONNECT, SUPPLIER_SAVEURS, fournisseur, vendor
         const isSupplier = role.includes("supplier") || role.includes("fournisseur") || role.includes("vendor")
           || roles.some((r: string) => r.includes("supplier") || r.includes("fournisseur"));
-        const isAdmin    = role.includes("admin")    || roles.some((r: string) => r.includes("admin"));
+        // Seuls SUPER_ADMIN et admin reçoivent le rapport consolidé — pas SUB_ADMIN
+        const isAdmin = role === "admin" || role === "super_admin" || role === "superadmin"
+          || roles.some((r: string) => r === "admin" || r === "super_admin");
 
         if (isAdmin && d.email) adminEmails.add(d.email.trim().toLowerCase());
 
@@ -170,7 +172,15 @@ async function handleDailyReports(req: Request) {
     }
 
     const suppliersList = Array.from(suppliersMap.values());
+    // Sécurité : retirer les emails fournisseurs de adminEmails pour éviter tout doublon
+    suppliersList.forEach(s => {
+      if (s.email) adminEmails.delete(s.email.trim().toLowerCase());
+    });
+    // S'assurer que l'admin principal est toujours présent
+    adminEmails.add("danielkiboko218@gmail.com");
+    adminEmails.add("daniel.k@telkosh.com");
     console.log(`[DailyReport] Total suppliers detected: ${suppliersList.length}`);
+    console.log(`[DailyReport] Admin emails: ${Array.from(adminEmails).join(", ")}`);
 
     // ─────────────────────────────────────────────────────────────────────────
     // 2. Fetch all collections once (shared across all supplier loops)
