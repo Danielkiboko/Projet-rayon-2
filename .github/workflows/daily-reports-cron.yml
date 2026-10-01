@@ -14,15 +14,28 @@ jobs:
 
     steps:
       - name: 📬 Déclenchement du Rapport Journalier Fournisseurs & Admin (07h00)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           echo "Envoi de la requête du rapport journalier à https://rayons.net/api/cron/daily-reports..."
-          curl -f -s -S --max-time 180 "https://rayons.net/api/cron/daily-reports" || {
-            echo "Échec en GET, tentative en POST..."
-            curl -f -s -S -X POST --max-time 180 "https://rayons.net/api/cron/daily-reports"
-          }
+          RESPONSE=$(curl -f -s -S -w "\n%{http_code}" --max-time 180 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://rayons.net/api/cron/daily-reports")
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | head -1)
+          echo "Code HTTP: $HTTP_CODE"
+          echo "Réponse: $BODY"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Échec du rapport — code $HTTP_CODE"
+            exit 1
+          fi
           echo "✅ Rapport journalier exécuté avec succès !"
 
       - name: 📑 Contrôle des Baux et Loyers Échus
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           echo "Vérification des baux et notifications locataires..."
-          curl -f -s -S --max-time 120 "https://rayons.net/api/cron/check-leases" || echo "Vérification baux terminée avec avertissement."
+          curl -s -S --max-time 120 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "https://rayons.net/api/cron/check-leases" || echo "Vérification baux terminée avec avertissement."

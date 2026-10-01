@@ -1,0 +1,16 @@
+runConfig:
+  minInstances: 0
+
+env:
+  - variable: NEXT_PUBLIC_APP_URL
+    value: https://rayons.net
+    availability:
+      - BUILD
+      - RUNTIME
+
+  # CRON_SECRET: à définir via Firebase Console → App Hosting → Variables d'environnement
+  # Valeur : 8de34bb28f48cbdb5513c057fca9ff2324652e5c3171bf06e238f6ed82d4552f
+  - variable: CRON_SECRET
+    value: "REMPLACEZ_PAR_VOTRE_SECRET"
+    availability:
+      - RUNTIME
