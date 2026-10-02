@@ -58,6 +58,8 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
   const [ownerName, setOwnerName] = useState("");
   const [ownerPhone, setOwnerPhone] = useState("");
   const [agencyCommissionRate, setAgencyCommissionRate] = useState<number | string>(10);
+  // Occupancy capacity — number of people/tenants allowed simultaneously
+  const [maxOccupancy, setMaxOccupancy] = useState<number>(1);
 
   const {
     chatMessages,
@@ -167,6 +169,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
     setOwnerName("");
     setOwnerPhone("");
     setAgencyCommissionRate(10);
+    setMaxOccupancy(1);
     setLevels([]);
     setImagePreview(null);
     setImageFile(null);
@@ -208,6 +211,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
     setOwnerName(property.ownerName || "");
     setOwnerPhone(property.ownerPhone || "");
     setAgencyCommissionRate(property.agencyCommissionRate ?? 10);
+    setMaxOccupancy(property.maxOccupancy ?? 1);
     setLevels(property.immoDetails?.levels || []);
     setImagePreview(property.image || null);
     setImageFile(null);
@@ -355,6 +359,8 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
       ownerName: ownerName.trim(),
       ownerPhone: ownerPhone.trim(),
       agencyCommissionRate: Number(agencyCommissionRate) || 10,
+      // ── Occupancy capacity ──────────────────────────────────────────────────
+      maxOccupancy: Number(maxOccupancy) || 1,
       supplierId: user.uid,
       immoDetails: {
         area: 0,
@@ -401,6 +407,9 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
         const docRef = await addDoc(collection(db, "properties"), {
           ...propertyData,
           status: isAdmin ? "Disponible" : "PENDING_APPROVAL",
+          // Occupancy tracking — initialized at 0 on creation
+          currentOccupancy: 0,
+          occupancyStatus: "AVAILABLE",
           createdAt: serverTimestamp(),
         });
 
@@ -1259,49 +1268,87 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
 
                 {/* ── Gestion Bailleur & Mandat de gestion (Habitation) ── */}
                 {immoBranch === "habitation" && (
-                  <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-3">
-                    <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
-                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
-                        <Building size={14} className="text-emerald-400" />
-                        Propriétaire / Bailleur & Mandat Agence (Optionnel)
-                      </span>
-                      <span className="text-[11px] text-gray-400">Pour rétrocession loyer & commissions</span>
+                  <>
+                    <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl space-y-3">
+                      <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
+                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-300 flex items-center gap-1.5">
+                          <Building size={14} className="text-emerald-400" />
+                          Propriétaire / Bailleur & Mandat Agence (Optionnel)
+                        </span>
+                        <span className="text-[11px] text-gray-400">Pour rétrocession loyer & commissions</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-gray-300">Nom du Bailleur / Proprio</label>
+                          <input
+                            type="text"
+                            value={ownerName}
+                            onChange={(e) => setOwnerName(e.target.value)}
+                            placeholder="Ex: M. Jean Kasongo"
+                            className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-gray-300">Téléphone du Bailleur</label>
+                          <input
+                            type="text"
+                            value={ownerPhone}
+                            onChange={(e) => setOwnerPhone(e.target.value)}
+                            placeholder="Ex: +243 81 234 5678"
+                            className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-medium text-gray-300">Commission Agence (%)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={agencyCommissionRate}
+                            onChange={(e) => setAgencyCommissionRate(e.target.value)}
+                            placeholder="Ex: 10"
+                            className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-gray-300">Nom du Bailleur / Proprio</label>
-                        <input
-                          type="text"
-                          value={ownerName}
-                          onChange={(e) => setOwnerName(e.target.value)}
-                          placeholder="Ex: M. Jean Kasongo"
-                          className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
-                        />
+
+                    {/* Capacite d'occupancy (Lits / Places) */}
+                    <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold uppercase tracking-wider text-blue-300 flex items-center gap-1.5">
+                          <Bed size={13} className="text-blue-400" />
+                          Capacité d&apos;occupancy — Lits / Places
+                        </span>
+                        <span className="text-[11px] text-gray-400">Détermine quand le bien est &quot;Complet&quot;</span>
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-gray-300">Téléphone du Bailleur</label>
-                        <input
-                          type="text"
-                          value={ownerPhone}
-                          onChange={(e) => setOwnerPhone(e.target.value)}
-                          placeholder="Ex: +243 81 234 5678"
-                          className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
-                        />
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center bg-black/40 border border-white/10 rounded-lg overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setMaxOccupancy(v => Math.max(1, v - 1))}
+                            className="px-3 py-2 text-white hover:bg-white/10 transition-colors text-lg font-bold"
+                          >−</button>
+                          <span className="px-4 py-2 text-white font-bold text-base min-w-[40px] text-center">{maxOccupancy}</span>
+                          <button
+                            type="button"
+                            onClick={() => setMaxOccupancy(v => Math.min(20, v + 1))}
+                            className="px-3 py-2 text-white hover:bg-white/10 transition-colors text-lg font-bold"
+                          >+</button>
+                        </div>
+                        <div className="text-sm text-gray-300">
+                          {maxOccupancy === 1 ? (
+                            <span>🛏️ <strong>1 locataire</strong> max — Refus automatique si occupé</span>
+                          ) : (
+                            <span>🛏️ <strong>{maxOccupancy} locataires</strong> max simultanément</span>
+                          )}
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-xs font-medium text-gray-300">Commission Agence (%)</label>
-                        <input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={agencyCommissionRate}
-                          onChange={(e) => setAgencyCommissionRate(e.target.value)}
-                          placeholder="Ex: 10"
-                          className="w-full px-3 py-2 bg-black/40 border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-emerald-500"
-                        />
-                      </div>
+                      <p className="text-[11px] text-gray-500 mt-2">
+                        Ex: Studio 1 lit &#8594; 1 | Appartement 2 chambres partagées &#8594; 2 | Maison 4 personnes &#8594; 4
+                      </p>
                     </div>
-                  </div>
+                  </>
                 )}
 
                 {/* ── Spécifications Hôtelières (Hospitality) ── */}

@@ -44,6 +44,9 @@ interface Property {
   price: number;
   location?: string;
   ownerName?: string;
+  maxOccupancy?: number;       // max tenants allowed (set by supplier)
+  currentOccupancy?: number;  // actual active tenants count
+  occupancyStatus?: "AVAILABLE" | "PARTIAL" | "FULL";
   immoDetails?: {
     levels?: any[];
   }
@@ -444,7 +447,24 @@ export default function SupplierTenantsPage() {
     e.preventDefault();
     if (!selectedPropertyId) return alert("Veuillez sélectionner une propriété");
     if (!rentAmount) return alert("Veuillez définir un loyer");
-    
+
+    // ── OCCUPANCY GUARD ──────────────────────────────────────────────────────────────────
+    // For simple properties (no sub-units), block if FULL
+    if (selectedProperty && (selectedProperty.immoDetails?.levels ?? []).length === 0) {
+      const maxOcc  = Number(selectedProperty.maxOccupancy  ?? 1);
+      const currOcc = Number(selectedProperty.currentOccupancy ?? 0);
+      if (currOcc >= maxOcc) {
+        alert(
+          `❌ Ce bien est complet (état : PLEIN).\n\n` +
+          `• Capacité max : ${maxOcc} locataire(s)\n` +
+          `• Occupants actuels : ${currOcc}/${maxOcc}\n\n` +
+          `Pour accepter un nouveau locataire, déclarez d'abord le départ d'un locataire existant, ou ` +
+          `augmentez la capacité du bien dans les paramètres de la propriété.`
+        );
+        return;
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────────
     setIsSubmitting(true);
     try {
       const user = auth.currentUser;
@@ -486,40 +506,52 @@ export default function SupplierTenantsPage() {
 
       await addDoc(collection(db, "tenants"), newTenant);
 
-      // --- LOGIC TO UPDATE PROPERTY/UNIT STATUS ---
+      // ── OCCUPANCY CHECK & UPDATE ──────────────────────────────────────────────────
       const propRef = doc(db, "properties", selectedPropertyId);
-      if (levels.length === 0) {
-        // Simple property without sub-units
-        await updateDoc(propRef, { status: "Loué" });
-      } else {
-        // It has sub-units. Decrease capacity of the selected unit.
-        const propDoc = await getDoc(propRef);
-        if (propDoc.exists()) {
-           const data = propDoc.data();
-           const currentLevels = data.immoDetails?.levels || [];
-           let allUnitsTaken = true;
+      const freshPropDoc = await getDoc(propRef);
 
-           const updatedLevels = currentLevels.map((l: any) => {
-              if (l.id === selectedLevelId) {
-                 l.units = l.units.map((u: any) => {
-                    if (u.id === selectedUnitId) {
-                       u.capacity = Math.max(0, (u.capacity || 1) - 1);
-                    }
-                    if ((u.capacity || 1) > 0) allUnitsTaken = false;
-                    return u;
-                 });
-              } else {
-                 l.units.forEach((u: any) => {
-                    if ((u.capacity || 1) > 0) allUnitsTaken = false;
-                 });
-              }
-              return l;
-           });
+      if (freshPropDoc.exists()) {
+        const freshData = freshPropDoc.data();
+        const hasSubUnits = (freshData.immoDetails?.levels || []).length > 0;
 
-           await updateDoc(propRef, {
-             "immoDetails.levels": updatedLevels,
-             status: allUnitsTaken ? "Loué" : "Disponible" // Hide only if ALL units are taken
-           });
+        if (!hasSubUnits) {
+          // ─ Simple property (no sub-units): use maxOccupancy model ─
+          const maxOcc  = Number(freshData.maxOccupancy  ?? 1);
+          const currOcc = Number(freshData.currentOccupancy ?? 0) + 1; // after this new tenant
+          const newStatus = currOcc >= maxOcc ? "FULL" : currOcc > 0 ? "PARTIAL" : "AVAILABLE";
+
+          await updateDoc(propRef, {
+            currentOccupancy: currOcc,
+            occupancyStatus:  newStatus,
+            // Keep legacy "status" field for backward compatibility
+            status: newStatus === "FULL" ? "Loué" : "Disponible",
+          });
+        } else {
+          // ─ Property with sub-units: decrease capacity of the chosen unit ─
+          const currentLevels = freshData.immoDetails?.levels || [];
+          let allUnitsTaken = true;
+
+          const updatedLevels = currentLevels.map((l: any) => {
+            if (l.id === selectedLevelId) {
+              l.units = l.units.map((u: any) => {
+                if (u.id === selectedUnitId) {
+                  u.capacity = Math.max(0, (u.capacity || 1) - 1);
+                }
+                if ((u.capacity || 1) > 0) allUnitsTaken = false;
+                return u;
+              });
+            } else {
+              l.units.forEach((u: any) => {
+                if ((u.capacity || 1) > 0) allUnitsTaken = false;
+              });
+            }
+            return l;
+          });
+
+          await updateDoc(propRef, {
+            "immoDetails.levels": updatedLevels,
+            status: allUnitsTaken ? "Loué" : "Disponible",
+          });
         }
       }
 
@@ -753,7 +785,16 @@ export default function SupplierTenantsPage() {
         const propLevels = propData.immoDetails?.levels || [];
         
         if (propLevels.length === 0) {
-           await updateDoc(propRef, { status: "Disponible" });
+           // ─ Simple property: decrement currentOccupancy ─
+           const maxOcc  = Number(propData.maxOccupancy  ?? 1);
+           const currOcc = Math.max(0, Number(propData.currentOccupancy ?? 1) - 1);
+           const newStatus = currOcc <= 0 ? "AVAILABLE" : currOcc < maxOcc ? "PARTIAL" : "FULL";
+
+           await updateDoc(propRef, {
+             currentOccupancy: currOcc,
+             occupancyStatus: newStatus,
+             status: currOcc <= 0 ? "Disponible" : newStatus === "FULL" ? "Loué" : "Disponible",
+           });
         } else {
            let allUnitsTaken = true;
            const updatedLevels = propLevels.map((l: any) => {
@@ -1331,10 +1372,59 @@ export default function SupplierTenantsPage() {
                   <label className="text-xs font-semibold text-gray-300 uppercase">Propriété louée *</label>
                   <select required value={selectedPropertyId} onChange={(e) => setSelectedPropertyId(e.target.value)} className="w-full px-3 py-2 bg-black/30 border border-white/10 rounded-lg text-white text-sm [&>option]:bg-[#0F1D27]">
                     <option value="">Sélectionner une propriété...</option>
-                    {properties.map(p => (
-                      <option key={p.id} value={p.id}>{p.title?.fr || "Propriété sans titre"} — {p.price} $/mois</option>
-                    ))}
+                    {properties.map(p => {
+                      const maxOcc  = Number(p.maxOccupancy  ?? 1);
+                      const currOcc = Number(p.currentOccupancy ?? 0);
+                      const hasLevels = (p.immoDetails?.levels ?? []).length > 0;
+                      const isFull  = !hasLevels && currOcc >= maxOcc;
+                      const statusIcon = isFull ? "[PLEIN]" : currOcc > 0 ? "[PARTIEL]" : "[LIBRE]";
+                      return (
+                        <option key={p.id} value={p.id} disabled={isFull}>
+                          {statusIcon} {p.title?.fr || "Propriété"} — {p.price} $/mois
+                          {!hasLevels ? ` (${currOcc}/${maxOcc} occupants)` : ""}
+                        </option>
+                      );
+                    })}
                   </select>
+
+                  {/* Occupancy warning banner for selected property */}
+                  {selectedProperty && (() => {
+                    const hasLevels = (selectedProperty.immoDetails?.levels ?? []).length > 0;
+                    if (hasLevels) return null;
+                    const maxOcc  = Number(selectedProperty.maxOccupancy  ?? 1);
+                    const currOcc = Number(selectedProperty.currentOccupancy ?? 0);
+                    if (currOcc >= maxOcc) {
+                      return (
+                        <div className="mt-2 p-3 bg-red-500/15 border border-red-500/30 rounded-lg flex items-start gap-2">
+                          <span className="text-red-400 text-lg">⛔</span>
+                          <div>
+                            <p className="text-xs font-bold text-red-300">Bien complet — Ajout impossible</p>
+                            <p className="text-[11px] text-red-200/70 mt-0.5">
+                              {currOcc}/{maxOcc} occupant(s). Déclarez d&apos;abord le départ d&apos;un locataire existant.
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    }
+                    if (currOcc > 0) {
+                      return (
+                        <div className="mt-2 p-2.5 bg-amber-500/10 border border-amber-500/25 rounded-lg flex items-center gap-2">
+                          <span className="text-amber-400">⚠️</span>
+                          <p className="text-[11px] text-amber-200">
+                            <strong>Partiellement occupé</strong> — {currOcc}/{maxOcc} place(s) prise(s). Il reste <strong>{maxOcc - currOcc}</strong> place(s) disponible(s).
+                          </p>
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="mt-2 p-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg flex items-center gap-2">
+                        <span className="text-emerald-400">✅</span>
+                        <p className="text-[11px] text-emerald-200">
+                          Bien disponible — {maxOcc} place(s) libre(s)
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {levels.length > 0 && (
