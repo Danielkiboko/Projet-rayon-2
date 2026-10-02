@@ -145,6 +145,36 @@ async function handleDailyReports(req: Request) {
     console.log(`[DailyReport] 📅 Generating reports for: ${dateFormatted} [${periodStart.toISOString()} → ${periodEnd.toISOString()}]`);
 
     // ─────────────────────────────────────────────────────────────────────────
+    // IDEMPOTENCY CHECK: avoid double-sending if both cron triggers fire today
+    // ─────────────────────────────────────────────────────────────────────────
+    const { searchParams: sp2 } = new URL(req.url);
+    const forceRun = sp2.get("force") === "true";
+    const reportDateKey = `${reportTargetDate.getFullYear()}-${String(reportTargetDate.getMonth() + 1).padStart(2, "0")}-${String(reportTargetDate.getDate()).padStart(2, "0")}`;
+    const runRef = adminDb.collection("cron_runs").doc(`daily-report-${reportDateKey}`);
+
+    if (!forceRun) {
+      const existingRun = await runRef.get();
+      if (existingRun.exists) {
+        const runData = existingRun.data();
+        console.log(`[DailyReport] ℹ️ Report already sent today (${reportDateKey}) at ${runData?.executedAt?.toDate?.()?.toISOString() || "unknown"}. Skipping.`);
+        return NextResponse.json({
+          success: true,
+          skipped: true,
+          reason: "already_sent_today",
+          date: reportDateKey,
+          previousRun: runData?.executedAt?.toDate?.()?.toISOString(),
+        }, { status: 409 });
+      }
+    }
+
+    // Record the run at the start (to prevent concurrent duplicates)
+    await runRef.set({
+      reportDate: reportDateKey,
+      executedAt: FieldValue.serverTimestamp(),
+      triggeredBy: forceRun ? "forced" : "cron",
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────
     // 1. Build suppliers map
     // ─────────────────────────────────────────────────────────────────────────
     const suppliersMap = new Map<string, any>();

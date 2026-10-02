@@ -1,11 +1,18 @@
-name: ⏰ Rapports Quotidiens Automatiques (07h00)
+name: ⏰ Rapports Quotidiens Automatiques (07h00 Kinshasa)
 
 on:
   schedule:
-    # 06:00 UTC = 07:00 Heure de Kinshasa (UTC+1)
+    # Déclenchement principal : 06:00 UTC = 07:00 Kinshasa (UTC+1)
     - cron: '0 6 * * *'
-  # Permet également de déclencher les rapports manuellement d'un clic depuis l'onglet Actions de GitHub
+    # Déclenchement de secours : 07:30 UTC = 08:30 Kinshasa (en cas de délai GitHub)
+    - cron: '30 7 * * *'
+  # Déclenchement manuel depuis l'onglet Actions GitHub
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Forcer même si déjà exécuté (true/false)'
+        required: false
+        default: 'false'
 
 jobs:
   execute-cron:
@@ -17,25 +24,55 @@ jobs:
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          echo "Envoi de la requête du rapport journalier à https://projet-rayon-2.vercel.app/api/cron/daily-reports..."
-          RESPONSE=$(curl -f -s -S -w "\n%{http_code}" --max-time 180 \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            "https://projet-rayon-2.vercel.app/api/cron/daily-reports")
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | head -1)
-          echo "Code HTTP: $HTTP_CODE"
-          echo "Réponse: $BODY"
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Échec du rapport — code $HTTP_CODE"
+          echo "=============================="
+          echo "📅 Heure déclenchement : $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "🔁 Envoi rapport journalier → https://projet-rayon-2.vercel.app/api/cron/daily-reports"
+          echo "=============================="
+
+          MAX_RETRIES=3
+          ATTEMPT=0
+          SUCCESS=false
+
+          while [ $ATTEMPT -lt $MAX_RETRIES ]; do
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "→ Tentative $ATTEMPT/$MAX_RETRIES..."
+
+            RESPONSE=$(curl -s -S -w "\n%{http_code}" --max-time 200 \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              "https://projet-rayon-2.vercel.app/api/cron/daily-reports")
+
+            HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+            BODY=$(echo "$RESPONSE" | head -n -1)
+
+            echo "Code HTTP : $HTTP_CODE"
+            echo "Réponse   : $BODY"
+
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Rapport envoyé avec succès à la tentative $ATTEMPT !"
+              SUCCESS=true
+              break
+            elif [ "$HTTP_CODE" = "409" ]; then
+              echo "ℹ️ Le rapport a déjà été envoyé aujourd'hui (409 - doublon prévenu). OK."
+              SUCCESS=true
+              break
+            else
+              echo "⚠️ Échec — code $HTTP_CODE. Attente 30s avant re-tentative..."
+              sleep 30
+            fi
+          done
+
+          if [ "$SUCCESS" != "true" ]; then
+            echo "❌ Échec du rapport après $MAX_RETRIES tentatives."
             exit 1
           fi
-          echo "✅ Rapport journalier exécuté avec succès !"
 
       - name: 📑 Contrôle des Baux et Loyers Échus
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          echo "Vérification des baux et notifications locataires..."
-          curl -s -S --max-time 120 \
+          echo "📋 Vérification des baux et notifications locataires..."
+          HTTP=$(curl -s -S -o /dev/null -w "%{http_code}" --max-time 120 \
             -H "Authorization: Bearer $CRON_SECRET" \
-            "https://projet-rayon-2.vercel.app/api/cron/check-leases" || echo "Vérification baux terminée avec avertissement."
+            "https://projet-rayon-2.vercel.app/api/cron/check-leases")
+          echo "→ Baux check HTTP: $HTTP"
+          echo "✅ Vérification baux terminée."

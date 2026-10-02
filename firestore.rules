@@ -262,6 +262,11 @@ service cloud.firestore {
       allow write: if isSuperAdmin() || isAdmin();
     }
 
+    // Cron run records (idempotency logs — admin only)
+    match /cron_runs/{runId} {
+      allow read, write: if isSuperAdmin() || isAdmin();
+    }
+
     // Tickets & Support Desk (Clients, Fournisseurs, Admins)
     match /tickets/{ticketId} {
       allow create: if request.auth != null;
