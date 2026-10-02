@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { MessageSquare, Send, User, Lock, Package, Loader2 } from "lucide-react";
+import { MessageSquare, Send, User, Lock, Package, Loader2, Megaphone, CheckCircle2, Calendar, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, addDoc, orderBy, serverTimestamp, doc, updateDoc, getDoc, limit } from "firebase/firestore";
@@ -62,6 +62,61 @@ export default function SupplierMessagesPage() {
   const [currentProductStock, setCurrentProductStock] = useState<number | null>(null);
   const [productBrand, setProductBrand] = useState<string>("");
   const [productPurchasePrice, setProductPurchasePrice] = useState<number>(0);
+
+  // ── Communiqués de la Direction ───────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<"clients" | "communiques">("clients");
+  const [communiques, setCommuniques] = useState<any[]>([]);
+  const [selectedCommuniqueId, setSelectedCommuniqueId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("tab") === "communiques") {
+        setActiveTab("communiques");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user || !activeSupplierId) return;
+
+    const qCommuniques = query(
+      collection(db, "inapp_notifications"),
+      where("supplierId", "==", activeSupplierId),
+      limit(50)
+    );
+
+    const unsub = onSnapshot(qCommuniques, (snapshot) => {
+      const list: any[] = [];
+      snapshot.forEach((docSnap) => {
+        const d = docSnap.data();
+        if (d.sentByAdmin || d.type === "broadcast" || d.type === "system") {
+          list.push({
+            id: docSnap.id,
+            title: d.title || "Communiqué officiel",
+            message: d.message || "",
+            time: d.time || (d.createdAt?.toMillis ? d.createdAt.toMillis() : Date.now()),
+            read: !!d.read,
+            sentBy: d.sentBy || "Direction Rayons.net"
+          });
+        }
+      });
+      list.sort((a, b) => (b.time || 0) - (a.time || 0));
+      setCommuniques(list);
+      setSelectedCommuniqueId(prev => prev || (list.length > 0 ? list[0].id : null));
+    }, (err) => console.warn("Error loading communiqués in messages:", err));
+
+    return () => unsub();
+  }, [user, activeSupplierId]);
+
+  const markCommuniqueAsRead = async (id: string) => {
+    try {
+      await updateDoc(doc(db, "inapp_notifications", id), { read: true });
+      setCommuniques(prev => prev.map(c => c.id === id ? { ...c, read: true } : c));
+    } catch (err) {
+      console.warn("Could not mark communique as read:", err);
+    }
+  };
 
   // Fetch supplier products for stock & pricing
   useEffect(() => {
@@ -388,12 +443,190 @@ export default function SupplierMessagesPage() {
 
   return (
     <div className="h-[calc(100vh-120px)] flex flex-col">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Messages</h1>
-        <p className="text-sm text-gray-400">Communiquez avec vos clients.</p>
+      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Centre de Messagerie</h1>
+          <p className="text-sm text-gray-400">
+            {activeTab === "clients"
+              ? "Communiquez directement avec vos clients et envoyez vos factures proforma."
+              : "Consultez tous les communiqués et annonces officielles diffusés par la Direction."}
+          </p>
+        </div>
+
+        {/* Switcher d'onglets */}
+        <div className="flex items-center gap-2 bg-black/40 border border-white/10 p-1.5 rounded-2xl w-fit">
+          <button
+            type="button"
+            onClick={() => setActiveTab("clients")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              activeTab === "clients"
+                ? "bg-white/15 text-white shadow-md font-bold"
+                : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <MessageSquare size={15} />
+            <span>Messages Clients ({chats.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("communiques")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all relative cursor-pointer ${
+              activeTab === "communiques"
+                ? "bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30 shadow-md font-bold"
+                : "text-gray-400 hover:text-white hover:bg-white/5"
+            }`}
+          >
+            <Megaphone size={15} className="text-[#C7D300]" />
+            <span>Communiqués Direction ({communiques.length})</span>
+            {communiques.some(c => !c.read) && (
+              <span className="w-2 h-2 rounded-full bg-[#C7D300] animate-pulse" />
+            )}
+          </button>
+        </div>
       </div>
 
-      <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col md:flex-row shadow-xl">
+      {activeTab === "communiques" ? (
+        <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col md:flex-row shadow-xl">
+          {/* Liste des communiqués */}
+          <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-white/10 flex flex-col bg-black/20">
+            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+              <h3 className="font-semibold text-white flex items-center gap-2 text-sm">
+                <Megaphone size={16} className="text-[#C7D300]" />
+                <span>Communiqués ({communiques.length})</span>
+              </h3>
+              {communiques.filter(c => !c.read).length > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30">
+                  {communiques.filter(c => !c.read).length} nouveau(x)
+                </span>
+              )}
+            </div>
+
+            <div className="flex-1 overflow-y-auto divide-y divide-white/5">
+              {communiques.length === 0 ? (
+                <div className="p-8 text-center text-gray-500 text-xs">
+                  <Megaphone size={28} className="mx-auto mb-2 opacity-30 text-[#C7D300]" />
+                  <p>Aucun communiqué officiel pour le moment.</p>
+                </div>
+              ) : (
+                communiques.map((c) => {
+                  const isSelected = selectedCommuniqueId === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedCommuniqueId(c.id);
+                        if (!c.read) markCommuniqueAsRead(c.id);
+                      }}
+                      className={`w-full p-4 text-left transition-colors flex items-start gap-3 cursor-pointer ${
+                        isSelected
+                          ? "bg-white/10 border-l-4 border-[#C7D300]"
+                          : "border-l-4 border-transparent hover:bg-white/5"
+                      }`}
+                    >
+                      <div className="w-9 h-9 rounded-xl bg-[#C7D300]/15 text-[#C7D300] flex items-center justify-center shrink-0 mt-0.5">
+                        <Megaphone size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <p className="text-xs font-bold text-white truncate">{c.title}</p>
+                          {!c.read && (
+                            <span className="w-2 h-2 rounded-full bg-[#C7D300] shrink-0 animate-pulse" />
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400 line-clamp-2 mt-1 leading-relaxed">
+                          {c.message}
+                        </p>
+                        <span className="text-[10px] text-gray-500 mt-1 block">
+                          {new Date(c.time).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Panneau de lecture du communiqué */}
+          <div className="flex-1 flex flex-col bg-transparent overflow-y-auto p-6 md:p-8">
+            {(() => {
+              const activeC = communiques.find(c => c.id === selectedCommuniqueId);
+              if (!activeC) {
+                return (
+                  <div className="flex-1 flex flex-col items-center justify-center text-gray-500 p-8">
+                    <Megaphone size={36} className="text-[#C7D300]/40 mb-3" />
+                    <p className="text-sm">Sélectionnez un communiqué pour le lire en détail.</p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-6 max-w-3xl">
+                  {/* Entête communiqué */}
+                  <div className="bg-black/30 border border-white/10 rounded-2xl p-5 space-y-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2.5 py-0.5 rounded-full bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30">
+                          📢 Communiqué Officiel
+                        </span>
+                        <span className="text-xs text-gray-400">Par : {activeC.sentBy || "Direction Rayons.net"}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                        <Calendar size={13} className="text-[#C7D300]" />
+                        <span>
+                          {new Date(activeC.time).toLocaleDateString("fr-FR", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                    </div>
+
+                    <h2 className="text-lg md:text-xl font-bold text-white">
+                      {activeC.title}
+                    </h2>
+                  </div>
+
+                  {/* Corps complet du message */}
+                  <div className="p-6 bg-white/5 border border-white/10 rounded-2xl text-sm md:text-base text-gray-200 leading-relaxed whitespace-pre-line space-y-4">
+                    {activeC.message}
+                  </div>
+
+                  {/* Statut et confirmation */}
+                  <div className="flex items-center justify-between p-4 rounded-2xl bg-black/20 border border-white/10 flex-wrap gap-3">
+                    <div className="flex items-center gap-2 text-xs text-gray-400">
+                      <ShieldCheck size={16} className="text-emerald-400" />
+                      <span>Ce communiqué officiel a également été envoyé sur votre adresse email.</span>
+                    </div>
+
+                    {!activeC.read ? (
+                      <button
+                        type="button"
+                        onClick={() => markCommuniqueAsRead(activeC.id)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold text-xs shadow-md transition-all cursor-pointer"
+                      >
+                        <CheckCircle2 size={15} />
+                        <span>Marquer comme lu</span>
+                      </button>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+                        <CheckCircle2 size={14} />
+                        <span>Lu</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col md:flex-row shadow-xl">
         
         {/* Chats List Sidebar */}
         <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-white/10 flex flex-col bg-black/20">
@@ -859,8 +1092,8 @@ export default function SupplierMessagesPage() {
             </>
           )}
         </div>
-        
       </div>
-    </div>
-  );
+    )}
+  </div>
+);
 }

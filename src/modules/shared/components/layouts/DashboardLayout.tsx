@@ -5,8 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
-import { LogOut, Menu, X, Bell, UserCircle, Search, ShieldAlert, Lock, ArrowRight } from "lucide-react";
+import { LogOut, Menu, X, Bell, UserCircle, Search, ShieldAlert, Lock, ArrowRight, Megaphone } from "lucide-react";
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
+import AnnouncementReaderModal from "@/modules/shared/components/notifications/AnnouncementReaderModal";
 
 type MenuItem = {
   title: string;
@@ -81,11 +82,15 @@ export function DashboardLayout({
   const { user, signOut } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>(passedNotifications || []);
-
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<any | null>(null);
   const [lockedModalItem, setLockedModalItem] = useState<MenuItem | null>(null);
 
+  // Utiliser directement les notifications transmises par le parent (pour rester réactif en temps réel)
+  const notifications = passedNotifications || [];
   const unreadCount = passedUnreadCount !== undefined ? passedUnreadCount : notifications.filter(n => !n.read).length;
+  const unreadAnnouncement = notifications.find(
+    (n: any) => (n.type === "broadcast" || n.type === "system" || n.sentByAdmin) && !n.read
+  );
 
   const userName = passedUserName || user?.displayName || user?.email || "Fournisseur";
   const userRole = passedUserRole || roleBadgeTitle;
@@ -279,24 +284,59 @@ export function DashboardLayout({
                           Aucune notification.
                         </div>
                       ) : (
-                        notifications.map((notif) => (
-                          <Link 
-                            key={notif.id} 
-                            href={notif.link || "#"}
-                            onClick={() => setIsNotifOpen(false)}
-                            className="block p-4 border-b border-white/5 hover:bg-white/5 transition-colors"
-                          >
-                            <div className="flex items-start">
-                              <div className={`w-8 h-8 rounded bg-blue-500/20 ${themeColors.accentText} flex items-center justify-center mr-3 shrink-0`}>
-                                <ShieldAlert size={16} />
+                        notifications.map((notif: any) => {
+                          const isAnnouncement = notif.type === "broadcast" || notif.type === "system" || notif.sentByAdmin;
+                          if (isAnnouncement) {
+                            return (
+                              <button
+                                key={notif.id}
+                                type="button"
+                                onClick={() => {
+                                  setIsNotifOpen(false);
+                                  setSelectedAnnouncement(notif);
+                                }}
+                                className={`w-full text-left p-3.5 border-b border-white/5 transition-colors flex items-start gap-3 cursor-pointer ${
+                                  notif.read ? "hover:bg-white/5 opacity-80" : "bg-[#C7D300]/10 hover:bg-[#C7D300]/15 border-l-2 border-l-[#C7D300]"
+                                }`}
+                              >
+                                <div className="w-8 h-8 rounded-lg bg-[#C7D300]/15 text-[#C7D300] flex items-center justify-center shrink-0">
+                                  <Megaphone size={16} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <h4 className="text-xs font-bold text-white truncate">{notif.title}</h4>
+                                    {!notif.read && (
+                                      <span className="w-2 h-2 rounded-full bg-[#C7D300] shrink-0 animate-pulse" />
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-gray-400 line-clamp-2 mt-0.5">{notif.message}</p>
+                                  <span className="text-[10px] text-gray-500 mt-1 block">
+                                    {new Date(notif.time || Date.now()).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          }
+
+                          return (
+                            <Link 
+                              key={notif.id} 
+                              href={notif.link || "#"}
+                              onClick={() => setIsNotifOpen(false)}
+                              className="block p-4 border-b border-white/5 hover:bg-white/5 transition-colors"
+                            >
+                              <div className="flex items-start">
+                                <div className={`w-8 h-8 rounded bg-blue-500/20 ${themeColors.accentText} flex items-center justify-center mr-3 shrink-0`}>
+                                  <ShieldAlert size={16} />
+                                </div>
+                                <div>
+                                  <h4 className="text-sm font-medium text-white">{notif.title}</h4>
+                                  <p className="text-xs text-gray-400 mt-1">{notif.message}</p>
+                                </div>
                               </div>
-                              <div>
-                                <h4 className="text-sm font-medium text-white">{notif.title}</h4>
-                                <p className="text-xs text-gray-400 mt-1">{notif.message}</p>
-                              </div>
-                            </div>
-                          </Link>
-                        ))
+                            </Link>
+                          );
+                        })
                       )}
                     </div>
                   </div>
@@ -327,9 +367,43 @@ export function DashboardLayout({
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="max-w-7xl mx-auto space-y-6">
+            {/* Bannière de communiqué officiel si non lu */}
+            {unreadAnnouncement && (
+              <div className="bg-gradient-to-r from-[#0F1D27] via-[#162a38] to-[#0F1D27] border border-[#C7D300]/40 rounded-2xl p-4 md:p-5 shadow-xl shadow-black/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-start sm:items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-xl bg-[#C7D300]/15 border border-[#C7D300]/30 flex items-center justify-center text-[#C7D300] shrink-0">
+                    <Megaphone size={20} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30">
+                        Communiqué Officiel
+                      </span>
+                      <span className="text-xs text-gray-400">Direction Rayons.net</span>
+                    </div>
+                    <h4 className="text-sm font-bold text-white mt-1">{unreadAnnouncement.title}</h4>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAnnouncement(unreadAnnouncement)}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#C7D300] to-[#b5c000] text-[#0F1D27] text-xs font-bold transition-all shadow-md shadow-[#C7D300]/20 hover:brightness-110 active:scale-95 shrink-0 cursor-pointer"
+                >
+                  Lire le communiqué
+                </button>
+              </div>
+            )}
+
             {children}
           </div>
         </div>
+
+        {/* Modal de lecture du communiqué officiel */}
+        <AnnouncementReaderModal
+          isOpen={!!selectedAnnouncement}
+          announcement={selectedAnnouncement}
+          onClose={() => setSelectedAnnouncement(null)}
+        />
       </main>
     </div>
   );

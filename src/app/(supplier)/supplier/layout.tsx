@@ -86,9 +86,7 @@ export default function SupplierLayout({
         const qNotifs = query(
           collection(db, "inapp_notifications"),
           where("supplierId", "==", activeSupplierId),
-          where("read", "==", false),
-          orderBy("createdAt", "desc"),
-          limit(20)
+          limit(50)
         );
 
         unsubNotifs = onSnapshot(qNotifs, (snapshot) => {
@@ -100,13 +98,16 @@ export default function SupplierLayout({
               type: d.type || "system",
               title: d.title || "Notification",
               message: d.message || "",
-              time: d.time || Date.now(),
-              link: d.link || "#"
+              time: d.time || (d.createdAt?.toMillis ? d.createdAt.toMillis() : Date.now()),
+              link: d.link || "#",
+              read: !!d.read,
+              sentByAdmin: !!d.sentByAdmin,
+              sentBy: d.sentBy || "Direction Rayons.net"
             });
           });
-          items.sort((a, b) => b.time - a.time);
+          items.sort((a, b) => (b.time || 0) - (a.time || 0));
           setNotifications(items);
-          setUnreadCount(items.length);
+          setUnreadCount(items.filter(i => !i.read).length);
         }, (err) => {
           console.warn("Supplier notifications warning:", err.message);
         });

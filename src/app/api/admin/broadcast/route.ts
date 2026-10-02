@@ -40,22 +40,55 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Sujet et message sont requis." }, { status: 400 });
   }
 
-  // 4. Récupération des fournisseurs ciblés
-  const supplierRoles = ["SUPPLIER", "FOURNISSEUR", "SUPPLIER_IMMO", "SUPPLIER_MODE", "SUPPLIER_CONNECT", "SUPPLIER_SAVEURS", "SUB_SUPPLIER"];
-  const snap1 = await adminDb.collection("users").where("role", "in", supplierRoles).get();
-  const supplierRolesLower = supplierRoles.map(r => r.toLowerCase());
-  const snap2 = await adminDb.collection("users").where("role", "in", supplierRolesLower).get();
+  // 4. Récupération des destinataires : TOUTE PERSONNE SAUF LES CLIENTS
+  // (Super Admin, Admins, Sous-admins, Équipe interne, Fournisseurs et Livreurs)
+  const usersSnap = await adminDb.collection("users").get();
+
+  function isClientAccount(data: any): boolean {
+    if (!data) return true;
+    const role = (data.role || "").toUpperCase();
+    const email = (data.email || "").toLowerCase().trim();
+
+    // 1. Super Admin & Administrateurs internes (JAMAIS clients)
+    if (email === SUPER_ADMIN_EMAIL || ADMIN_ROLES.includes(role)) return false;
+    if (role.includes("ADMIN") || role.includes("STAFF") || role.includes("FONCTIONNAIRE") || role.includes("COLLABORAT")) return false;
+
+    // 2. Fournisseurs & Partenaires
+    if (role.includes("SUPPLIER") || role.includes("FOURNISSEUR")) return false;
+    if (data.companyName || data.businessType || (Array.isArray(data.assignedRayons) && data.assignedRayons.length > 0)) return false;
+
+    // 3. Livreurs & Chauffeurs
+    if (role.includes("DRIVER") || role.includes("LIVREUR") || role.includes("CHAUFFEUR")) return false;
+
+    // 4. Clients particuliers (exclus)
+    if (role === "CLIENT" || role === "BUYER" || role === "CUSTOMER" || role === "GUEST") return true;
+
+    // Par défaut, sans rôle staff/partenaire/livreur -> client
+    return true;
+  }
+
+  function isAdminAccount(data: any): boolean {
+    if (!data) return false;
+    const role = (data.role || "").toUpperCase();
+    const email = (data.email || "").toLowerCase().trim();
+    return email === SUPER_ADMIN_EMAIL || ADMIN_ROLES.includes(role) || role.includes("ADMIN");
+  }
 
   const seen = new Set<string>();
-  const targets: { id: string; email: string; name: string }[] = [];
+  const targets: { id: string; email: string; name: string; isAdmin: boolean }[] = [];
 
-  const processDoc = (d: any) => {
+  usersSnap.forEach((d: any) => {
     if (seen.has(d.id)) return;
-    seen.add(d.id);
     const data = d.data();
-    if (!data.email) return;
+    if (!data?.email) return;
 
-    if (targetRayon !== "all") {
+    // Exclusion stricte des clients particuliers
+    if (isClientAccount(data)) return;
+
+    const isAdmin = isAdminAccount(data);
+
+    // Filtrage par rayon si ciblage spécifique (les admins reçoivent toujours pour supervision)
+    if (targetRayon !== "all" && !isAdmin) {
       const role = (data.role || "").toLowerCase();
       const rayon = (data.rayon || "").toLowerCase();
       const rayons: string[] = Array.isArray(data.assignedRayons) ? data.assignedRayons.map((r: string) => r.toLowerCase()) : [];
@@ -64,14 +97,18 @@ export async function POST(req: NextRequest) {
       if (!matches) return;
     }
 
-    targets.push({ id: d.id, email: data.email, name: data.displayName || data.name || "Fournisseur" });
-  };
-
-  snap1.forEach(processDoc);
-  snap2.forEach(processDoc);
+    seen.add(d.id);
+    const defaultName = isAdmin ? "Administrateur" : ((data.role || "").toUpperCase().includes("DRIVER") ? "Livreur" : "Partenaire");
+    targets.push({
+      id: d.id,
+      email: data.email.trim(),
+      name: data.displayName || data.firstName || data.companyName || defaultName,
+      isAdmin,
+    });
+  });
 
   if (targets.length === 0) {
-    return NextResponse.json({ success: false, error: "Aucun fournisseur trouvé pour ce ciblage." }, { status: 404 });
+    return NextResponse.json({ success: false, error: "Aucun destinataire (admin/partenaire) trouvé pour ce ciblage." }, { status: 404 });
   }
 
   // 5. Envoi email + notification in-app
@@ -92,10 +129,10 @@ export async function POST(req: NextRequest) {
         await adminDb.collection("inapp_notifications").add({
           userId: target.id,
           supplierId: target.id,
-          type: "system",
+          type: "broadcast",
           title: subject,
           message: message,
-          link: "/supplier/messages",
+          link: "/supplier/messages?tab=communiques",
           read: false,
           time: Date.now(),
           sentByAdmin: true,
@@ -123,7 +160,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     success: true,
-    message: `Message envoyé à ${results.emailsSent}/${targets.length} fournisseur(s).`,
+    message: `Message envoyé à ${results.emailsSent}/${targets.length} destinataire(s) (Admins & Partenaires).`,
     results,
   });
 }

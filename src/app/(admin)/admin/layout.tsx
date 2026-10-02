@@ -41,6 +41,7 @@ export default function AdminLayout({
     let unsubUsers: any;
     let unsubProps: any;
     let unsubProds: any;
+    let unsubBroadcasts: any;
 
     const setupListeners = async () => {
       try {
@@ -127,6 +128,32 @@ export default function AdminLayout({
           console.warn("Notifications products listener warning (handled):", err.message);
         });
 
+        const qBroadcasts = query(
+          collection(db, "inapp_notifications"),
+          where("userId", "==", user?.uid || ""),
+          limit(30)
+        );
+        unsubBroadcasts = onSnapshot(qBroadcasts, (snapshot) => {
+          const items: any[] = [];
+          snapshot.forEach(doc => {
+            const d = doc.data();
+            items.push({
+              id: doc.id,
+              type: d.type || "system",
+              title: d.title || "Notification",
+              message: d.message || "",
+              time: d.time || (d.createdAt?.toMillis ? d.createdAt.toMillis() : Date.now()),
+              link: d.link || "#",
+              read: !!d.read,
+              sentByAdmin: !!d.sentByAdmin,
+              sentBy: d.sentBy || "Direction Rayons.net"
+            });
+          });
+          updateNotifications("broadcast", items);
+        }, (err) => {
+          console.warn("Notifications broadcasts listener warning:", err.message);
+        });
+
       } catch (err) {
         console.error("Error setting up notifications:", err);
       }
@@ -138,8 +165,9 @@ export default function AdminLayout({
       if (unsubUsers) unsubUsers();
       if (unsubProps) unsubProps();
       if (unsubProds) unsubProds();
+      if (unsubBroadcasts) unsubBroadcasts();
     };
-  }, [hasAccess]);
+  }, [hasAccess, user?.uid]);
 
   if (loading) {
     return <div className="h-screen w-full flex items-center justify-center bg-[#0b061c] text-white">Chargement...</div>;
