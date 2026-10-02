@@ -413,8 +413,8 @@ export default function ImmoDashboard() {
                     
                     {selectedKpiDetail === "gains_prevus" && rawTenants.filter(t => t.status !== "PARTI").map(t => (
                       <tr key={t.id} className="border-b border-white/5 hover:bg-white/[0.02]">
-                        <td className="p-3 text-white font-medium">{t.firstName} {t.lastName}</td>
-                        <td className="p-3 text-gray-300">{t.propertyTitle} - {t.unitTitle || "Entier"}</td>
+                        <td className="p-3 text-white font-medium">{t.name || `${t.firstName || ''} ${t.lastName || ''}`.trim() || "Locataire"}</td>
+                        <td className="p-3 text-gray-300">{(t.propertyName || t.propertyTitle || "Bien")} - {t.unitName || t.unitTitle || "Entier"}</td>
                         <td className="p-3">
                           <span className="inline-flex px-2 py-1 bg-green-500/10 text-green-400 rounded text-xs font-semibold uppercase tracking-wider">Actif</span>
                         </td>
@@ -439,8 +439,8 @@ export default function ImmoDashboard() {
                       const amount = isFormer ? t.debtAmount : t.rentAmount;
                       return (
                         <tr key={t.id} className="border-b border-white/5 hover:bg-white/[0.02]">
-                          <td className="p-3 text-white font-medium">{t.firstName} {t.lastName}</td>
-                          <td className="p-3 text-gray-300">{t.propertyTitle} - {t.unitTitle || "Entier"}</td>
+                          <td className="p-3 text-white font-medium">{t.name || `${t.firstName || ''} ${t.lastName || ''}`.trim() || "Locataire"}</td>
+                          <td className="p-3 text-gray-300">{(t.propertyName || t.propertyTitle || "Bien")} - {t.unitName || t.unitTitle || "Entier"}</td>
                           <td className="p-3">
                             <span className="inline-flex px-2 py-1 bg-red-500/10 text-red-400 rounded text-xs font-semibold uppercase tracking-wider">
                               {isFormer ? "Ancien (Dette)" : "En Retard"}

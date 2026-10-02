@@ -106,19 +106,25 @@ export default function SupplierOrdersPage() {
 
   useEffect(() => {
     if (!user || !activeSupplierId) return;
-    const q = query(
-      collection(db, "orders"),
-      where("supplierId", "==", activeSupplierId),
-      orderBy("createdAt", "desc"),
-      limit(80)
-    );
-    const unsub = onSnapshot(q, (snapshot) => {
-      const fetched: Order[] = [];
+
+    let ordersFromIds: Order[] = [];
+    let ordersFromLegacyId: Order[] = [];
+
+    const updateMerged = () => {
+      const map = new Map<string, Order>();
+      ordersFromIds.forEach(o => map.set(o.id, o));
+      ordersFromLegacyId.forEach(o => map.set(o.id, o));
+
+      const merged = Array.from(map.values()).sort((a, b) => {
+        const tA = a.createdAt?.seconds || (a.createdAt?.toDate ? a.createdAt.toDate().getTime() / 1000 : 0);
+        const tB = b.createdAt?.seconds || (b.createdAt?.toDate ? b.createdAt.toDate().getTime() / 1000 : 0);
+        return tB - tA;
+      });
+
       const newIds = new Set<string>();
       let hasNew = false;
 
-      snapshot.forEach(d => {
-        fetched.push({ id: d.id, ...d.data() } as Order);
+      merged.forEach(d => {
         newIds.add(d.id);
         if (!prevOrderIds.current.has(d.id) && prevOrderIds.current.size > 0) {
           hasNew = true;
@@ -132,11 +138,42 @@ export default function SupplierOrdersPage() {
       }
 
       prevOrderIds.current = newIds;
-      setOrders(fetched);
+      setOrders(merged);
       setLoading(false);
-    }, () => setLoading(false));
+    };
 
-    return () => unsub();
+    // 1. Requête principale : commandes contenant le fournisseur dans supplierIds (multi-boutique)
+    const qIds = query(
+      collection(db, "orders"),
+      where("supplierIds", "array-contains", activeSupplierId),
+      limit(100)
+    );
+    const unsub1 = onSnapshot(qIds, (snapshot) => {
+      ordersFromIds = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Order));
+      updateMerged();
+    }, (err) => {
+      console.warn("Orders multi-supplier query warning:", err.message);
+      setLoading(false);
+    });
+
+    // 2. Requête de secours : commandes directes avec supplierId classique
+    const qLegacy = query(
+      collection(db, "orders"),
+      where("supplierId", "==", activeSupplierId),
+      limit(100)
+    );
+    const unsub2 = onSnapshot(qLegacy, (snapshot) => {
+      ordersFromLegacyId = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Order));
+      updateMerged();
+    }, (err) => {
+      console.warn("Orders legacy supplier query warning:", err.message);
+      setLoading(false);
+    });
+
+    return () => {
+      unsub1();
+      unsub2();
+    };
   }, [user, activeSupplierId, isSaveurs, playAlert]);
 
   const filteredOrders = orders.filter(o => {

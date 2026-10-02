@@ -710,8 +710,8 @@ function buildImmoEmail(p: ImmoEmailParams): string {
           </tr>
           ${p.lateTenantsList.map(t => `
           <tr style="border-bottom:1px solid #fde8d8;">
-            <td style="padding:5px 10px;color:#4a1a00;">${t.firstName || ""} ${t.lastName || ""}</td>
-            <td style="padding:5px 10px;color:#6b2f00;">${t.propertyTitle || "-"}</td>
+            <td style="padding:5px 10px;color:#4a1a00;">${t.name || `${t.firstName || ""} ${t.lastName || ""}`.trim() || "Locataire"}</td>
+            <td style="padding:5px 10px;color:#6b2f00;">${t.propertyName || t.propertyTitle || "-"}</td>
             <td style="padding:5px 10px;text-align:right;font-weight:700;color:#c05621;">${(t.rentAmount || 0).toFixed(2)}$</td>
           </tr>`).join("")}
         </table>` : ""}

@@ -9,7 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { getSupplierType } from "@/lib/permissions";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
-import { ADJUSTMENT_REASONS, recordCashAdjustment, recordSubscriptionDeposit } from "@/lib/accountingLedger";
+import { ADJUSTMENT_REASONS, recordCashAdjustment, recordSubscriptionDeposit, recordRentPayment } from "@/lib/accountingLedger";
 
 interface Transaction {
   id: string;
@@ -207,7 +207,7 @@ export default function SupplierFinancePage() {
         const qTenants = query(
           collection(db, "tenants"),
           where("supplierId", "==", activeSupplierId),
-          limit(50)
+          limit(300)
         );
         unsubTenants = onSnapshot(qTenants, (snapshot) => {
           const t: any[] = [];
@@ -387,23 +387,55 @@ export default function SupplierFinancePage() {
           return;
         }
         const tenant = tenants.find(t => t.id === selectedTenantId);
-        
-        // 1. Ajouter le paiement
+        if (!tenant) {
+          alert("Locataire introuvable");
+          setIsSubmitting(false);
+          return;
+        }
+
+        const clientName = tenant.name || `${tenant.firstName || ''} ${tenant.lastName || ''}`.trim() || "Locataire";
+        const propertyName = tenant.propertyName || tenant.propertyTitle || "Propriété";
+        const unitName = tenant.unitName || tenant.unitTitle || null;
+        const refStr = referenceId || `Loyer ${new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}`;
+
+        // 1. Ajouter le paiement dans la collection 'payments'
         await addDoc(collection(db, "payments"), {
           supplierId: activeSupplierId,
           tenantId: tenant.id,
-          clientName: `${tenant.firstName} ${tenant.lastName}`,
-          propertyId: tenant.propertyId,
-          propertyTitle: tenant.propertyTitle,
+          clientName: clientName,
+          tenantName: clientName,
+          propertyId: tenant.propertyId || null,
+          propertyName: propertyName,
+          propertyTitle: propertyName,
           unitId: tenant.unitId || null,
-          unitTitle: tenant.unitTitle || null,
+          unitTitle: unitName,
+          unitName: unitName,
           amount: Number(amount),
           currency: "USD",
           status: "COMPLETED",
           createdAt: serverTimestamp(),
           createdBy: activeSupplierId,
-          reference: referenceId || `Loyer ${new Date().toLocaleString('fr-FR', { month: 'long', year: 'numeric' })}`
+          reference: refStr,
         });
+
+        // 1b. Écriture comptable dans le grand livre
+        try {
+          await recordRentPayment({
+            supplierId: activeSupplierId!,
+            supplierName: userData?.companyName || userData?.name || "Agence Immobilière",
+            tenantId: tenant.id,
+            tenantName: clientName,
+            propertyId: tenant.propertyId || "",
+            propertyName: propertyName,
+            unitName: unitName || undefined,
+            amount: Number(amount),
+            currency: "USD",
+            reference: refStr,
+            periodicity: tenant.periodicity || "Mensuel",
+          });
+        } catch (ledgerErr) {
+          console.warn("Écriture comptable loyer non enregistrée (non bloquant) :", ledgerErr);
+        }
 
         // 2. Mettre à jour nextPayment du locataire (+1 mois par défaut ou selon périodicité)
         if (tenant.nextPayment) {
@@ -1316,17 +1348,32 @@ export default function SupplierFinancePage() {
                       required
                       value={selectedTenantId}
                       onChange={(e) => {
-                        setSelectedTenantId(e.target.value);
-                        const t = tenants.find(x => x.id === e.target.value);
-                        if (t) setAmount(t.rentAmount || "");
+                        const val = e.target.value;
+                        setSelectedTenantId(val);
+                        const t = tenants.find(x => x.id === val);
+                        if (t && t.rentAmount) setAmount(String(t.rentAmount));
                       }}
                       className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
                     >
                       <option value="">Sélectionnez un locataire...</option>
-                      {tenants.map(t => (
-                        <option key={t.id} value={t.id}>{t.firstName} {t.lastName} - {t.propertyTitle}</option>
-                      ))}
+                      {tenants.map(t => {
+                        const tenantName = t.name || `${t.firstName || ''} ${t.lastName || ''}`.trim() || "Locataire";
+                        const propertyTitle = t.propertyName || t.propertyTitle || "Propriété";
+                        const unitInfo = t.unitName || t.unitTitle ? ` (${t.unitName || t.unitTitle})` : "";
+                        const rentInfo = t.rentAmount ? ` - $${t.rentAmount}` : "";
+                        const statusBadge = t.status === "PARTI" ? " [Parti]" : "";
+                        return (
+                          <option key={t.id} value={t.id}>
+                            {tenantName} — {propertyTitle}{unitInfo}{rentInfo}{statusBadge}
+                          </option>
+                        );
+                      })}
                     </select>
+                    {tenants.length === 0 && (
+                      <p className="text-xs text-amber-400 mt-1">
+                        Aucun locataire enregistré pour le moment.
+                      </p>
+                    )}
                   </div>
                 )}
 
