@@ -18,10 +18,12 @@ import {
   ChevronRight,
   Store,
   Clock,
-  Sparkles
+  Sparkles,
+  Send
 } from "lucide-react";
 import { hasAdminAccess } from "@/lib/permissions";
 import Link from "next/link";
+import AdminBroadcastModal from "@/modules/admin/components/AdminBroadcastModal";
 
 export default function AdminDashboardPage() {
   const { user, userData, loading } = useAuth();
@@ -40,6 +42,7 @@ export default function AdminDashboardPage() {
 
   const [dataLoading, setDataLoading] = useState(true);
   const [isSendingReports, setIsSendingReports] = useState(false);
+  const [isBroadcastOpen, setIsBroadcastOpen] = useState(false);
 
   const handleTriggerDailyReports = async () => {
     if (!confirm("Voulez-vous générer et envoyer les rapports journaliers maintenant (aux fournisseurs et par email à l'admin) ?")) {
@@ -213,13 +216,23 @@ export default function AdminDashboardPage() {
           </p>
         </div>
 
-        <Link
-          href="/admin/suppliers"
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold text-sm shadow-md shadow-[#C7D300]/10 transition-all shrink-0 self-start sm:self-auto hover:scale-[1.02]"
-        >
-          <Store size={16} />
-          <span>Gérer les Partenaires</span>
-        </Link>
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => setIsBroadcastOpen(true)}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 border border-white/20 text-white font-bold text-sm shadow-md transition-all hover:scale-[1.02] active:scale-95"
+          >
+            <Send size={15} className="text-[#C7D300]" />
+            <span>Écrire aux Fournisseurs</span>
+          </button>
+          <Link
+            href="/admin/suppliers"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold text-sm shadow-md shadow-[#C7D300]/10 transition-all hover:scale-[1.02]"
+          >
+            <Store size={16} />
+            <span>Gérer les Partenaires</span>
+          </Link>
+        </div>
       </div>
 
       {/* ── DISPOSITION 2 COLONNES (Gauche 2/3 + Droite 1/3) ── */}
@@ -548,11 +561,26 @@ export default function AdminDashboardPage() {
               <Mail size={14} className={isSendingReports ? "animate-spin" : ""} />
               <span>{isSendingReports ? "Diffusion en cours..." : "Envoyer les Rapports Journaliers (07h00)"}</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => setIsBroadcastOpen(true)}
+              className="w-full mt-2.5 py-2.5 px-4 bg-white/10 hover:bg-white/15 text-white font-bold rounded-xl text-xs transition-all border border-white/15 flex items-center justify-center gap-2 hover:scale-[1.01]"
+            >
+              <Send size={14} className="text-[#C7D300]" />
+              <span>Diffuser un Message aux Partenaires (Email + App)</span>
+            </button>
           </div>
 
         </div>
 
       </div>
+
+      {/* Modal Broadcast aux Fournisseurs */}
+      <AdminBroadcastModal
+        isOpen={isBroadcastOpen}
+        onClose={() => setIsBroadcastOpen(false)}
+      />
 
     </div>
   );
