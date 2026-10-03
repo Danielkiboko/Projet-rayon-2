@@ -145,6 +145,9 @@ export default function AdminLayout({
               time: d.time || (d.createdAt?.toMillis ? d.createdAt.toMillis() : Date.now()),
               link: d.link || "#",
               read: !!d.read,
+              seen: !!d.seen,
+              archived: !!d.archived,
+              persisted: true,
               sentByAdmin: !!d.sentByAdmin,
               sentBy: d.sentBy || "Direction Rayons.net"
             });

@@ -480,7 +480,7 @@ export default function SupplierMessagesPage() {
             <Megaphone size={15} className="text-[#C7D300]" />
             <span>Communiqués Direction ({communiques.length})</span>
             {communiques.some(c => !c.read) && (
-              <span className="w-2 h-2 rounded-full bg-[#C7D300] animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-[#C7D300]" />
             )}
           </button>
         </div>
@@ -532,7 +532,7 @@ export default function SupplierMessagesPage() {
                         <div className="flex items-center justify-between gap-1">
                           <p className="text-xs font-bold text-white truncate">{c.title}</p>
                           {!c.read && (
-                            <span className="w-2 h-2 rounded-full bg-[#C7D300] shrink-0 animate-pulse" />
+                            <span className="w-2 h-2 rounded-full bg-[#C7D300] shrink-0" />
                           )}
                         </div>
                         <p className="text-xs text-gray-400 line-clamp-2 mt-1 leading-relaxed">

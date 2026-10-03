@@ -101,13 +101,16 @@ export default function SupplierLayout({
               time: d.time || (d.createdAt?.toMillis ? d.createdAt.toMillis() : Date.now()),
               link: d.link || "#",
               read: !!d.read,
+              seen: !!d.seen,
+              archived: !!d.archived,
+              persisted: true,
               sentByAdmin: !!d.sentByAdmin,
               sentBy: d.sentBy || "Direction Rayons.net"
             });
           });
           items.sort((a, b) => (b.time || 0) - (a.time || 0));
           setNotifications(items);
-          setUnreadCount(items.filter(i => !i.read).length);
+          setUnreadCount(items.filter(i => !i.read && !i.archived).length);
         }, (err) => {
           console.warn("Supplier notifications warning:", err.message);
         });

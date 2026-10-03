@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, Menu, X, Bell, UserCircle, Search, ShieldAlert, Lock, ArrowRight, Megaphone } from "lucide-react";
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
 import AnnouncementReaderModal from "@/modules/shared/components/notifications/AnnouncementReaderModal";
+import NotificationCenter, { isAnnouncementNotif } from "@/modules/shared/components/notifications/NotificationCenter";
 
 type MenuItem = {
   title: string;
@@ -81,7 +82,6 @@ export function DashboardLayout({
   const pathname = usePathname();
   const { user, signOut } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<any | null>(null);
   const [lockedModalItem, setLockedModalItem] = useState<MenuItem | null>(null);
 
@@ -89,7 +89,7 @@ export function DashboardLayout({
   const notifications = passedNotifications || [];
   const unreadCount = passedUnreadCount !== undefined ? passedUnreadCount : notifications.filter(n => !n.read).length;
   const unreadAnnouncement = notifications.find(
-    (n: any) => (n.type === "broadcast" || n.type === "system" || n.sentByAdmin) && !n.read
+    (n: any) => isAnnouncementNotif(n) && !n.read && !n.archived
   );
 
   const userName = passedUserName || user?.displayName || user?.email || "Fournisseur";
@@ -256,93 +256,12 @@ export function DashboardLayout({
               />
             </div>
             
-            {/* Notification Dropdown */}
-            <div className="relative">
-              <button 
-                onClick={() => setIsNotifOpen(!isNotifOpen)}
-                className="relative p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/5"
-              >
-                <Bell size={20} />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
-                  </span>
-                )}
-              </button>
-              
-              {isNotifOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setIsNotifOpen(false)} />
-                  <div className="absolute right-0 mt-2 w-80 bg-[#1A1A1A] border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
-                    <div className="p-4 border-b border-white/10 bg-[#222]">
-                      <h3 className="text-sm font-semibold text-white">Notifications ({unreadCount})</h3>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <div className="p-4 text-center text-gray-400 text-sm">
-                          Aucune notification.
-                        </div>
-                      ) : (
-                        notifications.map((notif: any) => {
-                          const isAnnouncement = notif.type === "broadcast" || notif.type === "system" || notif.sentByAdmin;
-                          if (isAnnouncement) {
-                            return (
-                              <button
-                                key={notif.id}
-                                type="button"
-                                onClick={() => {
-                                  setIsNotifOpen(false);
-                                  setSelectedAnnouncement(notif);
-                                }}
-                                className={`w-full text-left p-3.5 border-b border-white/5 transition-colors flex items-start gap-3 cursor-pointer ${
-                                  notif.read ? "hover:bg-white/5 opacity-80" : "bg-[#C7D300]/10 hover:bg-[#C7D300]/15 border-l-2 border-l-[#C7D300]"
-                                }`}
-                              >
-                                <div className="w-8 h-8 rounded-lg bg-[#C7D300]/15 text-[#C7D300] flex items-center justify-center shrink-0">
-                                  <Megaphone size={16} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center justify-between gap-1">
-                                    <h4 className="text-xs font-bold text-white truncate">{notif.title}</h4>
-                                    {!notif.read && (
-                                      <span className="w-2 h-2 rounded-full bg-[#C7D300] shrink-0 animate-pulse" />
-                                    )}
-                                  </div>
-                                  <p className="text-xs text-gray-400 line-clamp-2 mt-0.5">{notif.message}</p>
-                                  <span className="text-[10px] text-gray-500 mt-1 block">
-                                    {new Date(notif.time || Date.now()).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                                  </span>
-                                </div>
-                              </button>
-                            );
-                          }
-
-                          return (
-                            <Link 
-                              key={notif.id} 
-                              href={notif.link || "#"}
-                              onClick={() => setIsNotifOpen(false)}
-                              className="block p-4 border-b border-white/5 hover:bg-white/5 transition-colors"
-                            >
-                              <div className="flex items-start">
-                                <div className={`w-8 h-8 rounded bg-blue-500/20 ${themeColors.accentText} flex items-center justify-center mr-3 shrink-0`}>
-                                  <ShieldAlert size={16} />
-                                </div>
-                                <div>
-                                  <h4 className="text-sm font-medium text-white">{notif.title}</h4>
-                                  <p className="text-xs text-gray-400 mt-1">{notif.message}</p>
-                                </div>
-                              </div>
-                            </Link>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+            {/* Notification Center */}
+            <NotificationCenter
+              notifications={notifications as any}
+              accentText={themeColors.accentText}
+              onOpenAnnouncement={(n) => setSelectedAnnouncement(n)}
+            />
 
             <div className="flex items-center space-x-2 pl-4 border-l border-white/10">
               <div className="hidden md:block text-right">
