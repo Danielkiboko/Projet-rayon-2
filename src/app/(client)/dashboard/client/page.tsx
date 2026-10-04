@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { collection, query, where, onSnapshot, orderBy, limit } from "firebase/firestore";
 import { 
   Package, 
@@ -18,7 +18,16 @@ import {
   Clock, 
   ArrowRight,
   ExternalLink,
-  LifeBuoy
+  LifeBuoy,
+  Search,
+  CheckCircle2,
+  Truck,
+  ShieldCheck,
+  UserCheck,
+  Phone,
+  Mail,
+  SlidersHorizontal,
+  Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
@@ -29,24 +38,38 @@ import NotificationBell from "@/modules/shared/components/notifications/Notifica
 import ProfileUpdateModal from "@/modules/supplier/components/ProfileUpdateModal";
 import { useCurrency } from "@/context/CurrencyContext";
 
+// Alibaba Components
+import ClientQuickStats from "@/modules/client/components/ClientQuickStats";
+import ClientBuyerProtectionBanner from "@/modules/client/components/ClientBuyerProtectionBanner";
+import ClientOrderCardAlibaba from "@/modules/client/components/ClientOrderCardAlibaba";
+import ClientProformaSection from "@/modules/client/components/ClientProformaSection";
+
+type ClientDashboardTab = "orders" | "proformas" | "hotels" | "visits" | "messages" | "tickets";
+type OrderStatusFilter = "all" | "pending" | "preparing" | "in_transit" | "delivered" | "cancelled";
+
 export default function ClientDashboard() {
   const { user, userData, signOut } = useAuth();
   const router = useRouter();
   const { formatPrice, currency } = useCurrency();
   
-  const [activeTab, setActiveTab] = useState<"orders" | "visits" | "hotels" | "messages" | "tickets">("orders");
+  const [activeTab, setActiveTab] = useState<ClientDashboardTab>("orders");
+  const [orderFilter, setOrderFilter] = useState<OrderStatusFilter>("all");
+  const [orderSearchQuery, setOrderSearchQuery] = useState("");
+
   const [orders, setOrders] = useState<any[]>([]);
   const [visits, setVisits] = useState<any[]>([]);
   const [hotelBookings, setHotelBookings] = useState<any[]>([]);
+  const [pendingProformasCount, setPendingProformasCount] = useState<number>(0);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState<number>(0);
   const [unreadTicketsCount, setUnreadTicketsCount] = useState<number>(0);
 
+  // Sync tab with URL search params
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
-      const tabParam = params.get("tab");
-      if (tabParam === "tickets" || tabParam === "orders" || tabParam === "visits" || tabParam === "hotels" || tabParam === "messages") {
-        setActiveTab(tabParam as any);
+      const tabParam = params.get("tab") as ClientDashboardTab;
+      if (["orders", "proformas", "hotels", "visits", "messages", "tickets"].includes(tabParam)) {
+        setActiveTab(tabParam);
       }
     }
   }, []);
@@ -62,7 +85,7 @@ export default function ClientDashboard() {
       collection(db, "orders"),
       where("clientId", "==", user.uid),
       orderBy("createdAt", "desc"),
-      limit(30)
+      limit(50)
     );
     const unsubOrders = onSnapshot(qOrders, (snapshot) => {
       const fetchedOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -152,58 +175,186 @@ export default function ClientDashboard() {
     }
   };
 
+  // Filtered Orders logic (Alibaba style status segmentation)
+  const filteredOrders = useMemo(() => {
+    return orders.filter(o => {
+      const s = (o.status || "").toLowerCase();
+      let matchesFilter = true;
+
+      if (orderFilter === "pending") {
+        matchesFilter = ["pending_driver", "confirmed_awaiting_driver", "pending"].includes(s);
+      } else if (orderFilter === "preparing") {
+        matchesFilter = ["driver_assigned", "accepted", "preparing", "in_preparation"].includes(s);
+      } else if (orderFilter === "in_transit") {
+        matchesFilter = ["in_transit", "arrived_awaiting_payment", "ready", "picked_up"].includes(s);
+      } else if (orderFilter === "delivered") {
+        matchesFilter = ["delivered", "completed", "livre"].includes(s);
+      } else if (orderFilter === "cancelled") {
+        matchesFilter = s === "cancelled";
+      }
+
+      if (!matchesFilter) return false;
+
+      if (orderSearchQuery.trim()) {
+        const q = orderSearchQuery.toLowerCase();
+        const idMatch = o.id.toLowerCase().includes(q);
+        const storeMatch = (o.storeName || o.supplierName || "").toLowerCase().includes(q);
+        const itemMatch = o.items?.some((it: any) => 
+          (it.productName || it.title || it.name || "").toLowerCase().includes(q)
+        );
+        return idMatch || storeMatch || itemMatch;
+      }
+
+      return true;
+    });
+  }, [orders, orderFilter, orderSearchQuery]);
+
+  // Order counts per status
+  const orderCounts = useMemo(() => {
+    const counts = {
+      all: orders.length,
+      pending: 0,
+      preparing: 0,
+      in_transit: 0,
+      delivered: 0,
+      cancelled: 0,
+      active: 0
+    };
+
+    orders.forEach(o => {
+      const s = (o.status || "").toLowerCase();
+      if (["pending_driver", "confirmed_awaiting_driver", "pending"].includes(s)) counts.pending++;
+      else if (["driver_assigned", "accepted", "preparing", "in_preparation"].includes(s)) counts.preparing++;
+      else if (["in_transit", "arrived_awaiting_payment", "ready", "picked_up"].includes(s)) counts.in_transit++;
+      else if (["delivered", "completed", "livre"].includes(s)) counts.delivered++;
+      else if (s === "cancelled") counts.cancelled++;
+
+      if (!["delivered", "completed", "livre", "cancelled"].includes(s)) {
+        counts.active++;
+      }
+    });
+
+    return counts;
+  }, [orders]);
+
   if (!user || !userData) {
-    return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-500 font-medium">Chargement de votre espace...</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-500 font-medium">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+          <span>Chargement de votre Espace Acheteur...</span>
+        </div>
+      </div>
+    );
   }
 
-  const clientDisplayName = userData.displayName || userData.name || user.displayName || "Client";
+  const clientDisplayName = userData.displayName || userData.name || user.displayName || "Client VIP";
+  const clientPhone = userData.phone || userData.phoneNumber || user.phoneNumber || "";
+  const clientEmail = userData.email || user.email || "";
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-[#F8FAFC]">
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
         
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 bg-white p-6 rounded-2xl border border-gray-200/80 shadow-xs">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold px-2.5 py-0.5 bg-primary/10 text-primary rounded-full">
-                Espace Client
-              </span>
+        {/* 1. Header VIP Style Alibaba (Buyer Center Profile) */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-gray-200/80 shadow-xs relative overflow-hidden">
+          <div className="flex items-center gap-4">
+            {/* VIP Avatar */}
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-dark text-white font-extrabold text-xl sm:text-2xl flex items-center justify-center shadow-md shadow-primary/20 shrink-0 relative">
+              {clientDisplayName.charAt(0).toUpperCase()}
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center text-[10px] text-white" title="Compte Actif">
+                ✓
+              </div>
             </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mt-1">Bonjour, {clientDisplayName}</h1>
-            <p className="text-sm text-gray-500">Suivez vos commandes, réservations d'hôtels, visites immobilières et discutez en direct.</p>
+
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
+                  {clientDisplayName}
+                </h1>
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 bg-[#C7D300]/20 text-[#0F1D27] rounded-full border border-[#C7D300]/40">
+                  <Sparkles size={11} className="text-amber-600" /> Acheteur VIP Rayons
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 mt-1">
+                {clientEmail && (
+                  <span className="flex items-center gap-1">
+                    <Mail size={12} className="text-gray-400" /> {clientEmail}
+                  </span>
+                )}
+                {clientPhone && (
+                  <span className="flex items-center gap-1 font-medium text-gray-700">
+                    <Phone size={12} className="text-primary" /> {clientPhone}
+                  </span>
+                )}
+                <span className="flex items-center gap-1 text-emerald-600 font-semibold">
+                  <ShieldCheck size={12} /> Identité Vérifiée
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+
+          <div className="flex items-center gap-2.5 sm:self-center">
             <NotificationBell />
             <button 
               onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-red-600 hover:bg-red-50 transition-colors font-medium shadow-2xs text-sm"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-red-600 hover:bg-red-50 transition-colors font-medium shadow-2xs text-xs sm:text-sm cursor-pointer"
             >
-              <LogOut size={16} />
-              Se déconnecter
+              <LogOut size={15} />
+              <span>Déconnexion</span>
             </button>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="flex space-x-2 border-b border-gray-200 mb-8 overflow-x-auto pb-2 scrollbar-none">
+        {/* 2. Quick Metrics (Alibaba Stat Cards) */}
+        <ClientQuickStats 
+          ordersCount={orders.length}
+          activeOrdersCount={orderCounts.active}
+          proformasCount={pendingProformasCount}
+          hotelsCount={hotelBookings.length}
+          visitsCount={visits.length}
+          onSelectTab={(tab) => setActiveTab(tab)}
+        />
+
+        {/* 3. Trade Assurance Protection Banner */}
+        <ClientBuyerProtectionBanner />
+
+        {/* 4. Main Navigation Tabs (Alibaba My Alibaba Bar) */}
+        <div className="flex space-x-2 border-b border-gray-200 mb-6 overflow-x-auto pb-1 scrollbar-none">
           <button
             onClick={() => setActiveTab("orders")}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium whitespace-nowrap transition-colors text-sm ${
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-bold whitespace-nowrap transition-colors text-sm cursor-pointer ${
               activeTab === "orders" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
             }`}
           >
             <Package size={17} /> Mes Achats
             {orders.length > 0 && (
-              <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-700 font-semibold">
+              <span className={`px-2 py-0.5 text-xs rounded-full font-bold ${
+                activeTab === "orders" ? "bg-primary/10 text-primary" : "bg-gray-100 text-gray-600"
+              }`}>
                 {orders.length}
               </span>
             )}
           </button>
 
           <button
+            onClick={() => setActiveTab("proformas")}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-bold whitespace-nowrap transition-colors text-sm cursor-pointer ${
+              activeTab === "proformas" ? "border-amber-500 text-amber-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            }`}
+          >
+            <FileText size={17} /> Devis & Proformas (RFQ)
+            {pendingProformasCount > 0 && (
+              <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500 text-white font-bold animate-pulse">
+                {pendingProformasCount}
+              </span>
+            )}
+          </button>
+
+          <button
             onClick={() => setActiveTab("hotels")}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium whitespace-nowrap transition-colors text-sm ${
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-bold whitespace-nowrap transition-colors text-sm cursor-pointer ${
               activeTab === "hotels" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
             }`}
           >
@@ -217,11 +368,11 @@ export default function ClientDashboard() {
 
           <button
             onClick={() => setActiveTab("visits")}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium whitespace-nowrap transition-colors text-sm ${
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-bold whitespace-nowrap transition-colors text-sm cursor-pointer ${
               activeTab === "visits" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
             }`}
           >
-            <Calendar size={17} /> Mes Visites
+            <Calendar size={17} /> Visites Immo
             {visits.length > 0 && (
               <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-700 font-semibold">
                 {visits.length}
@@ -231,11 +382,11 @@ export default function ClientDashboard() {
 
           <button
             onClick={() => setActiveTab("messages")}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium whitespace-nowrap transition-colors text-sm ${
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-bold whitespace-nowrap transition-colors text-sm cursor-pointer ${
               activeTab === "messages" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
             }`}
           >
-            <MessageSquare size={17} /> Messages
+            <MessageSquare size={17} /> Messagerie Vendeurs
             {unreadMessagesCount > 0 ? (
               <span className="px-2 py-0.5 text-xs rounded-full bg-red-500 text-white font-bold animate-pulse">
                 {unreadMessagesCount}
@@ -245,11 +396,11 @@ export default function ClientDashboard() {
 
           <button
             onClick={() => setActiveTab("tickets")}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium whitespace-nowrap transition-colors text-sm ${
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-bold whitespace-nowrap transition-colors text-sm cursor-pointer ${
               activeTab === "tickets" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
             }`}
           >
-            <LifeBuoy size={17} /> Assistance & Tickets
+            <LifeBuoy size={17} /> Assistance & Réclamations
             {unreadTicketsCount > 0 ? (
               <span className="px-2 py-0.5 text-xs rounded-full bg-purple-600 text-white font-bold animate-pulse">
                 {unreadTicketsCount}
@@ -258,85 +409,110 @@ export default function ClientDashboard() {
           </button>
         </div>
 
-        {/* Tab Content */}
+        {/* 5. Tab Content Sections */}
         <div>
-          {/* 1. ORDERS */}
+          {/* TAB 1: ORDERS (ALIBABA PIPELINE) */}
           {activeTab === "orders" && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-              <div className="bg-white rounded-2xl shadow-xs border border-gray-200 overflow-hidden">
-                {orders.length === 0 ? (
-                  <div className="p-12 text-center text-gray-500">
-                    <Package className="mx-auto text-gray-300 mb-3" size={48} />
-                    <p className="font-semibold text-gray-700">Vous n'avez pas encore passé de commande</p>
-                    <p className="text-xs text-gray-400 mt-1 mb-4">Découvrez nos rayons Mode, Connect et Saveurs pour commander en ligne.</p>
-                    <Link href="/" className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-medium rounded-xl hover:bg-primary-dark transition-colors">
-                      Explorer les rayons <ArrowRight size={14} />
-                    </Link>
-                  </div>
-                ) : (
-                  <ul className="divide-y divide-gray-200">
-                    {orders.map(order => (
-                      <li key={order.id} className="p-6 hover:bg-gray-50/70 transition-colors">
-                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 mb-3">
-                          <div>
-                            <span className="font-bold text-gray-900">Commande #{order.id.slice(-6)}</span>
-                            <div className="text-xs text-gray-400 mt-0.5">
-                              {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : "Date récente"}
-                            </div>
-                          </div>
-                           <span className="text-xs font-semibold px-2.5 py-1 bg-gray-100 text-gray-700 rounded-full w-fit">
-                            {order.status === "CONFIRMED_AWAITING_DRIVER" ? "En attente de livreur" :
-                             order.status === "ACCEPTED" ? "Livreur assigné" :
-                             order.status === "ARRIVED_AWAITING_PAYMENT" ? "Livreur sur place" :
-                             order.status === "COMPLETED" ? "Livré ✓" :
-                             order.status === "CANCELLED" ? "Annulé" :
-                             order.status || "En cours"}
-                           </span>
-                        </div>
-                        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-gray-100">
-                          <div className="text-sm text-gray-500">
-                            Total TTC : <span className="font-bold text-gray-900">{formatPrice(order.totalAmount)}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => generateOrderInvoicePDF(order, null, currency)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
-                              title="Télécharger la facture officielle PDF"
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                              Facture PDF
-                            </button>
-                            <Link
-                              href={`/order/${order.id}/tracking`}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                            >
-                              Suivi de livraison
-                            </Link>
-                          </div>
-                        </div>
-                      </li>
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+              
+              {/* Alibaba Pipeline Filters + Search Bar */}
+              <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-2xs mb-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  {/* Status Pills */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+                    {[
+                      { key: "all", label: "Toutes", count: orderCounts.all },
+                      { key: "pending", label: "En attente", count: orderCounts.pending },
+                      { key: "preparing", label: "En préparation", count: orderCounts.preparing },
+                      { key: "in_transit", label: "En livraison", count: orderCounts.in_transit },
+                      { key: "delivered", label: "Livrées", count: orderCounts.delivered },
+                      { key: "cancelled", label: "Annulées", count: orderCounts.cancelled },
+                    ].map((f) => (
+                      <button
+                        key={f.key}
+                        onClick={() => setOrderFilter(f.key as OrderStatusFilter)}
+                        className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                          orderFilter === f.key
+                            ? "bg-primary text-white shadow-xs"
+                            : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                        }`}
+                      >
+                        <span>{f.label}</span>
+                        {f.count > 0 && (
+                          <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                            orderFilter === f.key ? "bg-white/20 text-white" : "bg-gray-200 text-gray-700"
+                          }`}>
+                            {f.count}
+                          </span>
+                        )}
+                      </button>
                     ))}
-                  </ul>
-                )}
+                  </div>
+
+                  {/* Search Input */}
+                  <div className="relative shrink-0 w-full md:w-64">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Rechercher article, N°..."
+                      value={orderSearchQuery}
+                      onChange={(e) => setOrderSearchQuery(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-gray-50 border border-gray-200 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-gray-900"
+                    />
+                  </div>
+                </div>
               </div>
+
+              {/* Order Cards List */}
+              {filteredOrders.length === 0 ? (
+                <div className="bg-white rounded-2xl shadow-xs border border-gray-200 p-12 text-center text-gray-500">
+                  <Package className="mx-auto text-gray-300 mb-3" size={48} />
+                  <p className="font-bold text-gray-800 text-base">Aucune commande trouvée</p>
+                  <p className="text-xs text-gray-400 mt-1 mb-5">
+                    {orderSearchQuery
+                      ? "Aucun résultat ne correspond à votre recherche."
+                      : "Vous n'avez pas de commande dans cette catégorie pour le moment."}
+                  </p>
+                  <Link 
+                    href="/" 
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-dark transition-colors"
+                  >
+                    Explorer les rayons <ArrowRight size={14} />
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredOrders.map((order) => (
+                    <ClientOrderCardAlibaba key={order.id} order={order} />
+                  ))}
+                </div>
+              )}
             </motion.div>
           )}
 
-          {/* 2. HOTELS & STAYS */}
+          {/* TAB 2: PROFORMAS & RFQ */}
+          {activeTab === "proformas" && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+              <ClientProformaSection 
+                onProformaCountChange={(c) => setPendingProformasCount(c)} 
+              />
+            </motion.div>
+          )}
+
+          {/* TAB 3: HOTELS & STAYS */}
           {activeTab === "hotels" && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
               <div className="bg-white rounded-2xl shadow-xs border border-gray-200 overflow-hidden">
                 {hotelBookings.length === 0 ? (
                   <div className="p-12 text-center text-gray-500">
                     <Hotel className="mx-auto text-gray-300 mb-3" size={48} />
-                    <p className="font-semibold text-gray-700">Aucune réservation d'hôtel pour le moment</p>
+                    <p className="font-bold text-gray-800 text-base">Aucune réservation d'hôtel pour le moment</p>
                     <p className="text-xs text-gray-400 mt-1 mb-4">
                       Réservez des chambres, suites et appart-hôtels d'exception à Kinshasa et en RDC.
                     </p>
                     <Link 
                       href="/rayon/immo" 
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-medium rounded-xl hover:bg-primary-dark transition-colors"
+                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-dark transition-colors"
                     >
                       Découvrir les hôtels <ArrowRight size={14} />
                     </Link>
@@ -352,7 +528,7 @@ export default function ClientDashboard() {
                         { label: "En attente de confirmation", cls: "bg-amber-100 text-amber-800 border-amber-200" };
 
                       return (
-                        <div key={booking.id} className="p-6 hover:bg-gray-50/70 transition-colors">
+                        <div key={booking.id} className="p-5 sm:p-6 hover:bg-gray-50/70 transition-colors">
                           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                             <div>
                               <div className="flex items-center gap-2">
@@ -364,7 +540,7 @@ export default function ClientDashboard() {
                                 Réservé le {booking.createdAt?.toDate ? booking.createdAt.toDate().toLocaleDateString("fr-FR") : "Récemment"}
                               </div>
                             </div>
-                            <span className={`text-xs font-semibold px-3 py-1 rounded-full border w-fit ${statusBadge.cls}`}>
+                            <span className={`text-xs font-bold px-3 py-1 rounded-full border w-fit ${statusBadge.cls}`}>
                               {statusBadge.label}
                             </span>
                           </div>
@@ -443,26 +619,26 @@ export default function ClientDashboard() {
             </motion.div>
           )}
 
-          {/* 3. PROPERTY VISITS */}
+          {/* TAB 4: PROPERTY VISITS */}
           {activeTab === "visits" && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
               <div className="bg-white rounded-2xl shadow-xs border border-gray-200 overflow-hidden">
                 {visits.length === 0 ? (
                   <div className="p-12 text-center text-gray-500">
                     <Calendar className="mx-auto text-gray-300 mb-3" size={48} />
-                    <p className="font-semibold text-gray-700">Vous n'avez aucune demande de visite</p>
+                    <p className="font-bold text-gray-800 text-base">Vous n'avez aucune demande de visite</p>
                     <p className="text-xs text-gray-400 mt-1 mb-4">Consultez nos biens immobiliers à louer ou à acheter à Kinshasa.</p>
-                    <Link href="/rayon/immo" className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-medium rounded-xl hover:bg-primary-dark transition-colors">
+                    <Link href="/rayon/immo" className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-dark transition-colors">
                       Voir les biens <ArrowRight size={14} />
                     </Link>
                   </div>
                 ) : (
                   <ul className="divide-y divide-gray-100">
                     {visits.map(visit => (
-                      <li key={visit.id} className="p-6 hover:bg-gray-50/70 transition-colors">
+                      <li key={visit.id} className="p-5 sm:p-6 hover:bg-gray-50/70 transition-colors">
                         <div className="flex justify-between items-start mb-2">
                           <span className="font-bold text-gray-900">{visit.propertyTitle || "Bien immobilier"}</span>
-                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
                             visit.status === "APPROVED" ? "bg-emerald-100 text-emerald-800" :
                             visit.status === "PENDING" ? "bg-amber-100 text-amber-800" :
                             "bg-gray-100 text-gray-700"
@@ -476,7 +652,7 @@ export default function ClientDashboard() {
                           </span>
                           <Link 
                             href={`/dashboard/client/chats?supplierId=${visit.supplierId}`} 
-                            className="inline-flex items-center gap-1 text-primary hover:text-primary-dark font-semibold text-xs"
+                            className="inline-flex items-center gap-1 text-primary hover:text-primary-dark font-bold text-xs"
                           >
                             <MessageSquare size={13} /> Contacter l'agent
                           </Link>
@@ -489,18 +665,18 @@ export default function ClientDashboard() {
             </motion.div>
           )}
 
-          {/* 4. EMBEDDED MESSAGES */}
+          {/* TAB 5: EMBEDDED MESSAGES */}
           {activeTab === "messages" && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
               <Suspense fallback={<div className="min-h-[500px] bg-white rounded-2xl border border-gray-200 flex items-center justify-center text-gray-400">Chargement de la messagerie...</div>}>
                 <ClientChatsWidget embedded={true} />
               </Suspense>
             </motion.div>
           )}
 
-          {/* 5. TICKETS & SUPPORT */}
+          {/* TAB 6: TICKETS & SUPPORT */}
           {activeTab === "tickets" && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
               <ClientTicketsWidget />
             </motion.div>
           )}

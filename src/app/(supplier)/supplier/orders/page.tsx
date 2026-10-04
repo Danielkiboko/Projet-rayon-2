@@ -283,66 +283,151 @@ export default function SupplierOrdersPage() {
           <p className="text-sm">Chargement des commandes...</p>
         </div>
       ) : viewMode === "table" ? (
-        /* ────────────────── VUE TABLE ────────────────── */
-        <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden shadow-lg">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-gray-300">
-              <thead className="text-xs uppercase bg-black/40 text-gray-400 border-b border-white/5">
-                <tr>
-                  <th className="px-6 py-4">ID Commande</th>
-                  <th className="px-6 py-4">Date</th>
-                  <th className="px-6 py-4">Client</th>
-                  <th className="px-6 py-4">Articles</th>
-                  <th className="px-6 py-4">Montant</th>
-                  <th className="px-6 py-4">Statut</th>
-                  <th className="px-6 py-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredOrders.length === 0 ? (
+        /* ────────────────── VUE TABLE & MOBILE CARDS ────────────────── */
+        <div>
+          {/* Desktop Table (Hidden on mobile) */}
+          <div className="hidden md:block bg-white/5 border border-white/10 rounded-2xl overflow-hidden shadow-lg">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-gray-300">
+                <thead className="text-xs uppercase bg-black/40 text-gray-400 border-b border-white/5">
                   <tr>
-                    <td colSpan={7} className="px-6 py-16 text-center text-gray-500">
-                      <ShoppingBag size={40} className="mx-auto mb-3 opacity-30" />
-                      <p>Aucune commande ne correspond à ces filtres.</p>
-                    </td>
+                    <th className="px-6 py-4">ID Commande</th>
+                    <th className="px-6 py-4">Date</th>
+                    <th className="px-6 py-4">Client</th>
+                    <th className="px-6 py-4">Articles</th>
+                    <th className="px-6 py-4">Montant</th>
+                    <th className="px-6 py-4">Statut</th>
+                    <th className="px-6 py-4 text-right">Action</th>
                   </tr>
-                ) : filteredOrders.map((order, i) => {
-                  const itemsCount = order.items?.reduce((a, it) => a + (it.quantity || 1), 0) || 0;
-                  const d = order.deliveredAt?.toDate?.() || order.createdAt?.toDate?.() || null;
-                  return (
-                    <motion.tr
-                      key={order.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.04 }}
-                      className="border-b border-white/5 hover:bg-white/5 transition-colors"
-                    >
-                      <td className="px-6 py-4 font-bold text-white">#{order.id.substring(0, 8).toUpperCase()}</td>
-                      <td className="px-6 py-4 text-gray-400 text-xs">{d ? d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}</td>
-                      <td className="px-6 py-4">{order.clientPhone || "—"}</td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="font-medium text-gray-200">{itemsCount} article{itemsCount > 1 ? "s" : ""}</span>
-                          {order.items?.slice(0, 2).map((it, idx) => (
-                            <span key={idx} className="text-[11px] text-gray-500 truncate max-w-[180px]">{it.quantity}x {it.productName}</span>
-                          ))}
-                        </div>
+                </thead>
+                <tbody>
+                  {filteredOrders.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-16 text-center text-gray-500">
+                        <ShoppingBag size={40} className="mx-auto mb-3 opacity-30" />
+                        <p>Aucune commande ne correspond à ces filtres.</p>
                       </td>
-                      <td className="px-6 py-4 font-bold text-white">{(order.totalAmount || 0).toLocaleString("fr-FR")} $</td>
-                      <td className="px-6 py-4">{getStatusBadge(order.status)}</td>
-                      <td className="px-6 py-4 text-right">
+                    </tr>
+                  ) : filteredOrders.map((order, i) => {
+                    const itemsCount = order.items?.reduce((a, it) => a + (it.quantity || 1), 0) || 0;
+                    const d = order.deliveredAt?.toDate?.() || order.createdAt?.toDate?.() || null;
+                    return (
+                      <motion.tr
+                        key={order.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.04 }}
+                        className="border-b border-white/5 hover:bg-white/5 transition-colors"
+                      >
+                        <td className="px-6 py-4 font-bold text-white">#{order.id.substring(0, 8).toUpperCase()}</td>
+                        <td className="px-6 py-4 text-gray-400 text-xs">{d ? d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}</td>
+                        <td className="px-6 py-4">{order.clientPhone || "—"}</td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-medium text-gray-200">{itemsCount} article{itemsCount > 1 ? "s" : ""}</span>
+                            {order.items?.slice(0, 2).map((it, idx) => (
+                              <span key={idx} className="text-[11px] text-gray-500 truncate max-w-[180px]">{it.quantity}x {it.productName || it.title || it.name}</span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 font-bold text-white">{(order.totalAmount || 0).toLocaleString("fr-FR")} $</td>
+                        <td className="px-6 py-4">{getStatusBadge(order.status)}</td>
+                        <td className="px-6 py-4 text-right">
+                          <button
+                            onClick={() => generateOrderInvoicePDF(order, userData, "$")}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-all active:scale-95"
+                          >
+                            <Download size={12} />Facture
+                          </button>
+                        </td>
+                      </motion.tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Mobile Cards (Visible only on mobile < md) */}
+          <div className="md:hidden space-y-3">
+            {filteredOrders.length === 0 ? (
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-8 text-center text-gray-400">
+                <ShoppingBag size={36} className="mx-auto mb-2 opacity-30" />
+                <p className="text-sm">Aucune commande trouvée.</p>
+              </div>
+            ) : (
+              filteredOrders.map((order, i) => {
+                const itemsCount = order.items?.reduce((a, it) => a + (it.quantity || 1), 0) || 0;
+                const d = order.deliveredAt?.toDate?.() || order.createdAt?.toDate?.() || null;
+                const canAdvance = !!NEXT_STATUS[(order.status || "").toLowerCase()];
+
+                return (
+                  <motion.div
+                    key={order.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                    className="bg-white/5 border border-white/10 rounded-2xl p-4 shadow-sm space-y-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-mono font-bold text-white text-sm">
+                          #{order.id.substring(0, 8).toUpperCase()}
+                        </span>
+                        <div className="text-[11px] text-gray-400 mt-0.5">
+                          {d ? d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
+                        </div>
+                      </div>
+                      <div>{getStatusBadge(order.status)}</div>
+                    </div>
+
+                    <div className="bg-black/20 rounded-xl p-2.5 text-xs space-y-1.5 border border-white/5">
+                      <div className="text-gray-400 flex justify-between">
+                        <span>Articles ({itemsCount}) :</span>
+                        {order.clientPhone && (
+                          <span className="text-gray-300 font-medium">📞 {order.clientPhone}</span>
+                        )}
+                      </div>
+                      <div className="space-y-0.5">
+                        {order.items?.map((it, idx) => (
+                          <div key={idx} className="text-gray-200 text-[11px] truncate">
+                            • <strong className="text-white">{it.quantity}x</strong> {it.productName || it.title || it.name}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <div>
+                        <span className="text-[10px] uppercase tracking-wider text-gray-400 block">Total</span>
+                        <span className="text-base font-extrabold text-white">
+                          {(order.totalAmount || 0).toLocaleString("fr-FR")} $
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {canAdvance && (
+                          <button
+                            onClick={() => advanceOrder(order)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all active:scale-95"
+                          >
+                            <span>Avancer</span>
+                            <ChevronRight size={12} />
+                          </button>
+                        )}
                         <button
                           onClick={() => generateOrderInvoicePDF(order, userData, "$")}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-all active:scale-95"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#C7D300]/20 hover:bg-[#C7D300]/30 text-[#C7D300] border border-[#C7D300]/30 rounded-xl text-xs font-bold transition-all active:scale-95"
                         >
-                          <Download size={12} />Facture
+                          <Download size={12} />
+                          <span>Facture</span>
                         </button>
-                      </td>
-                    </motion.tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })
+            )}
           </div>
         </div>
       ) : (
