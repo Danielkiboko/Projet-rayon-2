@@ -43,6 +43,7 @@ import ClientQuickStats from "@/modules/client/components/ClientQuickStats";
 import ClientBuyerProtectionBanner from "@/modules/client/components/ClientBuyerProtectionBanner";
 import ClientOrderCardAlibaba from "@/modules/client/components/ClientOrderCardAlibaba";
 import ClientProformaSection from "@/modules/client/components/ClientProformaSection";
+import AlibabaClientBottomNav from "@/modules/client/components/AlibabaClientBottomNav";
 
 type ClientDashboardTab = "orders" | "proformas" | "hotels" | "visits" | "messages" | "tickets";
 type OrderStatusFilter = "all" | "pending" | "preparing" | "in_transit" | "delivered" | "cancelled";
@@ -253,7 +254,7 @@ export default function ClientDashboard() {
   const clientEmail = userData.email || user.email || "";
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]">
+    <div className="min-h-screen bg-[#F8FAFC] pb-24 sm:pb-8">
       <div className="max-w-6xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
         
         {/* 1. Header VIP Style Alibaba (Buyer Center Profile) */}
@@ -665,11 +666,17 @@ export default function ClientDashboard() {
             </motion.div>
           )}
 
-          {/* TAB 5: EMBEDDED MESSAGES */}
+          {/* TAB 5: EMBEDDED MESSAGES (EXACT ALIBABA MESSAGERIE) */}
           {activeTab === "messages" && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
               <Suspense fallback={<div className="min-h-[500px] bg-white rounded-2xl border border-gray-200 flex items-center justify-center text-gray-400">Chargement de la messagerie...</div>}>
-                <ClientChatsWidget embedded={true} />
+                <ClientChatsWidget 
+                  embedded={true} 
+                  ordersCount={orders.length}
+                  notificationsCount={unreadTicketsCount}
+                  proformasCount={pendingProformasCount}
+                  onSelectTab={(tab) => setActiveTab(tab)}
+                />
               </Suspense>
             </motion.div>
           )}
@@ -689,6 +696,13 @@ export default function ClientDashboard() {
         user={user} 
         userData={userData} 
         onSuccess={() => {}} 
+      />
+
+      {/* Alibaba 5-Tab Mobile Navigation Bar */}
+      <AlibabaClientBottomNav 
+        activeTab={activeTab}
+        onSelectTab={(tab) => setActiveTab(tab)}
+        unreadMessagesCount={unreadMessagesCount}
       />
     </div>
   );
