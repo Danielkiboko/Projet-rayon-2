@@ -1,21 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { OptimizedImage } from "@/modules/shared/components/OptimizedImage";
 import { ChevronLeft, ShoppingCart, ShoppingBag, ShieldCheck, Check, Truck, PackageOpen, Minus, Plus, MessageSquare, Star, AlertTriangle, Send } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useChat } from "@/context/ChatContext";
 import { useCart } from "@/context/CartContext";
+import { useCurrency } from "@/context/CurrencyContext";
+import { CurrencySelector } from "@/modules/shared/components/CurrencySelector";
 import { doc, getDoc, collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { evaluateProductVerification, submitProductReview } from "@/lib/productVerification";
 import { DirectBuyModal } from "@/modules/client/components/DirectBuyModal";
-import { useCurrency } from "@/context/CurrencyContext";
-import { CurrencySelector } from "@/modules/shared/components/CurrencySelector";
 
-export default function ProductDetails({ params }: { params: { id: string } }) {
+export default function ProductDetails({ params }: { params: Promise<{ id: string }> }) {
+  const routeParams = useParams();
+  const resolvedParams = use(params);
+  const productId = resolvedParams?.id || (routeParams?.id as string) || "";
+
   const [lang, setLang] = useState<"fr" | "en">("fr");
   const { openChatForProduct } = useChat();
   const { addToCart } = useCart();
@@ -33,8 +37,9 @@ export default function ProductDetails({ params }: { params: { id: string } }) {
   const [reviewFeedback, setReviewFeedback] = useState("");
 
   const fetchProductAndReviews = async () => {
+    if (!productId) return;
     try {
-      const docRef = doc(db, "products", params.id);
+      const docRef = doc(db, "products", productId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         setProductData({ id: docSnap.id, ...docSnap.data() });
@@ -44,7 +49,7 @@ export default function ProductDetails({ params }: { params: { id: string } }) {
 
       // Fetch reviews
       const reviewsSnap = await getDocs(
-        query(collection(db, "products", params.id, "reviews"), orderBy("createdAt", "desc"))
+        query(collection(db, "products", productId, "reviews"), orderBy("createdAt", "desc"))
       );
       const list: any[] = [];
       reviewsSnap.forEach(d => list.push({ id: d.id, ...d.data() }));
@@ -58,7 +63,7 @@ export default function ProductDetails({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     fetchProductAndReviews();
-  }, [params.id]);
+  }, [productId]);
 
   const handleReviewSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +79,7 @@ export default function ProductDetails({ params }: { params: { id: string } }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           targetType: "product",
-          targetId: params.id,
+          targetId: productId,
           clientId: user.uid,
           clientName: user.displayName || user.email?.split("@")[0] || "Client Rayons",
           clientEmail: user.email,
