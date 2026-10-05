@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import { Montserrat, Inter } from "next/font/google";
 import "./globals.css";
-import { GlobalChatbot } from "@/modules/shared/components/GlobalChatbot";
 
 const montserrat = Montserrat({
   variable: "--font-montserrat",
@@ -43,7 +42,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <ChatProvider>
                 <CartProvider>
                   {children}
-                  <GlobalChatbot />
                   <CartDrawer />
                 </CartProvider>
               </ChatProvider>

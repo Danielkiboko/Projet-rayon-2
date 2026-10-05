@@ -132,7 +132,9 @@ export default function ProductDetails({ params }: { params: { id: string } }) {
     openChatForProduct({
       id: productData.id,
       supplierId: productData.supplierId || "admin",
-      name: titleStr
+      name: titleStr,
+      price: productData.price,
+      image: productData.imageUrl || (Array.isArray(productData.images) ? productData.images[0] : "") || ""
     });
   };
 

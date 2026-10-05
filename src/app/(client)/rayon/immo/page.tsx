@@ -550,12 +550,14 @@ function ImmoContent() {
                           openChatForProduct({
                             id: property.id,
                             supplierId: property.supplierId || "admin",
-                            name: property.title?.[lang] || property.title?.fr || property.title,
-                            type: isHotel ? "hotel" : "property"
+                            name: property.title?.[lang] || property.title?.fr || property.title || "Bien Immobilier",
+                            type: isHotel ? "hotel" : "property",
+                            image: property.images?.[0] || property.imageUrl || "",
+                            price: property.price
                           });
                         }}
                         title={isHotel ? "Contacter l'hôtel" : "Discuter directement"}
-                        className="p-1.5 sm:p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors shrink-0"
+                        className="p-1.5 sm:p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors shrink-0 cursor-pointer"
                       >
                         <MessageSquare size={13} />
                       </button>
@@ -585,8 +587,10 @@ function ImmoContent() {
           openChatForProduct({
             id: prop.id,
             supplierId: prop.supplierId || "admin",
-            name: prop.title?.[lang] || prop.title?.fr || prop.title,
-            type: isHotel ? "hotel" : "property"
+            name: prop.title?.[lang] || prop.title?.fr || prop.title || "Bien Immobilier",
+            type: isHotel ? "hotel" : "property",
+            image: prop.images?.[0] || prop.imageUrl || "",
+            price: prop.price
           });
         }}
       />

@@ -60,20 +60,28 @@ export default function NotificationBell({ variant = "light" }: NotificationBell
       return;
     }
 
-    // Query notifications for this user with limit(25) to preserve Firestore quota
-    const q = query(
+    const byUserMap = new Map<string, NotificationItem>();
+    const byClientMap = new Map<string, NotificationItem>();
+
+    const updateCombined = () => {
+      const combined = new Map([...byClientMap, ...byUserMap]);
+      const items = Array.from(combined.values()).sort((a, b) => (b.time || 0) - (a.time || 0));
+      setNotifications(items);
+    };
+
+    // Query 1: by userId
+    const q1 = query(
       collection(db, "inapp_notifications"),
       where("userId", "==", user.uid),
-      limit(25)
+      limit(30)
     );
-
-    const unsubscribe = onSnapshot(
-      q,
+    const unsub1 = onSnapshot(
+      q1,
       (snapshot) => {
-        const items: NotificationItem[] = [];
+        byUserMap.clear();
         snapshot.forEach((docSnap) => {
           const d = docSnap.data();
-          items.push({
+          byUserMap.set(docSnap.id, {
             id: docSnap.id,
             type: d.type || "system",
             title: d.title || "Notification",
@@ -83,17 +91,46 @@ export default function NotificationBell({ variant = "light" }: NotificationBell
             time: d.time || (d.createdAt?.seconds ? d.createdAt.seconds * 1000 : Date.now()),
           });
         });
-
-        // Also query by clientId if different
-        items.sort((a, b) => (b.time || 0) - (a.time || 0));
-        setNotifications(items);
+        updateCombined();
       },
       (error) => {
-        console.warn("Notifications listener error:", error);
+        console.warn("Notifications listener error (userId):", error);
       }
     );
 
-    return () => unsubscribe();
+    // Query 2: by clientId
+    const q2 = query(
+      collection(db, "inapp_notifications"),
+      where("clientId", "==", user.uid),
+      limit(30)
+    );
+    const unsub2 = onSnapshot(
+      q2,
+      (snapshot) => {
+        byClientMap.clear();
+        snapshot.forEach((docSnap) => {
+          const d = docSnap.data();
+          byClientMap.set(docSnap.id, {
+            id: docSnap.id,
+            type: d.type || "system",
+            title: d.title || "Notification",
+            message: d.message || "",
+            link: d.link || "#",
+            read: !!d.read,
+            time: d.time || (d.createdAt?.seconds ? d.createdAt.seconds * 1000 : Date.now()),
+          });
+        });
+        updateCombined();
+      },
+      (error) => {
+        console.warn("Notifications listener error (clientId):", error);
+      }
+    );
+
+    return () => {
+      unsub1();
+      unsub2();
+    };
   }, [user]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -198,7 +235,7 @@ export default function NotificationBell({ variant = "light" }: NotificationBell
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 sm:right-auto sm:left-1/2 sm:-translate-x-1/2 mt-2 w-80 sm:w-96 bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden z-50 text-gray-900"
+            className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200/90 overflow-hidden z-[100] text-gray-900"
           >
             {/* Popover Header */}
             <div className="p-4 border-b border-gray-100 bg-gray-50/80 flex items-center justify-between">

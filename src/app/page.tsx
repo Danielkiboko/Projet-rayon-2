@@ -702,8 +702,14 @@ export default function Home() {
                                 {isImmoSection && item.typeTransaction?.toLowerCase().includes("locat") && <span className="text-[10px] text-gray-400 font-normal"> / mois</span>}
                               </span>
                               <button
-                                onClick={() => openChatForProduct({ id: item.id, supplierId: item.supplierId || "admin", name: itemName })}
-                                className="w-6 h-6 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center hover:bg-[#0F1D27] hover:text-white transition-all active:scale-90"
+                                onClick={() => openChatForProduct({ 
+                                  id: item.id, 
+                                  supplierId: item.supplierId || "admin", 
+                                  name: itemName,
+                                  price: item.price,
+                                  image: item.images?.[0] || item.imageUrl || ""
+                                })}
+                                className="w-6 h-6 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center hover:bg-[#0F1D27] hover:text-white transition-all active:scale-90 cursor-pointer"
                                 title="Poser une question"
                               >
                                 <MessageCircle size={12} />

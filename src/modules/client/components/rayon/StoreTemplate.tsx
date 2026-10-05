@@ -127,7 +127,9 @@ function StoreTemplateContent({ category, heroImage, dummyProducts, dict }: Stor
     openChatForProduct({
       id: product.id,
       supplierId: product.supplierId || "admin",
-      name: product.title[lang] || product.title?.fr || product.title
+      name: product.title?.[lang] || product.title?.fr || product.title || "Produit",
+      price: product.price,
+      image: product.imageUrl || product.images?.[0] || ""
     });
   };
 

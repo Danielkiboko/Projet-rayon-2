@@ -27,7 +27,8 @@ import {
   Phone,
   Mail,
   SlidersHorizontal,
-  Sparkles
+  Sparkles,
+  ShoppingBag
 } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
@@ -262,10 +263,24 @@ export default function ClientDashboard() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-24 sm:pb-8">
-      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
+      <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
         
+        {/* Top Breadcrumb / Marketplace Link */}
+        <div className="flex items-center justify-between mb-3 text-xs">
+          <Link 
+            href="/" 
+            className="inline-flex items-center gap-1.5 text-gray-600 hover:text-[#FF6600] font-bold transition-colors group"
+          >
+            <ArrowRight size={14} className="rotate-180 text-gray-400 group-hover:text-[#FF6600] transition-colors" />
+            <span>Retourner aux Rayons / Explorer les Produits</span>
+          </Link>
+          <span className="text-[11px] font-semibold text-gray-400 hidden sm:inline">
+            Espace Acheteur Certifié
+          </span>
+        </div>
+
         {/* 1. Header VIP Style Alibaba (Buyer Center Profile) */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-gray-200/80 shadow-xs relative overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-gray-200/80 shadow-xs relative">
           <div className="flex items-center gap-4">
             {/* VIP Avatar */}
             <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-dark text-white font-extrabold text-xl sm:text-2xl flex items-center justify-center shadow-md shadow-primary/20 shrink-0 relative">
@@ -303,14 +318,26 @@ export default function ClientDashboard() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5 sm:self-center">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:self-center">
+            {/* Bouton pour aller sur les rayons et consulter les produits */}
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 bg-[#FF6600] hover:bg-[#e65c00] text-white font-extrabold rounded-xl shadow-xs hover:shadow-md transition-all text-xs sm:text-sm cursor-pointer group shrink-0"
+              title="Consulter les rayons et les produits"
+            >
+              <ShoppingBag size={16} className="group-hover:scale-110 transition-transform" />
+              <span>Consulter les Rayons</span>
+            </Link>
+
             <NotificationBell />
+
             <button 
               onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-white border border-gray-200 rounded-xl text-red-600 hover:bg-red-50 transition-colors font-medium shadow-2xs text-xs sm:text-sm cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-xl text-red-600 hover:bg-red-50 transition-colors font-medium shadow-2xs text-xs sm:text-sm cursor-pointer shrink-0"
+              title="Se déconnecter"
             >
               <LogOut size={15} />
-              <span>Déconnexion</span>
+              <span className="hidden sm:inline">Déconnexion</span>
             </button>
           </div>
         </div>

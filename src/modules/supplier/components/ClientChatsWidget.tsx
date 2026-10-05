@@ -30,7 +30,8 @@ import {
   Archive,
   Store,
   Check,
-  X
+  X,
+  ExternalLink
 } from "lucide-react";
 import Link from "next/link";
 import { ChatBox } from "@/modules/client/components/ChatBox";
@@ -75,6 +76,10 @@ export function ClientChatsWidget({
   
   const paramSupplierId = searchParams.get("supplierId");
   const paramChatId = searchParams.get("chatId");
+  const paramProductId = searchParams.get("productId");
+  const paramProductName = searchParams.get("productName");
+  const paramProductImage = searchParams.get("productImage");
+  const paramProductPrice = searchParams.get("productPrice");
 
   const [chats, setChats] = useState<any[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -121,7 +126,7 @@ export function ClientChatsWidget({
     return () => unsubscribe();
   }, [user, router]);
 
-  // 2. Handle searchParams (supplierId or chatId) & auto-selection
+  // 2. Handle searchParams (supplierId, chatId, productId) & auto-selection
   useEffect(() => {
     if (!user || isLoading) return;
 
@@ -137,6 +142,16 @@ export function ClientChatsWidget({
         const existing = chats.find(c => c.supplierId === paramSupplierId);
         if (existing) {
           setActiveChatId(existing.id);
+          // If product context was provided, link it to the conversation
+          if (paramProductName || paramProductImage) {
+            updateDoc(doc(db, "chats", existing.id), {
+              productName: paramProductName || existing.productName,
+              productId: paramProductId || existing.productId || null,
+              productImage: paramProductImage || existing.productImage || null,
+              productPrice: paramProductPrice || existing.productPrice || null,
+              updatedAt: serverTimestamp(),
+            }).catch(() => {});
+          }
         } else {
           // Initialize a new chat with this supplier
           try {
@@ -147,10 +162,16 @@ export function ClientChatsWidget({
             const newChatId = `${user.uid}_${paramSupplierId}`;
             await setDoc(doc(db, "chats", newChatId), {
               clientId: user.uid,
+              clientName: user.displayName || user.email || "Client VIP",
               supplierId: paramSupplierId,
-              productName: supplierName,
-              propertyTitle: supplierName,
+              supplierName: supplierName,
+              productName: paramProductName || supplierName,
+              productId: paramProductId || null,
+              productImage: paramProductImage || null,
+              productPrice: paramProductPrice || null,
+              propertyTitle: paramProductName || supplierName,
               updatedAt: serverTimestamp(),
+              createdAt: serverTimestamp(),
             }, { merge: true });
 
             setActiveChatId(newChatId);
@@ -168,7 +189,7 @@ export function ClientChatsWidget({
     };
 
     resolveChat();
-  }, [paramChatId, paramSupplierId, chats, isLoading, user, activeChatId]);
+  }, [paramChatId, paramSupplierId, paramProductId, paramProductName, paramProductImage, paramProductPrice, chats, isLoading, user, activeChatId]);
 
   // Mark all discussions as read (Sweep icon like Alibaba)
   const handleMarkAllAsRead = async () => {
@@ -546,32 +567,76 @@ export function ClientChatsWidget({
       <div className={`flex-1 flex flex-col bg-white ${!activeChatId ? 'hidden md:flex' : 'flex'}`}>
         {activeChatId ? (
           <div className="h-full flex flex-col flex-1 min-h-0">
-            {/* Mobile back bar */}
+            {/* Conversation Header with back button & product context */}
             <div className="p-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/70">
               <button 
                 onClick={() => setActiveChatId(null)}
-                className="flex items-center gap-1 text-xs font-bold text-[#FF6600] hover:text-[#e05a00] cursor-pointer"
+                className="flex items-center gap-1 text-xs font-bold text-[#FF6600] hover:text-[#e05a00] cursor-pointer md:hidden"
               >
                 <ChevronLeft size={18} />
-                <span>Retour Messagerie</span>
+                <span>Retour</span>
               </button>
 
-              <div className="text-center truncate px-2">
-                <div className="text-xs font-bold text-gray-900 truncate">{activeChatName}</div>
-                <div className="text-[10px] text-emerald-600 font-semibold flex items-center justify-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> En ligne
+              <div className="text-center md:text-left truncate px-2 flex-1">
+                <div className="text-xs sm:text-sm font-bold text-gray-900 truncate">{activeChatName}</div>
+                <div className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block" /> En ligne • Vendeur Vérifié Rayons
                 </div>
               </div>
 
-              {embedded ? (
-                <Link 
-                  href={`/dashboard/client/chats?chatId=${activeChatId}`} 
-                  className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:text-[#FF6600] hover:border-[#FF6600]/40 transition-colors shadow-2xs"
+                  title="Continuer mes achats sur Rayons"
                 >
-                  <Maximize2 size={13} />
+                  <span>Rayons</span>
+                  <ExternalLink size={12} />
                 </Link>
-              ) : <div className="w-6" />}
+                {embedded && (
+                  <Link 
+                    href={`/dashboard/client/chats?chatId=${activeChatId}`} 
+                    className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                  >
+                    <Maximize2 size={13} />
+                  </Link>
+                )}
+              </div>
             </div>
+
+            {/* Product inquiry banner if the chat has a product */}
+            {(activeChat?.productName || activeChat?.productId) && (
+              <div className="px-4 py-2.5 bg-amber-50/70 border-b border-amber-200/60 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {activeChat.productImage && (
+                    <img 
+                      src={activeChat.productImage} 
+                      alt="" 
+                      className="w-9 h-9 rounded-lg object-cover border border-amber-200 shrink-0 bg-white" 
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider">Demande produit :</span>
+                    <p className="font-bold text-gray-900 truncate text-xs">{activeChat.productName}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {activeChat.productPrice && (
+                    <span className="font-black text-gray-900 text-xs">
+                      ${activeChat.productPrice}
+                    </span>
+                  )}
+                  {activeChat.productId && (
+                    <Link
+                      href={`/product/${activeChat.productId}`}
+                      className="text-[11px] font-bold text-[#FF6600] hover:underline"
+                    >
+                      Voir l'article
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
             
             {/* Embedded ChatBox */}
             <div className="flex-1 flex flex-col min-h-0">
