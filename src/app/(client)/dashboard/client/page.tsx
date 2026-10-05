@@ -329,17 +329,20 @@ export default function ClientDashboard() {
         <ClientBuyerProtectionBanner />
 
         {/* 4. Main Navigation Tabs (Alibaba My Alibaba Bar) */}
-        <div className="flex space-x-2 border-b border-gray-200 mb-6 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex space-x-1 sm:space-x-2 border-b border-gray-200 mb-6 overflow-x-auto pb-0.5 scrollbar-none">
           <button
             onClick={() => setActiveTab("orders")}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-bold whitespace-nowrap transition-colors text-sm cursor-pointer ${
-              activeTab === "orders" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-3 border-b-2 whitespace-nowrap transition-all text-xs sm:text-sm cursor-pointer ${
+              activeTab === "orders" 
+                ? "border-[#FF6600] text-gray-900 font-extrabold" 
+                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300 font-medium"
             }`}
           >
-            <Package size={17} /> Mes Achats
+            <Package size={17} className={activeTab === "orders" ? "text-[#FF6600]" : "text-gray-400"} /> 
+            <span>Mes Achats</span>
             {orders.length > 0 && (
               <span className={`px-2 py-0.5 text-xs rounded-full font-bold ${
-                activeTab === "orders" ? "bg-primary/10 text-primary" : "bg-gray-100 text-gray-600"
+                activeTab === "orders" ? "bg-[#FF6600]/10 text-[#FF6600]" : "bg-gray-100 text-gray-600"
               }`}>
                 {orders.length}
               </span>
@@ -348,11 +351,14 @@ export default function ClientDashboard() {
 
           <button
             onClick={() => setActiveTab("proformas")}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-bold whitespace-nowrap transition-colors text-sm cursor-pointer ${
-              activeTab === "proformas" ? "border-amber-500 text-amber-600" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-3 border-b-2 whitespace-nowrap transition-all text-xs sm:text-sm cursor-pointer ${
+              activeTab === "proformas" 
+                ? "border-amber-500 text-gray-900 font-extrabold" 
+                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300 font-medium"
             }`}
           >
-            <FileText size={17} /> Devis & Proformas (RFQ)
+            <FileText size={17} className={activeTab === "proformas" ? "text-amber-500" : "text-gray-400"} /> 
+            <span>Devis & Proformas (RFQ)</span>
             {pendingProformasCount > 0 && (
               <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500 text-white font-bold animate-pulse">
                 {pendingProformasCount}
@@ -362,11 +368,14 @@ export default function ClientDashboard() {
 
           <button
             onClick={() => setActiveTab("hotels")}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-bold whitespace-nowrap transition-colors text-sm cursor-pointer ${
-              activeTab === "hotels" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-3 border-b-2 whitespace-nowrap transition-all text-xs sm:text-sm cursor-pointer ${
+              activeTab === "hotels" 
+                ? "border-blue-600 text-gray-900 font-extrabold" 
+                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300 font-medium"
             }`}
           >
-            <Hotel size={17} /> Hôtels & Séjours
+            <Hotel size={17} className={activeTab === "hotels" ? "text-blue-600" : "text-gray-400"} /> 
+            <span>Hôtels & Séjours</span>
             {hotelBookings.length > 0 && (
               <span className="px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-700 font-semibold">
                 {hotelBookings.length}
@@ -376,13 +385,16 @@ export default function ClientDashboard() {
 
           <button
             onClick={() => setActiveTab("visits")}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-bold whitespace-nowrap transition-colors text-sm cursor-pointer ${
-              activeTab === "visits" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-3 border-b-2 whitespace-nowrap transition-all text-xs sm:text-sm cursor-pointer ${
+              activeTab === "visits" 
+                ? "border-emerald-600 text-gray-900 font-extrabold" 
+                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300 font-medium"
             }`}
           >
-            <Calendar size={17} /> Visites Immo
+            <Calendar size={17} className={activeTab === "visits" ? "text-emerald-600" : "text-gray-400"} /> 
+            <span>Visites Immo</span>
             {visits.length > 0 && (
-              <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-700 font-semibold">
+              <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-100 text-emerald-800 font-semibold">
                 {visits.length}
               </span>
             )}
@@ -390,11 +402,14 @@ export default function ClientDashboard() {
 
           <button
             onClick={() => setActiveTab("messages")}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-bold whitespace-nowrap transition-colors text-sm cursor-pointer ${
-              activeTab === "messages" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-3 border-b-2 whitespace-nowrap transition-all text-xs sm:text-sm cursor-pointer ${
+              activeTab === "messages" 
+                ? "border-[#FF6600] text-gray-900 font-extrabold" 
+                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300 font-medium"
             }`}
           >
-            <MessageSquare size={17} /> Messagerie Vendeurs
+            <MessageSquare size={17} className={activeTab === "messages" ? "text-[#FF6600]" : "text-gray-400"} /> 
+            <span>Messagerie Vendeurs</span>
             {unreadMessagesCount > 0 ? (
               <span className="px-2 py-0.5 text-xs rounded-full bg-red-500 text-white font-bold animate-pulse">
                 {unreadMessagesCount}
@@ -404,11 +419,14 @@ export default function ClientDashboard() {
 
           <button
             onClick={() => setActiveTab("tickets")}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 font-bold whitespace-nowrap transition-colors text-sm cursor-pointer ${
-              activeTab === "tickets" ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-3 border-b-2 whitespace-nowrap transition-all text-xs sm:text-sm cursor-pointer ${
+              activeTab === "tickets" 
+                ? "border-purple-600 text-gray-900 font-extrabold" 
+                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300 font-medium"
             }`}
           >
-            <LifeBuoy size={17} /> Assistance & Réclamations
+            <LifeBuoy size={17} className={activeTab === "tickets" ? "text-purple-600" : "text-gray-400"} /> 
+            <span>Assistance & Réclamations</span>
             {unreadTicketsCount > 0 ? (
               <span className="px-2 py-0.5 text-xs rounded-full bg-purple-600 text-white font-bold animate-pulse">
                 {unreadTicketsCount}
@@ -441,7 +459,7 @@ export default function ClientDashboard() {
                         onClick={() => setOrderFilter(f.key as OrderStatusFilter)}
                         className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
                           orderFilter === f.key
-                            ? "bg-primary text-white shadow-xs"
+                            ? "bg-gray-900 text-white shadow-xs"
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                         }`}
                       >

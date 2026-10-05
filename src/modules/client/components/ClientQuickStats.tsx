@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Package, FileText, Hotel, ShieldCheck, Clock, CheckCircle2 } from "lucide-react";
+import { Package, FileText, Hotel, ShieldCheck } from "lucide-react";
 
 interface ClientQuickStatsProps {
   ordersCount: number;
@@ -27,7 +27,9 @@ export default function ClientQuickStats({
       value: activeOrdersCount,
       subtext: `${ordersCount} commande${ordersCount > 1 ? "s" : ""} au total`,
       icon: Package,
-      color: "from-blue-600/20 to-blue-500/10 text-blue-400 border-blue-500/20",
+      iconBg: "bg-blue-50 text-blue-600 border border-blue-200/60",
+      cardBorder: "hover:border-blue-300",
+      badgeCls: activeOrdersCount > 0 ? "bg-blue-50 text-blue-700 border-blue-200" : "bg-gray-100 text-gray-600 border-gray-200",
       activeBadge: activeOrdersCount > 0 ? `${activeOrdersCount} active(s)` : "À jour",
       tab: "orders" as const,
     },
@@ -37,7 +39,9 @@ export default function ClientQuickStats({
       value: proformasCount,
       subtext: proformasCount > 0 ? "Prêts à être réglés" : "Aucun devis en attente",
       icon: FileText,
-      color: "from-amber-600/20 to-amber-500/10 text-amber-400 border-amber-500/20",
+      iconBg: "bg-amber-50 text-amber-600 border border-amber-200/60",
+      cardBorder: "hover:border-amber-300",
+      badgeCls: proformasCount > 0 ? "bg-amber-100 text-amber-800 border-amber-300 animate-pulse" : "bg-gray-100 text-gray-600 border-gray-200",
       activeBadge: proformasCount > 0 ? "Action requise" : "0 en attente",
       tab: "proformas" as const,
     },
@@ -47,7 +51,9 @@ export default function ClientQuickStats({
       value: hotelsCount + visitsCount,
       subtext: `${hotelsCount} hôtel(s) • ${visitsCount} visite(s)`,
       icon: Hotel,
-      color: "from-emerald-600/20 to-emerald-500/10 text-emerald-400 border-emerald-500/20",
+      iconBg: "bg-emerald-50 text-emerald-600 border border-emerald-200/60",
+      cardBorder: "hover:border-emerald-300",
+      badgeCls: hotelsCount + visitsCount > 0 ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-gray-100 text-gray-600 border-gray-200",
       activeBadge: hotelsCount + visitsCount > 0 ? "Confirmé" : "Planifier",
       tab: "hotels" as const,
     },
@@ -57,43 +63,47 @@ export default function ClientQuickStats({
       value: "100%",
       subtext: "Paiements & Livraisons protégés",
       icon: ShieldCheck,
-      color: "from-[#C7D300]/20 to-[#C7D300]/5 text-[#C7D300] border-[#C7D300]/30",
+      iconBg: "bg-orange-50 text-[#FF6600] border border-orange-200/60",
+      cardBorder: "hover:border-orange-300",
+      badgeCls: "bg-orange-50 text-[#FF6600] border border-orange-200",
       activeBadge: "Garantie VIP",
       tab: "orders" as const,
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
       {stats.map((stat, i) => {
         const Icon = stat.icon;
         return (
           <motion.button
             key={stat.id}
             type="button"
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
+            transition={{ delay: i * 0.04 }}
             onClick={() => onSelectTab(stat.tab)}
-            className={`p-4 rounded-2xl bg-gradient-to-br ${stat.color} border text-left transition-all hover:scale-[1.02] active:scale-98 shadow-sm flex flex-col justify-between group cursor-pointer relative overflow-hidden`}
+            className={`p-4 sm:p-5 rounded-2xl bg-white border border-gray-200/90 text-left transition-all hover:shadow-md hover:scale-[1.01] active:scale-99 flex flex-col justify-between group cursor-pointer relative shadow-xs ${stat.cardBorder}`}
           >
+            {/* Top row: Icon + Status Badge */}
             <div className="flex items-center justify-between w-full mb-3">
-              <div className="w-10 h-10 rounded-xl bg-black/30 backdrop-blur-sm border border-white/10 flex items-center justify-center shrink-0">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${stat.iconBg}`}>
                 <Icon size={20} />
               </div>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-black/40 border border-white/10 text-gray-300">
+              <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${stat.badgeCls}`}>
                 {stat.activeBadge}
               </span>
             </div>
 
+            {/* Bottom: Big bold high-contrast numbers and titles */}
             <div>
-              <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mb-0.5">
+              <div className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight mb-1">
                 {stat.value}
               </div>
-              <div className="text-xs font-semibold text-gray-200 group-hover:text-white transition-colors truncate">
+              <div className="text-xs sm:text-sm font-bold text-gray-800 group-hover:text-primary transition-colors truncate">
                 {stat.title}
               </div>
-              <div className="text-[11px] text-gray-400 truncate mt-0.5">
+              <div className="text-[11px] text-gray-500 truncate mt-0.5">
                 {stat.subtext}
               </div>
             </div>

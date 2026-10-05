@@ -8,7 +8,7 @@ export default function ClientBuyerProtectionBanner() {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mb-8 rounded-2xl bg-gradient-to-r from-[#0F1D27] via-[#162A38] to-[#0F1D27] border border-[#C7D300]/30 p-5 sm:p-6 text-white shadow-xl relative overflow-hidden"
+      className="mb-5 rounded-2xl bg-gradient-to-r from-[#0F1D27] via-[#162A38] to-[#0F1D27] border border-[#C7D300]/30 p-4 sm:p-5 text-white shadow-lg relative overflow-hidden"
     >
       {/* Decorative background glow */}
       <div className="absolute -top-12 -right-12 w-48 h-48 bg-[#C7D300]/10 rounded-full blur-3xl pointer-events-none" />
