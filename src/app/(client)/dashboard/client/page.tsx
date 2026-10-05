@@ -265,8 +265,8 @@ export default function ClientDashboard() {
     <div className="min-h-screen bg-[#F8FAFC] pb-24 sm:pb-8">
       <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
         
-        {/* Top Breadcrumb / Marketplace Link */}
-        <div className="flex items-center justify-between mb-3 text-xs">
+        {/* Top Breadcrumb / Marketplace Link (Desktop only) */}
+        <div className="hidden md:flex items-center justify-between mb-3 text-xs">
           <Link 
             href="/" 
             className="inline-flex items-center gap-1.5 text-gray-600 hover:text-[#FF6600] font-bold transition-colors group"
@@ -274,13 +274,36 @@ export default function ClientDashboard() {
             <ArrowRight size={14} className="rotate-180 text-gray-400 group-hover:text-[#FF6600] transition-colors" />
             <span>Retourner aux Rayons / Explorer les Produits</span>
           </Link>
-          <span className="text-[11px] font-semibold text-gray-400 hidden sm:inline">
+          <span className="text-[11px] font-semibold text-gray-400">
             Espace Acheteur Certifié
           </span>
         </div>
 
-        {/* 1. Header VIP Style Alibaba (Buyer Center Profile) */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-gray-200/80 shadow-xs relative">
+        {/* En-tête Mobile Épuré (Évite la redondance et la surcharge avec la barre du bas) */}
+        <div className="flex md:hidden items-center justify-between py-2.5 px-3.5 mb-4 bg-white rounded-2xl border border-gray-200/80 shadow-xs">
+          <div>
+            <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider block">
+              Mon Espace Rayons
+            </span>
+            <h1 className="text-base font-black text-gray-900 leading-tight">
+              {clientDisplayName}
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+            <button 
+              onClick={handleLogout}
+              className="p-2 bg-gray-50 border border-gray-200 rounded-xl text-red-600 hover:bg-red-50 transition-colors shadow-2xs cursor-pointer"
+              title="Se déconnecter"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* 1. Header VIP Desktop (Buyer Center Profile) - Masqué sur mobile pour un écran propre */}
+        <div className="hidden md:flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-gray-200/80 shadow-xs relative">
           <div className="flex items-center gap-4">
             {/* VIP Avatar */}
             <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-dark text-white font-extrabold text-xl sm:text-2xl flex items-center justify-center shadow-md shadow-primary/20 shrink-0 relative">

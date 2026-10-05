@@ -235,7 +235,7 @@ export default function NotificationBell({ variant = "light" }: NotificationBell
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200/90 overflow-hidden z-[100] text-gray-900"
+            className="absolute -right-2 sm:right-0 mt-2 w-[calc(100vw-32px)] max-w-sm sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200/90 overflow-hidden z-[100] text-gray-900"
           >
             {/* Popover Header */}
             <div className="p-4 border-b border-gray-100 bg-gray-50/80 flex items-center justify-between">

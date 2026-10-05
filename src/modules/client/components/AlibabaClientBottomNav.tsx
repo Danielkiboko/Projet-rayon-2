@@ -94,7 +94,7 @@ export default function AlibabaClientBottomNav({
         </span>
       </button>
 
-      {/* 5. Mon Alibaba (Mon Espace Client) */}
+      {/* 5. Mon Rayons (Mon Espace Client) */}
       <button
         type="button"
         onClick={() => {
@@ -108,7 +108,7 @@ export default function AlibabaClientBottomNav({
       >
         <User size={20} strokeWidth={isMyAlibabaActive ? 2.5 : 1.8} className={isMyAlibabaActive ? "text-[#FF6600]" : "text-gray-500"} />
         <span className={`text-[10px] mt-0.5 font-medium ${isMyAlibabaActive ? "text-[#FF6600] font-bold" : "text-gray-600"}`}>
-          Mon Alibaba
+          Mon Rayons
         </span>
       </button>
     </nav>
