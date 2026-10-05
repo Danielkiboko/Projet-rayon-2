@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { ChevronLeft, MapPin, Phone, Navigation, CheckCircle2, DollarSign, Loader2, ExternalLink, MessageCircle } from "lucide-react";
@@ -9,10 +9,11 @@ import { doc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore"
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 
-export default function MissionDetails({ params }: { params?: { id: string } }) {
+export default function MissionDetails({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const routeParams = useParams();
-  const missionId = (routeParams?.id as string) || params?.id || "";
+  const resolvedParams = use(params);
+  const missionId = resolvedParams?.id || (routeParams?.id as string) || "";
   const { user, userData } = useAuth();
   const { formatPrice } = useCurrency();
   const [order, setOrder] = useState<any>(null);

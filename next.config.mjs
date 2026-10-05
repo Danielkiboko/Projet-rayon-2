@@ -4,6 +4,10 @@ const nextConfig = {
   serverExternalPackages: ['jspdf', 'fflate'],
   compress: true,
   poweredByHeader: false,
+  turbopack: {},
+  webpack: (config) => {
+    return config;
+  },
   images: {
     formats: ['image/avif', 'image/webp'],
     remotePatterns: [
