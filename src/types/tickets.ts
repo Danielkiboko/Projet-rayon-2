@@ -17,6 +17,7 @@ export interface TicketMessage {
   senderEmail?: string;
   senderRole: "client" | "supplier" | "admin";
   message: string;
+  attachments?: string[];
   createdAt: any;
 }
 
@@ -40,6 +41,20 @@ export interface Ticket {
   supplierName?: string;
   orderId?: string;
   propertyId?: string;
+  orderSummary?: {
+    orderId: string;
+    totalAmount?: number;
+    itemsCount?: number;
+    itemsDescription?: string;
+    status?: string;
+    createdAt?: any;
+  };
+  attachments?: string[];
+
+  // Archiving & resolution lifecycle
+  isArchived?: boolean;
+  resolvedAt?: any;
+  reopenedAt?: any;
 
   // Last message & indicators
   lastMessage?: string;

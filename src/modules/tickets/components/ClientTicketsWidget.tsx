@@ -87,8 +87,17 @@ export function ClientTicketsWidget() {
     return () => unsubscribe();
   }, [user]);
 
+  const [statusTab, setStatusTab] = useState<"all" | "active" | "archived">("all");
+
   const openCount = tickets.filter((t) => t.status === "open" || t.status === "in_progress").length;
-  const resolvedCount = tickets.filter((t) => t.status === "resolved" || t.status === "closed").length;
+  const archivedCount = tickets.filter((t) => t.status === "closed" || t.status === "resolved" || t.isArchived).length;
+
+  const displayTickets = tickets.filter((t) => {
+    const isClosedOrArchived = t.status === "closed" || t.status === "resolved" || t.isArchived;
+    if (statusTab === "active") return !isClosedOrArchived;
+    if (statusTab === "archived") return isClosedOrArchived;
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -122,49 +131,113 @@ export function ClientTicketsWidget() {
 
       {/* Quick stats cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-200 dark:border-slate-800">
+        <div 
+          onClick={() => setStatusTab("all")}
+          className={`p-4 rounded-xl border cursor-pointer transition-all ${
+            statusTab === "all"
+              ? "bg-purple-500/10 border-purple-500/30 ring-1 ring-purple-500"
+              : "bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800"
+          }`}
+        >
           <p className="text-xs text-gray-500 dark:text-slate-400">Total Demandes</p>
           <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">{tickets.length}</p>
         </div>
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-200 dark:border-slate-800">
+        <div 
+          onClick={() => setStatusTab("active")}
+          className={`p-4 rounded-xl border cursor-pointer transition-all ${
+            statusTab === "active"
+              ? "bg-amber-500/10 border-amber-500/30 ring-1 ring-amber-500"
+              : "bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800"
+          }`}
+        >
           <p className="text-xs text-amber-600 dark:text-amber-400">En cours de traitement</p>
           <p className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-1">{openCount}</p>
         </div>
-        <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-gray-200 dark:border-slate-800 col-span-2 sm:col-span-1">
-          <p className="text-xs text-emerald-600 dark:text-emerald-400">Résolus</p>
-          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{resolvedCount}</p>
+        <div 
+          onClick={() => setStatusTab("archived")}
+          className={`p-4 rounded-xl border cursor-pointer transition-all col-span-2 sm:col-span-1 ${
+            statusTab === "archived"
+              ? "bg-emerald-500/10 border-emerald-500/30 ring-1 ring-emerald-500"
+              : "bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-800"
+          }`}
+        >
+          <p className="text-xs text-emerald-600 dark:text-emerald-400">Clôturés & Archivés</p>
+          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{archivedCount}</p>
         </div>
       </div>
 
       {/* Tickets List */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 overflow-hidden shadow-xs">
-        <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-slate-800 flex items-center justify-between">
-          <h3 className="font-bold text-gray-900 dark:text-white text-base">Vos tickets d'assistance</h3>
-          <span className="text-xs text-gray-500">{tickets.length} ticket(s)</span>
+        <div className="p-4 sm:p-5 border-b border-gray-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-gray-900 dark:text-white text-base">Vos tickets d'assistance</h3>
+            <span className="text-xs text-gray-500">({displayTickets.length})</span>
+          </div>
+
+          {/* Filter Tabs */}
+          <div className="flex items-center bg-gray-100 dark:bg-slate-800/80 p-1 rounded-xl text-xs">
+            <button
+              onClick={() => setStatusTab("all")}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+                statusTab === "all"
+                  ? "bg-white dark:bg-slate-700 text-purple-600 dark:text-white shadow-xs"
+                  : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
+              }`}
+            >
+              Tous ({tickets.length})
+            </button>
+            <button
+              onClick={() => setStatusTab("active")}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+                statusTab === "active"
+                  ? "bg-white dark:bg-slate-700 text-amber-600 dark:text-amber-400 shadow-xs"
+                  : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
+              }`}
+            >
+              En cours ({openCount})
+            </button>
+            <button
+              onClick={() => setStatusTab("archived")}
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+                statusTab === "archived"
+                  ? "bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-xs"
+                  : "text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white"
+              }`}
+            >
+              Archivés ({archivedCount})
+            </button>
+          </div>
         </div>
 
         {loading ? (
           <div className="p-12 text-center text-gray-400 text-sm">Chargement de vos tickets...</div>
-        ) : tickets.length === 0 ? (
+        ) : displayTickets.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
             <HelpCircle size={40} className="mx-auto text-gray-300 dark:text-slate-600 mb-3" />
-            <p className="font-semibold text-gray-700 dark:text-gray-200">Aucun ticket ouvert</p>
-            <p className="text-xs text-gray-400 mt-1 mb-4">
-              Si vous rencontrez le moindre problème avec vos achats ou livraisons, soumettez une requête ici.
+            <p className="font-semibold text-gray-700 dark:text-gray-200">
+              {statusTab === "archived" ? "Aucun ticket archivé" : "Aucun ticket ouvert"}
             </p>
-            <button
-              onClick={() => setIsNewTicketOpen(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white text-xs font-medium rounded-xl hover:bg-purple-700 transition-colors"
-            >
-              <Plus size={14} /> Poser une question
-            </button>
+            <p className="text-xs text-gray-400 mt-1 mb-4">
+              {statusTab === "archived"
+                ? "Dès qu'un problème est résolu, votre ticket est automatiquement clôturé et archivé ici."
+                : "Si vous rencontrez le moindre problème avec vos achats ou livraisons, soumettez une requête ici."}
+            </p>
+            {statusTab !== "archived" && (
+              <button
+                onClick={() => setIsNewTicketOpen(true)}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white text-xs font-medium rounded-xl hover:bg-purple-700 transition-colors"
+              >
+                <Plus size={14} /> Poser une question
+              </button>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-gray-100 dark:divide-slate-800">
-            {tickets.map((t) => {
+            {displayTickets.map((t) => {
               const status = getStatusBadge(t.status);
               const category = getCategoryBadge(t.category);
               const isUnread = t.unreadByClient;
+              const isArchived = t.status === "closed" || t.status === "resolved" || t.isArchived;
 
               return (
                 <div
@@ -187,9 +260,14 @@ export function ClientTicketsWidget() {
                       <span className={`text-[10px] px-2 py-0.5 rounded-md font-semibold border ${status.color}`}>
                         {status.label}
                       </span>
+                      {isArchived && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 border border-gray-200 dark:border-slate-700">
+                          Archivé
+                        </span>
+                      )}
                       {t.orderId && (
                         <span className="text-[10px] text-gray-400 font-mono">
-                          Cmd: {t.orderId}
+                          Cmd: #{t.orderId.slice(-6).toUpperCase()}
                         </span>
                       )}
                     </div>

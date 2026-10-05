@@ -30,6 +30,15 @@ export interface CreateTicketParams {
   supplierName?: string;
   orderId?: string;
   propertyId?: string;
+  orderSummary?: {
+    orderId: string;
+    totalAmount?: number;
+    itemsCount?: number;
+    itemsDescription?: string;
+    status?: string;
+    createdAt?: any;
+  };
+  attachments?: string[];
 }
 
 export async function createTicket(params: CreateTicketParams): Promise<string> {
@@ -42,6 +51,7 @@ export async function createTicket(params: CreateTicketParams): Promise<string> 
     category: params.category,
     priority: params.priority || "medium",
     status: "open",
+    isArchived: false,
     
     creatorId: params.creatorId,
     creatorName: params.creatorName,
@@ -53,6 +63,8 @@ export async function createTicket(params: CreateTicketParams): Promise<string> 
     supplierName: params.supplierName || null,
     orderId: params.orderId || null,
     propertyId: params.propertyId || null,
+    orderSummary: params.orderSummary || null,
+    attachments: params.attachments || [],
 
     lastMessage: params.initialMessage.trim(),
     lastMessageSenderRole: params.creatorRole,
@@ -76,6 +88,7 @@ export async function createTicket(params: CreateTicketParams): Promise<string> 
     senderEmail: params.creatorEmail,
     senderRole: params.creatorRole,
     message: params.initialMessage.trim(),
+    attachments: params.attachments || [],
     createdAt: serverTimestamp(),
   });
 
@@ -114,6 +127,7 @@ export interface SendMessageParams {
   recipientName?: string;
   recipientRole?: "client" | "supplier";
   recipientId?: string;
+  attachments?: string[];
 }
 
 export async function sendTicketReply(params: SendMessageParams): Promise<void> {
@@ -126,10 +140,16 @@ export async function sendTicketReply(params: SendMessageParams): Promise<void> 
     senderEmail: params.senderEmail || "",
     senderRole: params.senderRole,
     message: params.message.trim(),
+    attachments: params.attachments || [],
     createdAt: serverTimestamp(),
   });
 
-  // 2. Update ticket document
+  // 2. Fetch current ticket to check if closed/archived
+  const ticketSnap = await getDoc(ticketRef);
+  const currentTicket = ticketSnap.exists() ? ticketSnap.data() : null;
+  const wasClosedOrArchived = currentTicket?.status === "closed" || currentTicket?.status === "resolved" || currentTicket?.isArchived;
+
+  // 3. Update ticket document
   const updateData: any = {
     lastMessage: params.message.trim(),
     lastMessageSenderRole: params.senderRole,
@@ -137,6 +157,13 @@ export async function sendTicketReply(params: SendMessageParams): Promise<void> 
     lastMessageAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
+
+  // If a reply is sent (especially by client), automatically reactivate the ticket
+  if (wasClosedOrArchived) {
+    updateData.status = "in_progress";
+    updateData.isArchived = false;
+    updateData.reopenedAt = serverTimestamp();
+  }
 
   if (params.senderRole === "admin") {
     updateData.unreadByClient = true;
@@ -153,7 +180,7 @@ export async function sendTicketReply(params: SendMessageParams): Promise<void> 
 
   await updateDoc(ticketRef, updateData);
 
-  // 3. In-App Notification
+  // 4. In-App Notification
   if (params.senderRole === "admin" && params.recipientId) {
     await sendClientInAppNotification({
       userId: params.recipientId,
@@ -166,7 +193,7 @@ export async function sendTicketReply(params: SendMessageParams): Promise<void> 
     });
   }
 
-  // 4. Trigger Email Notification
+  // 5. Trigger Email Notification
   try {
     fetch("/api/tickets/notify", {
       method: "POST",
@@ -189,11 +216,45 @@ export async function sendTicketReply(params: SendMessageParams): Promise<void> 
   }
 }
 
+/**
+ * Met à jour le statut du ticket.
+ * Règle automatique: Dès qu'une requête passe par résolue ("resolved"), 
+ * elle est directement clôturée ("closed") et archivée (isArchived: true).
+ */
 export async function updateTicketStatus(ticketId: string, status: TicketStatus): Promise<void> {
   const ticketRef = doc(db, "tickets", ticketId);
+  const now = serverTimestamp();
+
+  if (status === "resolved" || status === "closed") {
+    await updateDoc(ticketRef, {
+      status: "closed",
+      isArchived: true,
+      resolvedAt: now,
+      updatedAt: now,
+    });
+  } else {
+    await updateDoc(ticketRef, {
+      status,
+      isArchived: false,
+      updatedAt: now,
+    });
+  }
+}
+
+/**
+ * Réactive un ticket clôturé / archivé (par le client ou l'admin)
+ */
+export async function reopenTicket(ticketId: string, reopenedByRole: "client" | "supplier" | "admin" = "client"): Promise<void> {
+  const ticketRef = doc(db, "tickets", ticketId);
+  const now = serverTimestamp();
+  
   await updateDoc(ticketRef, {
-    status,
-    updatedAt: serverTimestamp(),
+    status: "in_progress",
+    isArchived: false,
+    reopenedAt: now,
+    updatedAt: now,
+    unreadByAdmin: reopenedByRole !== "admin",
+    unreadByClient: reopenedByRole === "admin",
   });
 }
 

@@ -178,8 +178,7 @@ export default function AdminTicketsPage() {
               <option value="all">Tous les statuts</option>
               <option value="open">Ouverts uniquement</option>
               <option value="in_progress">En cours</option>
-              <option value="resolved">Résolus</option>
-              <option value="closed">Fermés</option>
+              <option value="closed">Clôturés / Archivés</option>
             </select>
 
             {/* Role Filter */}
@@ -233,6 +232,7 @@ export default function AdminTicketsPage() {
                 const category = getCategoryBadge(t.category);
                 const priority = getPriorityBadge(t.priority);
                 const isUnread = t.unreadByAdmin;
+                const isArchived = t.status === "closed" || t.status === "resolved" || t.isArchived;
 
                 return (
                   <div
@@ -248,7 +248,7 @@ export default function AdminTicketsPage() {
                       <span className="absolute top-4 right-4 w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" />
                     )}
 
-                    <div className="flex items-center gap-2 mb-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
                       <span className="font-mono text-[11px] font-bold text-slate-400">
                         {t.ticketNumber}
                       </span>
@@ -265,9 +265,31 @@ export default function AdminTicketsPage() {
                         {t.creatorRole === "supplier" ? <Store size={10} /> : <User size={10} />}
                         {t.creatorRole === "supplier" ? "Fournisseur" : "Client"}
                       </span>
+                      {isArchived && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-800 text-slate-400 border border-slate-700">
+                          Archivé
+                        </span>
+                      )}
                     </div>
 
                     <h4 className="text-sm font-semibold text-white line-clamp-1 mb-1">{t.subject}</h4>
+
+                    {/* Order or Supplier Badge if present */}
+                    {(t.orderId || t.supplierName) && (
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5 text-[10px]">
+                        {t.orderId && (
+                          <span className="text-purple-400 font-mono bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded">
+                            Cmd: #{t.orderId.slice(-6).toUpperCase()}
+                          </span>
+                        )}
+                        {t.supplierName && (
+                          <span className="text-amber-400 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded flex items-center gap-1">
+                            <Store size={9} />
+                            {t.supplierName}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     <p className="text-xs text-slate-400 line-clamp-2 mb-2">
                       {t.lastMessage || "Nouveau ticket..."}

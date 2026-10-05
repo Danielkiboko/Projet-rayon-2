@@ -14,7 +14,13 @@ import {
   HelpCircle, 
   ChevronLeft,
   AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  ShoppingBag,
+  Image as ImageIcon,
+  Archive,
+  ExternalLink,
+  Trash2,
+  X
 } from "lucide-react";
 import { 
   Ticket, 
@@ -25,10 +31,12 @@ import {
 import { 
   sendTicketReply, 
   updateTicketStatus, 
+  reopenTicket,
   getCategoryBadge, 
   getStatusBadge, 
   getPriorityBadge 
 } from "@/lib/ticketService";
+import { optimizeImageToWebP } from "@/lib/imageOptimizer";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -50,11 +58,16 @@ export function TicketConversation({
   const [newMessage, setNewMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [currentStatus, setCurrentStatus] = useState<TicketStatus>(ticket.status);
+  const [isArchived, setIsArchived] = useState<boolean>(!!ticket.isArchived);
+  const [replyAttachments, setReplyAttachments] = useState<string[]>([]);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setCurrentStatus(ticket.status);
-  }, [ticket.status]);
+    setIsArchived(!!ticket.isArchived || ticket.status === "closed");
+  }, [ticket.status, ticket.isArchived]);
 
   // Mark unread as read when viewed
   useEffect(() => {
@@ -91,12 +104,41 @@ export function TicketConversation({
     return () => unsubscribe();
   }, [ticket?.id]);
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploadingImage(true);
+    try {
+      const newUrls: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type.startsWith("image/")) {
+          const optimized = await optimizeImageToWebP(file, {
+            maxWidth: 1000,
+            maxHeight: 1000,
+            quality: 0.75,
+          });
+          newUrls.push(optimized.dataUrl);
+        }
+      }
+      setReplyAttachments((prev) => [...prev, ...newUrls].slice(0, 3));
+    } catch (err) {
+      console.error("Upload error:", err);
+    } finally {
+      setIsUploadingImage(false);
+      e.target.value = "";
+    }
+  };
+
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!newMessage.trim() || !user || isSending) return;
+    if ((!newMessage.trim() && replyAttachments.length === 0) || !user || isSending) return;
 
     const messageText = newMessage.trim();
+    const attachmentsToSend = [...replyAttachments];
     setNewMessage("");
+    setReplyAttachments([]);
     setIsSending(true);
 
     try {
@@ -116,7 +158,7 @@ export function TicketConversation({
         ticketId: ticket.id,
         ticketNumber: ticket.ticketNumber,
         subject: ticket.subject,
-        message: messageText,
+        message: messageText || "Image jointe",
         senderId: user.uid,
         senderName,
         senderEmail: user.email || "",
@@ -125,11 +167,14 @@ export function TicketConversation({
         recipientName,
         recipientRole,
         recipientId,
+        attachments: attachmentsToSend.length > 0 ? attachmentsToSend : undefined,
       });
 
-      // If it was closed and user replies, reopen or put in_progress
-      if (currentStatus === "closed" || currentStatus === "resolved") {
-        await handleStatusChange("in_progress");
+      // If it was closed/archived, it is automatically reactivated to in_progress
+      if (currentStatus === "closed" || isArchived) {
+        setCurrentStatus("in_progress");
+        setIsArchived(false);
+        if (onStatusChange) onStatusChange("in_progress");
       }
     } catch (err) {
       console.error("Error sending message:", err);
@@ -140,11 +185,28 @@ export function TicketConversation({
 
   const handleStatusChange = async (newStatus: TicketStatus) => {
     try {
-      setCurrentStatus(newStatus);
+      if (newStatus === "resolved" || newStatus === "closed") {
+        setCurrentStatus("closed");
+        setIsArchived(true);
+      } else {
+        setCurrentStatus(newStatus);
+        setIsArchived(false);
+      }
       await updateTicketStatus(ticket.id, newStatus);
       if (onStatusChange) onStatusChange(newStatus);
     } catch (err) {
       console.error("Error updating status:", err);
+    }
+  };
+
+  const handleReopenTicket = async () => {
+    try {
+      await reopenTicket(ticket.id, userRole);
+      setCurrentStatus("in_progress");
+      setIsArchived(false);
+      if (onStatusChange) onStatusChange("in_progress");
+    } catch (err) {
+      console.error("Error reopening ticket:", err);
     }
   };
 
@@ -157,7 +219,7 @@ export function TicketConversation({
     "Bonjour, nous avons bien pris en charge votre demande et vérifions cela de suite.",
     "Pourriez-vous nous préciser votre référence de commande ou une capture d'écran ?",
     "Le problème a été résolu. Veuillez vérifier de votre côté.",
-    "Nous avons transmis votre requête au service concerné pour traitement immédiat.",
+    "Nous avons transmis votre requête au fournisseur concerné pour traitement immédiat.",
   ];
 
   return (
@@ -184,16 +246,25 @@ export function TicketConversation({
               <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${priorityBadge.color}`}>
                 {priorityBadge.label}
               </span>
+              {isArchived && (
+                <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-slate-400">
+                  <Archive size={11} />
+                  <span>Archivé</span>
+                </span>
+              )}
             </div>
             <h2 className="text-base sm:text-lg font-bold text-white line-clamp-1">{ticket.subject}</h2>
             <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-slate-400">
               <span>Par <strong className="text-slate-200">{ticket.creatorName}</strong> ({ticket.creatorRole})</span>
               <span>•</span>
               <span>{ticket.creatorEmail}</span>
-              {ticket.orderId && (
+              {ticket.supplierName && (
                 <>
                   <span>•</span>
-                  <span className="text-indigo-400 font-mono">Cmd: {ticket.orderId}</span>
+                  <span className="text-amber-400 font-medium flex items-center gap-1">
+                    <Store size={12} />
+                    Fournisseur: {ticket.supplierName}
+                  </span>
                 </>
               )}
             </div>
@@ -212,30 +283,105 @@ export function TicketConversation({
               >
                 <option value="open">🔵 Ouvert</option>
                 <option value="in_progress">🟡 En cours</option>
-                <option value="resolved">🟢 Résolu</option>
-                <option value="closed">⚪ Fermé</option>
+                <option value="resolved">🟢 Résolu (Clôturer & Archiver)</option>
+                <option value="closed">⚪ Clôturé & Archivé</option>
               </select>
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <span className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border font-semibold ${statusBadge.color}`}>
                 <span className={`w-2 h-2 rounded-full ${statusBadge.dot}`} />
-                {statusBadge.label}
+                {currentStatus === "closed" ? "Clôturé / Archivé" : statusBadge.label}
               </span>
-              {currentStatus !== "resolved" && currentStatus !== "closed" && (
+
+              {/* Client can mark resolved (which automatically closes & archives) */}
+              {currentStatus !== "closed" && currentStatus !== "resolved" ? (
                 <button
                   onClick={() => handleStatusChange("resolved")}
-                  className="flex items-center gap-1 text-xs bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1.5 rounded-xl transition-colors"
-                  title="Marquer comme résolu si votre problème a été réglé"
+                  className="flex items-center gap-1 text-xs bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-xl font-medium transition-colors shadow-xs"
+                  title="Marquer comme résolu : clôture et archive automatiquement la requête"
                 >
                   <CheckCircle2 size={14} />
-                  <span>Problème réglé</span>
+                  <span>Problème résolu</span>
+                </button>
+              ) : (
+                /* Client can reactivate manually */
+                <button
+                  onClick={handleReopenTicket}
+                  className="flex items-center gap-1.5 text-xs bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 px-3 py-1.5 rounded-xl font-medium transition-colors"
+                >
+                  <RotateCcw size={13} />
+                  <span>Réactiver la requête</span>
                 </button>
               )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Linked Activity / Order Card Banner */}
+      {(ticket.orderSummary || ticket.orderId) && (
+        <div className="px-5 py-3 bg-purple-950/30 border-b border-purple-500/20 flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400">
+              <ShoppingBag size={16} />
+            </div>
+            <div>
+              <p className="font-semibold text-white flex items-center gap-1.5">
+                <span>Commande liée :</span>
+                <span className="font-mono text-purple-300">
+                  #{ticket.orderSummary?.orderId?.slice(-6)?.toUpperCase() || ticket.orderId}
+                </span>
+                {ticket.orderSummary?.status && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                    Statut: {ticket.orderSummary.status}
+                  </span>
+                )}
+              </p>
+              <p className="text-slate-400 text-[11px] mt-0.5">
+                {ticket.orderSummary?.itemsDescription
+                  ? `Articles : ${ticket.orderSummary.itemsDescription}`
+                  : "Détails de la vente et des articles associés"}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 text-[11px]">
+            {ticket.orderSummary?.totalAmount !== undefined && (
+              <div>
+                <span className="text-slate-400">Montant : </span>
+                <span className="font-bold text-white">
+                  {ticket.orderSummary.totalAmount.toLocaleString()} CDF
+                </span>
+              </div>
+            )}
+            {ticket.supplierName && (
+              <div className="flex items-center gap-1 bg-amber-500/10 text-amber-400 px-2.5 py-1 rounded-lg border border-amber-500/20 font-medium">
+                <Store size={12} />
+                <span>Fournisseur : {ticket.supplierName}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Closed & Archived Banner notice */}
+      {isArchived && (
+        <div className="px-5 py-2.5 bg-slate-800/80 border-b border-slate-700/60 flex items-center justify-between gap-3 text-xs text-slate-300">
+          <div className="flex items-center gap-2">
+            <Archive size={15} className="text-amber-400 shrink-0" />
+            <span>
+              Cette requête est actuellement <strong>clôturée et archivée</strong>. Vous pouvez la réactiver à tout moment en cliquant sur le bouton ou en écrivant un nouveau message.
+            </span>
+          </div>
+          <button
+            onClick={handleReopenTicket}
+            className="text-xs bg-purple-600 hover:bg-purple-500 text-white px-3 py-1 rounded-lg font-medium transition-colors shrink-0"
+          >
+            Réactiver
+          </button>
+        </div>
+      )}
 
       {/* Messages Feed */}
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-slate-900/50">
@@ -275,7 +421,7 @@ export function TicketConversation({
               </div>
 
               <div
-                className={`max-w-[85%] sm:max-w-[70%] rounded-2xl p-3.5 sm:p-4 text-sm leading-relaxed ${
+                className={`max-w-[88%] sm:max-w-[75%] rounded-2xl p-3.5 sm:p-4 text-sm leading-relaxed ${
                   isAdmin
                     ? "bg-gradient-to-br from-purple-900/60 to-indigo-900/60 border border-purple-500/30 text-white shadow-lg shadow-purple-900/20"
                     : isMe
@@ -283,7 +429,26 @@ export function TicketConversation({
                     : "bg-slate-800 border border-slate-700/80 text-slate-200"
                 }`}
               >
-                <p className="whitespace-pre-wrap">{msg.message}</p>
+                {msg.message && <p className="whitespace-pre-wrap">{msg.message}</p>}
+
+                {/* Attachments rendering */}
+                {msg.attachments && msg.attachments.length > 0 && (
+                  <div className="mt-2.5 pt-2 border-t border-white/10 flex flex-wrap gap-2">
+                    {msg.attachments.map((imgUrl, imgIdx) => (
+                      <div
+                        key={imgIdx}
+                        onClick={() => setPreviewImage(imgUrl)}
+                        className="w-24 h-24 rounded-xl overflow-hidden border border-white/20 cursor-pointer hover:opacity-90 transition-opacity bg-black/30"
+                      >
+                        <img
+                          src={imgUrl}
+                          alt="Pièce jointe"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           );
@@ -310,27 +475,49 @@ export function TicketConversation({
 
       {/* Reply Input Bar */}
       <div className="p-3 sm:p-4 border-t border-slate-800 bg-slate-950/80">
-        {currentStatus === "closed" ? (
-          <div className="flex items-center justify-between p-3 bg-slate-800/60 border border-slate-700 rounded-xl text-xs text-slate-400">
-            <span className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-slate-400" />
-              Ce ticket est actuellement fermé. Vous pouvez le rouvrir en écrivant un nouveau message ci-dessous.
-            </span>
-            <button
-              onClick={() => handleStatusChange("open")}
-              className="text-purple-400 hover:text-purple-300 font-medium flex items-center gap-1"
-            >
-              <RotateCcw size={13} />
-              Rouvrir
-            </button>
+        {/* Reply attachments preview */}
+        {replyAttachments.length > 0 && (
+          <div className="flex items-center gap-2 mb-2 p-2 bg-slate-900 border border-slate-800 rounded-xl">
+            {replyAttachments.map((img, idx) => (
+              <div key={idx} className="relative group w-12 h-12 rounded-lg overflow-hidden border border-slate-700">
+                <img src={img} alt="Aperçu" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setReplyAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                  className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-400 transition-opacity"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))}
+            <span className="text-[11px] text-slate-400">Photo(s) prête(s) à être envoyée(s)</span>
           </div>
-        ) : null}
+        )}
 
-        <form onSubmit={handleSendMessage} className="flex items-center gap-2 mt-2">
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+          {/* Add Image Button */}
+          <label className="p-2.5 rounded-xl bg-slate-900 border border-slate-700/80 hover:border-purple-500/60 text-slate-400 hover:text-purple-300 cursor-pointer transition-colors shrink-0">
+            {isUploadingImage ? (
+              <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <ImageIcon size={18} />
+            )}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              disabled={isUploadingImage}
+              onChange={handleImageUpload}
+              className="hidden"
+            />
+          </label>
+
           <input
             type="text"
             placeholder={
-              userRole === "admin"
+              isArchived
+                ? "Écrire un message pour réactiver automatiquement cette requête..."
+                : userRole === "admin"
                 ? "Écrire une réponse d'assistance officielle..."
                 : "Écrire un message ou apporter des précisions..."
             }
@@ -341,7 +528,7 @@ export function TicketConversation({
           />
           <button
             type="submit"
-            disabled={isSending || !newMessage.trim()}
+            disabled={isSending || (!newMessage.trim() && replyAttachments.length === 0)}
             className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-lg shadow-purple-600/25 transition-all shrink-0"
           >
             {isSending ? (
@@ -349,12 +536,37 @@ export function TicketConversation({
             ) : (
               <>
                 <Send size={15} />
-                <span className="hidden sm:inline">Envoyer</span>
+                <span className="hidden sm:inline">
+                  {isArchived ? "Envoyer & Réactiver" : "Envoyer"}
+                </span>
               </>
             )}
           </button>
         </form>
       </div>
+
+      {/* Lightbox / Zoom Modal for Images */}
+      {previewImage && (
+        <div 
+          onClick={() => setPreviewImage(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md cursor-pointer"
+        >
+          <div className="relative max-w-4xl max-h-[90vh]">
+            <img 
+              src={previewImage} 
+              alt="Photo agrandie" 
+              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl" 
+            />
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-3 right-3 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
