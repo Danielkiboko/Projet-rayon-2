@@ -44,9 +44,10 @@ import ClientQuickStats from "@/modules/client/components/ClientQuickStats";
 import ClientBuyerProtectionBanner from "@/modules/client/components/ClientBuyerProtectionBanner";
 import ClientOrderCardAlibaba from "@/modules/client/components/ClientOrderCardAlibaba";
 import ClientProformaSection from "@/modules/client/components/ClientProformaSection";
+import ClientProfileSection from "@/modules/client/components/ClientProfileSection";
 import AlibabaClientBottomNav from "@/modules/client/components/AlibabaClientBottomNav";
 
-type ClientDashboardTab = "orders" | "proformas" | "hotels" | "visits" | "messages" | "tickets";
+type ClientDashboardTab = "orders" | "proformas" | "hotels" | "visits" | "messages" | "tickets" | "profile";
 type OrderStatusFilter = "all" | "pending" | "preparing" | "in_transit" | "delivered" | "cancelled";
 
 export default function ClientDashboard() {
@@ -70,7 +71,7 @@ export default function ClientDashboard() {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab") as ClientDashboardTab;
-      if (["orders", "proformas", "hotels", "visits", "messages", "tickets"].includes(tabParam)) {
+      if (["orders", "proformas", "hotels", "visits", "messages", "tickets", "profile"].includes(tabParam)) {
         setActiveTab(tabParam);
       }
     }
@@ -279,16 +280,20 @@ export default function ClientDashboard() {
           </span>
         </div>
 
-        {/* En-tête Mobile Épuré (Évite la redondance et la surcharge avec la barre du bas) */}
+        {/* En-tête Mobile Épuré (Cliquer sur son nom ouvre son profil) */}
         <div className="flex md:hidden items-center justify-between py-2.5 px-3.5 mb-4 bg-white rounded-2xl border border-gray-200/80 shadow-xs">
-          <div>
-            <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider block">
-              Mon Espace Rayons
+          <button 
+            type="button" 
+            onClick={() => setActiveTab("profile")}
+            className="text-left cursor-pointer group"
+          >
+            <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider block group-hover:text-[#FF6600] transition-colors">
+              Mon Espace Rayons • Profil
             </span>
-            <h1 className="text-base font-black text-gray-900 leading-tight">
+            <h1 className="text-base font-black text-gray-900 leading-tight group-hover:text-[#FF6600] transition-colors">
               {clientDisplayName}
             </h1>
-          </div>
+          </button>
 
           <div className="flex items-center gap-2">
             <NotificationBell />
@@ -482,6 +487,18 @@ export default function ClientDashboard() {
                 {unreadTicketsCount}
               </span>
             ) : null}
+          </button>
+
+          <button
+            onClick={() => setActiveTab("profile")}
+            className={`flex items-center gap-2 px-3.5 sm:px-4 py-3 border-b-2 whitespace-nowrap transition-all text-xs sm:text-sm cursor-pointer ${
+              activeTab === "profile" 
+                ? "border-[#FF6600] text-gray-900 font-extrabold" 
+                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300 font-medium"
+            }`}
+          >
+            <UserCheck size={17} className={activeTab === "profile" ? "text-[#FF6600]" : "text-gray-400"} /> 
+            <span>Mon Profil</span>
           </button>
         </div>
 
@@ -760,6 +777,21 @@ export default function ClientDashboard() {
           {activeTab === "tickets" && (
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
               <ClientTicketsWidget />
+            </motion.div>
+          )}
+
+          {/* TAB 7: MON PROFIL RAYONS */}
+          {activeTab === "profile" && (
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+              <ClientProfileSection
+                ordersCount={orders.length}
+                activeOrdersCount={orderCounts.active}
+                proformasCount={pendingProformasCount}
+                hotelsCount={hotelBookings.length}
+                visitsCount={visits.length}
+                onSelectTab={(tab) => setActiveTab(tab)}
+                onLogout={handleLogout}
+              />
             </motion.div>
           )}
 

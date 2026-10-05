@@ -20,7 +20,7 @@ export default function AlibabaClientBottomNav({
   const { totalItems, openCart } = useCart();
 
   const isMessagesActive = pathname === "/dashboard/client/chats" || (pathname === "/dashboard/client" && activeTab === "messages");
-  const isMyAlibabaActive = pathname === "/dashboard/client" && activeTab !== "messages";
+  const isProfileActive = pathname === "/dashboard/client" && activeTab === "profile";
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[#0F1D27]/95 backdrop-blur-md border-t border-gray-200 dark:border-white/10 px-2 py-1.5 flex items-center justify-around sm:hidden shadow-lg safe-area-bottom">
@@ -94,20 +94,20 @@ export default function AlibabaClientBottomNav({
         </span>
       </button>
 
-      {/* 5. Mon Rayons (Mon Espace Client) */}
+      {/* 5. Mon Rayons (Profil et Coordonnées Client) */}
       <button
         type="button"
         onClick={() => {
           if (onSelectTab) {
-            onSelectTab("orders");
+            onSelectTab("profile");
           } else {
-            window.location.href = "/dashboard/client";
+            window.location.href = "/dashboard/client?tab=profile";
           }
         }}
         className="flex flex-col items-center justify-center flex-1 py-1 transition-colors cursor-pointer"
       >
-        <User size={20} strokeWidth={isMyAlibabaActive ? 2.5 : 1.8} className={isMyAlibabaActive ? "text-[#FF6600]" : "text-gray-500"} />
-        <span className={`text-[10px] mt-0.5 font-medium ${isMyAlibabaActive ? "text-[#FF6600] font-bold" : "text-gray-600"}`}>
+        <User size={20} strokeWidth={isProfileActive ? 2.5 : 1.8} className={isProfileActive ? "text-[#FF6600]" : "text-gray-500"} />
+        <span className={`text-[10px] mt-0.5 font-medium ${isProfileActive ? "text-[#FF6600] font-bold" : "text-gray-600"}`}>
           Mon Rayons
         </span>
       </button>
