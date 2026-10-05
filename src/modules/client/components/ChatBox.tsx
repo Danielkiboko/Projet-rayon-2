@@ -11,6 +11,7 @@ import { fr } from "date-fns/locale";
 interface ChatBoxProps {
   chatId: string;
   otherUserName?: string;
+  hideHeader?: boolean;
 }
 
 interface Message {
@@ -34,7 +35,7 @@ interface Message {
   };
 }
 
-export function ChatBox({ chatId, otherUserName = "Utilisateur" }: ChatBoxProps) {
+export function ChatBox({ chatId, otherUserName = "Utilisateur", hideHeader = false }: ChatBoxProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -163,11 +164,13 @@ export function ChatBox({ chatId, otherUserName = "Utilisateur" }: ChatBoxProps)
   }
 
   return (
-    <div className="flex flex-col h-full min-h-[450px] flex-1 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="p-4 border-b border-gray-200 bg-gray-50">
-        <h3 className="font-bold text-gray-900">Discussion avec {otherUserName}</h3>
-      </div>
+    <div className={`flex flex-col h-full min-h-[450px] flex-1 bg-white overflow-hidden ${hideHeader ? '' : 'rounded-xl border border-gray-200 shadow-sm'}`}>
+      {/* Header (hidden if embedded) */}
+      {!hideHeader && (
+        <div className="p-4 border-b border-gray-200 bg-gray-50">
+          <h3 className="font-bold text-gray-900">Discussion avec {otherUserName}</h3>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50/50">

@@ -143,12 +143,13 @@ export function ClientChatsWidget({
         if (existing) {
           setActiveChatId(existing.id);
           // If product context was provided, link it to the conversation
-          if (paramProductName || paramProductImage) {
+          if (paramProductName || paramProductImage || paramProductId) {
             updateDoc(doc(db, "chats", existing.id), {
               productName: paramProductName || existing.productName,
               productId: paramProductId || existing.productId || null,
               productImage: paramProductImage || existing.productImage || null,
               productPrice: paramProductPrice || existing.productPrice || null,
+              propertyTitle: null, // clear old dummy propertyTitle
               updatedAt: serverTimestamp(),
             }).catch(() => {});
           }
@@ -157,7 +158,7 @@ export function ClientChatsWidget({
           try {
             const supplierDoc = await getDoc(doc(db, "users", paramSupplierId));
             const supplierData = supplierDoc.data() || {};
-            const supplierName = supplierData.displayName || supplierData.businessName || supplierData.email || "Fournisseur";
+            const supplierName = supplierData.displayName || supplierData.businessName || supplierData.company || supplierData.name || "Fournisseur Rayons";
 
             const newChatId = `${user.uid}_${paramSupplierId}`;
             await setDoc(doc(db, "chats", newChatId), {
@@ -165,11 +166,11 @@ export function ClientChatsWidget({
               clientName: user.displayName || user.email || "Client VIP",
               supplierId: paramSupplierId,
               supplierName: supplierName,
-              productName: paramProductName || supplierName,
+              productName: paramProductName || null,
               productId: paramProductId || null,
               productImage: paramProductImage || null,
               productPrice: paramProductPrice || null,
-              propertyTitle: paramProductName || supplierName,
+              propertyTitle: null,
               updatedAt: serverTimestamp(),
               createdAt: serverTimestamp(),
             }, { merge: true });
@@ -252,7 +253,9 @@ export function ClientChatsWidget({
   }
 
   const activeChat = chats.find(c => c.id === activeChatId);
-  const activeChatName = activeChat?.propertyTitle || activeChat?.productName || activeChat?.supplierName || "Agent / Vendeur";
+  const activeVendor = activeChat?.supplierName || activeChat?.companyName || activeChat?.vendorName;
+  const isProductChat = Boolean(activeChat?.productName || activeChat?.productId);
+  const activeChatName = activeVendor || (isProductChat ? `Fournisseur • ${activeChat?.productName}` : activeChat?.propertyTitle || "Vendeur Vérifié Rayons");
 
   return (
     <div className={`flex flex-1 bg-white rounded-3xl shadow-sm border border-gray-200/90 overflow-hidden ${embedded ? 'min-h-[640px] h-[720px]' : 'min-h-[680px]'}`}>
@@ -480,8 +483,10 @@ export function ClientChatsWidget({
             filteredChats.map((chat, idx) => {
               const isSelected = activeChatId === chat.id;
               const hasUnread = Boolean(chat.unreadClient);
-              const vendorName = chat.supplierName || chat.contactName || chat.productName || "Shirley Xiao";
-              const companyName = chat.companyName || chat.storeName || (chat.isHotel ? "Hôtel Partenaire Rayons" : "Wuxi Ladea Ev Co., Ltd.");
+              const hasProduct = Boolean(chat.productName || chat.productId);
+              const vendor = chat.supplierName || chat.companyName || chat.vendorName || "Vendeur Rayons";
+              const title = chat.productName || vendor;
+              const subtitle = hasProduct ? (chat.supplierName || chat.companyName || "Boutique Officielle") : (chat.companyName || "Vendeur Vérifié Rayons");
               const lastMsg = chat.lastMessage || "Bonjour, je suis disponible pour vous renseigner.";
               const chatTime = formatChatTime(chat.updatedAt || chat.lastMessageTime);
 
@@ -503,7 +508,7 @@ export function ClientChatsWidget({
                     <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 border border-gray-200">
                       <img
                         src={vendorAvatar}
-                        alt={vendorName}
+                        alt={vendor}
                         className="w-full h-full object-cover"
                         onError={(e: any) => {
                           e.target.src = "/images/placeholder.png";
@@ -517,19 +522,22 @@ export function ClientChatsWidget({
                     )}
                   </div>
 
-                  {/* Middle Column: Vendor Name, Store Name, Message with [Non lus] */}
+                  {/* Middle Column: Title (Product / Store), Subtitle, Message with [Non lus] */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-bold text-gray-900 text-sm truncate">
-                        {vendorName}
+                        {title}
                       </span>
                       <span className="text-[11px] text-gray-400 shrink-0 font-medium">
                         {chatTime}
                       </span>
                     </div>
 
-                    <div className="text-[11px] text-gray-400 truncate mt-0.5">
-                      {companyName}
+                    <div className="text-[11px] text-gray-400 truncate mt-0.5 flex items-center gap-1.5">
+                      <span className="truncate">{subtitle}</span>
+                      {chat.productPrice && (
+                        <span className="font-semibold text-gray-700 shrink-0">• ${chat.productPrice}</span>
+                      )}
                     </div>
 
                     <div className="text-xs text-gray-600 truncate mt-1">
@@ -568,7 +576,7 @@ export function ClientChatsWidget({
         {activeChatId ? (
           <div className="h-full flex flex-col flex-1 min-h-0">
             {/* Conversation Header with back button & product context */}
-            <div className="p-3 border-b border-gray-100 flex items-center justify-between bg-gray-50/70">
+            <div className="p-3.5 border-b border-gray-100 flex items-center justify-between bg-gray-50/70">
               <button 
                 onClick={() => setActiveChatId(null)}
                 className="flex items-center gap-1 text-xs font-bold text-[#FF6600] hover:text-[#e05a00] cursor-pointer md:hidden"
@@ -585,6 +593,18 @@ export function ClientChatsWidget({
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Bouton direct pour retourner sur Rayon consulter le produit */}
+                {(activeChat?.productId || paramProductId) && (
+                  <Link
+                    href={`/product/${activeChat?.productId || paramProductId}`}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#FF6600] hover:bg-[#e05a00] text-white text-xs font-bold transition-all shadow-xs"
+                    title="Consulter ce produit sur Rayons"
+                  >
+                    <Store size={14} />
+                    <span>Consulter le produit</span>
+                  </Link>
+                )}
+
                 <Link
                   href="/"
                   className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-xs font-bold text-gray-700 hover:text-[#FF6600] hover:border-[#FF6600]/40 transition-colors shadow-2xs"
@@ -612,7 +632,7 @@ export function ClientChatsWidget({
                     <img 
                       src={activeChat.productImage} 
                       alt="" 
-                      className="w-9 h-9 rounded-lg object-cover border border-amber-200 shrink-0 bg-white" 
+                      className="w-10 h-10 rounded-lg object-cover border border-amber-200 shrink-0 bg-white" 
                     />
                   )}
                   <div className="min-w-0">
@@ -620,29 +640,31 @@ export function ClientChatsWidget({
                     <p className="font-bold text-gray-900 truncate text-xs">{activeChat.productName}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-2.5 shrink-0">
                   {activeChat.productPrice && (
                     <span className="font-black text-gray-900 text-xs">
                       ${activeChat.productPrice}
                     </span>
                   )}
-                  {activeChat.productId && (
+                  {(activeChat.productId || paramProductId) && (
                     <Link
-                      href={`/product/${activeChat.productId}`}
-                      className="text-[11px] font-bold text-[#FF6600] hover:underline"
+                      href={`/product/${activeChat.productId || paramProductId}`}
+                      className="text-[11px] font-bold text-[#FF6600] hover:underline flex items-center gap-1"
                     >
-                      Voir l'article
+                      <span>Voir l'article</span>
+                      <ExternalLink size={11} />
                     </Link>
                   )}
                 </div>
               </div>
             )}
             
-            {/* Embedded ChatBox */}
+            {/* Embedded ChatBox without duplicate header */}
             <div className="flex-1 flex flex-col min-h-0">
               <ChatBox 
                 chatId={activeChatId} 
                 otherUserName={activeChatName} 
+                hideHeader={true}
               />
             </div>
           </div>
