@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { 
@@ -33,38 +33,59 @@ export function ClientTicketsWidget() {
   useEffect(() => {
     if (!user) return;
 
-    const q = query(
-      collection(db, "tickets"),
-      orderBy("updatedAt", "desc")
-    );
+    // Requêtes limitées aux tickets du client (Firestore refuse une lecture de toute la collection)
+    const byCreator = new Map<string, Ticket>();
+    const byClient = new Map<string, Ticket>();
 
-    const unsubscribe = onSnapshot(
-      q,
+    const publish = () => {
+      const merged = new Map<string, Ticket>([...byClient, ...byCreator]);
+      const list = Array.from(merged.values()).sort((a: any, b: any) => {
+        const tA = a.updatedAt?.toMillis?.() ?? 0;
+        const tB = b.updatedAt?.toMillis?.() ?? 0;
+        return tB - tA;
+      });
+      setTickets(list);
+      setLoading(false);
+
+      // Keep selected ticket in sync
+      setSelectedTicket((current) => {
+        if (!current) return current;
+        return list.find((t) => t.id === current.id) || current;
+      });
+    };
+
+    const onError = (err: any) => {
+      console.warn("Client tickets listener error:", err.message);
+      setLoading(false);
+    };
+
+    const unsubCreator = onSnapshot(
+      query(collection(db, "tickets"), where("creatorId", "==", user.uid)),
       (snapshot) => {
-        const list: Ticket[] = [];
-        snapshot.docs.forEach((docSnap) => {
-          const data = docSnap.data();
-          if (data.creatorId === user.uid || data.clientId === user.uid) {
-            list.push({ id: docSnap.id, ...data } as Ticket);
-          }
-        });
-        setTickets(list);
-        setLoading(false);
-
-        // Keep selected ticket in sync
-        if (selectedTicket) {
-          const updated = list.find((t) => t.id === selectedTicket.id);
-          if (updated) setSelectedTicket(updated);
-        }
+        byCreator.clear();
+        snapshot.docs.forEach((d) => byCreator.set(d.id, { id: d.id, ...d.data() } as Ticket));
+        publish();
       },
-      (err) => {
-        console.warn("Client tickets listener error:", err.message);
-        setLoading(false);
-      }
+      onError
     );
+
+    const unsubClient = onSnapshot(
+      query(collection(db, "tickets"), where("clientId", "==", user.uid)),
+      (snapshot) => {
+        byClient.clear();
+        snapshot.docs.forEach((d) => byClient.set(d.id, { id: d.id, ...d.data() } as Ticket));
+        publish();
+      },
+      onError
+    );
+
+    const unsubscribe = () => {
+      unsubCreator();
+      unsubClient();
+    };
 
     return () => unsubscribe();
-  }, [user, selectedTicket?.id]);
+  }, [user]);
 
   const openCount = tickets.filter((t) => t.status === "open" || t.status === "in_progress").length;
   const resolvedCount = tickets.filter((t) => t.status === "resolved" || t.status === "closed").length;

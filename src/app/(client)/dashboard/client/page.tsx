@@ -81,15 +81,22 @@ export default function ClientDashboard() {
       return;
     }
 
+    // Tri côté client (évite de dépendre d'un index composite Firestore clientId + createdAt)
+    const sortByCreatedDesc = (a: any, b: any) => {
+      const tA = a.createdAt?.toMillis?.() ?? (a.createdAt?.seconds ? a.createdAt.seconds * 1000 : 0);
+      const tB = b.createdAt?.toMillis?.() ?? (b.createdAt?.seconds ? b.createdAt.seconds * 1000 : 0);
+      return tB - tA;
+    };
+
     // 1. Fetch Orders
     const qOrders = query(
       collection(db, "orders"),
       where("clientId", "==", user.uid),
-      orderBy("createdAt", "desc"),
-      limit(50)
+      limit(100)
     );
     const unsubOrders = onSnapshot(qOrders, (snapshot) => {
       const fetchedOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      fetchedOrders.sort(sortByCreatedDesc);
       setOrders(fetchedOrders);
     }, (err) => {
       console.warn("Client orders listener warning:", err);
@@ -99,11 +106,11 @@ export default function ClientDashboard() {
     const qVisits = query(
       collection(db, "visits"),
       where("clientId", "==", user.uid),
-      orderBy("createdAt", "desc"),
-      limit(30)
+      limit(50)
     );
     const unsubVisits = onSnapshot(qVisits, (snapshot) => {
       const fetchedVisits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      fetchedVisits.sort(sortByCreatedDesc);
       setVisits(fetchedVisits);
     }, (err) => {
       console.warn("Client visits listener warning:", err);

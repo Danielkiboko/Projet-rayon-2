@@ -206,6 +206,8 @@ service cloud.firestore {
 
     match /visits/{visitId} {
       allow create: if true; // Public can request a visit
+      // Le client peut consulter (lecture seule) ses propres demandes de visite
+      allow read: if request.auth != null && resource.data.clientId == request.auth.uid;
       allow read, update, delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
     }
 
