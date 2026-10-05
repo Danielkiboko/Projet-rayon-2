@@ -469,7 +469,7 @@ export default function ClientsPage() {
 
         {/* Tableau des clients */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-300">
+          <table className="w-full min-w-[760px] text-left text-sm text-gray-300">
             <thead className="text-[11px] uppercase bg-black/20 text-gray-400 font-semibold border-b border-white/[0.06]">
               <tr>
                 <th className="px-6 py-4">Client Enregistré</th>

@@ -300,9 +300,9 @@ export default function AdminMyOrdersPage() {
           </div>
         </div>
 
-        {/* Tableau */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-300">
+        {/* Desktop Tableau (Hidden on mobile < md) */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full min-w-[720px] text-left text-sm text-gray-300">
             <thead className="text-[11px] uppercase bg-black/20 text-gray-400 font-semibold border-b border-white/[0.06]">
               <tr>
                 <th className="px-6 py-4">Commande</th>
@@ -449,6 +449,111 @@ export default function AdminMyOrdersPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Cards (Visible only on mobile < md) */}
+        <div className="md:hidden p-3 space-y-3">
+          {loading ? (
+            <div className="p-8 text-center text-gray-400">
+              <div className="w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-xs">Chargement de vos ventes...</p>
+            </div>
+          ) : filteredOrders.length === 0 ? (
+            <div className="p-6 text-center text-gray-400">
+              <ShoppingBag size={32} className="mx-auto mb-2 opacity-30 text-purple-400" />
+              <p className="text-xs font-semibold text-white">Aucune commande trouvée</p>
+            </div>
+          ) : (
+            filteredOrders.map((order) => {
+              const itemsCount = order.items?.reduce((acc, item) => acc + (item.quantity || 1), 0) || 0;
+              const total = order.total || order.totalAmount || order.itemsTotal || 0;
+              const dateStr = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString("fr-FR") : "Récent";
+
+              return (
+                <div
+                  key={order.id}
+                  className="bg-black/40 border border-white/10 rounded-2xl p-4 space-y-3 shadow-md"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <span className="font-mono text-xs font-bold text-white">#{order.id.slice(0, 8)}</span>
+                      <p className="text-[11px] text-gray-400 mt-0.5">{dateStr}</p>
+                    </div>
+                    {getStatusBadge(order.status)}
+                  </div>
+
+                  {/* Client Info */}
+                  <div className="flex items-center justify-between text-xs py-2 border-y border-white/5">
+                    <div>
+                      <p className="font-semibold text-white">{order.clientName || "Client"}</p>
+                      {order.clientPhone && (
+                        <p className="text-[11px] text-gray-400 font-mono mt-0.5">{order.clientPhone}</p>
+                      )}
+                    </div>
+                    {order.clientPhone && (
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`tel:${order.clientPhone}`}
+                          className="p-2 rounded-xl bg-white/5 text-gray-300 hover:text-white border border-white/10"
+                          title="Appeler"
+                        >
+                          <Phone size={14} />
+                        </a>
+                        <a
+                          href={`https://wa.me/${order.clientPhone.replace(/[^0-9]/g, "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          title="WhatsApp"
+                        >
+                          <MessageCircle size={14} />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Articles & Total */}
+                  <div className="flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-gray-400">{itemsCount} article{itemsCount > 1 ? "s" : ""}</span>
+                      <div className="text-[11px] text-gray-500 truncate max-w-[180px]">
+                        {order.items?.slice(0, 1).map((item, idx) => (
+                          <span key={idx}>{item.quantity}x {item.name || item.productName || "Article"}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-gray-400 block uppercase">Total</span>
+                      <span className="font-bold text-base text-white">{total.toLocaleString()} $</span>
+                    </div>
+                  </div>
+
+                  {/* Actions & Status Dropdown */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+                    <select
+                      value={(order.status || "PENDING").toUpperCase()}
+                      onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                      className="flex-1 bg-black/60 border border-white/15 text-white text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-purple-500 font-medium"
+                    >
+                      <option value="CONFIRMED_AWAITING_DRIVER">Nouvelle</option>
+                      <option value="PREPARING">En préparation</option>
+                      <option value="IN_TRANSIT">En livraison</option>
+                      <option value="DELIVERED">Livrée</option>
+                      <option value="CANCELLED">Annulée</option>
+                    </select>
+
+                    <button
+                      onClick={() => generateOrderInvoicePDF(order, null, "$")}
+                      className="px-3.5 py-2 bg-white/10 hover:bg-[#C7D300] hover:text-[#0F1D27] text-white rounded-xl text-xs font-bold transition-all border border-white/10 flex items-center gap-1.5"
+                    >
+                      <Download size={13} />
+                      <span>PDF</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
     </div>

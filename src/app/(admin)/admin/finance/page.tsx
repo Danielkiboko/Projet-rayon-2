@@ -744,7 +744,7 @@ export default function AdminFinancePage() {
       </div>
 
       {/* Tabs Switcher */}
-      <div className="flex border-b border-white/10 gap-6 text-sm font-semibold">
+      <div className="flex border-b border-white/10 gap-4 sm:gap-6 text-sm font-semibold overflow-x-auto scrollbar-none whitespace-nowrap">
         <button
           onClick={() => setActiveTab("ledger")}
           className={`pb-3 border-b-2 transition-all flex items-center gap-2 ${
@@ -824,7 +824,7 @@ export default function AdminFinancePage() {
 
           {/* Table */}
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-gray-300">
+            <table className="w-full min-w-[850px] text-left text-xs text-gray-300">
               <thead className="text-[11px] uppercase bg-black/30 text-gray-400">
                 <tr>
                   <th className="px-5 py-3.5">N° Écriture</th>
@@ -913,7 +913,7 @@ export default function AdminFinancePage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-gray-300">
+            <table className="w-full min-w-[850px] text-left text-xs text-gray-300">
               <thead className="text-[11px] uppercase bg-black/30 text-gray-400">
                 <tr>
                   <th className="px-5 py-3.5">Fournisseur</th>
@@ -1029,7 +1029,7 @@ export default function AdminFinancePage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-gray-300">
+            <table className="w-full min-w-[650px] text-left text-xs text-gray-300">
               <thead className="text-[11px] uppercase bg-black/30 text-gray-400">
                 <tr>
                   <th className="px-5 py-3.5">Date</th>

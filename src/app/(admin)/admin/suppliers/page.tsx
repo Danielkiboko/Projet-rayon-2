@@ -549,7 +549,7 @@ export default function SuppliersPage() {
       )}
 
       {/* Rayon Category Separation Tabs */}
-      <div className="flex flex-wrap items-center gap-2 p-1.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl">
+      <div className="flex items-center gap-2 p-1.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl overflow-x-auto scrollbar-none whitespace-nowrap">
         <button
           type="button"
           onClick={() => setSelectedRayonFilter("all")}
@@ -683,7 +683,7 @@ export default function SuppliersPage() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-300">
+          <table className="w-full min-w-[850px] text-left text-sm text-gray-300">
             <thead className="text-xs uppercase bg-black/30 text-gray-400 tracking-wider">
               <tr>
                 <th className="px-6 py-4 font-semibold">Prestataire / Entreprise</th>

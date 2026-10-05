@@ -19,7 +19,8 @@ import {
   LayoutDashboard,
   ShoppingBag,
   Package,
-  MessageSquare
+  MessageSquare,
+  LifeBuoy
 } from "lucide-react";
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
 import AnnouncementReaderModal from "@/modules/shared/components/notifications/AnnouncementReaderModal";
@@ -201,7 +202,10 @@ export function DashboardLayout({
               return (
                 <div 
                   key={item.title} 
-                  onClick={() => setLockedModalItem(item)}
+                  onClick={() => {
+                    setIsSidebarOpen(false);
+                    setLockedModalItem(item);
+                  }}
                   className="flex items-center justify-between px-4 py-3 rounded-xl transition-all text-gray-500 hover:bg-red-500/10 hover:text-red-300 cursor-pointer opacity-70 group border border-transparent hover:border-red-500/20"
                 >
                   <div className="flex items-center space-x-3">
@@ -217,7 +221,7 @@ export function DashboardLayout({
             }
             
             return (
-              <Link key={item.title} href={item.href}>
+              <Link key={item.title} href={item.href} onClick={() => setIsSidebarOpen(false)}>
                 <div className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
                   isActive 
                     ? `${activeBg} ${activeText} shadow-sm` 
@@ -247,7 +251,10 @@ export function DashboardLayout({
             </p>
           </div>
           <button 
-            onClick={() => signOut()}
+            onClick={() => {
+              setIsSidebarOpen(false);
+              signOut();
+            }}
             className="flex items-center justify-center space-x-2 px-4 py-3 w-full rounded-xl text-red-400 hover:bg-red-400/10 transition-colors"
           >
             <LogOut size={18} />
@@ -259,15 +266,15 @@ export function DashboardLayout({
       {/* Main content wrapper */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
         {/* Topbar */}
-        <header className="h-16 flex items-center justify-between px-4 sm:px-6 border-b border-white/10 bg-[#0F1D27]/90 backdrop-blur-md z-30 relative">
-          <div className="flex items-center">
-            <button onClick={() => setIsSidebarOpen(true)} className="mr-3 sm:mr-4 text-gray-400 hover:text-white lg:hidden">
-              <Menu size={24} />
+        <header className="h-16 flex items-center justify-between px-3 sm:px-6 border-b border-white/10 bg-[#0F1D27]/90 backdrop-blur-md z-30 relative gap-2">
+          <div className="flex items-center min-w-0 flex-1 mr-2">
+            <button onClick={() => setIsSidebarOpen(true)} className="mr-2.5 sm:mr-4 text-gray-400 hover:text-white lg:hidden shrink-0 p-1 rounded-lg hover:bg-white/5">
+              <Menu size={22} />
             </button>
-            <h1 className="text-base sm:text-lg font-semibold text-white truncate max-w-[200px] sm:max-w-none">{topbarTitle}</h1>
+            <h1 className="text-sm sm:text-base md:text-lg font-semibold text-white truncate">{topbarTitle}</h1>
           </div>
           
-          <div className="flex items-center space-x-2 sm:space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
             <div className="hidden md:flex items-center bg-white/5 rounded-full px-4 py-2 border border-white/5">
               <Search size={16} className="text-gray-400 mr-2" />
               <input 
@@ -340,77 +347,147 @@ export function DashboardLayout({
 
         {/* Tactile Mobile Bottom Navigation Bar */}
         <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-[#0F1D27]/95 backdrop-blur-md border-t border-white/10 px-2 py-1.5 flex items-center justify-around shadow-2xl">
-          {/* 1. Accueil */}
-          <Link
-            href="/supplier"
-            className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
-              pathname === "/supplier" ? themeColors.accentText || "text-[#C7D300]" : "text-gray-400 hover:text-white"
-            }`}
-          >
-            <LayoutDashboard size={19} strokeWidth={pathname === "/supplier" ? 2.5 : 2} />
-            <span className="text-[10px] font-semibold mt-1">Accueil</span>
-          </Link>
+          {pathname.startsWith("/admin") ? (
+            /* ── ADMIN MOBILE QUICK BAR ── */
+            <>
+              {/* 1. Dashboard Admin */}
+              <Link
+                href="/admin/dashboard"
+                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+                  pathname === "/admin/dashboard" || pathname === "/admin" 
+                    ? themeColors.accentText || "text-[#C7D300]" 
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <LayoutDashboard size={19} strokeWidth={pathname === "/admin/dashboard" || pathname === "/admin" ? 2.5 : 2} />
+                <span className="text-[10px] font-semibold mt-1">Accueil</span>
+              </Link>
 
-          {/* 2. Catalogue */}
-          <Link
-            href={catalogItem?.href || "/supplier/products"}
-            className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
-              pathname.includes("products") || pathname.includes("properties")
-                ? themeColors.accentText || "text-[#C7D300]"
-                : "text-gray-400 hover:text-white"
-            }`}
-          >
-            <Package size={19} strokeWidth={pathname.includes("products") || pathname.includes("properties") ? 2.5 : 2} />
-            <span className="text-[10px] font-semibold mt-1">
-              {pathname.includes("properties") ? "Biens" : "Catalogue"}
-            </span>
-          </Link>
+              {/* 2. Ventes Admin */}
+              <Link
+                href="/admin/orders"
+                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+                  pathname.startsWith("/admin/orders") 
+                    ? themeColors.accentText || "text-[#C7D300]" 
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <ShoppingBag size={19} strokeWidth={pathname.startsWith("/admin/orders") ? 2.5 : 2} />
+                <span className="text-[10px] font-semibold mt-1">Ventes</span>
+              </Link>
 
-          {/* 3. Ventes */}
-          <Link
-            href="/supplier/orders"
-            className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${
-              pathname.includes("orders") ? themeColors.accentText || "text-[#C7D300]" : "text-gray-400 hover:text-white"
-            }`}
-          >
-            <div className="relative">
-              <ShoppingBag size={19} strokeWidth={pathname.includes("orders") ? 2.5 : 2} />
-              {orderBadgeCount > 0 && (
-                <span className="absolute -top-1 -right-2 bg-[#C7D300] text-[#0F1D27] text-[9px] font-black px-1.5 py-0.2 rounded-full min-w-[15px] text-center">
-                  {orderBadgeCount}
+              {/* 3. Produits Admin */}
+              <Link
+                href="/admin/products"
+                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+                  pathname.startsWith("/admin/products") 
+                    ? themeColors.accentText || "text-[#C7D300]" 
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <Package size={19} strokeWidth={pathname.startsWith("/admin/products") ? 2.5 : 2} />
+                <span className="text-[10px] font-semibold mt-1">Produits</span>
+              </Link>
+
+              {/* 4. Support & Tickets Admin */}
+              <Link
+                href="/admin/tickets"
+                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+                  pathname.startsWith("/admin/tickets") 
+                    ? themeColors.accentText || "text-[#C7D300]" 
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <LifeBuoy size={19} strokeWidth={pathname.startsWith("/admin/tickets") ? 2.5 : 2} />
+                <span className="text-[10px] font-semibold mt-1">Support</span>
+              </Link>
+
+              {/* 5. Menu Drawer */}
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen(true)}
+                className="flex flex-col items-center justify-center flex-1 py-1 text-gray-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <Menu size={19} />
+                <span className="text-[10px] font-semibold mt-1">Menu</span>
+              </button>
+            </>
+          ) : (
+            /* ── FOURNISSEUR MOBILE QUICK BAR ── */
+            <>
+              {/* 1. Accueil Fournisseur */}
+              <Link
+                href="/supplier"
+                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+                  pathname === "/supplier" ? themeColors.accentText || "text-[#C7D300]" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <LayoutDashboard size={19} strokeWidth={pathname === "/supplier" ? 2.5 : 2} />
+                <span className="text-[10px] font-semibold mt-1">Accueil</span>
+              </Link>
+
+              {/* 2. Catalogue Fournisseur */}
+              <Link
+                href={catalogItem?.href || "/supplier/products"}
+                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+                  pathname.includes("products") || pathname.includes("properties")
+                    ? themeColors.accentText || "text-[#C7D300]"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <Package size={19} strokeWidth={pathname.includes("products") || pathname.includes("properties") ? 2.5 : 2} />
+                <span className="text-[10px] font-semibold mt-1">
+                  {pathname.includes("properties") ? "Biens" : "Catalogue"}
                 </span>
-              )}
-            </div>
-            <span className="text-[10px] font-semibold mt-1">Ventes</span>
-          </Link>
+              </Link>
 
-          {/* 4. Messages */}
-          <Link
-            href="/supplier/messages"
-            className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${
-              pathname.includes("messages") ? themeColors.accentText || "text-[#C7D300]" : "text-gray-400 hover:text-white"
-            }`}
-          >
-            <div className="relative">
-              <MessageSquare size={19} strokeWidth={pathname.includes("messages") ? 2.5 : 2} />
-              {messageBadgeCount > 0 && (
-                <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full min-w-[15px] text-center animate-pulse">
-                  {messageBadgeCount}
-                </span>
-              )}
-            </div>
-            <span className="text-[10px] font-semibold mt-1">Messages</span>
-          </Link>
+              {/* 3. Ventes Fournisseur */}
+              <Link
+                href="/supplier/orders"
+                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${
+                  pathname.includes("orders") ? themeColors.accentText || "text-[#C7D300]" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <div className="relative">
+                  <ShoppingBag size={19} strokeWidth={pathname.includes("orders") ? 2.5 : 2} />
+                  {orderBadgeCount > 0 && (
+                    <span className="absolute -top-1 -right-2 bg-[#C7D300] text-[#0F1D27] text-[9px] font-black px-1.5 py-0.2 rounded-full min-w-[15px] text-center">
+                      {orderBadgeCount}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] font-semibold mt-1">Ventes</span>
+              </Link>
 
-          {/* 5. Menu Drawer */}
-          <button
-            type="button"
-            onClick={() => setIsSidebarOpen(true)}
-            className="flex flex-col items-center justify-center flex-1 py-1 text-gray-400 hover:text-white transition-colors cursor-pointer"
-          >
-            <Menu size={19} />
-            <span className="text-[10px] font-semibold mt-1">Menu</span>
-          </button>
+              {/* 4. Messages Fournisseur */}
+              <Link
+                href="/supplier/messages"
+                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors relative ${
+                  pathname.includes("messages") ? themeColors.accentText || "text-[#C7D300]" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <div className="relative">
+                  <MessageSquare size={19} strokeWidth={pathname.includes("messages") ? 2.5 : 2} />
+                  {messageBadgeCount > 0 && (
+                    <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full min-w-[15px] text-center animate-pulse">
+                      {messageBadgeCount}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] font-semibold mt-1">Messages</span>
+              </Link>
+
+              {/* 5. Menu Drawer */}
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen(true)}
+                className="flex flex-col items-center justify-center flex-1 py-1 text-gray-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <Menu size={19} />
+                <span className="text-[10px] font-semibold mt-1">Menu</span>
+              </button>
+            </>
+          )}
         </nav>
 
         {/* Modal de lecture du communiqué officiel */}

@@ -705,7 +705,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full min-w-[760px] text-left border-collapse">
             <thead>
               <tr className="bg-white/5 text-xs uppercase tracking-wider text-gray-400 font-semibold">
                 <th className="p-4 w-16">Image</th>

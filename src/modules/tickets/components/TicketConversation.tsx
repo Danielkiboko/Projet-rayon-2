@@ -230,7 +230,7 @@ export function TicketConversation({
           {onBack && (
             <button
               onClick={onBack}
-              className="mt-0.5 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 md:hidden"
+              className="mt-0.5 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 lg:hidden"
             >
               <ChevronLeft size={20} />
             </button>
