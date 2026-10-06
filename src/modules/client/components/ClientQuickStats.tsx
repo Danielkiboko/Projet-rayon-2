@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Package, FileText, Hotel, ShieldCheck } from "lucide-react";
+import { Package, FileText, Hotel, MessageSquare } from "lucide-react";
 
 interface ClientQuickStatsProps {
   ordersCount: number;
@@ -9,7 +9,8 @@ interface ClientQuickStatsProps {
   proformasCount: number;
   hotelsCount: number;
   visitsCount: number;
-  onSelectTab: (tab: "orders" | "proformas" | "hotels" | "visits" | "messages" | "tickets") => void;
+  unreadMessagesCount?: number;
+  onSelectTab: (tab: "orders" | "proformas" | "hotels" | "visits" | "messages" | "tickets" | "profile") => void;
 }
 
 export default function ClientQuickStats({
@@ -18,6 +19,7 @@ export default function ClientQuickStats({
   proformasCount,
   hotelsCount,
   visitsCount,
+  unreadMessagesCount = 0,
   onSelectTab,
 }: ClientQuickStatsProps) {
   const stats = [
@@ -41,8 +43,8 @@ export default function ClientQuickStats({
       icon: FileText,
       iconBg: "bg-amber-50 text-amber-600 border border-amber-200/60",
       cardBorder: "hover:border-amber-300",
-      badgeCls: proformasCount > 0 ? "bg-amber-100 text-amber-800 border-amber-300 animate-pulse" : "bg-gray-100 text-gray-600 border-gray-200",
-      activeBadge: proformasCount > 0 ? "Action requise" : "0 en attente",
+      badgeCls: proformasCount > 0 ? "bg-amber-100 text-amber-800 border-amber-300 animate-pulse font-bold" : "bg-gray-100 text-gray-600 border-gray-200",
+      activeBadge: proformasCount > 0 ? `${proformasCount} en attente` : "0 en attente",
       tab: "proformas" as const,
     },
     {
@@ -58,16 +60,16 @@ export default function ClientQuickStats({
       tab: "hotels" as const,
     },
     {
-      id: "protection",
-      title: "Rayons Trade Assurance",
-      value: "100%",
-      subtext: "Paiements & Livraisons protégés",
-      icon: ShieldCheck,
+      id: "messages",
+      title: "Messagerie Vendeurs",
+      value: unreadMessagesCount,
+      subtext: unreadMessagesCount > 0 ? "Nouveaux messages reçus" : "Discussions & négociations directes",
+      icon: MessageSquare,
       iconBg: "bg-orange-50 text-[#FF6600] border border-orange-200/60",
       cardBorder: "hover:border-orange-300",
-      badgeCls: "bg-orange-50 text-[#FF6600] border border-orange-200",
-      activeBadge: "Protection Rayons",
-      tab: "orders" as const,
+      badgeCls: unreadMessagesCount > 0 ? "bg-red-50 text-red-600 border-red-200 animate-pulse font-bold" : "bg-gray-100 text-gray-600 border-gray-200",
+      activeBadge: unreadMessagesCount > 0 ? `${unreadMessagesCount} non lu(s)` : "En direct",
+      tab: "messages" as const,
     },
   ];
 
@@ -95,15 +97,15 @@ export default function ClientQuickStats({
               </span>
             </div>
 
-            {/* Bottom: Big bold high-contrast numbers and titles */}
+            {/* Bottom: Numbers and titles */}
             <div>
               <div className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight mb-1">
                 {stat.value}
               </div>
-              <div className="text-xs sm:text-sm font-bold text-gray-800 group-hover:text-primary transition-colors truncate">
+              <div className="font-bold text-gray-800 text-xs sm:text-sm mb-0.5 group-hover:text-primary transition-colors">
                 {stat.title}
               </div>
-              <div className="text-[11px] text-gray-500 truncate mt-0.5">
+              <div className="text-[11px] text-gray-400 font-medium truncate">
                 {stat.subtext}
               </div>
             </div>

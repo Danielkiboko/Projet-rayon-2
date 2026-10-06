@@ -31,7 +31,11 @@ import {
   Store,
   Check,
   X,
-  ExternalLink
+  ExternalLink,
+  Package,
+  FileText,
+  LifeBuoy,
+  User
 } from "lucide-react";
 import Link from "next/link";
 import { ChatBox } from "@/modules/client/components/ChatBox";
@@ -42,7 +46,7 @@ interface ClientChatsWidgetProps {
   ordersCount?: number;
   notificationsCount?: number;
   proformasCount?: number;
-  onSelectTab?: (tab: "orders" | "proformas" | "hotels" | "visits" | "messages" | "tickets") => void;
+  onSelectTab?: (tab: "orders" | "proformas" | "hotels" | "visits" | "messages" | "tickets" | "profile") => void;
 }
 
 // Preset realistic product thumbnails for Alibaba experience if not provided in chat doc
@@ -260,8 +264,86 @@ export function ClientChatsWidget({
   return (
     <div className={`flex flex-1 bg-white rounded-3xl shadow-sm border border-gray-200/90 overflow-hidden ${embedded ? 'min-h-[640px] h-[720px]' : 'min-h-[680px]'}`}>
       
-      {/* ────────────────── ALIBABA CONVERSATION HUB (LEFT PANEL / MOBILE FULL) ────────────────── */}
-      <div className={`w-full md:w-5/12 lg:w-4/12 border-r border-gray-200 flex flex-col bg-white ${activeChatId ? 'hidden md:flex' : 'flex'}`}>
+      {/* ────────────────── 1. SLIM ICON RAIL (ALIBABA MESSENGER DESKTOP) ────────────────── */}
+      <div className="hidden md:flex flex-col items-center justify-between py-4 px-2 w-[58px] bg-[#0F172A] text-white shrink-0 border-r border-slate-800">
+        <div className="flex flex-col items-center gap-3 w-full">
+          {/* Logo Brand / Rayons Badge */}
+          <Link
+            href="/"
+            className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#FF6600] to-[#FF8533] flex items-center justify-center font-black text-white text-base shadow-sm hover:scale-105 transition-transform"
+            title="Rayons.net"
+          >
+            R
+          </Link>
+
+          <div className="w-6 h-[1px] bg-slate-700/60 my-1" />
+
+          {/* Icon 1: Messages (Active) */}
+          <button
+            type="button"
+            onClick={() => onSelectTab ? onSelectTab("messages") : null}
+            className="w-10 h-10 rounded-xl bg-white/15 text-[#FF6600] flex items-center justify-center relative hover:bg-white/20 transition-colors cursor-pointer group"
+            title="Messagerie en direct"
+          >
+            <MessageSquare size={19} />
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#FF3B30] border-2 border-[#0F172A]" />
+            )}
+          </button>
+
+          {/* Icon 2: Commandes */}
+          <button
+            type="button"
+            onClick={() => onSelectTab ? onSelectTab("orders") : (window.location.href = "/dashboard/client?tab=orders")}
+            className="w-10 h-10 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center relative transition-colors cursor-pointer group"
+            title="Mes Achats & Commandes"
+          >
+            <Package size={19} />
+            {ordersCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-[#0F172A]" />
+            )}
+          </button>
+
+          {/* Icon 3: Proformas / RFQ */}
+          <button
+            type="button"
+            onClick={() => onSelectTab ? onSelectTab("proformas") : (window.location.href = "/dashboard/client?tab=proformas")}
+            className="w-10 h-10 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center relative transition-colors cursor-pointer group"
+            title="Devis & Factures Proforma"
+          >
+            <FileText size={19} />
+            {proformasCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-amber-500 border-2 border-[#0F172A]" />
+            )}
+          </button>
+
+          {/* Icon 4: Assistance & Réclamations */}
+          <button
+            type="button"
+            onClick={() => onSelectTab ? onSelectTab("tickets") : (window.location.href = "/dashboard/client?tab=tickets")}
+            className="w-10 h-10 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 flex items-center justify-center relative transition-colors cursor-pointer group"
+            title="Assistance & Tickets"
+          >
+            <LifeBuoy size={19} />
+            {notificationsCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-[#FF3B30] border-2 border-[#0F172A]" />
+            )}
+          </button>
+        </div>
+
+        {/* Bottom Profile Shortcut */}
+        <button
+          type="button"
+          onClick={() => onSelectTab ? onSelectTab("profile") : (window.location.href = "/dashboard/client?tab=profile")}
+          className="w-10 h-10 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 flex items-center justify-center transition-colors cursor-pointer"
+          title="Mon Profil"
+        >
+          <User size={18} />
+        </button>
+      </div>
+
+      {/* ────────────────── 2. ALIBABA CONVERSATION HUB (LEFT PANEL / MOBILE FULL) ────────────────── */}
+      <div className={`w-full md:w-[320px] lg:w-[360px] border-r border-gray-200 flex flex-col bg-white shrink-0 ${activeChatId ? 'hidden md:flex' : 'flex'}`}>
         
         {/* 1. Header Alibaba "Messagerie" */}
         <div className="p-4 sm:p-5 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-20">

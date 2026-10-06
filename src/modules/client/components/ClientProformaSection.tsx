@@ -283,9 +283,9 @@ export default function ClientProformaSection({
                 <span className="font-bold text-gray-800 mt-0.5 block">{formatPrice(pf.deliveryFee)}</span>
               </div>
               <div>
-                <span className="text-gray-400 block">Garantie Trade Assurance</span>
+                <span className="text-gray-400 block">Protection Achat</span>
                 <span className="font-bold text-emerald-600 mt-0.5 flex items-center gap-1">
-                  <ShieldCheck size={13} /> Active 100%
+                  <ShieldCheck size={13} /> Garantie Rayons
                 </span>
               </div>
             </div>

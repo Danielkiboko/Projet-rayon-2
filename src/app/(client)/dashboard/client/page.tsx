@@ -41,7 +41,6 @@ import { useCurrency } from "@/context/CurrencyContext";
 
 // Alibaba Components
 import ClientQuickStats from "@/modules/client/components/ClientQuickStats";
-import ClientBuyerProtectionBanner from "@/modules/client/components/ClientBuyerProtectionBanner";
 import ClientOrderCardAlibaba from "@/modules/client/components/ClientOrderCardAlibaba";
 import ClientProformaSection from "@/modules/client/components/ClientProformaSection";
 import ClientProfileSection from "@/modules/client/components/ClientProfileSection";
@@ -266,18 +265,33 @@ export default function ClientDashboard() {
     <div className="min-h-screen bg-[#F8FAFC] pb-24 sm:pb-8">
       <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
         
-        {/* Top Breadcrumb / Marketplace Link (Desktop only) */}
-        <div className="hidden md:flex items-center justify-between mb-3 text-xs">
-          <Link 
-            href="/" 
-            className="inline-flex items-center gap-1.5 text-gray-600 hover:text-[#FF6600] font-bold transition-colors group"
-          >
-            <ArrowRight size={14} className="rotate-180 text-gray-400 group-hover:text-[#FF6600] transition-colors" />
-            <span>Retourner aux Rayons / Explorer les Produits</span>
-          </Link>
-          <span className="text-[11px] font-semibold text-gray-400">
-            Espace Acheteur Certifié
-          </span>
+        {/* Top Utility Bar (Alibaba Style Desktop) */}
+        <div className="hidden md:flex items-center justify-between mb-4 py-1.5 px-3 bg-white/70 backdrop-blur-xs rounded-xl border border-gray-200/60 text-xs text-gray-500">
+          <div className="flex items-center gap-4">
+            <Link href="/" className="font-extrabold text-[#FF6600] hover:text-[#e65c00] transition-colors flex items-center gap-1.5">
+              <span>Rayons.net</span>
+            </Link>
+            <span className="text-gray-300">|</span>
+            <span className="font-medium text-gray-700">Mon Espace Acheteur</span>
+            <span className="text-gray-300">|</span>
+            <span className="text-gray-500 flex items-center gap-1">
+              Livraison : <strong className="text-gray-700 font-semibold">🇨🇩 RDC (Kinshasa)</strong>
+            </span>
+          </div>
+
+          <div className="flex items-center gap-4 text-[11px]">
+            <Link href="/orders" className="hover:text-[#FF6600] transition-colors">
+              Suivi de colis
+            </Link>
+            <span className="text-gray-300">|</span>
+            <Link href="/help" className="hover:text-[#FF6600] transition-colors">
+              Centre d'aide & Réclamations
+            </Link>
+            <span className="text-gray-300">|</span>
+            <Link href="/supplier/register" className="font-semibold text-gray-700 hover:text-[#FF6600] transition-colors">
+              Devenir Vendeur
+            </Link>
+          </div>
         </div>
 
         {/* En-tête Mobile Épuré (Cliquer sur son nom ouvre son profil) */}
@@ -307,7 +321,7 @@ export default function ClientDashboard() {
           </div>
         </div>
 
-        {/* 1. Header Desktop (Profil Client) - Masqué sur mobile pour un écran propre */}
+        {/* 1. Header Desktop (Profil Client) */}
         <div className="hidden md:flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-gray-200/80 shadow-xs relative">
           <div className="flex items-center gap-4">
             {/* Avatar */}
@@ -339,9 +353,6 @@ export default function ClientDashboard() {
                     <Phone size={12} className="text-primary" /> {clientPhone}
                   </span>
                 )}
-                <span className="flex items-center gap-1 text-emerald-600 font-semibold">
-                  <ShieldCheck size={12} /> Identité Vérifiée
-                </span>
               </div>
             </div>
           </div>
@@ -370,20 +381,18 @@ export default function ClientDashboard() {
           </div>
         </div>
 
-        {/* 2. Quick Metrics (Alibaba Stat Cards) */}
+        {/* 2. Quick Metrics (Stat Cards sans doublon Trade Assurance) */}
         <ClientQuickStats 
           ordersCount={orders.length}
           activeOrdersCount={orderCounts.active}
           proformasCount={pendingProformasCount}
           hotelsCount={hotelBookings.length}
           visitsCount={visits.length}
+          unreadMessagesCount={unreadMessagesCount}
           onSelectTab={(tab) => setActiveTab(tab)}
         />
 
-        {/* 3. Trade Assurance Protection Banner */}
-        <ClientBuyerProtectionBanner />
-
-        {/* 4. Main Navigation Tabs (Alibaba My Alibaba Bar) */}
+        {/* 3. Main Navigation Tabs (Alibaba My Alibaba Bar) */}
         <div className="flex space-x-1 sm:space-x-2 border-b border-gray-200 mb-6 overflow-x-auto pb-0.5 scrollbar-none">
           <button
             onClick={() => setActiveTab("orders")}

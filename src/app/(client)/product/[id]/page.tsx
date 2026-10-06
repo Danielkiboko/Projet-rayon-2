@@ -191,8 +191,8 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
                 <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center">
                   <ShieldCheck size={24} className="text-green-400 mr-3" />
                   <div>
-                    <h4 className="font-bold text-sm">Trade Assurance</h4>
-                    <p className="text-xs text-gray-400">{lang === "fr" ? "Achat protégé" : "Protected purchase"}</p>
+                    <h4 className="font-bold text-sm">Garantie Rayons</h4>
+                    <p className="text-xs text-gray-400">{lang === "fr" ? "Paiement & achat protégés" : "Protected purchase"}</p>
                   </div>
                 </div>
                 <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center">
