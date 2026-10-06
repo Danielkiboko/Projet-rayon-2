@@ -3,103 +3,61 @@
 import { useState, useEffect } from "react";
 import { 
   X, 
-  Trash2, 
-  Plus, 
-  Minus, 
   ShoppingBag, 
   ArrowRight, 
-  Truck, 
-  MapPin, 
-  Banknote, 
-  Smartphone, 
-  CheckCircle2, 
+  CreditCard, 
+  FileText, 
+  Hotel, 
+  Calendar, 
+  Clock, 
+  Bed, 
+  MessageSquare, 
+  ShieldCheck, 
   AlertCircle, 
-  Loader2,
-  ShieldCheck,
-  FileText,
-  Hotel,
-  Calendar,
-  Clock,
-  CreditCard,
-  MessageSquare,
-  Bed,
+  Loader2, 
   Users,
-  Sparkles,
-  ExternalLink
+  Store,
+  ExternalLink,
+  ChevronRight
 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { doc, setDoc, serverTimestamp, collection, query, where, onSnapshot, limit } from "firebase/firestore";
+import { collection, query, where, onSnapshot, limit } from "firebase/firestore";
 import Link from "next/link";
-import { sendClientInAppNotification } from "@/lib/inAppNotification";
 import { generateHotelBookingReceiptPDF } from "@/lib/invoiceGenerator";
-import { KINSHASA_COMMUNES } from "@/lib/kinshasaDelivery";
 
 export function CartDrawer() {
-  const { 
-    items, 
-    isCartOpen, 
-    closeCart, 
-    updateQuantity, 
-    removeFromCart, 
-    clearCart, 
-    subtotal, 
-    totalItems 
-  } = useCart();
+  const { isCartOpen, closeCart } = useCart();
   const { user, userData } = useAuth();
-  const { formatPrice, currency } = useCurrency();
+  const { formatPrice } = useCurrency();
   const router = useRouter();
 
-  // Navigation tabs in cart: Cart items | Pending Supplier Proformas | Real Estate & Hotels
-  const [cartTab, setCartTab] = useState<"items" | "proformas" | "immo">("items");
-
-  const [step, setStep] = useState<"cart" | "checkout">("cart");
-  const [selectedCommune, setSelectedCommune] = useState("Gombe");
-  const [clientName, setClientName] = useState("");
-  const [clientPhone, setClientPhone] = useState("");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"CASH_ON_DELIVERY" | "MOBILE_MONEY">("CASH_ON_DELIVERY");
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [createdOrder, setCreatedOrder] = useState<any | null>(null);
+  // 2 main sections: Proformas Produits (Alibaba style) & Immo / Hôtels
+  const [activeSection, setActiveSection] = useState<"proformas" | "immo">("proformas");
 
   // Pending Proformas & Orders
   const [pendingProformas, setPendingProformas] = useState<any[]>([]);
   const [payingProformaId, setPayingProformaId] = useState<string | null>(null);
   const [proformaError, setProformaError] = useState("");
+  const [isLoadingProformas, setIsLoadingProformas] = useState(true);
 
   // Pending Immo & Hotels
   const [pendingHotels, setPendingHotels] = useState<any[]>([]);
   const [pendingVisits, setPendingVisits] = useState<any[]>([]);
 
+  // Listen to user's pending proformas and pending immo bookings
   useEffect(() => {
-    if (user) {
-      setClientName(userData?.displayName || userData?.name || user.displayName || "");
-      setClientPhone(userData?.phone || user.phoneNumber || "");
-      if (userData?.commune) setSelectedCommune(userData.commune);
-      if (userData?.address) setDeliveryAddress(userData.address);
+    if (!user || !isCartOpen) {
+      setIsLoadingProformas(false);
+      return;
     }
-  }, [user, userData]);
 
-  // Reset checkout view when drawer is closed
-  useEffect(() => {
-    if (!isCartOpen) {
-      setStep("cart");
-      setError("");
-      setProformaError("");
-      setCreatedOrder(null);
-    }
-  }, [isCartOpen]);
+    setIsLoadingProformas(true);
 
-  // Listen to user's pending proformas and pending immo
-  useEffect(() => {
-    if (!user || !isCartOpen) return;
-
-    // 1. Fetch user's chats to listen to pending proforma messages sent by suppliers
+    // 1. Fetch user's chats to listen to pending proforma messages sent by suppliers (Alibaba Trade Assurance proformas)
     const qChats = query(
       collection(db, "chats"),
       where("clientId", "==", user.uid),
@@ -114,6 +72,7 @@ export function CartDrawer() {
 
       if (snapshot.empty) {
         setPendingProformas([]);
+        setIsLoadingProformas(false);
         return;
       }
 
@@ -122,7 +81,7 @@ export function CartDrawer() {
       snapshot.docs.forEach((chatDoc) => {
         const chatData = chatDoc.data();
         const chatId = chatDoc.id;
-        const supplierName = chatData.productName || chatData.propertyTitle || "Fournisseur Partenaire";
+        const supplierName = chatData.supplierName || chatData.productName || chatData.propertyTitle || "Fournisseur Partenaire";
         const supplierId = chatData.supplierId;
 
         const qMsg = query(
@@ -144,7 +103,8 @@ export function CartDrawer() {
                 messageId: msgDoc.id,
                 supplierId: m.proforma.supplierId || supplierId,
                 supplierName: supplierName,
-                productName: m.proforma.productName || "Devis / Facture Proforma",
+                productName: m.proforma.productName || "Produit sous Facture Proforma",
+                productId: m.proforma.productId || null,
                 quantity: Number(m.proforma.quantity) || 1,
                 unitPrice: unitP,
                 totalPrice: totalP,
@@ -166,14 +126,17 @@ export function CartDrawer() {
             return tB - tA;
           });
           setPendingProformas(list);
+          setIsLoadingProformas(false);
         }, (err) => {
           console.warn("Cart proforma messages error:", err);
+          setIsLoadingProformas(false);
         });
 
         messageUnsubs.push(unsubMsg);
       });
     }, (err) => {
       console.warn("Cart chats listener error:", err);
+      setIsLoadingProformas(false);
     });
 
     // 2. Fetch pending hotel bookings
@@ -214,128 +177,18 @@ export function CartDrawer() {
     };
   }, [user, isCartOpen]);
 
-  // Intelligent initial tab selection: if user has no standard cart items but has pending proformas, show proformas
+  // Reset error when cart closes
   useEffect(() => {
-    if (isCartOpen) {
-      if (items.length === 0 && pendingProformas.length > 0) {
-        setCartTab("proformas");
-      } else if (items.length === 0 && (pendingHotels.length > 0 || pendingVisits.length > 0)) {
-        setCartTab("immo");
-      }
+    if (!isCartOpen) {
+      setProformaError("");
+      setPayingProformaId(null);
     }
-  }, [isCartOpen, items.length, pendingProformas.length, pendingHotels.length, pendingVisits.length]);
+  }, [isCartOpen]);
 
   if (!isCartOpen) return null;
 
-  const activeCommuneObj = KINSHASA_COMMUNES.find(c => c.name === selectedCommune) || KINSHASA_COMMUNES[0];
-  const deliveryFee = items.length > 0 ? activeCommuneObj.fee : 0;
-  const grandTotal = subtotal + deliveryFee;
   const pendingImmoTotal = pendingHotels.length + pendingVisits.length;
-
-  const handleOrderSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    if (!clientName.trim()) {
-      setError("Veuillez renseigner votre nom complet.");
-      return;
-    }
-    if (!clientPhone.trim()) {
-      setError("Veuillez renseigner votre numéro de téléphone pour le livreur.");
-      return;
-    }
-    if (!deliveryAddress.trim()) {
-      setError("Veuillez indiquer une adresse ou un repère précis à Kinshasa.");
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const orderId = `CMD-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 900 + 100)}`;
-      
-      const supplierIds = Array.from(new Set(items.map(it => it.supplierId || "admin")));
-      const fullAddress = `${deliveryAddress.trim()}, ${selectedCommune}, Kinshasa`;
-
-      const orderData = {
-        id: orderId,
-        clientId: user ? user.uid : "GUEST",
-        clientName: clientName.trim(),
-        clientPhone: clientPhone.trim(),
-        clientAddress: fullAddress,
-        supplierId: items[0]?.supplierId || "admin",
-        supplierIds: supplierIds,
-        items: items.map(it => ({
-          productId: it.id,
-          productName: it.title,
-          quantity: it.quantity,
-          price: it.price,
-          image: it.image || "",
-          supplierId: it.supplierId || "admin"
-        })),
-        subtotal: subtotal,
-        deliveryFee: deliveryFee,
-        totalAmount: grandTotal,
-        remainingBalance: grandTotal,
-        currency: currency,
-        deliveryDetails: {
-          city: "Kinshasa",
-          commune: selectedCommune,
-          address: deliveryAddress.trim(),
-          recipientName: clientName.trim(),
-          recipientPhone: clientPhone.trim()
-        },
-        paymentMethod: paymentMethod,
-        paymentStatus: paymentMethod === "CASH_ON_DELIVERY" ? "PAYMENT_ON_DELIVERY" : "AWAITING_PAYMENT",
-        status: "CONFIRMED_AWAITING_DRIVER",
-        createdAt: serverTimestamp(),
-        clientLocation: {
-          city: "Kinshasa",
-          commune: selectedCommune
-        }
-      };
-
-      // 1. Enregistrement Firestore
-      await setDoc(doc(db, "orders", orderId), orderData);
-
-      // 2. Décrémenter stock pour chaque produit
-      for (const it of items) {
-        try {
-          await fetch("/api/orders/update-stock", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              productId: it.id,
-              quantity: it.quantity,
-              action: "decrement"
-            })
-          });
-        } catch (stkErr) {
-          console.warn("Stock decrement warning for", it.id, stkErr);
-        }
-      }
-
-      // 3. Clear cart and set success
-      clearCart();
-      setCreatedOrder(orderData);
-
-      if (user) {
-        await sendClientInAppNotification({
-          userId: user.uid,
-          clientId: user.uid,
-          type: "order",
-          title: "Commande confirmée 🎉",
-          message: `Votre commande #${orderId.slice(-6)} (${items.length} article(s) - ${formatPrice(grandTotal)}) a bien été validée. Livraison vers ${selectedCommune}.`,
-          link: "/dashboard/client",
-        });
-      }
-    } catch (err: any) {
-      console.error("Cart order error:", err);
-      setError(err.message || "Erreur lors de la validation de la commande.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const totalProformasSum = pendingProformas.reduce((sum, item) => sum + (item.grandTotal || 0), 0);
 
   const handlePayProforma = async (pf: any) => {
     if (!user) {
@@ -387,7 +240,7 @@ export function CartDrawer() {
         <div className="w-screen max-w-md bg-white shadow-2xl flex flex-col border-l border-gray-100 animate-in slide-in-from-right duration-250">
           
           {/* Header */}
-          <div className="p-4 sm:p-5 bg-[#0F1D27] text-white flex items-center justify-between border-b border-white/10">
+          <div className="p-4 sm:p-5 bg-[#0F1D27] text-white flex items-center justify-between border-b border-white/10 shrink-0">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-[#FF6600] text-white flex items-center justify-center font-bold shadow-md shadow-[#FF6600]/30">
                 <ShoppingBag size={18} />
@@ -395,7 +248,7 @@ export function CartDrawer() {
               <div>
                 <h2 className="font-heading font-black text-sm sm:text-base tracking-tight">Panier & Proformas Rayons</h2>
                 <p className="text-[11px] text-gray-400">
-                  Validez vos achats, devis et réservations
+                  Produits en attente de paiement (Style Alibaba)
                 </p>
               </div>
             </div>
@@ -407,42 +260,21 @@ export function CartDrawer() {
             </button>
           </div>
 
-          {/* Segmented Top Tabs: Articles | Proformas | Immo */}
-          <div className="flex border-b border-gray-200 bg-gray-50/90 px-2 pt-2 gap-1 overflow-x-auto scrollbar-none shrink-0">
+          {/* Segmented Top Selector: Produits Proforma | Immo & Hôtels */}
+          <div className="flex border-b border-gray-200 bg-gray-50/90 px-3 pt-2 gap-2 overflow-x-auto scrollbar-none shrink-0">
             <button
               type="button"
-              onClick={() => {
-                setCartTab("items");
-                setStep("cart");
-              }}
-              className={`px-3 py-2 text-xs font-bold rounded-t-xl transition-all border-b-2 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                cartTab === "items"
+              onClick={() => setActiveSection("proformas")}
+              className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-t-xl transition-all border-b-2 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                activeSection === "proformas"
                   ? "bg-white text-gray-900 border-[#FF6600] shadow-2xs"
                   : "text-gray-500 hover:text-gray-800 border-transparent"
               }`}
             >
-              <ShoppingBag size={13} className={cartTab === "items" ? "text-[#FF6600]" : "text-gray-400"} />
-              <span>Articles</span>
-              {totalItems > 0 && (
-                <span className="px-1.5 py-0.2 bg-[#FF6600] text-white text-[10px] rounded-full font-black">
-                  {totalItems}
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setCartTab("proformas")}
-              className={`px-3 py-2 text-xs font-bold rounded-t-xl transition-all border-b-2 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                cartTab === "proformas"
-                  ? "bg-white text-gray-900 border-amber-500 shadow-2xs"
-                  : "text-gray-500 hover:text-gray-800 border-transparent"
-              }`}
-            >
-              <FileText size={13} className={cartTab === "proformas" || pendingProformas.length > 0 ? "text-amber-500" : "text-gray-400"} />
-              <span>Proformas</span>
+              <FileText size={14} className={activeSection === "proformas" || pendingProformas.length > 0 ? "text-[#FF6600]" : "text-gray-400"} />
+              <span>Produits & Proformas</span>
               {pendingProformas.length > 0 && (
-                <span className="px-1.5 py-0.2 bg-amber-500 text-white text-[10px] rounded-full font-black animate-pulse">
+                <span className="px-1.5 py-0.2 bg-[#FF6600] text-white text-[10px] rounded-full font-black animate-pulse">
                   {pendingProformas.length}
                 </span>
               )}
@@ -450,14 +282,14 @@ export function CartDrawer() {
 
             <button
               type="button"
-              onClick={() => setCartTab("immo")}
-              className={`px-3 py-2 text-xs font-bold rounded-t-xl transition-all border-b-2 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
-                cartTab === "immo"
+              onClick={() => setActiveSection("immo")}
+              className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-t-xl transition-all border-b-2 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                activeSection === "immo"
                   ? "bg-white text-gray-900 border-blue-600 shadow-2xs"
                   : "text-gray-500 hover:text-gray-800 border-transparent"
               }`}
             >
-              <Hotel size={13} className={cartTab === "immo" || pendingImmoTotal > 0 ? "text-blue-600" : "text-gray-400"} />
+              <Hotel size={14} className={activeSection === "immo" || pendingImmoTotal > 0 ? "text-blue-600" : "text-gray-400"} />
               <span>Immo & Hôtels</span>
               {pendingImmoTotal > 0 && (
                 <span className="px-1.5 py-0.2 bg-blue-600 text-white text-[10px] rounded-full font-black">
@@ -467,391 +299,19 @@ export function CartDrawer() {
             </button>
           </div>
 
-          {/* TAB 1: ARTICLES DU PANIER */}
-          {cartTab === "items" && (
-            <>
-              {/* Order Created Success Screen */}
-              {createdOrder ? (
-                <div className="p-8 text-center flex flex-col items-center justify-center flex-1">
-                  <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
-                    <CheckCircle2 size={36} />
-                  </div>
-                  <h3 className="text-xl font-heading font-bold text-gray-900 mb-1">Commande Validée !</h3>
-                  <p className="text-xs text-gray-500 mb-4 max-w-xs">
-                    Votre commande <strong className="text-gray-900">#{createdOrder.id}</strong> a été enregistrée avec succès. Nos chauffeurs partenaires sont notifiés.
-                  </p>
-
-                  <div className="bg-gray-50 rounded-2xl p-4 w-full text-left text-xs mb-6 space-y-1.5 border border-gray-100">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Commune de livraison :</span>
-                      <span className="font-bold text-gray-800">{createdOrder.deliveryDetails?.commune}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Total réglé / dû :</span>
-                      <span className="font-bold text-emerald-600 text-sm">{formatPrice(createdOrder.totalAmount)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Mode :</span>
-                      <span className="font-medium text-gray-700">
-                        {createdOrder.paymentMethod === "CASH_ON_DELIVERY" ? "💵 Cash à la livraison" : "📱 Mobile Money"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2 w-full">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        closeCart();
-                        router.push(`/order/${createdOrder.id}/tracking`);
-                      }}
-                      className="w-full py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-all text-xs flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
-                    >
-                      <Truck size={15} /> Suivre la livraison en direct
-                    </button>
-                    <button
-                      type="button"
-                      onClick={closeCart}
-                      className="w-full py-2.5 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors text-xs cursor-pointer"
-                    >
-                      Continuer mes achats
-                    </button>
-                  </div>
-                </div>
-              ) : items.length === 0 ? (
-                /* Empty Cart Items View with helpful cross-links */
-                <div className="p-8 text-center flex flex-col items-center justify-center flex-1 text-gray-400">
-                  <ShoppingBag size={52} className="text-gray-200 mb-3" />
-                  <h3 className="text-base font-bold text-gray-800 mb-1">Votre panier d'articles est vide</h3>
-                  <p className="text-xs text-gray-400 max-w-xs mb-5">
-                    Parcourez nos rayons Connect, Mode et Saveurs pour ajouter des articles d'exception.
-                  </p>
-
-                  {/* Notice if user has pending proformas waiting */}
-                  {pendingProformas.length > 0 && (
-                    <div className="mb-5 p-3.5 bg-amber-50 border border-amber-200/80 rounded-2xl text-left w-full">
-                      <div className="flex items-center gap-2 text-amber-800 font-bold text-xs mb-1">
-                        <FileText size={15} className="text-amber-600 shrink-0" />
-                        <span>{pendingProformas.length} devis proforma en attente</span>
-                      </div>
-                      <p className="text-[11px] text-amber-700 mb-2">
-                        Un fournisseur vous a envoyé un devis officiel prêt à être validé et réglé.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setCartTab("proformas")}
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-900 bg-amber-200/70 hover:bg-amber-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-                      >
-                        Consulter mes proformas <ArrowRight size={13} />
-                      </button>
-                    </div>
-                  )}
-
-                  {/* Notice if user has pending immo bookings */}
-                  {pendingImmoTotal > 0 && (
-                    <div className="mb-5 p-3.5 bg-blue-50 border border-blue-200/80 rounded-2xl text-left w-full">
-                      <div className="flex items-center gap-2 text-blue-800 font-bold text-xs mb-1">
-                        <Hotel size={15} className="text-blue-600 shrink-0" />
-                        <span>{pendingImmoTotal} réservation(s) immo / hôtel</span>
-                      </div>
-                      <p className="text-[11px] text-blue-700 mb-2">
-                        Consultez vos séjours et visites en attente de confirmation.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setCartTab("immo")}
-                        className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-900 bg-blue-200/70 hover:bg-blue-200 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-                      >
-                        Voir mes réservations <ArrowRight size={13} />
-                      </button>
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={closeCart}
-                    className="px-5 py-2.5 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-dark transition-colors cursor-pointer"
-                  >
-                    Découvrir les rayons
-                  </button>
-                </div>
-              ) : step === "cart" ? (
-                /* Cart Items List */
-                <>
-                  {/* Proforma Alert banner if any pending proformas exist */}
-                  {pendingProformas.length > 0 && (
-                    <div 
-                      onClick={() => setCartTab("proformas")}
-                      className="px-4 py-2.5 bg-amber-500/10 border-b border-amber-200/80 flex items-center justify-between text-xs cursor-pointer hover:bg-amber-500/15 transition-colors"
-                    >
-                      <div className="flex items-center gap-2 text-amber-900 font-semibold truncate">
-                        <FileText size={14} className="text-amber-600 shrink-0" />
-                        <span className="truncate">
-                          <strong>{pendingProformas.length}</strong> proforma(s) fournisseur en attente de paiement
-                        </span>
-                      </div>
-                      <span className="text-[11px] font-bold text-amber-700 shrink-0 flex items-center gap-0.5">
-                        Voir <ArrowRight size={12} />
-                      </span>
-                    </div>
-                  )}
-
-                  <div className="flex-1 overflow-y-auto p-4 divide-y divide-gray-100">
-                    {items.map((item) => (
-                      <div key={item.id} className="py-3.5 flex items-center gap-3">
-                        <div className="w-14 h-14 rounded-xl bg-gray-50 border border-gray-200 overflow-hidden shrink-0">
-                          {item.image ? (
-                            <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">📦</div>
-                          )}
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-gray-900 text-xs truncate">{item.title}</h4>
-                          <div className="text-primary font-bold text-xs mt-0.5">{formatPrice(item.price)}</div>
-                          
-                          <div className="flex items-center gap-2 mt-2">
-                            <div className="flex items-center border border-gray-200 rounded-lg bg-gray-50">
-                              <button
-                                type="button"
-                                onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                className="w-6 h-6 flex items-center justify-center text-gray-600 hover:bg-gray-200 rounded-l-lg cursor-pointer"
-                              >
-                                <Minus size={11} />
-                              </button>
-                              <span className="px-2 text-xs font-bold text-gray-800">{item.quantity}</span>
-                              <button
-                                type="button"
-                                onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                className="w-6 h-6 flex items-center justify-center text-gray-600 hover:bg-gray-200 rounded-r-lg cursor-pointer"
-                              >
-                                <Plus size={11} />
-                              </button>
-                            </div>
-
-                            <span className="text-[11px] text-gray-500 font-medium">
-                              Total: {formatPrice(item.price * item.quantity)}
-                            </span>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => removeFromCart(item.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                          title="Supprimer"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Cart Footer */}
-                  <div className="p-4 sm:p-5 bg-gray-50 border-t border-gray-200 space-y-3 shrink-0">
-                    <div className="flex justify-between items-center text-sm font-bold text-gray-900">
-                      <span>Sous-total ({totalItems} articles) :</span>
-                      <span className="text-primary text-base font-extrabold">{formatPrice(subtotal)}</span>
-                    </div>
-                    <p className="text-[11px] text-gray-400">
-                      Frais de livraison calculés à l'étape suivante selon votre commune à Kinshasa.
-                    </p>
-
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={clearCart}
-                        className="px-3 py-3 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-100 transition-colors text-xs font-medium cursor-pointer"
-                        title="Vider le panier"
-                      >
-                        Vider
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setStep("checkout")}
-                        className="flex-1 py-3 bg-[#0F1D27] hover:bg-[#1c3040] text-[#C7D300] font-heading font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-98 cursor-pointer"
-                      >
-                        <span>Passer à la commande</span>
-                        <ArrowRight size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                /* Checkout View (Commune selection & Details) */
-                <form onSubmit={handleOrderSubmit} className="flex-1 flex flex-col justify-between overflow-hidden">
-                  <div className="flex-1 overflow-y-auto p-5 space-y-4 text-xs">
-                    
-                    <button
-                      type="button"
-                      onClick={() => setStep("cart")}
-                      className="text-primary text-xs font-semibold hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      ← Revenir au panier
-                    </button>
-
-                    {error && (
-                      <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 flex items-center gap-2 text-xs">
-                        <AlertCircle size={15} className="shrink-0" />
-                        <span>{error}</span>
-                      </div>
-                    )}
-
-                    {/* 1. Contact */}
-                    <div className="space-y-2.5">
-                      <span className="font-bold text-gray-800 text-xs uppercase tracking-wider block">
-                        1. Destinataire
-                      </span>
-                      <div>
-                        <label className="text-[11px] text-gray-500 font-medium block mb-1">Nom complet *</label>
-                        <input
-                          type="text"
-                          required
-                          value={clientName}
-                          onChange={(e) => setClientName(e.target.value)}
-                          placeholder="Ex: David Mwamba"
-                          className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary outline-hidden"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] text-gray-500 font-medium block mb-1">Téléphone (WhatsApp/Appel) *</label>
-                        <input
-                          type="tel"
-                          required
-                          value={clientPhone}
-                          onChange={(e) => setClientPhone(e.target.value)}
-                          placeholder="Ex: +243 81 000 0000"
-                          className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary outline-hidden"
-                        />
-                      </div>
-                    </div>
-
-                    {/* 2. Kinshasa Delivery */}
-                    <div className="space-y-2.5">
-                      <span className="font-bold text-gray-800 text-xs uppercase tracking-wider block">
-                        2. Lieu de livraison (Kinshasa)
-                      </span>
-                      <div>
-                        <label className="text-[11px] text-gray-500 font-medium block mb-1">Commune de Kinshasa *</label>
-                        <select
-                          value={selectedCommune}
-                          onChange={(e) => setSelectedCommune(e.target.value)}
-                          className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:ring-2 focus:ring-primary/20 focus:border-primary outline-hidden"
-                        >
-                          {KINSHASA_COMMUNES.map((comm) => (
-                            <option key={comm.name} value={comm.name}>
-                              {comm.name} — Frais de livraison : {formatPrice(comm.fee)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-[11px] text-gray-500 font-medium block mb-1">Adresse ou Repère précis *</label>
-                        <input
-                          type="text"
-                          required
-                          value={deliveryAddress}
-                          onChange={(e) => setDeliveryAddress(e.target.value)}
-                          placeholder="Ex: Av. Colonel Mondjiba n° 30, Réf. Utexafrica..."
-                          className="w-full p-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:ring-2 focus:ring-primary/20 focus:border-primary outline-hidden"
-                        />
-                      </div>
-                    </div>
-
-                    {/* 3. Payment Mode */}
-                    <div className="space-y-2">
-                      <span className="font-bold text-gray-800 text-xs uppercase tracking-wider block">
-                        3. Mode de paiement
-                      </span>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod("CASH_ON_DELIVERY")}
-                          className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
-                            paymentMethod === "CASH_ON_DELIVERY"
-                              ? "border-emerald-500 bg-emerald-50/50 text-emerald-900 font-bold"
-                              : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                          }`}
-                        >
-                          <Banknote size={16} className="text-emerald-600 shrink-0" />
-                          <div>
-                            <div className="text-xs font-semibold">Cash à la livraison</div>
-                            <div className="text-[10px] text-gray-500">Paiement à réception</div>
-                          </div>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod("MOBILE_MONEY")}
-                          className={`p-2.5 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
-                            paymentMethod === "MOBILE_MONEY"
-                              ? "border-primary bg-primary/10 text-primary font-bold"
-                              : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                          }`}
-                        >
-                          <Smartphone size={16} className="text-primary shrink-0" />
-                          <div>
-                            <div className="text-xs font-semibold">Mobile Money</div>
-                            <div className="text-[10px] text-gray-500">M-Pesa / Orange</div>
-                          </div>
-                        </button>
-                      </div>
-                    </div>
-
-                  </div>
-
-                  {/* Checkout Footer */}
-                  <div className="p-5 bg-gray-50 border-t border-gray-200 space-y-3 shrink-0">
-                    <div className="space-y-1 text-xs">
-                      <div className="flex justify-between text-gray-500">
-                        <span>Sous-total articles :</span>
-                        <span className="font-semibold text-gray-800">{formatPrice(subtotal)}</span>
-                      </div>
-                      <div className="flex justify-between text-gray-500">
-                        <span>Livraison ({selectedCommune}) :</span>
-                        <span className="font-semibold text-gray-800">{formatPrice(deliveryFee)}</span>
-                      </div>
-                      <div className="border-t border-gray-200 pt-1.5 flex justify-between text-sm font-bold text-gray-900">
-                        <span>Total Général :</span>
-                        <span className="text-primary font-extrabold text-base">{formatPrice(grandTotal)}</span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="w-full py-3.5 bg-[#0F1D27] hover:bg-[#1c3040] text-[#C7D300] font-heading font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-md active:scale-98 disabled:opacity-50 cursor-pointer"
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <Loader2 size={15} className="animate-spin" />
-                          <span>Confirmation de votre commande...</span>
-                        </>
-                      ) : (
-                        <>
-                          <ShoppingBag size={15} />
-                          <span>Confirmer la commande ({formatPrice(grandTotal)})</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              )}
-            </>
-          )}
-
-          {/* TAB 2: PROFORMAS FOURNISSEURS EN ATTENTE DE VALIDATION & RÈGLEMENT */}
-          {cartTab === "proformas" && (
+          {/* SECTION 1: PRODUITS & FACTURES PROFORMA EN ATTENTE DE PAIEMENT */}
+          {activeSection === "proformas" && (
             <div className="flex-1 flex flex-col justify-between overflow-hidden">
               <div className="flex-1 overflow-y-auto p-4 space-y-3">
-                <div className="bg-amber-500/10 border border-amber-200/80 rounded-2xl p-3 text-xs text-amber-900">
-                  <div className="flex items-center gap-1.5 font-bold mb-1">
-                    <ShieldCheck size={15} className="text-amber-600" />
-                    <span>Factures Proforma Officielles</span>
+                
+                {/* Banner Trade Assurance Style Alibaba */}
+                <div className="bg-[#FF6600]/10 border border-[#FF6600]/30 rounded-2xl p-3 text-xs text-gray-800">
+                  <div className="flex items-center gap-1.5 font-bold text-[#FF6600] mb-0.5">
+                    <ShieldCheck size={16} />
+                    <span>Factures Proforma & Commandes Prêtes à Payer</span>
                   </div>
-                  <p className="text-[11px] text-amber-800">
-                    Ces cotations vous sont envoyées directement par les fournisseurs partenaires après négociation. Validez et réglez en 1 clic pour déclencher l'expédition.
+                  <p className="text-[11px] text-gray-600">
+                    Ces produits correspondent aux cotations officielles envoyées par vos fournisseurs. Validez et payez pour expédition immédiate.
                   </p>
                 </div>
 
@@ -862,24 +322,50 @@ export function CartDrawer() {
                   </div>
                 )}
 
-                {pendingProformas.length === 0 ? (
-                  <div className="p-8 text-center flex flex-col items-center justify-center text-gray-400 py-12">
-                    <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200/70 flex items-center justify-center mb-3">
-                      <FileText size={28} />
+                {/* Not Logged In View */}
+                {!user ? (
+                  <div className="p-8 text-center flex flex-col items-center justify-center py-12">
+                    <div className="w-14 h-14 rounded-2xl bg-gray-100 text-gray-600 flex items-center justify-center mb-3">
+                      <ShoppingBag size={28} />
                     </div>
-                    <h4 className="text-sm font-bold text-gray-800 mb-1">Aucune proforma en attente</h4>
-                    <p className="text-xs text-gray-400 max-w-xs mb-4">
-                      Lorsque vous sollicitez un devis sur mesure auprès d'un fournisseur ou grossiste, ses proformas s'afficheront ici.
+                    <h4 className="text-sm font-bold text-gray-800 mb-1">Connexion requise</h4>
+                    <p className="text-xs text-gray-500 max-w-xs mb-4">
+                      Connectez-vous à votre compte pour consulter les proformas et commandes en attente de paiement.
+                    </p>
+                    <Link
+                      href="/login"
+                      onClick={closeCart}
+                      className="px-5 py-2.5 bg-[#FF6600] text-white text-xs font-bold rounded-xl hover:bg-[#e65c00] transition-colors"
+                    >
+                      Se connecter
+                    </Link>
+                  </div>
+                ) : isLoadingProformas ? (
+                  /* Loading State */
+                  <div className="py-12 text-center text-gray-400 flex flex-col items-center justify-center">
+                    <Loader2 size={24} className="animate-spin text-[#FF6600] mb-2" />
+                    <span className="text-xs">Chargement de vos proformas en attente...</span>
+                  </div>
+                ) : pendingProformas.length === 0 ? (
+                  /* Empty Proformas State (Alibaba Style) */
+                  <div className="p-8 text-center flex flex-col items-center justify-center py-12">
+                    <div className="w-16 h-16 rounded-3xl bg-amber-50 text-amber-600 border border-amber-200/60 flex items-center justify-center mb-3">
+                      <FileText size={32} />
+                    </div>
+                    <h4 className="text-sm font-bold text-gray-800 mb-1">Aucun produit en attente de paiement</h4>
+                    <p className="text-xs text-gray-400 max-w-xs mb-5">
+                      Comme sur Alibaba, dès qu'un fournisseur vous transmet une facture proforma suite à une négociation ou une commande, elle s'affiche ici pour être validée et réglée en 1 clic.
                     </p>
                     <Link
                       href="/"
                       onClick={closeCart}
-                      className="px-4 py-2 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary-dark transition-colors"
+                      className="px-5 py-2.5 bg-[#FF6600] text-white text-xs font-bold rounded-xl hover:bg-[#e65c00] transition-colors"
                     >
-                      Explorer les catalogues
+                      Explorer les Rayons & Contacter les Vendeurs
                     </Link>
                   </div>
                 ) : (
+                  /* List of Pending Proforma Products */
                   <div className="space-y-3">
                     {pendingProformas.map((pf) => {
                       const isCurrentlyPaying = payingProformaId === pf.messageId;
@@ -887,26 +373,29 @@ export function CartDrawer() {
                       return (
                         <div
                           key={`${pf.chatId}_${pf.messageId}`}
-                          className="bg-white rounded-2xl border border-amber-200 p-4 shadow-2xs hover:shadow-xs transition-shadow"
+                          className="bg-white rounded-2xl border border-amber-200/90 p-4 shadow-2xs hover:shadow-xs transition-shadow"
                         >
-                          <div className="flex items-start justify-between gap-2 pb-2 border-b border-gray-100">
+                          {/* Supplier Header */}
+                          <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-gray-100">
                             <div>
-                              <span className="text-[10px] uppercase font-bold text-amber-600 tracking-wider block">
-                                {pf.supplierName || "Fournisseur Partenaire"}
-                              </span>
-                              <h4 className="font-bold text-gray-900 text-xs leading-snug">
+                              <div className="flex items-center gap-1 text-[11px] font-bold text-gray-700">
+                                <Store size={12} className="text-[#FF6600]" />
+                                <span className="truncate">{pf.supplierName || "Fournisseur Certifié"}</span>
+                              </div>
+                              <h4 className="font-bold text-gray-900 text-xs mt-0.5 leading-snug">
                                 {pf.productName}
                               </h4>
                             </div>
                             <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 shrink-0">
-                              En attente
+                              Proforma envoyée
                             </span>
                           </div>
 
-                          <div className="py-2.5 grid grid-cols-2 gap-2 text-[11px] text-gray-600">
+                          {/* Pricing Details */}
+                          <div className="py-2.5 grid grid-cols-2 gap-2 text-[11px] text-gray-600 bg-gray-50/60 rounded-xl p-2.5 my-2">
                             <div>
                               <span className="text-gray-400 block text-[10px]">Quantité :</span>
-                              <span className="font-semibold text-gray-800">{pf.quantity} pièce(s)</span>
+                              <span className="font-bold text-gray-800">{pf.quantity} pièce(s)</span>
                             </div>
                             <div>
                               <span className="text-gray-400 block text-[10px]">Prix unitaire :</span>
@@ -917,15 +406,16 @@ export function CartDrawer() {
                               <span className="font-semibold text-gray-800">{formatPrice(pf.totalPrice)}</span>
                             </div>
                             <div>
-                              <span className="text-gray-400 block text-[10px]">Livraison :</span>
+                              <span className="text-gray-400 block text-[10px]">Expédition / Livraison :</span>
                               <span className="font-semibold text-gray-800">{formatPrice(pf.deliveryFee)}</span>
                             </div>
                           </div>
 
-                          <div className="pt-2 border-t border-gray-100 flex items-center justify-between gap-2">
+                          {/* Action Buttons & Total */}
+                          <div className="pt-1 flex items-center justify-between gap-2">
                             <div>
                               <span className="text-[10px] text-gray-400 block">Total à payer :</span>
-                              <span className="font-extrabold text-primary text-sm">
+                              <span className="font-black text-[#FF6600] text-sm sm:text-base">
                                 {formatPrice(pf.grandTotal)}
                               </span>
                             </div>
@@ -946,7 +436,7 @@ export function CartDrawer() {
                                 type="button"
                                 disabled={isCurrentlyPaying}
                                 onClick={() => handlePayProforma(pf)}
-                                className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+                                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs disabled:opacity-50 cursor-pointer"
                               >
                                 {isCurrentlyPaying ? (
                                   <>
@@ -969,14 +459,19 @@ export function CartDrawer() {
                 )}
               </div>
 
+              {/* Bottom Footer Summary if Proformas exist */}
               {pendingProformas.length > 0 && (
-                <div className="p-4 bg-gray-50 border-t border-gray-200 text-center shrink-0">
+                <div className="p-4 bg-gray-50 border-t border-gray-200 shrink-0 space-y-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-gray-500 font-medium">Total proformas en attente ({pendingProformas.length}) :</span>
+                    <span className="font-extrabold text-[#FF6600] text-sm">{formatPrice(totalProformasSum)}</span>
+                  </div>
                   <Link
                     href="/dashboard/client?tab=proformas"
                     onClick={closeCart}
-                    className="inline-flex items-center gap-1 text-xs font-bold text-amber-700 hover:underline"
+                    className="w-full py-2.5 bg-gray-900 hover:bg-[#0F1D27] text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
-                    <span>Voir toutes mes cotations sur le tableau de bord</span>
+                    <span>Gérer mes proformas sur mon tableau de bord</span>
                     <ArrowRight size={13} />
                   </Link>
                 </div>
@@ -984,12 +479,12 @@ export function CartDrawer() {
             </div>
           )}
 
-          {/* TAB 3: IMMOBILIER & HÔTELS EN ATTENTE */}
-          {cartTab === "immo" && (
+          {/* SECTION 2: IMMOBILIER & HÔTELS EN ATTENTE */}
+          {activeSection === "immo" && (
             <div className="flex-1 flex flex-col justify-between overflow-hidden">
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 
-                {/* Section Hôtels */}
+                {/* Hôtels */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
@@ -1007,7 +502,7 @@ export function CartDrawer() {
 
                   {pendingHotels.length === 0 ? (
                     <div className="p-4 rounded-2xl bg-gray-50 border border-gray-100 text-center text-xs text-gray-400">
-                      Aucune réservation d'hôtel en attente
+                      Aucune réservation d'hôtel en attente de paiement
                     </div>
                   ) : (
                     <div className="space-y-2.5">
@@ -1066,7 +561,7 @@ export function CartDrawer() {
                   )}
                 </div>
 
-                {/* Section Visites Immobilières */}
+                {/* Visites Immobilières */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
@@ -1132,7 +627,7 @@ export function CartDrawer() {
                   onClick={closeCart}
                   className="inline-flex items-center gap-1 text-xs font-bold text-blue-700 hover:underline"
                 >
-                  <span>Gérer tous mes séjours et visites sur mon espace</span>
+                  <span>Gérer tous mes séjours et visites</span>
                   <ArrowRight size={13} />
                 </Link>
               </div>

@@ -163,7 +163,7 @@ export function ClientChatsWidget({
             const newChatId = `${user.uid}_${paramSupplierId}`;
             await setDoc(doc(db, "chats", newChatId), {
               clientId: user.uid,
-              clientName: user.displayName || user.email || "Client VIP",
+              clientName: user.displayName || user.email || "Client",
               supplierId: paramSupplierId,
               supplierName: supplierName,
               productName: paramProductName || null,

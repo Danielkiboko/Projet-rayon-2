@@ -258,7 +258,7 @@ export default function ClientDashboard() {
     );
   }
 
-  const clientDisplayName = userData.displayName || userData.name || user.displayName || "Client VIP";
+  const clientDisplayName = userData.displayName || userData.name || user.displayName || "Client";
   const clientPhone = userData.phone || userData.phoneNumber || user.phoneNumber || "";
   const clientEmail = userData.email || user.email || "";
 
@@ -307,10 +307,10 @@ export default function ClientDashboard() {
           </div>
         </div>
 
-        {/* 1. Header VIP Desktop (Buyer Center Profile) - Masqué sur mobile pour un écran propre */}
+        {/* 1. Header Desktop (Profil Client) - Masqué sur mobile pour un écran propre */}
         <div className="hidden md:flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-gray-200/80 shadow-xs relative">
           <div className="flex items-center gap-4">
-            {/* VIP Avatar */}
+            {/* Avatar */}
             <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-dark text-white font-extrabold text-xl sm:text-2xl flex items-center justify-center shadow-md shadow-primary/20 shrink-0 relative">
               {clientDisplayName.charAt(0).toUpperCase()}
               <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center text-[10px] text-white" title="Compte Actif">
@@ -323,8 +323,8 @@ export default function ClientDashboard() {
                 <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
                   {clientDisplayName}
                 </h1>
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 bg-[#C7D300]/20 text-[#0F1D27] rounded-full border border-[#C7D300]/40">
-                  <Sparkles size={11} className="text-amber-600" /> Acheteur VIP Rayons
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 bg-emerald-50 text-emerald-800 rounded-full border border-emerald-200">
+                  <ShieldCheck size={12} className="text-emerald-600" /> Compte Vérifié
                 </span>
               </div>
 
@@ -805,11 +805,12 @@ export default function ClientDashboard() {
         onSuccess={() => {}} 
       />
 
-      {/* Alibaba 5-Tab Mobile Navigation Bar */}
+      {/* Navigation Mobile du bas (4 boutons : Accueil, Messagerie, Panier proformas, Mon Rayons) */}
       <AlibabaClientBottomNav 
         activeTab={activeTab}
         onSelectTab={(tab) => setActiveTab(tab)}
         unreadMessagesCount={unreadMessagesCount}
+        pendingPaymentsCount={pendingProformasCount}
       />
     </div>
   );

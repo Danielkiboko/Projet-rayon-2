@@ -66,7 +66,7 @@ export default function ClientQuickStats({
       iconBg: "bg-orange-50 text-[#FF6600] border border-orange-200/60",
       cardBorder: "hover:border-orange-300",
       badgeCls: "bg-orange-50 text-[#FF6600] border border-orange-200",
-      activeBadge: "Garantie VIP",
+      activeBadge: "Protection Rayons",
       tab: "orders" as const,
     },
   ];

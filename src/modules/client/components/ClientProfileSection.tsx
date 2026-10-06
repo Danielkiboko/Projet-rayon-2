@@ -65,7 +65,7 @@ export default function ClientProfileSection({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  const clientDisplayName = displayName || "Client VIP";
+  const clientDisplayName = displayName || "Client";
   const clientEmail = userData?.email || user?.email || "Non renseigné";
   const clientPhone = phone || "Aucun numéro de contact";
 
@@ -117,7 +117,7 @@ export default function ClientProfileSection({
   return (
     <div className="space-y-6">
       
-      {/* 1. Header Card Profil Client VIP */}
+      {/* 1. Header Card Profil Client */}
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-xs relative overflow-hidden">
         {/* Decorative backdrop glow */}
         <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-[#FF6600]/10 via-[#FF6600]/5 to-transparent rounded-full blur-2xl pointer-events-none -mr-20 -mt-20" />
@@ -140,8 +140,8 @@ export default function ClientProfileSection({
                 <h2 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
                   {clientDisplayName}
                 </h2>
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#FF6600]/10 text-[#FF6600] border border-[#FF6600]/20">
-                  <Sparkles size={11} /> Acheteur VIP Rayons
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  <ShieldCheck size={11} className="text-emerald-600" /> Compte Client Vérifié
                 </span>
               </div>
 
