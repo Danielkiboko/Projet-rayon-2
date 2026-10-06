@@ -531,13 +531,22 @@ export default function SupplierFinancePage() {
       return;
     }
     try {
-      await recordSubscriptionDeposit({
-        supplierId: activeSupplierId,
-        supplierName: userData?.displayName || userData?.company || "Partenaire",
-        amount: depositAmount,
-        paymentMethod: "Paiement direct en ligne",
-        currentBalance: balance
+      const res = await fetch("/api/supplier/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          supplierId: activeSupplierId,
+          supplierName: userData?.displayName || userData?.company || "Partenaire",
+          supplierEmail: user?.email || "",
+          amount: depositAmount,
+          currency: "USD",
+          paymentMethod: "Paiement direct en ligne",
+        }),
       });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Erreur lors du paiement du dépôt.");
+      }
       setFinanceNotice("Félicitations ! Votre dépôt mensuel a été régularisé. Vos publications et messageries sont débloquées.");
       setTimeout(() => setFinanceNotice(""), 7000);
       window.location.reload();
@@ -1224,7 +1233,11 @@ export default function SupplierFinancePage() {
                   return (
                     <tr key={t.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                       <td className="px-6 py-4">
-                        {t.createdAt?.toDate ? t.createdAt.toDate().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}
+                        {t.createdAt?.toDate 
+                          ? t.createdAt.toDate().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) 
+                          : t.createdAt?.seconds 
+                          ? new Date(t.createdAt.seconds * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
+                          : (t.createdAt ? new Date(t.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Aujourd\'hui')}
                       </td>
                       <td className="px-6 py-4">
                         {isPending ? (

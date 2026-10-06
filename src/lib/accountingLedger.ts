@@ -205,6 +205,20 @@ export async function recordSubscriptionDeposit(params: {
     referenceId: ref,
     status: "COMPLETED",
     supplierId,
+    supplierName,
+    createdAt: serverTimestamp()
+  });
+
+  // Mettre à jour le livre de caisse du fournisseur
+  await addDoc(collection(db, "supplier_transactions"), {
+    type: "EXPENSE",
+    category: "Abonnement",
+    amount,
+    currency,
+    description: `Cotisation mensuelle Abonnement Fournisseur Rayons ($${amount})`,
+    referenceId: ref,
+    status: "COMPLETED",
+    supplierId,
     createdAt: serverTimestamp()
   });
 

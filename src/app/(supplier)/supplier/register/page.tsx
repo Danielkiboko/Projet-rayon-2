@@ -132,6 +132,43 @@ export default function SupplierRegisterPage() {
         setPhone(paymentPhone);
       }
 
+      const methodStr = paymentMethod === "mobile_money" 
+        ? `Mobile Money (${mobileOperator.toUpperCase()} - ${paymentPhone})` 
+        : "Carte Bancaire Visa/Mastercard";
+
+      // ── CAS CLIENT CONNECTÉ : ENREGISTRER DIRECTEMENT LA TRANSACTION DÈS L'ÉTAPE 1 ──
+      if (user) {
+        const res = await fetch("/api/supplier/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            supplierId: user.uid,
+            supplierName: company.trim() || userData?.company || userData?.displayName || name.trim() || user.email || "Fournisseur",
+            supplierEmail: email.trim() || user.email,
+            amount: DEFAULT_MONTHLY_DEPOSIT,
+            currency: "USD",
+            paymentMethod: methodStr,
+            referencePiece: ref,
+            businessType: businessType,
+            companyData: {
+              name: name.trim() || userData?.displayName || "",
+              company: company.trim() || userData?.company || "",
+              email: email.trim() || user.email || "",
+              phone: phone.trim() || paymentPhone.trim() || userData?.phone || "",
+              businessType: businessType,
+              commune: commune.trim(),
+              address: address.trim(),
+              description: description.trim(),
+            }
+          }),
+        });
+
+        const resData = await res.json();
+        if (!res.ok || !resData.success) {
+          throw new Error(resData.error || "Erreur lors de l'enregistrement de l'abonnement.");
+        }
+      }
+
       // Passer à l'Étape 2 (Renseignement de l'entreprise)
       setStep(2);
     } catch (err: any) {
@@ -172,6 +209,10 @@ export default function SupplierRegisterPage() {
       ? "SUPPLIER_IMMO" 
       : (businessType === "RESTAURATION" ? "SUPPLIER_SAVEURS" : "SUPPLIER");
 
+    const methodStr = paymentMethod === "mobile_money" 
+      ? `Mobile Money (${mobileOperator.toUpperCase()} - ${paymentPhone})` 
+      : "Carte Bancaire Visa/Mastercard";
+
     try {
       let supplierUid = "";
 
@@ -179,46 +220,37 @@ export default function SupplierRegisterPage() {
       if (user) {
         supplierUid = user.uid;
 
-        // Mise à jour de users/{uid}
-        await setDoc(doc(db, "users", user.uid), {
-          uid: user.uid,
-          name: name.trim(),
-          displayName: name.trim(),
-          company: company.trim(),
-          email: email.trim(),
-          phone: phone.trim() || paymentPhone.trim(),
-          role: targetRole,
-          businessType: businessType,
-          rayon: primaryRayon,
-          assignedRayons: assigned,
-          commune: commune,
-          address: address.trim(),
-          description: description.trim(),
-          status: "ACTIVE",
-          subscriptionStatus: "ACTIVE",
-          depositAmount: depositAmount,
-          subscriptionEndDate: nextDueDate,
-          lastDepositPaidAt: serverTimestamp(),
-          lastDepositAmount: depositAmount,
-          lastPaymentReference: paidPaymentRef,
-          paymentMethodUsed: paymentMethod === "mobile_money" 
-            ? `Mobile Money (${mobileOperator.toUpperCase()} - ${paymentPhone})` 
-            : "Carte Bancaire",
-          isBlocked: false,
-          updatedAt: serverTimestamp(),
-        }, { merge: true });
-
-        // Enregistrement dans le grand livre comptable (accounting_ledger & transactions)
-        await recordSubscriptionDeposit({
-          supplierId: user.uid,
-          supplierName: company.trim(),
-          amount: depositAmount,
-          paymentMethod: paymentMethod === "mobile_money" 
-            ? `Mobile Money (${mobileOperator.toUpperCase()} - ${paymentPhone})` 
-            : "Carte Bancaire Visa/Mastercard",
-          currentBalance: 0
+        const res = await fetch("/api/supplier/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            supplierId: user.uid,
+            supplierName: company.trim(),
+            supplierEmail: email.trim(),
+            amount: depositAmount,
+            currency: "USD",
+            paymentMethod: methodStr,
+            referencePiece: paidPaymentRef,
+            businessType: businessType,
+            companyData: {
+              name: name.trim(),
+              company: company.trim(),
+              email: email.trim(),
+              phone: phone.trim() || paymentPhone.trim(),
+              businessType: businessType,
+              rayon: primaryRayon,
+              assignedRayons: assigned,
+              commune: commune.trim(),
+              address: address.trim(),
+              description: description.trim(),
+            }
+          }),
         });
 
+        const resData = await res.json();
+        if (!res.ok || !resData.success) {
+          throw new Error(resData.error || "Erreur lors de la validation de votre entreprise.");
+        }
       } 
       // ── CAS 2 : NOUVEAU COMPTE CRÉÉ ──
       else {
@@ -232,47 +264,40 @@ export default function SupplierRegisterPage() {
 
         await updateProfile(newUser, { displayName: name.trim() });
 
-        // 2. Écriture Firestore users/{uid}
-        await setDoc(doc(db, "users", newUser.uid), {
-          uid: newUser.uid,
-          name: name.trim(),
-          displayName: name.trim(),
-          company: company.trim(),
-          email: email.trim(),
-          phone: phone.trim() || paymentPhone.trim(),
-          role: targetRole,
-          businessType: businessType,
-          rayon: primaryRayon,
-          assignedRayons: assigned,
-          commune: commune,
-          address: address.trim(),
-          description: description.trim(),
-          status: "ACTIVE",
-          subscriptionStatus: "ACTIVE",
-          depositAmount: depositAmount,
-          subscriptionEndDate: nextDueDate,
-          lastDepositPaidAt: serverTimestamp(),
-          lastDepositAmount: depositAmount,
-          lastPaymentReference: paidPaymentRef,
-          paymentMethodUsed: paymentMethod === "mobile_money" 
-            ? `Mobile Money (${mobileOperator.toUpperCase()} - ${paymentPhone})` 
-            : "Carte Bancaire",
-          isBlocked: false,
-          createdAt: serverTimestamp(),
+        // 2. Appel sécurisé au backend pour enregistrer les finances et le compte
+        const res = await fetch("/api/supplier/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            supplierId: newUser.uid,
+            supplierName: company.trim(),
+            supplierEmail: email.trim(),
+            amount: depositAmount,
+            currency: "USD",
+            paymentMethod: methodStr,
+            referencePiece: paidPaymentRef,
+            businessType: businessType,
+            companyData: {
+              name: name.trim(),
+              company: company.trim(),
+              email: email.trim(),
+              phone: phone.trim() || paymentPhone.trim(),
+              businessType: businessType,
+              rayon: primaryRayon,
+              assignedRayons: assigned,
+              commune: commune.trim(),
+              address: address.trim(),
+              description: description.trim(),
+            }
+          }),
         });
 
-        // 3. Écriture comptable grand livre
-        await recordSubscriptionDeposit({
-          supplierId: newUser.uid,
-          supplierName: company.trim(),
-          amount: depositAmount,
-          paymentMethod: paymentMethod === "mobile_money" 
-            ? `Mobile Money (${mobileOperator.toUpperCase()} - ${paymentPhone})` 
-            : "Carte Bancaire Visa/Mastercard",
-          currentBalance: 0
-        });
+        const resData = await res.json();
+        if (!res.ok || !resData.success) {
+          throw new Error(resData.error || "Erreur lors de l'enregistrement de votre entreprise.");
+        }
 
-        // 4. Notification SMS avec mot de passe
+        // 3. Notification SMS avec mot de passe
         try {
           await fetch("/api/sms", {
             method: "POST",
@@ -286,7 +311,7 @@ export default function SupplierRegisterPage() {
           console.warn("SMS notification notice:", smsErr);
         }
 
-        // 5. Notification Email
+        // 4. Notification Email
         try {
           await fetch("/api/emails/onboarding", {
             method: "POST",
