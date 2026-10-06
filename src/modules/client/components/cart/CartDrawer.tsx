@@ -248,7 +248,7 @@ export function CartDrawer() {
               <div>
                 <h2 className="font-heading font-black text-sm sm:text-base tracking-tight">Panier & Proformas Rayons</h2>
                 <p className="text-[11px] text-gray-400">
-                  Produits en attente de paiement (Style Alibaba)
+                  Produits et proformas en attente de paiement
                 </p>
               </div>
             </div>
@@ -354,7 +354,7 @@ export function CartDrawer() {
                     </div>
                     <h4 className="text-sm font-bold text-gray-800 mb-1">Aucun produit en attente de paiement</h4>
                     <p className="text-xs text-gray-400 max-w-xs mb-5">
-                      Comme sur Alibaba, dès qu'un fournisseur vous transmet une facture proforma suite à une négociation ou une commande, elle s'affiche ici pour être validée et réglée en 1 clic.
+                      Dès qu'un fournisseur vous transmet une facture proforma suite à une négociation ou une commande, elle s'affiche ici pour être validée et réglée en 1 clic.
                     </p>
                     <Link
                       href="/"

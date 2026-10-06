@@ -550,7 +550,7 @@ export function ClientChatsWidget({
         {/* 4. Conversation List (Exact Alibaba signature rows) */}
         <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
           {isLoading ? (
-            <div className="p-8 text-center text-gray-400 text-xs">Chargement de vos échanges Alibaba...</div>
+            <div className="p-8 text-center text-gray-400 text-xs">Chargement de vos échanges...</div>
           ) : filteredChats.length === 0 ? (
             <div className="p-10 text-center text-gray-400">
               <MessageSquare size={40} className="mx-auto mb-2 text-gray-300" />

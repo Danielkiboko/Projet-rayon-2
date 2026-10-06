@@ -28,7 +28,7 @@ export default function ClientChatsPage() {
           </div>
         </div>
 
-        <Suspense fallback={<div className="min-h-[500px] bg-white rounded-2xl border border-gray-200 flex items-center justify-center text-gray-400">Chargement de la messagerie Alibaba...</div>}>
+        <Suspense fallback={<div className="min-h-[500px] bg-white rounded-2xl border border-gray-200 flex items-center justify-center text-gray-400">Chargement de la messagerie...</div>}>
           <ClientChatsWidget embedded={false} />
         </Suspense>
 
