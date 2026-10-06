@@ -173,16 +173,33 @@ export default function AdminLayout({
   }, [hasAccess, user?.uid]);
 
   if (loading) {
-    return <div className="h-screen w-full flex items-center justify-center bg-[#0b061c] text-white">Chargement...</div>;
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#0F1D27] text-white">
+        <div className="relative flex items-center justify-center mb-4">
+          <div className="w-14 h-14 rounded-full border-3 border-white/10 border-t-[#C7D300] animate-spin" />
+          <div className="absolute w-2.5 h-2.5 rounded-full bg-[#C7D300]" />
+        </div>
+        <p className="text-xs text-gray-400 font-medium tracking-wide">
+          Vérification des accès administrateur...
+        </p>
+      </div>
+    );
   }
 
   if (!hasAccess) {
     return (
-      <div className="h-screen w-full flex items-center justify-center bg-[#0b061c] text-white flex-col">
-        <ShieldAlert size={48} className="mb-4 text-red-500" />
-        <h1 className="text-2xl font-bold mb-2">Accès Refusé</h1>
-        <p className="text-gray-400">Cette zone est strictement réservée à la direction.</p>
-        <Link href="/" className="mt-6 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+      <div className="h-screen w-full flex items-center justify-center bg-[#0F1D27] text-white flex-col p-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 flex items-center justify-center mb-4">
+          <ShieldAlert size={32} />
+        </div>
+        <h1 className="text-2xl font-bold mb-2 font-heading">Accès Restreint</h1>
+        <p className="text-gray-400 text-sm max-w-sm mb-6">
+          Cette zone est strictement réservée à l&apos;équipe administrative de Rayons.net.
+        </p>
+        <Link 
+          href="/" 
+          className="px-5 py-2.5 bg-[#C7D300] hover:bg-[#b5bf00] text-[#0F1D27] rounded-xl font-bold text-xs transition-colors shadow-lg shadow-[#C7D300]/15"
+        >
           Retour à l&apos;accueil
         </Link>
       </div>

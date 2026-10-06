@@ -127,6 +127,21 @@ export async function POST(req: Request) {
 
     // ─── Traitement selon le type ────────────────────────────────────────────
     if (type === "ORDER" && orderId) {
+      // 0. Vérification d'idempotence : La commande est-elle déjà payée ?
+      const orderDocSnap = await db.collection("orders").doc(orderId).get();
+      if (!orderDocSnap.exists) {
+        return NextResponse.json({ success: false, error: "Commande introuvable" }, { status: 404 });
+      }
+
+      const existingOrderData = orderDocSnap.data();
+      if (existingOrderData?.status === "COMPLETED" || existingOrderData?.status === "PAID") {
+        return NextResponse.json({
+          success: true,
+          referenceId: existingOrderData.paymentReference || "ALREADY_PAID",
+          message: "Cette commande a déjà été réglée avec succès.",
+        });
+      }
+
       // 1. Mettre à jour la commande
       await db.collection("orders").doc(orderId).update({
         status: "COMPLETED",
