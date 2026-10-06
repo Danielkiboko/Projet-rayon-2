@@ -280,13 +280,36 @@ export default function ClientDashboard() {
           </div>
 
           <div className="flex items-center gap-4 text-[11px]">
-            <Link href="/orders" className="hover:text-[#FF6600] transition-colors">
-              Suivi de colis
-            </Link>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("orders");
+                setOrderFilter("all");
+              }}
+              className="hover:text-[#FF6600] transition-colors cursor-pointer flex items-center gap-1.5 group"
+            >
+              <Truck size={13} className="text-gray-400 group-hover:text-[#FF6600] transition-colors" />
+              <span>Suivi de colis</span>
+              {orderCounts.active > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700 font-bold text-[10px]">
+                  {orderCounts.active}
+                </span>
+              )}
+            </button>
             <span className="text-gray-300">|</span>
-            <Link href="/help" className="hover:text-[#FF6600] transition-colors">
-              Centre d'aide & Réclamations
-            </Link>
+            <button
+              type="button"
+              onClick={() => setActiveTab("tickets")}
+              className="hover:text-[#FF6600] transition-colors cursor-pointer flex items-center gap-1.5 group"
+            >
+              <LifeBuoy size={13} className="text-gray-400 group-hover:text-[#FF6600] transition-colors" />
+              <span>Centre d'aide & Réclamations</span>
+              {unreadTicketsCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-red-100 text-red-600 font-bold text-[10px] animate-pulse">
+                  {unreadTicketsCount}
+                </span>
+              )}
+            </button>
             <span className="text-gray-300">|</span>
             <Link href="/supplier/register" className="font-semibold text-gray-700 hover:text-[#FF6600] transition-colors">
               Devenir Vendeur
