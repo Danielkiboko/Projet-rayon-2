@@ -133,7 +133,17 @@ export interface SendMessageParams {
 export async function sendTicketReply(params: SendMessageParams): Promise<void> {
   const ticketRef = doc(db, "tickets", params.ticketId);
 
-  // 1. Add message to subcollection
+  // 1. Fetch current ticket to check if closed/archived
+  const ticketSnap = await getDoc(ticketRef);
+  const currentTicket = ticketSnap.exists() ? ticketSnap.data() : null;
+  const wasClosedOrArchived = currentTicket?.status === "closed" || currentTicket?.status === "resolved" || currentTicket?.isArchived;
+
+  // RÈGLE STRICTE : Si le ticket est clôturé/archivé, personne ne peut écrire tant que l'admin ne l'a pas réactivé
+  if (wasClosedOrArchived) {
+    throw new Error("Ce ticket est clôturé et archivé. Les échanges sont verrouillés. Seul un administrateur peut réactiver ce ticket pour autoriser de nouveaux messages.");
+  }
+
+  // 2. Add message to subcollection
   await addDoc(collection(db, "tickets", params.ticketId, "messages"), {
     senderId: params.senderId,
     senderName: params.senderName,
@@ -144,11 +154,6 @@ export async function sendTicketReply(params: SendMessageParams): Promise<void> 
     createdAt: serverTimestamp(),
   });
 
-  // 2. Fetch current ticket to check if closed/archived
-  const ticketSnap = await getDoc(ticketRef);
-  const currentTicket = ticketSnap.exists() ? ticketSnap.data() : null;
-  const wasClosedOrArchived = currentTicket?.status === "closed" || currentTicket?.status === "resolved" || currentTicket?.isArchived;
-
   // 3. Update ticket document
   const updateData: any = {
     lastMessage: params.message.trim(),
@@ -157,13 +162,6 @@ export async function sendTicketReply(params: SendMessageParams): Promise<void> 
     lastMessageAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
-
-  // If a reply is sent (especially by client), automatically reactivate the ticket
-  if (wasClosedOrArchived) {
-    updateData.status = "in_progress";
-    updateData.isArchived = false;
-    updateData.reopenedAt = serverTimestamp();
-  }
 
   if (params.senderRole === "admin") {
     updateData.unreadByClient = true;
@@ -217,11 +215,19 @@ export async function sendTicketReply(params: SendMessageParams): Promise<void> 
 }
 
 /**
- * Met à jour le statut du ticket.
- * Règle automatique: Dès qu'une requête passe par résolue ("resolved"), 
+ * Met à jour le statut du ticket (Réservé exclusivement aux administrateurs).
+ * Règle: Dès qu'une requête passe par résolue ("resolved") ou clôturée ("closed"), 
  * elle est directement clôturée ("closed") et archivée (isArchived: true).
  */
-export async function updateTicketStatus(ticketId: string, status: TicketStatus): Promise<void> {
+export async function updateTicketStatus(
+  ticketId: string, 
+  status: TicketStatus,
+  actorRole: "admin" | "supplier" | "client" = "admin"
+): Promise<void> {
+  if (actorRole !== "admin") {
+    throw new Error("Seul l'administrateur peut modifier le statut d'un ticket.");
+  }
+
   const ticketRef = doc(db, "tickets", ticketId);
   const now = serverTimestamp();
 
@@ -236,15 +242,23 @@ export async function updateTicketStatus(ticketId: string, status: TicketStatus)
     await updateDoc(ticketRef, {
       status,
       isArchived: false,
+      reopenedAt: now,
       updatedAt: now,
     });
   }
 }
 
 /**
- * Réactive un ticket clôturé / archivé (par le client ou l'admin)
+ * Réactive un ticket clôturé / archivé (Réservé exclusivement aux administrateurs)
  */
-export async function reopenTicket(ticketId: string, reopenedByRole: "client" | "supplier" | "admin" = "client"): Promise<void> {
+export async function reopenTicket(
+  ticketId: string, 
+  actorRole: "admin" | "supplier" | "client" = "admin"
+): Promise<void> {
+  if (actorRole !== "admin") {
+    throw new Error("Seul l'administrateur peut réactiver un ticket clôturé.");
+  }
+
   const ticketRef = doc(db, "tickets", ticketId);
   const now = serverTimestamp();
   
@@ -253,8 +267,9 @@ export async function reopenTicket(ticketId: string, reopenedByRole: "client" | 
     isArchived: false,
     reopenedAt: now,
     updatedAt: now,
-    unreadByAdmin: reopenedByRole !== "admin",
-    unreadByClient: reopenedByRole === "admin",
+    unreadByClient: true,
+    unreadBySupplier: true,
+    unreadByAdmin: false,
   });
 }
 

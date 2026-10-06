@@ -20,7 +20,8 @@ import {
   Archive,
   ExternalLink,
   Trash2,
-  X
+  X,
+  Lock
 } from "lucide-react";
 import { 
   Ticket, 
@@ -131,8 +132,11 @@ export function TicketConversation({
     }
   };
 
+  const isClosedOrArchived = currentStatus === "closed" || currentStatus === "resolved" || isArchived;
+
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (isClosedOrArchived) return;
     if ((!newMessage.trim() && replyAttachments.length === 0) || !user || isSending) return;
 
     const messageText = newMessage.trim();
@@ -169,13 +173,6 @@ export function TicketConversation({
         recipientId,
         attachments: attachmentsToSend.length > 0 ? attachmentsToSend : undefined,
       });
-
-      // If it was closed/archived, it is automatically reactivated to in_progress
-      if (currentStatus === "closed" || isArchived) {
-        setCurrentStatus("in_progress");
-        setIsArchived(false);
-        if (onStatusChange) onStatusChange("in_progress");
-      }
     } catch (err) {
       console.error("Error sending message:", err);
     } finally {
@@ -184,6 +181,7 @@ export function TicketConversation({
   };
 
   const handleStatusChange = async (newStatus: TicketStatus) => {
+    if (userRole !== "admin") return;
     try {
       if (newStatus === "resolved" || newStatus === "closed") {
         setCurrentStatus("closed");
@@ -192,7 +190,7 @@ export function TicketConversation({
         setCurrentStatus(newStatus);
         setIsArchived(false);
       }
-      await updateTicketStatus(ticket.id, newStatus);
+      await updateTicketStatus(ticket.id, newStatus, userRole);
       if (onStatusChange) onStatusChange(newStatus);
     } catch (err) {
       console.error("Error updating status:", err);
@@ -200,6 +198,7 @@ export function TicketConversation({
   };
 
   const handleReopenTicket = async () => {
+    if (userRole !== "admin") return;
     try {
       await reopenTicket(ticket.id, userRole);
       setCurrentStatus("in_progress");
@@ -277,7 +276,7 @@ export function TicketConversation({
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-400">Statut :</span>
               <select
-                value={currentStatus}
+                value={isClosedOrArchived ? "closed" : currentStatus}
                 onChange={(e) => handleStatusChange(e.target.value as TicketStatus)}
                 className="bg-slate-800 border border-slate-700 text-xs rounded-xl px-3 py-1.5 text-white font-medium focus:outline-none focus:ring-1 focus:ring-purple-500"
               >
@@ -286,34 +285,25 @@ export function TicketConversation({
                 <option value="resolved">🟢 Résolu (Clôturer & Archiver)</option>
                 <option value="closed">⚪ Clôturé & Archivé</option>
               </select>
+
+              {isClosedOrArchived && (
+                <button
+                  type="button"
+                  onClick={handleReopenTicket}
+                  className="flex items-center gap-1.5 text-xs bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-xl font-medium transition-colors shadow-xs"
+                  title="Réactiver le ticket et déverrouiller les échanges"
+                >
+                  <RotateCcw size={13} />
+                  <span>Réactiver</span>
+                </button>
+              )}
             </div>
           ) : (
             <div className="flex items-center gap-2">
               <span className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border font-semibold ${statusBadge.color}`}>
                 <span className={`w-2 h-2 rounded-full ${statusBadge.dot}`} />
-                {currentStatus === "closed" ? "Clôturé / Archivé" : statusBadge.label}
+                {isClosedOrArchived ? "Clôturé / Archivé" : statusBadge.label}
               </span>
-
-              {/* Client can mark resolved (which automatically closes & archives) */}
-              {currentStatus !== "closed" && currentStatus !== "resolved" ? (
-                <button
-                  onClick={() => handleStatusChange("resolved")}
-                  className="flex items-center gap-1 text-xs bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-xl font-medium transition-colors shadow-xs"
-                  title="Marquer comme résolu : clôture et archive automatiquement la requête"
-                >
-                  <CheckCircle2 size={14} />
-                  <span>Problème résolu</span>
-                </button>
-              ) : (
-                /* Client can reactivate manually */
-                <button
-                  onClick={handleReopenTicket}
-                  className="flex items-center gap-1.5 text-xs bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 px-3 py-1.5 rounded-xl font-medium transition-colors"
-                >
-                  <RotateCcw size={13} />
-                  <span>Réactiver la requête</span>
-                </button>
-              )}
             </div>
           )}
         </div>
@@ -457,93 +447,118 @@ export function TicketConversation({
       </div>
 
       {/* Admin Quick Replies */}
-      {userRole === "admin" && (
-        <div className="px-4 py-2 bg-slate-950/40 border-t border-slate-800/80 overflow-x-auto flex items-center gap-2 scrollbar-none">
-          <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0">Réponses types :</span>
-          {adminCanned.map((canned, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => setNewMessage(canned)}
-              className="text-xs text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700 px-2.5 py-1 rounded-lg shrink-0 transition-colors"
-            >
-              {canned.slice(0, 32)}...
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Reply Input Bar */}
-      <div className="p-3 sm:p-4 border-t border-slate-800 bg-slate-950/80">
-        {/* Reply attachments preview */}
-        {replyAttachments.length > 0 && (
-          <div className="flex items-center gap-2 mb-2 p-2 bg-slate-900 border border-slate-800 rounded-xl">
-            {replyAttachments.map((img, idx) => (
-              <div key={idx} className="relative group w-12 h-12 rounded-lg overflow-hidden border border-slate-700">
-                <img src={img} alt="Aperçu" className="w-full h-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => setReplyAttachments((prev) => prev.filter((_, i) => i !== idx))}
-                  className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-400 transition-opacity"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
-            ))}
-            <span className="text-[11px] text-slate-400">Photo(s) prête(s) à être envoyée(s)</span>
+      {/* Reply Input Bar or Closed/Locked Banner */}
+      {isClosedOrArchived ? (
+        <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-950/90 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+              <Lock size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">Requête clôturée et archivée</p>
+              <p className="text-xs text-slate-400">
+                Les échanges sont verrouillés. {userRole === "admin" ? "En tant qu'administrateur, vous pouvez réactiver ce ticket pour autoriser à nouveau les messages." : "Seul un administrateur peut réactiver ce ticket pour autoriser de nouveaux messages."}
+              </p>
+            </div>
           </div>
-        )}
+          {userRole === "admin" && (
+            <button
+              type="button"
+              onClick={handleReopenTicket}
+              className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-purple-600/25 shrink-0"
+            >
+              <RotateCcw size={14} />
+              <span>Réactiver le ticket</span>
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          {userRole === "admin" && (
+            <div className="px-4 py-2 bg-slate-950/40 border-t border-slate-800/80 overflow-x-auto flex items-center gap-2 scrollbar-none">
+              <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0">Réponses types :</span>
+              {adminCanned.map((canned, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setNewMessage(canned)}
+                  className="text-xs text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700 px-2.5 py-1 rounded-lg shrink-0 transition-colors"
+                >
+                  {canned.slice(0, 32)}...
+                </button>
+              ))}
+            </div>
+          )}
 
-        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-          {/* Add Image Button */}
-          <label className="p-2.5 rounded-xl bg-slate-900 border border-slate-700/80 hover:border-purple-500/60 text-slate-400 hover:text-purple-300 cursor-pointer transition-colors shrink-0">
-            {isUploadingImage ? (
-              <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <ImageIcon size={18} />
+          {/* Reply Input Bar */}
+          <div className="p-3 sm:p-4 border-t border-slate-800 bg-slate-950/80">
+            {/* Reply attachments preview */}
+            {replyAttachments.length > 0 && (
+              <div className="flex items-center gap-2 mb-2 p-2 bg-slate-900 border border-slate-800 rounded-xl">
+                {replyAttachments.map((img, idx) => (
+                  <div key={idx} className="relative group w-12 h-12 rounded-lg overflow-hidden border border-slate-700">
+                    <img src={img} alt="Aperçu" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setReplyAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                      className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-red-400 transition-opacity"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                ))}
+                <span className="text-[11px] text-slate-400">Photo(s) prête(s) à être envoyée(s)</span>
+              </div>
             )}
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              disabled={isUploadingImage}
-              onChange={handleImageUpload}
-              className="hidden"
-            />
-          </label>
 
-          <input
-            type="text"
-            placeholder={
-              isArchived
-                ? "Écrire un message pour réactiver automatiquement cette requête..."
-                : userRole === "admin"
-                ? "Écrire une réponse d'assistance officielle..."
-                : "Écrire un message ou apporter des précisions..."
-            }
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            disabled={isSending}
-            className="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
-          />
-          <button
-            type="submit"
-            disabled={isSending || (!newMessage.trim() && replyAttachments.length === 0)}
-            className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-lg shadow-purple-600/25 transition-all shrink-0"
-          >
-            {isSending ? (
-              <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-            ) : (
-              <>
-                <Send size={15} />
-                <span className="hidden sm:inline">
-                  {isArchived ? "Envoyer & Réactiver" : "Envoyer"}
-                </span>
-              </>
-            )}
-          </button>
-        </form>
-      </div>
+            <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+              {/* Add Image Button */}
+              <label className="p-2.5 rounded-xl bg-slate-900 border border-slate-700/80 hover:border-purple-500/60 text-slate-400 hover:text-purple-300 cursor-pointer transition-colors shrink-0">
+                {isUploadingImage ? (
+                  <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <ImageIcon size={18} />
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  disabled={isUploadingImage}
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </label>
+
+              <input
+                type="text"
+                placeholder={
+                  userRole === "admin"
+                    ? "Écrire une réponse d'assistance officielle..."
+                    : "Écrire un message ou apporter des précisions..."
+                }
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                disabled={isSending}
+                className="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+              />
+              <button
+                type="submit"
+                disabled={isSending || (!newMessage.trim() && replyAttachments.length === 0)}
+                className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-lg shadow-purple-600/25 transition-all shrink-0"
+              >
+                {isSending ? (
+                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Send size={15} />
+                    <span className="hidden sm:inline">Envoyer</span>
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
+        </>
+      )}
 
       {/* Lightbox / Zoom Modal for Images */}
       {previewImage && (

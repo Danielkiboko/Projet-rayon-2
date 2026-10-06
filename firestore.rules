@@ -284,6 +284,10 @@ service cloud.firestore {
           resource.data.creatorId == request.auth.uid ||
           resource.data.clientId == request.auth.uid ||
           (resource.data.keys().hasAll(['supplierId']) && (resource.data.supplierId == request.auth.uid || ownsSupplierData(resource.data.supplierId)))
+        ) && (
+          // Seul l'administrateur peut modifier le statut ou archiver le ticket
+          request.resource.data.status == resource.data.status &&
+          request.resource.data.isArchived == resource.data.isArchived
         )
       );
       allow delete: if isSuperAdmin() || isAdmin();
@@ -300,14 +304,20 @@ service cloud.firestore {
           ))
         );
         allow create, write: if request.auth != null && (
-          isSuperAdmin() || isAdmin() ||
-          !exists(/databases/$(database)/documents/tickets/$(ticketId)) ||
-          get(/databases/$(database)/documents/tickets/$(ticketId)).data.creatorId == request.auth.uid ||
-          get(/databases/$(database)/documents/tickets/$(ticketId)).data.clientId == request.auth.uid ||
-          (get(/databases/$(database)/documents/tickets/$(ticketId)).data.keys().hasAll(['supplierId']) && (
-            get(/databases/$(database)/documents/tickets/$(ticketId)).data.supplierId == request.auth.uid ||
-            ownsSupplierData(get(/databases/$(database)/documents/tickets/$(ticketId)).data.supplierId)
-          ))
+          isSuperAdmin() || isAdmin() || (
+            // Personne ne peut écrire si le ticket est clôturé ou archivé
+            exists(/databases/$(database)/documents/tickets/$(ticketId)) &&
+            get(/databases/$(database)/documents/tickets/$(ticketId)).data.status != 'closed' &&
+            get(/databases/$(database)/documents/tickets/$(ticketId)).data.status != 'resolved' &&
+            (!get(/databases/$(database)/documents/tickets/$(ticketId)).data.keys().hasAll(['isArchived']) || !get(/databases/$(database)/documents/tickets/$(ticketId)).data.isArchived) && (
+              get(/databases/$(database)/documents/tickets/$(ticketId)).data.creatorId == request.auth.uid ||
+              get(/databases/$(database)/documents/tickets/$(ticketId)).data.clientId == request.auth.uid ||
+              (get(/databases/$(database)/documents/tickets/$(ticketId)).data.keys().hasAll(['supplierId']) && (
+                get(/databases/$(database)/documents/tickets/$(ticketId)).data.supplierId == request.auth.uid ||
+                ownsSupplierData(get(/databases/$(database)/documents/tickets/$(ticketId)).data.supplierId)
+              ))
+            )
+          )
         );
       }
     }
