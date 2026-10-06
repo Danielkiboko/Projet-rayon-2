@@ -142,6 +142,11 @@ export default function SupplierLayout({
     };
   }, [user, activeSupplierId]);
 
+  // Allow registration page to load freely without supplier role check
+  if (pathname === '/supplier/register') {
+    return <>{children}</>;
+  }
+
   if (loading) {
     return <div className="h-screen w-full flex items-center justify-center bg-[#0b061c] text-white">Chargement...</div>;
   }
