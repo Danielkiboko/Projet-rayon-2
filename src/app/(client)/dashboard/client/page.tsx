@@ -265,33 +265,33 @@ export default function ClientDashboard() {
     <div className="min-h-screen bg-[#F8FAFC] pb-24 sm:pb-8">
       <div className="max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
         
-        {/* Top Utility Bar (Alibaba Style Desktop) */}
-        <div className="hidden md:flex items-center justify-between mb-4 py-1.5 px-3 bg-white/70 backdrop-blur-xs rounded-xl border border-gray-200/60 text-xs text-gray-500">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="font-extrabold text-[#FF6600] hover:text-[#e65c00] transition-colors flex items-center gap-1.5">
+        {/* Top Utility Bar (Alibaba Style - Desktop & Mobile compact) */}
+        <div className="flex items-center justify-between mb-3.5 py-1.5 px-3 bg-white/80 backdrop-blur-xs rounded-xl border border-gray-200/60 text-xs text-gray-500">
+          <div className="flex items-center gap-2 sm:gap-4 truncate">
+            <Link href="/" className="font-extrabold text-[#FF6600] hover:text-[#e65c00] transition-colors flex items-center gap-1 text-xs sm:text-sm shrink-0">
               <span>Rayons.net</span>
             </Link>
             <span className="text-gray-300">|</span>
-            <span className="font-medium text-gray-700">Mon Espace Acheteur</span>
-            <span className="text-gray-300">|</span>
-            <span className="text-gray-500 flex items-center gap-1">
-              Livraison : <strong className="text-gray-700 font-semibold">🇨🇩 RDC (Kinshasa)</strong>
+            <span className="font-medium text-gray-700 hidden sm:inline">Mon Espace Acheteur</span>
+            <span className="text-gray-300 hidden sm:inline">|</span>
+            <span className="text-gray-500 flex items-center gap-1 text-[11px] truncate">
+              Livraison : <strong className="text-gray-700 font-semibold truncate">🇨🇩 RDC (Kinshasa)</strong>
             </span>
           </div>
 
-          <div className="flex items-center gap-4 text-[11px]">
+          <div className="flex items-center gap-2.5 sm:gap-4 text-[11px] shrink-0">
             <button
               type="button"
               onClick={() => {
                 setActiveTab("orders");
                 setOrderFilter("all");
               }}
-              className="hover:text-[#FF6600] transition-colors cursor-pointer flex items-center gap-1.5 group"
+              className="hover:text-[#FF6600] transition-colors cursor-pointer flex items-center gap-1 group"
             >
-              <Truck size={13} className="text-gray-400 group-hover:text-[#FF6600] transition-colors" />
-              <span>Suivi de colis</span>
+              <Truck size={12} className="text-gray-400 group-hover:text-[#FF6600] transition-colors" />
+              <span>Suivi colis</span>
               {orderCounts.active > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700 font-bold text-[10px]">
+                <span className="px-1.5 py-0.2 rounded-full bg-blue-100 text-blue-700 font-bold text-[9px]">
                   {orderCounts.active}
                 </span>
               )}
@@ -300,107 +300,81 @@ export default function ClientDashboard() {
             <button
               type="button"
               onClick={() => setActiveTab("tickets")}
-              className="hover:text-[#FF6600] transition-colors cursor-pointer flex items-center gap-1.5 group"
+              className="hover:text-[#FF6600] transition-colors cursor-pointer flex items-center gap-1 group"
             >
-              <LifeBuoy size={13} className="text-gray-400 group-hover:text-[#FF6600] transition-colors" />
-              <span>Centre d'aide & Réclamations</span>
+              <LifeBuoy size={12} className="text-gray-400 group-hover:text-[#FF6600] transition-colors" />
+              <span>Assistance</span>
               {unreadTicketsCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-red-100 text-red-600 font-bold text-[10px] animate-pulse">
+                <span className="px-1.5 py-0.2 rounded-full bg-red-100 text-red-600 font-bold text-[9px] animate-pulse">
                   {unreadTicketsCount}
                 </span>
               )}
             </button>
-            <span className="text-gray-300">|</span>
-            <Link href="/supplier/register" className="font-semibold text-gray-700 hover:text-[#FF6600] transition-colors">
+            <span className="text-gray-300 hidden sm:inline">|</span>
+            <Link href="/supplier/register" className="hidden sm:inline font-semibold text-gray-700 hover:text-[#FF6600] transition-colors">
               Devenir Vendeur
             </Link>
           </div>
         </div>
 
-        {/* En-tête Mobile Épuré (Cliquer sur son nom ouvre son profil) */}
-        <div className="flex md:hidden items-center justify-between py-2.5 px-3.5 mb-4 bg-white rounded-2xl border border-gray-200/80 shadow-xs">
-          <button 
-            type="button" 
-            onClick={() => setActiveTab("profile")}
-            className="text-left cursor-pointer group"
-          >
-            <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider block group-hover:text-[#FF6600] transition-colors">
-              Mon Espace Rayons • Profil
-            </span>
-            <h1 className="text-base font-black text-gray-900 leading-tight group-hover:text-[#FF6600] transition-colors">
-              {clientDisplayName}
-            </h1>
-          </button>
-
-          <div className="flex items-center gap-2">
-            <NotificationBell />
-            <button 
-              onClick={handleLogout}
-              className="p-2 bg-gray-50 border border-gray-200 rounded-xl text-red-600 hover:bg-red-50 transition-colors shadow-2xs cursor-pointer"
-              title="Se déconnecter"
-            >
-              <LogOut size={16} />
-            </button>
-          </div>
-        </div>
-
-        {/* 1. Header Desktop (Profil Client) */}
-        <div className="hidden md:flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4 bg-white p-5 sm:p-6 rounded-2xl border border-gray-200/80 shadow-xs relative">
-          <div className="flex items-center gap-4">
+        {/* 1. Header Profil Client Harmonisé (Web & Mobile identique) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-4 bg-white p-4 sm:p-6 rounded-2xl border border-gray-200/80 shadow-xs relative">
+          <div className="flex items-center gap-3.5 sm:gap-4">
             {/* Avatar */}
-            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-dark text-white font-extrabold text-xl sm:text-2xl flex items-center justify-center shadow-md shadow-primary/20 shrink-0 relative">
+            <div className="w-13 h-13 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-dark text-white font-extrabold text-xl sm:text-2xl flex items-center justify-center shadow-md shadow-primary/20 shrink-0 relative">
               {clientDisplayName.charAt(0).toUpperCase()}
               <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center text-[10px] text-white" title="Compte Actif">
                 ✓
               </div>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black text-gray-900 tracking-tight">
+                <h1 className="text-lg sm:text-2xl font-black text-gray-900 tracking-tight truncate">
                   {clientDisplayName}
                 </h1>
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 bg-emerald-50 text-emerald-800 rounded-full border border-emerald-200">
+                <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 rounded-full border border-emerald-200">
                   <ShieldCheck size={12} className="text-emerald-600" /> Compte Vérifié
                 </span>
               </div>
 
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500 mt-1">
+              <div className="flex flex-wrap items-center gap-x-3 sm:gap-x-4 gap-y-1 text-xs text-gray-500 mt-1">
                 {clientEmail && (
-                  <span className="flex items-center gap-1">
-                    <Mail size={12} className="text-gray-400" /> {clientEmail}
+                  <span className="flex items-center gap-1 truncate">
+                    <Mail size={12} className="text-gray-400 shrink-0" /> <span className="truncate">{clientEmail}</span>
                   </span>
                 )}
                 {clientPhone && (
                   <span className="flex items-center gap-1 font-medium text-gray-700">
-                    <Phone size={12} className="text-primary" /> {clientPhone}
+                    <Phone size={12} className="text-primary shrink-0" /> {clientPhone}
                   </span>
                 )}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:self-center">
-            {/* Bouton pour aller sur les rayons et consulter les produits */}
+          {/* Boutons d'actions responsive */}
+          <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100">
             <Link
               href="/"
-              className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 bg-[#FF6600] hover:bg-[#e65c00] text-white font-extrabold rounded-xl shadow-xs hover:shadow-md transition-all text-xs sm:text-sm cursor-pointer group shrink-0"
+              className="inline-flex items-center justify-center gap-2 flex-1 sm:flex-initial px-3.5 sm:px-4 py-2 bg-[#FF6600] hover:bg-[#e65c00] text-white font-extrabold rounded-xl shadow-xs hover:shadow-md transition-all text-xs sm:text-sm cursor-pointer group shrink-0"
               title="Consulter les rayons et les produits"
             >
               <ShoppingBag size={16} className="group-hover:scale-110 transition-transform" />
               <span>Consulter les Rayons</span>
             </Link>
 
-            <NotificationBell />
-
-            <button 
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-xl text-red-600 hover:bg-red-50 transition-colors font-medium shadow-2xs text-xs sm:text-sm cursor-pointer shrink-0"
-              title="Se déconnecter"
-            >
-              <LogOut size={15} />
-              <span className="hidden sm:inline">Déconnexion</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <button 
+                onClick={handleLogout}
+                className="p-2 sm:px-3 sm:py-2 bg-white border border-gray-200 rounded-xl text-red-600 hover:bg-red-50 transition-colors font-medium shadow-2xs text-xs sm:text-sm cursor-pointer shrink-0"
+                title="Se déconnecter"
+              >
+                <LogOut size={15} />
+                <span className="hidden sm:inline ml-1.5">Déconnexion</span>
+              </button>
+            </div>
           </div>
         </div>
 

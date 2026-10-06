@@ -107,18 +107,40 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0b061c] flex flex-col items-center justify-center text-white">
-        <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4"></div>
-        <p className="text-gray-400 font-medium tracking-wide">Chargement du produit...</p>
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center text-gray-800">
+        <div className="w-10 h-10 border-3 border-[#FF6600]/20 border-t-[#FF6600] rounded-full animate-spin mb-3"></div>
+        <p className="text-gray-500 font-semibold text-sm">Chargement du produit Rayons...</p>
       </div>
     );
   }
 
   if (!productData) {
     return (
-      <div className="min-h-screen bg-[#0b061c] flex items-center justify-center text-white">
-        <h2>Produit introuvable.</h2>
-        <Link href="/" className="ml-4 text-primary-light hover:underline">Retour à l'accueil</Link>
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-gray-200/90 shadow-sm p-8 text-center flex flex-col items-center">
+          <div className="w-16 h-16 rounded-2xl bg-orange-50 text-[#FF6600] border border-orange-200/60 flex items-center justify-center mb-4">
+            <PackageOpen size={32} />
+          </div>
+          <h2 className="text-xl font-black text-gray-900 mb-2">Produit non disponible</h2>
+          <p className="text-xs text-gray-500 mb-6 leading-relaxed">
+            Cet article n'est plus en stock ou a été retiré de la vitrine par le fournisseur. Vous pouvez explorer d'autres articles similaires sur les rayons.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2.5 w-full">
+            <Link
+              href="/"
+              className="flex-1 py-3 px-4 bg-[#FF6600] hover:bg-[#e65c00] text-white font-extrabold text-xs rounded-xl shadow-xs hover:shadow-md transition-all text-center flex items-center justify-center gap-1.5"
+            >
+              <ShoppingBag size={15} />
+              <span>Explorer les Rayons</span>
+            </Link>
+            <Link
+              href="/dashboard/client?tab=orders"
+              className="py-3 px-4 bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-colors text-center"
+            >
+              Mes Commandes
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
