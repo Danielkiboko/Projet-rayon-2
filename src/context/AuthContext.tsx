@@ -221,16 +221,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const tokenResult = await getIdTokenResult(currentUser);
               let role = tokenResult.claims.role as string | undefined;
               if (!role && currentUser.email === "danielkiboko218@gmail.com") role = "SUPER_ADMIN";
+              const emailName = currentUser.email ? currentUser.email.split("@")[0].replace(/[._\-+]/g, " ").trim().split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : "";
               setUserData({
                 role: role || (currentUser.email === "danielkiboko218@gmail.com" ? "SUPER_ADMIN" : "CLIENT"),
                 email: currentUser.email,
-                displayName: currentUser.displayName || "Utilisateur",
+                displayName: currentUser.displayName || emailName || "Acheteur",
               });
             } catch {
+              const emailName = currentUser.email ? currentUser.email.split("@")[0].replace(/[._\-+]/g, " ").trim().split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : "";
               if (currentUser.email === "danielkiboko218@gmail.com") {
                 setUserData({ role: "SUPER_ADMIN", email: currentUser.email, displayName: "Daniel Kiboko" });
               } else {
-                setUserData({ role: "CLIENT", email: currentUser.email, displayName: currentUser.displayName || "Client" });
+                setUserData({ role: "CLIENT", email: currentUser.email, displayName: currentUser.displayName || emailName || "Acheteur" });
               }
             }
           } finally {

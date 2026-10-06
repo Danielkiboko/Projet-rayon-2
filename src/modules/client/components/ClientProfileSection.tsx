@@ -55,7 +55,16 @@ export default function ClientProfileSection({
   const router = useRouter();
 
   const [isEditing, setIsEditing] = useState(false);
-  const [displayName, setDisplayName] = useState(userData?.displayName || userData?.name || user?.displayName || "");
+  const [displayName, setDisplayName] = useState(() => {
+    const raw = userData?.displayName || userData?.name || user?.displayName || "";
+    if (raw && raw.trim().toLowerCase() !== "client") return raw.trim();
+    const emailStr = userData?.email || user?.email || "";
+    if (emailStr.includes("@")) {
+      const local = emailStr.split("@")[0].replace(/[._\-+]/g, " ").replace(/\d+$/g, "").trim();
+      return local.split(" ").filter(Boolean).map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ") || emailStr.split("@")[0];
+    }
+    return "";
+  });
   const [phone, setPhone] = useState(userData?.phone || userData?.phoneNumber || user?.phoneNumber || "");
   const [commune, setCommune] = useState(userData?.commune || "Gombe");
   const [address, setAddress] = useState(userData?.address || "");
@@ -65,7 +74,17 @@ export default function ClientProfileSection({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  const clientDisplayName = displayName || "Client";
+  const rawProfileName = displayName || userData?.displayName || userData?.name || user?.displayName;
+  const clientDisplayName = (rawProfileName && rawProfileName.trim().toLowerCase() !== "client")
+    ? rawProfileName.trim()
+    : (user?.email || userData?.email)
+    ? (() => {
+        const emailStr = (user?.email || userData?.email || "");
+        const local = emailStr.split("@")[0].replace(/[._\-+]/g, " ").replace(/\d+$/g, "").trim();
+        const formatted = local.split(" ").filter(Boolean).map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+        return formatted || emailStr.split("@")[0] || "Acheteur";
+      })()
+    : "Acheteur";
   const clientEmail = userData?.email || user?.email || "Non renseigné";
   const clientPhone = phone || "Aucun numéro de contact";
 

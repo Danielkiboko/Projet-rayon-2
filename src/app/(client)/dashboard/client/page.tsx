@@ -28,7 +28,8 @@ import {
   Mail,
   SlidersHorizontal,
   Sparkles,
-  ShoppingBag
+  ShoppingBag,
+  Edit3
 } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
@@ -257,9 +258,22 @@ export default function ClientDashboard() {
     );
   }
 
-  const clientDisplayName = userData.displayName || userData.name || user.displayName || "Client";
-  const clientPhone = userData.phone || userData.phoneNumber || user.phoneNumber || "";
-  const clientEmail = userData.email || user.email || "";
+  // Résolution intelligente du nom du client (Ne jamais afficher le mot générique "Client")
+  const rawClientName = userData?.displayName || userData?.name || user?.displayName;
+  const clientDisplayName = (rawClientName && rawClientName.trim().toLowerCase() !== "client")
+    ? rawClientName.trim()
+    : (userData?.company && userData.company.trim())
+    ? userData.company.trim()
+    : (user?.email || userData?.email)
+    ? (() => {
+        const emailStr = (user?.email || userData?.email || "");
+        const local = emailStr.split("@")[0].replace(/[._\-+]/g, " ").replace(/\d+$/g, "").trim();
+        const formatted = local.split(" ").filter(Boolean).map((w: string) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+        return formatted || emailStr.split("@")[0] || "Acheteur";
+      })()
+    : "Acheteur";
+  const clientPhone = userData?.phone || userData?.phoneNumber || user?.phoneNumber || "";
+  const clientEmail = userData?.email || user?.email || "";
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-24 sm:pb-8">
@@ -321,18 +335,29 @@ export default function ClientDashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-5 gap-4 bg-white p-4 sm:p-6 rounded-2xl border border-gray-200/80 shadow-xs relative">
           <div className="flex items-center gap-3.5 sm:gap-4">
             {/* Avatar */}
-            <div className="w-13 h-13 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-dark text-white font-extrabold text-xl sm:text-2xl flex items-center justify-center shadow-md shadow-primary/20 shrink-0 relative">
+            <button
+              type="button"
+              onClick={() => setActiveTab("profile")}
+              className="w-13 h-13 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary to-primary-dark text-white font-extrabold text-xl sm:text-2xl flex items-center justify-center shadow-md shadow-primary/20 shrink-0 relative cursor-pointer hover:opacity-95 transition-opacity"
+              title="Modifier mon profil"
+            >
               {clientDisplayName.charAt(0).toUpperCase()}
               <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-500 border-2 border-white flex items-center justify-center text-[10px] text-white" title="Compte Actif">
                 ✓
               </div>
-            </div>
+            </button>
 
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg sm:text-2xl font-black text-gray-900 tracking-tight truncate">
-                  {clientDisplayName}
-                </h1>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("profile")}
+                  className="text-lg sm:text-2xl font-black text-gray-900 tracking-tight truncate hover:text-[#FF6600] transition-colors cursor-pointer text-left flex items-center gap-1.5"
+                  title="Modifier mon nom et mes coordonnées"
+                >
+                  <span>{clientDisplayName}</span>
+                  <Edit3 size={15} className="text-gray-400 hover:text-[#FF6600] shrink-0" />
+                </button>
                 <span className="inline-flex items-center gap-1 text-[10px] sm:text-[11px] font-bold px-2 py-0.5 bg-emerald-50 text-emerald-800 rounded-full border border-emerald-200">
                   <ShieldCheck size={12} className="text-emerald-600" /> Compte Vérifié
                 </span>
