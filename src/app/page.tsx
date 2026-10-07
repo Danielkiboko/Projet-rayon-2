@@ -457,43 +457,6 @@ export default function Home() {
               Immobilier, mode, tech ou gastronomie — Rayons connecte les acheteurs aux meilleurs fournisseurs locaux, simplement.
             </p>
 
-            {/* Quick Filter Categories Buttons */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-3 mb-4 scrollbar-none">
-              <span className="text-[11px] uppercase tracking-wider font-bold text-gray-400 shrink-0 mr-1">
-                Explorer :
-              </span>
-              <Link
-                href="/"
-                className="px-3 py-1.5 rounded-xl text-xs font-bold bg-[#C7D300] text-[#0F1D27] shrink-0 shadow-md transition-transform active:scale-95"
-              >
-                ✨ Tout
-              </Link>
-              <Link
-                href="/rayon/connect"
-                className="px-3 py-1.5 rounded-xl text-xs font-medium bg-white/10 hover:bg-[#00B5A5]/20 text-gray-200 hover:text-white border border-white/10 shrink-0 transition-colors"
-              >
-                📡 Connect & Tech
-              </Link>
-              <Link
-                href="/rayon/immo"
-                className="px-3 py-1.5 rounded-xl text-xs font-medium bg-white/10 hover:bg-[#4C6EF5]/20 text-gray-200 hover:text-white border border-white/10 shrink-0 transition-colors"
-              >
-                🏢 Immobilier & Hôtels
-              </Link>
-              <Link
-                href="/rayon/mode"
-                className="px-3 py-1.5 rounded-xl text-xs font-medium bg-white/10 hover:bg-[#D4B08C]/20 text-gray-200 hover:text-white border border-white/10 shrink-0 transition-colors"
-              >
-                👗 Mode & Luxe
-              </Link>
-              <Link
-                href="/rayon/saveurs"
-                className="px-3 py-1.5 rounded-xl text-xs font-medium bg-white/10 hover:bg-[#FF6B35]/20 text-gray-200 hover:text-white border border-white/10 shrink-0 transition-colors"
-              >
-                🍽️ Gastronomie
-              </Link>
-            </div>
-
             {/* Universal Search Bar with Glass Glow */}
             <div className="mb-8 max-w-2xl p-1 bg-white/10 backdrop-blur-2xl border border-white/20 rounded-2xl shadow-2xl">
               <UniversalSearchBar products={dbProducts} properties={dbProperties} />

@@ -3,8 +3,7 @@ import { getAuth } from "firebase/auth";
 import { 
   getFirestore, 
   initializeFirestore, 
-  persistentLocalCache, 
-  persistentMultipleTabManager 
+  memoryLocalCache 
 } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -25,14 +24,34 @@ try {
   console.warn("Client Firebase Auth init warning during build:", e);
 }
 
-// Enable persistent multi-tab cache in browser to dramatically cut reads and avoid quota exhaustion
+// Purge legacy bloated firestore targets from localStorage to unblock quota crashes
+if (typeof window !== "undefined") {
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (
+        key && 
+        (key.startsWith("firestore_targets_") || 
+         key.startsWith("firestore_clients_") || 
+         key.startsWith("firestore_mutations_") ||
+         key.startsWith("firestore_zombie_"))
+      ) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    // Ignore private browsing / restricted storage
+  }
+}
+
+// Memory-backed local cache avoids localStorage quota exhaustion and cross-tab lock issues
 let db: any;
 try {
   if (typeof window !== "undefined") {
     db = initializeFirestore(app, {
-      localCache: persistentLocalCache({
-        tabManager: persistentMultipleTabManager(),
-      }),
+      localCache: memoryLocalCache(),
     });
   } else {
     db = getFirestore(app);

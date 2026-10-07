@@ -109,79 +109,30 @@ export function UniversalSearchBar({ products = [], properties = [] }: Universal
 
   return (
     <div ref={containerRef} className="relative w-full max-w-3xl mx-auto z-30">
-      
-      {/* Category Pills */}
-      <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 scrollbar-none mb-2 text-xs font-semibold">
-        <button
-          type="button"
-          onClick={() => setSelectedRayon("all")}
-          className={`px-3 py-1.5 rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
-            selectedRayon === "all"
-              ? "bg-[#C7D300] text-[#0F1D27] shadow-sm font-bold"
-              : "bg-white/10 hover:bg-white/20 text-white/90 border border-white/10 backdrop-blur-md"
-          }`}
-        >
-          <Sparkles size={13} />
-          Tous les rayons
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSelectedRayon("connect")}
-          className={`px-3 py-1.5 rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
-            selectedRayon === "connect"
-              ? "bg-[#00B5A5] text-white shadow-sm font-bold"
-              : "bg-white/10 hover:bg-white/20 text-white/90 border border-white/10 backdrop-blur-md"
-          }`}
-        >
-          <Wifi size={13} />
-          Connect
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSelectedRayon("immo")}
-          className={`px-3 py-1.5 rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
-            selectedRayon === "immo"
-              ? "bg-[#4C6EF5] text-white shadow-sm font-bold"
-              : "bg-white/10 hover:bg-white/20 text-white/90 border border-white/10 backdrop-blur-md"
-          }`}
-        >
-          <Building2 size={13} />
-          Immo & Hôtels
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSelectedRayon("mode")}
-          className={`px-3 py-1.5 rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
-            selectedRayon === "mode"
-              ? "bg-[#D4B08C] text-[#0F1D27] shadow-sm font-bold"
-              : "bg-white/10 hover:bg-white/20 text-white/90 border border-white/10 backdrop-blur-md"
-          }`}
-        >
-          <Shirt size={13} />
-          Mode
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSelectedRayon("saveurs")}
-          className={`px-3 py-1.5 rounded-full transition-all whitespace-nowrap flex items-center gap-1.5 ${
-            selectedRayon === "saveurs"
-              ? "bg-[#FF6B35] text-white shadow-sm font-bold"
-              : "bg-white/10 hover:bg-white/20 text-white/90 border border-white/10 backdrop-blur-md"
-          }`}
-        >
-          <UtensilsCrossed size={13} />
-          Saveurs
-        </button>
-      </div>
-
-      {/* Main Search Input Form */}
+      {/* Main Search Input Form with Integrated Rayon Selector */}
       <form onSubmit={handleSearchSubmit} className="relative flex items-center shadow-2xl rounded-2xl bg-white p-1.5 border border-white/20 focus-within:ring-4 focus-within:ring-[#C7D300]/30 transition-all">
-        <div className="pl-3.5 pr-2 text-gray-400">
-          <Search size={20} className="text-gray-500" />
+        {/* Integrated Rayon Filter */}
+        <div className="relative pl-3 pr-2 py-1 flex items-center border-r border-gray-200">
+          <select
+            value={selectedRayon}
+            onChange={(e) => setSelectedRayon(e.target.value as any)}
+            className="appearance-none bg-transparent pr-6 text-xs sm:text-sm font-bold text-gray-800 cursor-pointer focus:outline-none"
+          >
+            <option value="all">Tous les rayons</option>
+            <option value="connect">📡 Connect</option>
+            <option value="immo">🏢 Immo & Hôtels</option>
+            <option value="mode">👗 Mode</option>
+            <option value="saveurs">🍽️ Saveurs</option>
+          </select>
+          <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+
+        <div className="pl-3 pr-2 text-gray-400 shrink-0">
+          <Search size={18} className="text-gray-400" />
         </div>
 
         <input
