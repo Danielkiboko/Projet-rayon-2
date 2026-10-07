@@ -7,9 +7,7 @@ export default function NotFound() {
     <div className="min-h-screen bg-[#0F1D27] text-white flex flex-col justify-between selection:bg-[#C7D300] selection:text-[#0F1D27]">
       {/* Header */}
       <header className="p-6 border-b border-white/10 flex items-center justify-between max-w-7xl mx-auto w-full">
-        <Link href="/" className="flex items-center gap-2">
-          <RayonsLogo className="h-8 w-auto text-white" />
-        </Link>
+        <RayonsLogo href="/" size="md" variant="dark" />
         <Link
           href="/"
           className="flex items-center gap-2 text-xs font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 px-3.5 py-2 rounded-xl transition-colors"

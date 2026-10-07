@@ -21,9 +21,7 @@ export default function GlobalError({
     <div className="min-h-screen bg-[#0F1D27] text-white flex flex-col justify-between p-6 selection:bg-[#C7D300] selection:text-[#0F1D27]">
       {/* Header */}
       <header className="flex items-center justify-between max-w-7xl mx-auto w-full border-b border-white/10 pb-4">
-        <Link href="/">
-          <RayonsLogo className="h-8 w-auto text-white" />
-        </Link>
+        <RayonsLogo href="/" size="md" variant="dark" />
         <span className="text-xs text-rose-400 font-mono bg-rose-500/10 border border-rose-500/20 px-3 py-1 rounded-full">
           Système Sécurisé
         </span>

@@ -394,69 +394,67 @@ export default function Home() {
         <div className="absolute top-10 right-10 w-[350px] h-[350px] bg-[#FF6B35]/10 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
 
-        {/* Supermarket & Marketplace Photo on Right (Desktop) */}
-        <div className="absolute right-0 top-0 bottom-0 w-[48%] hidden xl:block pointer-events-none">
+        {/* Supermarket Photo Panel on Right (Desktop) */}
+        <div className="absolute right-0 top-0 bottom-0 w-[52%] hidden lg:block pointer-events-none">
           <OptimizedImage
             src="/supermarket-hero.jpg"
-            alt="Rayons d'un supermarché moderne"
+            alt="Rayons d'un supermarché — Rayons marketplace"
             fill
             priority
-            className="object-cover object-center opacity-40 mix-blend-luminosity scale-105"
-            sizes="48vw"
+            className="object-cover"
+            sizes="52vw"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0F1D27] via-[#0F1D27]/80 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0F1D27] via-transparent to-transparent" />
-
-          {/* Floating Trust Card Top Right */}
-          <div className="absolute top-36 right-16 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 flex items-center gap-3.5 shadow-2xl animate-float">
-            <div className="w-10 h-10 rounded-xl bg-[#C7D300] text-[#0F1D27] flex items-center justify-center font-black">
-              <ShieldCheck size={22} />
-            </div>
+          {/* Left fade to blend seamlessly with dark background */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0F1D27] via-[#0F1D27]/30 to-transparent" />
+          {/* Bottom fade */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0F1D27]/60 via-transparent to-transparent" />
+          
+          {/* Floating badge */}
+          <div className="absolute bottom-12 right-8 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl px-5 py-4 flex items-center gap-3 shadow-2xl">
+            <span className="text-2xl">🛒</span>
             <div>
-              <p className="text-white font-bold text-xs">Paiement Séquestre</p>
-              <p className="text-[#C7D300] text-[10px] font-semibold">Garantie 100% Rayons</p>
-            </div>
-          </div>
-
-          {/* Floating Live Card Bottom Right */}
-          <div className="absolute bottom-28 right-12 bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-4 flex items-center gap-3.5 shadow-2xl">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
-              <Zap size={20} />
-            </div>
-            <div>
-              <p className="text-white font-bold text-xs">Devis & Proforma</p>
-              <p className="text-gray-300 text-[10px]">Négociation en direct 24/7</p>
+              <p className="text-white font-bold text-sm">4 800+ produits</p>
+              <p className="text-gray-400 text-xs">disponibles maintenant</p>
             </div>
           </div>
         </div>
 
         {/* Content Container */}
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 w-full">
-          <div className="max-w-3xl lg:max-w-2xl xl:max-w-[58%]">
+          <div className="max-w-3xl lg:max-w-[52%]">
 
-            {/* Official Badge Tag */}
-            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/8 border border-white/15 backdrop-blur-md mb-6 shadow-lg shadow-black/20">
-              <span className="w-2 h-2 rounded-full bg-[#C7D300] animate-ping" />
-              <span className="text-xs font-semibold text-gray-200">
-                Marketplace Certifiée • Paiement Séquestré Garanti
+            {/* Human trust signal with customer avatars */}
+            <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/8 border border-white/15 backdrop-blur-sm mb-6 w-max">
+              <div className="flex -space-x-1.5">
+                {["MC", "PB", "AK"].map((init, i) => (
+                  <div
+                    key={i}
+                    className="w-6 h-6 rounded-full bg-gradient-to-br from-[#C7D300] to-[#96a000] flex items-center justify-center text-[9px] font-black text-[#0F1D27] ring-2 ring-[#0F1D27]"
+                  >
+                    {init}
+                  </div>
+                ))}
+              </div>
+              <span className="text-sm font-medium text-gray-300">
+                +12 000 clients nous font déjà confiance
               </span>
-              <span className="text-white/40">|</span>
-              <span className="text-[#C7D300] text-xs font-bold flex items-center gap-1">
-                <Star size={12} fill="currentColor" /> 4.9/5
-              </span>
+              <span className="text-[#C7D300] text-xs font-bold">★★★★★</span>
             </div>
 
-            {/* Headline */}
-            <h1 className="font-heading text-4xl sm:text-6xl md:text-7xl font-black text-white leading-[1.05] tracking-tight mb-6">
-              L&apos;univers de vos envies,{" "}
-              <span className="bg-gradient-to-r from-[#C7D300] via-[#00B5A5] to-[#4C6EF5] bg-clip-text text-transparent">
-                réuni en un seul lieu.
+            {/* Original main headline */}
+            <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-[1.08] mb-6 tracking-tight">
+              Ce que vous cherchez{" "}
+              <span className="text-[#C7D300] relative">
+                existe ici.
+                <svg className="absolute -bottom-1 left-0 w-full" height="6" viewBox="0 0 200 6" fill="none">
+                  <path d="M0 5 Q50 1 100 5 Q150 1 200 5" stroke="#C7D300" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.6" />
+                </svg>
               </span>
             </h1>
 
-            {/* Subheadline */}
-            <p className="text-gray-300 text-base sm:text-lg mb-8 max-w-xl leading-relaxed font-normal">
-              Achetez en direct auprès des meilleurs fournisseurs, réservez des biens certifiés et négociez vos cotations officielles en toute sécurité.
+            {/* Original subheadline */}
+            <p className="text-gray-300 text-lg sm:text-xl mb-8 max-w-xl leading-relaxed">
+              Immobilier, mode, tech ou gastronomie — Rayons connecte les acheteurs aux meilleurs fournisseurs locaux, simplement.
             </p>
 
             {/* Quick Filter Categories Buttons */}
