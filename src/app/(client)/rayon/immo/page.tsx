@@ -165,7 +165,15 @@ function ImmoContent() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
+    <div className="min-h-screen bg-[#F8FAFC] text-[#0F1D27] relative selection:bg-[#C7D300]/30 selection:text-[#0F1D27] overflow-x-hidden">
+      {/* Ambient Chromatic Mesh Glow for Immo */}
+      <div 
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[450px] rounded-full blur-[140px] pointer-events-none -z-0 opacity-30"
+        style={{
+          background: "radial-gradient(circle, rgba(76, 110, 245, 0.45) 0%, transparent 70%)"
+        }}
+      />
+
       <RayonNavbar 
         category="immo"
         lang={lang}
@@ -183,7 +191,7 @@ function ImmoContent() {
             alt="Modern House" 
             className="absolute inset-0 w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-green-950/90 via-green-900/60 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-[#4C6EF5]/90 via-[#0F1D27]/80 to-transparent"></div>
           <div className="absolute inset-0 flex flex-col justify-center px-6 sm:px-10 md:px-14 w-full md:w-2/3">
             <span className="inline-block px-2.5 py-0.5 bg-white/20 text-white text-[11px] font-bold tracking-wider rounded-full mb-2.5 border border-white/30 uppercase w-max">
               {t.tag}
@@ -607,7 +615,7 @@ function ImmoContent() {
 
 export default function ImmoPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-500 font-medium">Chargement Rayons Immo...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center text-gray-500 font-medium">Chargement Rayons Immo...</div>}>
       <ImmoContent />
     </Suspense>
   );

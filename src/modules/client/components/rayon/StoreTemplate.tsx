@@ -154,7 +154,19 @@ function StoreTemplateContent({ category, heroImage, dummyProducts, dict }: Stor
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-900">
+    <div className="min-h-screen bg-[#F8FAFC] text-[#0F1D27] relative selection:bg-[#C7D300]/30 selection:text-[#0F1D27] overflow-x-hidden">
+      {/* Ambient Chromatic Mesh Glow customized per Rayon */}
+      <div 
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[450px] rounded-full blur-[140px] pointer-events-none -z-0 opacity-30"
+        style={{
+          background: isMode
+            ? "radial-gradient(circle, rgba(212, 176, 140, 0.5) 0%, transparent 70%)"
+            : isSaveurs
+            ? "radial-gradient(circle, rgba(255, 107, 53, 0.4) 0%, transparent 70%)"
+            : "radial-gradient(circle, rgba(0, 181, 165, 0.4) 0%, transparent 70%)"
+        }}
+      />
+
       <RayonNavbar 
         category={category}
         lang={lang}
@@ -163,34 +175,34 @@ function StoreTemplateContent({ category, heroImage, dummyProducts, dict }: Stor
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
         
         {/* Hero Section */}
-        <div className="relative rounded-3xl overflow-hidden mb-8 shadow-xl h-[280px] sm:h-[320px]">
+        <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden mb-5 sm:mb-8 shadow-lg sm:shadow-xl h-[190px] sm:h-[280px] md:h-[320px]">
           <img 
             src={heroImage} 
             alt={t[category] || category} 
             className="absolute inset-0 w-full h-full object-cover"
           />
           <div className={`absolute inset-0 bg-gradient-to-r ${bgGradient} to-transparent`}></div>
-          <div className="absolute inset-0 flex flex-col justify-center px-8 md:px-16 w-full md:w-2/3">
-            <span className="inline-block px-3 py-1 bg-white/20 text-white text-xs font-bold tracking-wider rounded-full mb-4 border border-white/30 uppercase w-max">
+          <div className="absolute inset-0 flex flex-col justify-center px-4 sm:px-8 md:px-16 w-full md:w-2/3">
+            <span className="inline-block px-2.5 py-0.5 sm:px-3 sm:py-1 bg-white/20 text-white text-[10px] sm:text-xs font-bold tracking-wider rounded-full mb-2 sm:mb-4 border border-white/30 uppercase w-max backdrop-blur-xs">
               {t[category] || category}
             </span>
             <motion.h1 
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="text-3xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight mb-3"
+              transition={{ duration: 0.5 }}
+              className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight mb-1 sm:mb-3"
             >
               {t.title}
             </motion.h1>
             {t.subtitle && (
               <motion.p 
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className={`text-base sm:text-lg ${heroTextColor} max-w-lg hidden sm:block`}
+                transition={{ duration: 0.5, delay: 0.15 }}
+                className={`text-xs sm:text-base md:text-lg ${heroTextColor} max-w-lg hidden sm:block`}
               >
                 {t.subtitle}
               </motion.p>
@@ -199,49 +211,49 @@ function StoreTemplateContent({ category, heroImage, dummyProducts, dict }: Stor
         </div>
 
         {/* Search & Filter Bar */}
-        <div className="bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs mb-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="bg-white p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-gray-200/80 shadow-xs mb-5 sm:mb-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-4">
           <div className="relative w-full sm:max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={`Rechercher dans Rayons ${t[category] || category}...`}
-              className="w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              className="w-full pl-9 pr-9 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg sm:rounded-xl text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
             />
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 rounded-full"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1 rounded-full cursor-pointer"
                 title="Effacer la recherche"
               >
-                <X size={15} />
+                <X size={14} />
               </button>
             )}
           </div>
 
-          <div className="text-xs text-gray-500 font-medium self-end sm:self-center">
+          <div className="text-[11px] sm:text-xs text-gray-500 font-medium text-right sm:text-left">
             {displayedProducts.length} article{displayedProducts.length > 1 ? "s" : ""} disponible{displayedProducts.length > 1 ? "s" : ""}
           </div>
         </div>
 
         {/* Products Grid */}
         {displayedProducts.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center my-8">
-            <PackageSearch size={48} className="mx-auto text-gray-300 mb-3" />
-            <h3 className="text-base font-bold text-gray-800 mb-1">Aucun résultat trouvé</h3>
+          <div className="bg-white rounded-2xl border border-gray-200 p-8 sm:p-12 text-center my-6 sm:my-8">
+            <PackageSearch size={44} className="mx-auto text-gray-300 mb-3" />
+            <h3 className="text-sm sm:text-base font-bold text-gray-800 mb-1">Aucun résultat trouvé</h3>
             <p className="text-xs text-gray-400 max-w-md mx-auto mb-4">
               Aucun article dans ce rayon ne correspond à votre recherche "{searchQuery}". Essayez un autre mot-clé ou réinitialisez le filtre.
             </p>
             <button
               onClick={() => setSearchQuery("")}
-              className="px-4 py-2 bg-primary text-white text-xs font-semibold rounded-xl hover:bg-primary-dark transition-colors"
+              className="px-4 py-2 bg-primary text-white text-xs font-semibold rounded-xl hover:bg-primary-dark transition-colors cursor-pointer"
             >
               Afficher tous les articles
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
             {isLoading ? (
               <>
                 <ProductSkeleton />
@@ -279,7 +291,7 @@ function StoreTemplateContent({ category, heroImage, dummyProducts, dict }: Stor
 
 export function StoreTemplate(props: StoreTemplateProps) {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-500 font-medium">Chargement du rayon...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center text-gray-500 font-medium">Chargement du rayon...</div>}>
       <StoreTemplateContent {...props} />
     </Suspense>
   );

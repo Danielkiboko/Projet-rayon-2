@@ -148,6 +148,8 @@ export async function POST(req: Request) {
       ...additionalData
     }, { merge: true });
 
+const DRIVER_APP_APK_URL = "https://expo.dev/artifacts/eas/CuY-nZ0kk1GwVdTmiAimwLjc34w2wMJ924j3pcK7JpM.apk";
+
     // 7. Route to specific collections (drivers, suppliers) if needed
     if (['supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS'].includes(roleToCreate)) {
       await adminDb.collection('suppliers').doc(userRecord.uid).set({
@@ -165,6 +167,7 @@ export async function POST(req: Request) {
         createdBy: claims.createdBy,
         email,
         displayName,
+        appDownloadUrl: DRIVER_APP_APK_URL,
         createdAt: new Date(),
         status: 'active'
       }, { merge: true });
@@ -255,6 +258,27 @@ export async function POST(req: Request) {
             </td>
           </tr>
 
+          ${roleToCreate === 'driver' ? `
+          <!-- Driver Mobile App Card -->
+          <tr>
+            <td style="padding:0 40px 20px;">
+              <div style="background:linear-gradient(135deg, rgba(199,211,0,0.15) 0%, rgba(15,29,39,0.95) 100%);border:2px solid #C7D300;border-radius:12px;padding:24px;text-align:center;">
+                <div style="font-size:32px;margin-bottom:8px;">📲</div>
+                <h3 style="margin:0 0 8px;font-size:18px;color:#ffffff;font-weight:700;">Application Mobile Livreur (Android)</h3>
+                <p style="margin:0 0 16px;font-size:14px;color:#a0b4c0;line-height:1.5;">
+                  Téléchargez l'application officielle sur votre smartphone Android pour recevoir vos livraisons en temps réel, naviguer via le GPS et valider vos encaissements.
+                </p>
+                <a href="${DRIVER_APP_APK_URL}" style="display:inline-block;background-color:#C7D300;color:#0F1D27;padding:14px 28px;text-decoration:none;font-weight:800;font-size:14px;border-radius:8px;letter-spacing:0.5px;">
+                  📥 Télécharger l'Application (.APK)
+                </a>
+                <p style="margin:12px 0 0;font-size:12px;color:#8fa3b0;">
+                  Lien de téléchargement : <br><a href="${DRIVER_APP_APK_URL}" style="color:#C7D300;word-break:break-all;">${DRIVER_APP_APK_URL}</a>
+                </p>
+              </div>
+            </td>
+          </tr>
+          ` : ''}
+
           <!-- Login Info -->
           <tr>
             <td style="padding:0 40px 20px;">
@@ -315,7 +339,7 @@ export async function POST(req: Request) {
 
 
     // 9. Send SMS if requested
-    if (notificationMethod === 'sms' && phoneNumber) {
+    if ((notificationMethod === 'sms' || notificationMethod === 'both') && phoneNumber) {
       try {
         let customSenderId = undefined;
         const callerDoc = await adminDb.collection('users').doc(callerUid).get();
@@ -333,7 +357,8 @@ export async function POST(req: Request) {
           }
         }
 
-        const message = `Bonjour ${displayName || ''}, votre compte Rayons a été créé. \nEmail: ${email}\n${resetLink ? `Activez votre compte ici: ${resetLink}` : `Mot de passe temporaire: ${finalPassword}`}\nLien: https://rayons.net`;
+        const appLinkSms = roleToCreate === 'driver' ? `\nApp mobile Livreur: ${DRIVER_APP_APK_URL}` : '';
+        const message = `Bonjour ${displayName || ''}, votre compte Rayons a été créé.\nEmail: ${email}\n${resetLink ? `Activez votre compte: ${resetLink}` : `Mot de passe temporaire: ${finalPassword}`}${appLinkSms}\nLien: https://rayons.net`;
         await sendMobiShastraSMS({ mobileNo: phoneNumber, message, customSenderId });
         console.log(`SMS sent successfully to ${phoneNumber} with senderId ${customSenderId || 'default'}`);
       } catch (smsError) {
@@ -344,7 +369,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ 
       message: 'User created successfully', 
       uid: userRecord.uid,
-      resetLink
+      resetLink,
+      appDownloadUrl: roleToCreate === 'driver' ? DRIVER_APP_APK_URL : undefined
     }, { status: 201 });
 
   } catch (error: any) {

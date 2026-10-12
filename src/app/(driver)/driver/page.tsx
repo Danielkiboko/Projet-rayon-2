@@ -200,7 +200,7 @@ export default function DriverDashboard() {
 
   if (loading || isLoading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-[#0b061c]">
+      <div className="flex justify-center items-center min-h-screen bg-[#0F1D27]">
         <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
       </div>
     );
@@ -209,7 +209,7 @@ export default function DriverDashboard() {
   const driverName = driverInfo?.displayName || userData?.name || "Livreur";
 
   return (
-    <div className="p-4 bg-[#0b061c] min-h-screen pb-24">
+    <div className="p-4 bg-[#0F1D27] min-h-screen pb-24">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 mt-2">
         <div>

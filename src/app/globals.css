@@ -12,6 +12,12 @@
   --color-rayon-mode: #D4B08C;
   --color-rayon-saveurs: #FF6B35;
   
+  /* Surfaces Rayons */
+  --color-surface-dark: #0F1D27;
+  --color-surface-dark-card: #142430;
+  --color-surface-light: #F8FAFC;
+  --color-surface-light-card: #FFFFFF;
+
   --color-primary: #C7D300;
   --color-primary-dark: #0F1D27;
 
@@ -22,6 +28,8 @@
 :root {
   --background: #F8FAFC;
   --foreground: #0F1D27;
+  --surface-dark: #0F1D27;
+  --surface-light: #F8FAFC;
 }
 
 body {
@@ -83,4 +91,17 @@ h1, h2, h3, h4, h5, h6, .font-heading {
     rgba(255, 255, 255, 0)
   );
   animation: shimmer 1.8s infinite;
+}
+
+/* Safe Area insets for mobile app WebViews and notches */
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.pt-safe {
+  padding-top: max(1rem, env(safe-area-inset-top));
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
 }

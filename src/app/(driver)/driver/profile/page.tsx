@@ -97,7 +97,7 @@ export default function DriverProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#0b061c]">
+      <div className="flex items-center justify-center min-h-screen bg-[#0F1D27]">
         <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
       </div>
     );
@@ -106,7 +106,7 @@ export default function DriverProfilePage() {
   const initials = (form.displayName || "L").split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);
 
   return (
-    <div className="p-4 bg-[#0b061c] min-h-screen pb-24">
+    <div className="p-4 bg-[#0F1D27] min-h-screen pb-24">
       {/* Header */}
       <div className="flex items-center justify-between mb-6 mt-2">
         <h1 className="text-xl font-bold text-white">Mon Profil</h1>
@@ -157,7 +157,7 @@ export default function DriverProfilePage() {
           <div className="w-20 h-20 rounded-full bg-primary/20 border-2 border-primary/50 flex items-center justify-center text-2xl font-black text-primary-light">
             {initials}
           </div>
-          <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-[#0b061c]" title="En ligne" />
+          <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-[#0F1D27]" title="En ligne" />
         </div>
         <div className="flex-1 min-w-0">
           {editing ? (

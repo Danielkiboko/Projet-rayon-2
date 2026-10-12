@@ -1,7 +1,9 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+// @ts-ignore - getReactNativePersistence est exporté par le bundle React Native de firebase/auth
+import { initializeAuth, getAuth, getReactNativePersistence, Auth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Platform } from "react-native";
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
@@ -12,11 +14,23 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
+export const isFirebaseConfigured = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
+
 // Initialize Firebase (Singleton pattern to prevent re-initialization)
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
+// Session persistante : le livreur reste connecté entre deux lancements de l'app
+let auth: Auth;
+try {
+  if (Platform.OS !== "web") {
+    auth = initializeAuth(app, { persistence: getReactNativePersistence(AsyncStorage) });
+  } else {
+    auth = getAuth(app);
+  }
+} catch {
+  auth = getAuth(app);
+}
 
-export { app, auth, db, storage };
+const db = getFirestore(app);
+
+export { app, auth, db };

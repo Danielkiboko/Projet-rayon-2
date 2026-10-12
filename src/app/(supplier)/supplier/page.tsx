@@ -54,7 +54,7 @@ export default function SupplierDashboardRouter() {
       return <SaveursDashboard />;
     default:
       return (
-        <div className="bg-[#1a1a1a] border border-white/5 rounded-2xl p-8 shadow-sm text-center">
+        <div className="bg-[#142430] border border-white/10 rounded-2xl p-8 shadow-sm text-center">
           <h2 className="text-xl font-bold text-white mb-2">Bienvenue sur votre espace</h2>
           <p className="text-gray-400">
             Votre compte n'est pas encore assigné à un rayon spécifique. Veuillez contacter l'administrateur.

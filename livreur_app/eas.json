@@ -1,9 +1,22 @@
 {
   "cli": {
-    "version": ">= 7.0.0"
+    "version": ">= 7.0.0",
+    "appVersionSource": "local"
   },
   "build": {
+    "base": {
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyCl8-7YlZk0E8BNmsvmIht7qhAcfbWa5k0",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "projets-rayons2.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "projets-rayons2",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "projets-rayons2.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "226661024947",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:226661024947:web:fb6af87582ccecfea0dcc6",
+        "EXPO_PUBLIC_API_URL": "https://rayons.net"
+      }
+    },
     "development": {
+      "extends": "base",
       "developmentClient": true,
       "distribution": "internal",
       "android": {
@@ -11,12 +24,14 @@
       }
     },
     "preview": {
+      "extends": "base",
       "distribution": "internal",
       "android": {
         "buildType": "apk"
       }
     },
     "production": {
+      "extends": "base",
       "android": {
         "buildType": "app-bundle"
       }

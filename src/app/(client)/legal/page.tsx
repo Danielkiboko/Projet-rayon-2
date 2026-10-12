@@ -34,7 +34,7 @@ export default function LegalPage() {
   const [activeTab, setActiveTab] = useState("cgu");
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB]">
+    <div className="min-h-screen bg-[#F8FAFC]">
       {/* Header */}
       <div className="bg-[#0F1D27] text-white">
         <div className="max-w-3xl mx-auto px-4 py-6 flex items-center gap-4">

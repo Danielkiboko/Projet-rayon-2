@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { Plus, X, Search, Truck, Clock, UserX } from "lucide-react";
+import { Plus, X, Search, Truck, Clock, UserX, Smartphone, Copy, Check, Download } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { collection, query, where, getDocs, doc, deleteDoc } from "firebase/firestore";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { motion, AnimatePresence } from "framer-motion";
+
+const DRIVER_APP_APK_URL = "https://expo.dev/artifacts/eas/CuY-nZ0kk1GwVdTmiAimwLjc34w2wMJ924j3pcK7JpM.apk";
 
 type Driver = {
   id: string;
@@ -20,6 +22,7 @@ export default function SupplierDriversPage() {
   const activeSupplierId = userData?.parentSupplierId || user?.uid;
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [copiedAppUrl, setCopiedAppUrl] = useState(false);
   
   // Add Driver State
   const [isAddingDriver, setIsAddingDriver] = useState(false);
@@ -138,7 +141,7 @@ export default function SupplierDriversPage() {
         await sendPasswordResetEmail(auth, newDriverEmail);
       }
 
-      setSuccess(`Livreur ajouté. ${notificationMethod === 'email' ? 'Un email a été envoyé à ' + newDriverEmail + ' pour configurer son mot de passe.' : 'Un SMS a été envoyé au ' + phoneNumber + ' avec le mot de passe.'}`);
+      setSuccess(`Livreur ajouté avec succès ! ${notificationMethod === 'email' ? 'Un e-mail contenant le lien de téléchargement de l\'application et les accès a été envoyé à ' + newDriverEmail : 'Un SMS contenant le mot de passe et le lien de l\'application a été envoyé au ' + phoneNumber}. Vous pouvez également lui partager l'application directement via WhatsApp.`);
       setNewDriverName("");
       setNewDriverEmail("");
       setPhoneNumber("");
@@ -190,6 +193,48 @@ export default function SupplierDriversPage() {
           {success}
         </div>
       )}
+
+      {/* APK Distribution Card */}
+      <div className="bg-gradient-to-r from-primary/10 via-white/5 to-primary/10 border border-primary/30 rounded-2xl p-5 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 rounded-xl bg-primary/20 border border-primary/40 flex items-center justify-center text-primary-light shrink-0">
+            <Smartphone size={24} />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <h2 className="text-base font-semibold text-white">Application Mobile Livreur Android (.APK)</h2>
+              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary-light rounded-full border border-primary/30">Officielle</span>
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Le lien de téléchargement est envoyé automatiquement par e-mail et SMS lors de l'ajout. Vous pouvez aussi le copier ou l'envoyer via WhatsApp.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2 w-full md:w-auto">
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(DRIVER_APP_APK_URL);
+              setCopiedAppUrl(true);
+              setTimeout(() => setCopiedAppUrl(false), 2500);
+            }}
+            className="flex-1 md:flex-initial flex items-center justify-center space-x-2 px-3 py-2 bg-white/10 hover:bg-white/15 text-white rounded-lg text-xs font-medium border border-white/10 transition-colors"
+          >
+            {copiedAppUrl ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+            <span>{copiedAppUrl ? "Lien copié !" : "Copier le lien APK"}</span>
+          </button>
+
+          <a
+            href={DRIVER_APP_APK_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 md:flex-initial flex items-center justify-center space-x-2 px-3 py-2 bg-primary hover:bg-primary-light text-white rounded-lg text-xs font-semibold shadow-md shadow-primary/20 transition-colors"
+          >
+            <Download size={14} />
+            <span>Télécharger APK</span>
+          </a>
+        </div>
+      </div>
 
       {drivers.length === 0 && !isLoading ? (
         <div className="text-center py-16 bg-white/5 rounded-2xl border border-white/10">
@@ -248,14 +293,26 @@ export default function SupplierDriversPage() {
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
+                        <button 
+                          onClick={() => {
+                            const firstName = (driver.displayName || "").split(' ')[0] || "Livreur";
+                            const shareText = `Bonjour ${firstName} !\n\nVotre compte livreur Rayons a été créé.\n\n📲 Téléchargez votre application mobile Android officielle ici :\n${DRIVER_APP_APK_URL}\n\nIdentifiant : ${driver.email}`;
+                            window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
+                          }}
+                          className="px-3 py-1.5 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-lg text-xs font-medium transition-colors inline-flex items-center"
+                          title="Envoyer l'application par WhatsApp"
+                        >
+                          <Smartphone size={14} className="mr-1" />
+                          <span>WhatsApp</span>
+                        </button>
                         <button 
                           onClick={() => handleRequestDeleteDriver(driver.id)}
                           disabled={driver.status === "pending_deletion"}
-                          className="p-2 text-red-400 bg-red-400/10 rounded-lg hover:bg-red-400/20 transition-colors disabled:opacity-50"
+                          className="p-2 text-red-400 bg-red-400/10 rounded-lg hover:bg-red-400/20 transition-colors disabled:opacity-50 inline-flex items-center"
                           title="Supprimer"
                         >
-                          <UserX size={18} />
+                          <UserX size={16} />
                         </button>
                       </td>
                     </tr>

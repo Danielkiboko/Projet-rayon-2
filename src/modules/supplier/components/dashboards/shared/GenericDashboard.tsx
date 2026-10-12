@@ -73,8 +73,8 @@ export default function GenericDashboard<T>({
   return (
     <div className="space-y-6">
       
-      {/* Top Row KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+      {/* Top Row KPIs — Grille 2x2 fluide sur mobile et 4 colonnes sur desktop */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5">
         {kpis.map((kpi, idx) => {
           const Icon = kpi.icon;
           const isClickable = !isBlocked && !!kpi.onClick;
@@ -85,36 +85,37 @@ export default function GenericDashboard<T>({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.08, duration: 0.35 }}
               onClick={isClickable ? kpi.onClick : undefined}
-              className={`bg-gradient-to-b from-[#131E27] to-[#0D151D] border border-white/[0.08] rounded-2xl p-5 flex flex-col justify-between h-36 transition-all duration-300 shadow-md relative overflow-hidden group ${
+              className={`bg-gradient-to-b from-[#131E27] to-[#0D151D] border border-white/[0.08] rounded-xl sm:rounded-2xl p-3 sm:p-5 flex flex-col justify-between min-h-[115px] sm:h-36 transition-all duration-300 shadow-md relative overflow-hidden group ${
                 isClickable 
                   ? 'cursor-pointer hover:border-white/20 hover:scale-[1.015] active:scale-[0.99]' 
                   : ''
               } ${kpi.alertCondition ? 'border-orange-500/30' : ''}`}
             >
-              <div className="absolute top-0 right-0 w-28 h-28 bg-emerald-500/[0.04] rounded-full blur-2xl -mr-10 -mt-10 group-hover:bg-emerald-500/[0.08] transition-colors" />
+              <div className="absolute top-0 right-0 w-24 sm:w-28 h-24 sm:h-28 bg-emerald-500/[0.04] rounded-full blur-2xl -mr-8 sm:-mr-10 -mt-8 sm:-mt-10 group-hover:bg-emerald-500/[0.08] transition-colors pointer-events-none" />
               
-              <div className="flex justify-between items-start relative z-10">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">{kpi.title}</h3>
-                <div className={`p-2 rounded-xl border ${
+              <div className="flex justify-between items-start relative z-10 gap-1">
+                <h3 className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-gray-400 line-clamp-1">{kpi.title}</h3>
+                <div className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl border shrink-0 ${
                   kpi.alertCondition 
                     ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' 
                     : 'bg-white/5 border-white/5 text-gray-300 group-hover:text-emerald-400 group-hover:border-emerald-500/20'
                 } transition-colors`}>
-                  <Icon size={16} />
+                  <Icon size={14} className="sm:hidden" />
+                  <Icon size={16} className="hidden sm:block" />
                 </div>
               </div>
               
-              <div className="relative z-10 my-1">
-                <div className={`text-2xl lg:text-3xl font-extrabold tracking-tight ${kpi.alertCondition ? "text-orange-400" : "text-white"}`}>
+              <div className="relative z-10 my-0.5 sm:my-1">
+                <div className={`text-lg sm:text-2xl lg:text-3xl font-extrabold tracking-tight truncate ${kpi.alertCondition ? "text-orange-400" : "text-white"}`}>
                   {kpi.value}
                 </div>
-                <div className="text-[11px] text-gray-400 font-medium mt-0.5">{kpi.subtitle}</div>
+                <div className="text-[10px] sm:text-[11px] text-gray-400 font-medium mt-0.5 truncate">{kpi.subtitle}</div>
               </div>
 
-              <div className="pt-2 border-t border-white/[0.06] flex justify-between items-center text-[11px] text-gray-400 relative z-10">
+              <div className="pt-1.5 sm:pt-2 border-t border-white/[0.06] flex justify-between items-center text-[10px] sm:text-[11px] text-gray-400 relative z-10">
                 <span className="truncate">{kpi.subInfo}</span>
                 {isClickable && (
-                  <ArrowRight size={12} className="opacity-0 group-hover:opacity-100 transition-opacity text-emerald-400 shrink-0 ml-1" />
+                  <ArrowRight size={11} className="opacity-0 group-hover:opacity-100 transition-opacity text-emerald-400 shrink-0 ml-1" />
                 )}
               </div>
             </motion.div>

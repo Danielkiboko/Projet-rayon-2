@@ -9,13 +9,13 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
   const isLoginPage = pathname === "/driver/login";
 
   if (isLoginPage) {
-    return <div className="bg-[#0b061c] min-h-screen text-white">{children}</div>;
+    return <div className="bg-[#0F1D27] min-h-screen text-white">{children}</div>;
   }
 
   const isMission = pathname.startsWith("/driver/mission");
 
   return (
-    <div className="bg-[#0b061c] min-h-screen text-white flex flex-col max-w-md mx-auto border-x border-white/5 shadow-2xl relative">
+    <div className="bg-[#0F1D27] min-h-screen text-white flex flex-col max-w-md mx-auto border-x border-white/5 shadow-2xl relative">
       {/* Contenu principal */}
       <div className={`flex-1 overflow-y-auto ${isMission ? "" : "pb-20"}`}>
         {children}

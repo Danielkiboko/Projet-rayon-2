@@ -2,25 +2,26 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Wallet, ArrowDownRight, ArrowUpRight, Plus, Download, X, Search, 
-  FileText, ShieldAlert, CheckCircle, Clock, AlertTriangle, Sliders, RefreshCw, Lock,
-  Calendar, TrendingUp, Landmark, ShoppingBag
+import {
+  Wallet, ArrowDownRight, ArrowUpRight, Plus, Download, X, Search,
+  FileText, CheckCircle, Clock, Sliders, Lock,
+  Calendar, TrendingUp, ShoppingBag
 } from "lucide-react";
 import { db } from "@/lib/firebase";
-import { 
-  collection, query, orderBy, onSnapshot, addDoc, 
-  serverTimestamp, doc, updateDoc, getDocs, limit 
+import {
+  collection, query, orderBy, onSnapshot, addDoc,
+  serverTimestamp, doc, limit
 } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { fetchSuppliersAction } from "./actions";
-import { hasAdminAccess, canAccessFinance } from "@/lib/permissions";
-import { 
-  AccountingEntry, 
-  ADJUSTMENT_REASONS, 
-  recordCashAdjustment, 
-  recordSubscriptionDeposit 
+import { canAccessFinance } from "@/lib/permissions";
+import {
+  AccountingEntry,
+  ADJUSTMENT_REASONS,
+  recordCashAdjustment,
+  recordSubscriptionDeposit,
+  isOfficialAdminSupplier,
 } from "@/lib/accountingLedger";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
 
@@ -158,12 +159,11 @@ export default function AdminFinancePage() {
             createdAt: order.deliveredAt || order.createdAt
           });
 
-          const adminItems = (order.items || []).filter((item: any) => 
-            item.isAdminProduct || 
-            item.isOfficialRayons || 
+          const adminItems = (order.items || []).filter((item: any) =>
+            item.isAdminProduct ||
+            item.isOfficialRayons ||
             item.isOfficialAdminStore ||
-            item.supplierId === "admin" ||
-            item.supplierEmail === "danielkiboko218@gmail.com"
+            item.supplierId === "admin"
           );
           if (adminItems.length > 0) {
             const amount = adminItems.reduce((acc: number, it: any) => acc + (Number(it.price || 0) * Number(it.quantity || 1)), 0);
@@ -407,32 +407,14 @@ export default function AdminFinancePage() {
           currentBalance
         });
       } else {
-        const txRefId = referenceId || `MANUAL-${Math.floor(Math.random() * 1000000)}`;
-        await addDoc(collection(db, "transactions"), {
-          type: txType,
-          amount: parsedAmount,
-          currency: "USD",
-          description,
-          referenceId: txRefId,
-          status: "COMPLETED",
-          createdAt: serverTimestamp(),
-          createdBy: user?.uid
-        });
-
-        await addDoc(collection(db, "accounting_ledger"), {
-          entryNumber: `ECR-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
-          date: serverTimestamp(),
-          journal: txType === "EXPENSE" ? "CS" : "VT",
-          journalName: txType === "EXPENSE" ? "Journal de Caisse (Dépense)" : "Journal des Ventes & Recettes",
-          referencePiece: txRefId,
+        // Use recordCashAdjustment for EXPENSE or OTHER_INCOME to keep batch atomicity
+        await recordCashAdjustment({
+          amount: txType === "EXPENSE" ? -parsedAmount : parsedAmount,
+          reason: txType === "EXPENSE" ? "Dépense de plateforme" : "Recette directe",
           label: description,
-          debit: txType === "OTHER_INCOME" ? parsedAmount : 0,
-          credit: txType === "EXPENSE" ? parsedAmount : 0,
-          balanceAfter: txType === "EXPENSE" ? currentBalance - parsedAmount : currentBalance + parsedAmount,
-          currency: "USD",
+          referencePiece: referenceId || `MANUAL-${Math.floor(Math.random() * 1000000)}`,
           actorType: "ADMIN",
-          category: txType,
-          status: "VALIDATED"
+          currentBalance,
         });
       }
 
@@ -494,42 +476,42 @@ export default function AdminFinancePage() {
 
   return (
     <div className="space-y-6 pb-20">
-      {/* Header with Title and Primary Actions */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-white">Comptabilité Centrale & Livre de Caisse</h1>
-            <span className="px-2.5 py-0.5 bg-[#C7D300]/10 text-[#C7D300] border border-[#C7D300]/30 rounded-full text-xs font-bold">
-              Officiel Rayons.net
+            <h1 className="text-xl font-bold text-white tracking-tight">Comptabilité Centrale</h1>
+            <span className="px-2 py-0.5 bg-[#C7D300]/10 text-[#C7D300] border border-[#C7D300]/20 rounded-md text-[10px] font-bold uppercase tracking-widest">
+              Officiel
             </span>
           </div>
-          <p className="text-sm text-gray-400 mt-1">
-            Grand Livre des écritures, encaissement des abonnements fournisseurs et ventes directes Admin.
+          <p className="text-xs text-gray-500 mt-1">
+            Grand Livre · Encaissements abonnements · Ventes directes Admin
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button 
+        <div className="flex flex-wrap items-center gap-2">
+          <button
             onClick={() => setIsAdjustmentModalOpen(true)}
-            className="flex items-center space-x-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-sm"
+            className="flex items-center gap-1.5 bg-white/5 hover:bg-white/8 border border-white/10 text-gray-300 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all"
           >
-            <Sliders size={16} />
-            <span>Ajustement de Caisse</span>
+            <Sliders size={14} />
+            <span>Ajustement</span>
           </button>
 
-          <button 
+          <button
             onClick={downloadCSV}
-            className="flex items-center space-x-1.5 bg-white/5 hover:bg-white/10 border border-white/10 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shadow-sm"
+            className="flex items-center gap-1.5 bg-white/5 hover:bg-white/8 border border-white/10 text-gray-300 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all"
           >
-            <Download size={16} />
-            <span>Exporter Grand Livre</span>
+            <Download size={14} />
+            <span>Exporter CSV</span>
           </button>
 
-          <button 
+          <button
             onClick={() => setIsTxModalOpen(true)}
-            className="flex items-center space-x-1.5 bg-primary hover:bg-primary-light text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md shadow-primary/20"
+            className="flex items-center gap-1.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] px-4 py-2 rounded-lg text-xs font-bold transition-all"
           >
-            <Plus size={16} />
+            <Plus size={14} />
             <span>Nouvelle Écriture</span>
           </button>
         </div>
@@ -537,356 +519,216 @@ export default function AdminFinancePage() {
 
       {/* Action Notification Banner */}
       {actionNotice && (
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }} 
-          animate={{ opacity: 1, y: 0 }} 
-          className="p-4 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center gap-3 text-emerald-300 text-sm font-semibold shadow-lg shadow-emerald-950/20"
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3.5 bg-[#C7D300]/8 border border-[#C7D300]/20 rounded-lg flex items-center gap-3 text-[#C7D300] text-xs font-semibold"
         >
-          <CheckCircle size={20} className="text-emerald-400 shrink-0" />
+          <CheckCircle size={16} className="shrink-0" />
           <span>{actionNotice}</span>
         </motion.div>
       )}
 
-      {/* Sélecteur de Date Comptable Épuré : Calendrier & Aujourd'hui (24h) */}
-      <div className="bg-[#0B0F17]/80 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      {/* Période Comptable */}
+      <div className="bg-white/3 border border-white/8 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-[#C7D300]/15 text-[#C7D300] rounded-xl shrink-0 border border-[#C7D300]/20">
-            <Calendar size={20} />
+          <div className="p-2 bg-white/5 text-gray-400 rounded-lg shrink-0">
+            <Calendar size={16} />
           </div>
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-bold text-white">
-                Période Comptable : <span className="text-[#C7D300]">{getPeriodLabel()}</span>
-              </h3>
-              {periodFilter === "today" ? (
-                <span className="text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Journalier (24h)
-                </span>
-              ) : (
-                <span className="text-[11px] bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/40 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
-                  📅 Date sélectionnée
+            <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Période comptable</p>
+            <h3 className="text-sm font-bold text-white mt-0.5">
+              {getPeriodLabel()}
+              {periodFilter === "today" && (
+                <span className="ml-2 text-[10px] text-[#C7D300] font-bold">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#C7D300] animate-pulse mr-1 align-middle"></span>
+                  En direct
                 </span>
               )}
-            </div>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {periodFilter === "today" 
-                ? "Écritures des dernières 24h. Choisissez une date précise au calendrier pour consulter une autre journée."
-                : `Comptabilité filtrée pour : ${getPeriodLabel()}.`}
-            </p>
+            </h3>
           </div>
         </div>
 
-        {/* Contrôles Calendrier & Reset Aujourd'hui */}
-        <div className="flex items-center gap-2.5 flex-wrap w-full md:w-auto justify-start md:justify-end">
-          <div className="flex items-center gap-2 bg-black/40 border border-white/15 rounded-xl px-3 py-1.5">
-            <span className="text-xs text-gray-300 font-medium flex items-center gap-1.5">
-              <Calendar size={14} className="text-[#C7D300]" />
-              <span className="hidden sm:inline">Choisir une date :</span>
-            </span>
-            <input
-              type="date"
-              value={selectedCalendarDate}
-              onChange={(e) => {
-                setSelectedCalendarDate(e.target.value);
-                setCalendarStartDate("");
-                setCalendarEndDate("");
-                setPeriodFilter("custom");
-              }}
-              className="bg-white/10 border border-white/20 rounded-lg px-2.5 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300] cursor-pointer"
-            />
-          </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            type="date"
+            value={selectedCalendarDate}
+            onChange={(e) => {
+              setSelectedCalendarDate(e.target.value);
+              setCalendarStartDate("");
+              setCalendarEndDate("");
+              setPeriodFilter("custom");
+            }}
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300] cursor-pointer"
+          />
 
           {periodFilter === "custom" ? (
             <button
               type="button"
-              onClick={() => {
-                setPeriodFilter("today");
-                setSelectedCalendarDate("");
-                setCalendarStartDate("");
-                setCalendarEndDate("");
-                setShowRangePicker(false);
-              }}
-              className="text-xs bg-[#C7D300] hover:bg-[#b0ba00] text-gray-950 font-bold px-3 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+              onClick={() => { setPeriodFilter("today"); setSelectedCalendarDate(""); setCalendarStartDate(""); setCalendarEndDate(""); setShowRangePicker(false); }}
+              className="text-xs bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold px-3 py-1.5 rounded-lg transition-all"
             >
-              <span>⚡ Revenir à Aujourd'hui (24h)</span>
+              Aujourd&apos;hui
             </button>
           ) : (
             <button
               type="button"
-              onClick={() => {
-                setPeriodFilter("today");
-                setSelectedCalendarDate("");
-              }}
-              className="text-xs bg-[#C7D300]/20 text-[#C7D300] font-bold px-3 py-2 rounded-xl border border-[#C7D300]/30 flex items-center gap-1.5"
+              onClick={() => setPeriodFilter("today")}
+              className="text-xs border border-white/10 text-gray-400 font-semibold px-3 py-1.5 rounded-lg hover:text-white transition-all"
             >
-              <span>⚡ Aujourd'hui (24h)</span>
+              Aujourd&apos;hui
             </button>
           )}
 
           <button
             type="button"
             onClick={() => setShowRangePicker(!showRangePicker)}
-            className="text-xs text-gray-400 hover:text-white px-2 py-1 transition-colors cursor-pointer"
-            title="Plage de dates (Du / Au)"
+            className="text-xs text-gray-500 hover:text-gray-300 px-2 py-1.5 transition-colors"
           >
-            {showRangePicker ? "▾ Masquer plage" : "▸ Plage"}
+            {showRangePicker ? "▾ Plage" : "▸ Plage"}
           </button>
         </div>
 
-        {/* Plage personnalisée si dépliée */}
         {showRangePicker && (
-          <div className="w-full pt-3 border-t border-white/10 flex flex-wrap items-center gap-3 text-xs animate-fade-in">
-            <span className="text-gray-400 font-semibold">Plage personnalisée :</span>
+          <div className="w-full pt-3 border-t border-white/8 flex flex-wrap items-center gap-3 text-xs">
+            <span className="text-gray-500 font-semibold">Plage :</span>
             <div className="flex items-center gap-2">
-              <span className="text-gray-300">Du :</span>
-              <input
-                type="date"
-                value={calendarStartDate}
-                onChange={(e) => {
-                  setCalendarStartDate(e.target.value);
-                  setSelectedCalendarDate("");
-                  setPeriodFilter("custom");
-                }}
-                className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300] cursor-pointer"
-              />
+              <span className="text-gray-500">Du</span>
+              <input type="date" value={calendarStartDate} onChange={(e) => { setCalendarStartDate(e.target.value); setSelectedCalendarDate(""); setPeriodFilter("custom"); }} className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]" />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-gray-300">Au :</span>
-              <input
-                type="date"
-                value={calendarEndDate}
-                onChange={(e) => {
-                  setCalendarEndDate(e.target.value);
-                  setSelectedCalendarDate("");
-                  setPeriodFilter("custom");
-                }}
-                className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300] cursor-pointer"
-              />
+              <span className="text-gray-500">Au</span>
+              <input type="date" value={calendarEndDate} onChange={(e) => { setCalendarEndDate(e.target.value); setSelectedCalendarDate(""); setPeriodFilter("custom"); }} className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]" />
             </div>
           </div>
         )}
       </div>
 
-      {/* Financial Overview Cards (6 Cards confidentielles : pas de marges fournisseurs) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        {/* 1. Solde de Caisse Consolidé */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Caisse Centrale</h3>
-            <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400">
-              <Wallet size={18} />
+      {/* KPI Cards — palette monochrome */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3">
+        {[
+          { label: "Caisse Nette", value: `$${currentBalance.toFixed(2)}`, sub: "Solde consolidé", icon: <Wallet size={14} />, accent: currentBalance >= 0 },
+          { label: "Revenus", value: `$${periodIncome.toFixed(2)}`, sub: getPeriodLabel(), icon: <ArrowDownRight size={14} />, accent: false },
+          { label: "Dépenses", value: `$${periodPayout.toFixed(2)}`, sub: "Charges & sorties", icon: <ArrowUpRight size={14} />, accent: false, negative: true },
+          { label: "Ventes Admin", value: `$${periodAdminSalesTotal.toFixed(2)}`, sub: "Boutique officielle", icon: <ShoppingBag size={14} />, accent: false },
+          { label: "Vol. Plateforme", value: `$${periodPlatformVolume.toFixed(2)}`, sub: "Commandes livrées", icon: <TrendingUp size={14} />, accent: false },
+          { label: "Abonnements", value: `$${periodSubscriptions.toFixed(2)}`, sub: "Dépôts fournisseurs", icon: <ArrowDownRight size={14} />, accent: true },
+        ].map((kpi, i) => (
+          <div key={i} className="bg-white/3 border border-white/8 rounded-xl p-3 sm:p-4 flex flex-col gap-2 sm:gap-3">
+            <div className="flex items-center justify-between">
+              <p className="text-gray-500 text-[10px] font-semibold uppercase tracking-wider leading-tight">{kpi.label}</p>
+              <span className={`p-1 sm:p-1.5 rounded-md ${kpi.accent ? "bg-[#C7D300]/10 text-[#C7D300]" : "bg-white/5 text-gray-500"}`}>
+                {kpi.icon}
+              </span>
             </div>
+            <p className={`text-base sm:text-xl font-black tabular-nums ${kpi.negative ? "text-red-400" : kpi.accent ? "text-[#C7D300]" : "text-white"}`}>
+              {kpi.value}
+            </p>
+            <p className="text-[10px] text-gray-600 truncate">{kpi.sub}</p>
           </div>
-          <p className="text-2xl sm:text-3xl font-black text-white mt-3">${currentBalance.toFixed(2)}</p>
-          <span className="text-[11px] text-gray-400 mt-1 block">Solde net disponible</span>
-        </div>
-
-        {/* 2. Revenus Réalisés Période */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Revenus ({getPeriodLabel()})</h3>
-            <div className="p-2 bg-green-500/20 rounded-lg text-green-400">
-              <ArrowDownRight size={18} />
-            </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-black text-green-400 mt-3">${periodIncome.toFixed(2)}</p>
-          <span className="text-[11px] text-gray-400 mt-1 block">Entrées de la période</span>
-        </div>
-
-        {/* 3. Dépenses Période */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Dépenses ({getPeriodLabel()})</h3>
-            <div className="p-2 bg-red-500/20 rounded-lg text-red-400">
-              <ArrowUpRight size={18} />
-            </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-black text-red-400 mt-3">${periodPayout.toFixed(2)}</p>
-          <span className="text-[11px] text-gray-400 mt-1 block">Charges & sorties</span>
-        </div>
-
-        {/* 4. Ventes Directes Rayons */}
-        <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-indigo-300 text-xs font-semibold uppercase tracking-wider">Ventes Directes Rayons</h3>
-            <div className="p-2 bg-indigo-500/20 rounded-lg text-indigo-400">
-              <ShoppingBag size={18} />
-            </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-black text-indigo-400 mt-3">${periodAdminSalesTotal.toFixed(2)}</p>
-          <span className="text-[11px] text-indigo-300/80 mt-1 block">Boutique officielle Rayons</span>
-        </div>
-
-        {/* 5. Volume Global des Ventes Plateforme */}
-        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-emerald-300 text-xs font-semibold uppercase tracking-wider">Volume Global Ventes</h3>
-            <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400">
-              <TrendingUp size={18} />
-            </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-black text-emerald-400 mt-3">${periodPlatformVolume.toFixed(2)}</p>
-          <span className="text-[11px] text-emerald-300/80 mt-1 block">Commandes livrées ({getPeriodLabel()})</span>
-        </div>
-
-        {/* 6. Abonnements Fournisseurs */}
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Abonnements ($50)</h3>
-            <div className="p-2 bg-[#C7D300]/20 rounded-lg text-[#C7D300]">
-              <ArrowDownRight size={18} />
-            </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-black text-[#C7D300] mt-3">${periodSubscriptions.toFixed(2)}</p>
-          <span className="text-[11px] text-gray-400 mt-1 block">Dépôts mensuels reçus</span>
-        </div>
+        ))}
       </div>
 
-      {/* Tabs Switcher */}
-      <div className="flex border-b border-white/10 gap-4 sm:gap-6 text-sm font-semibold overflow-x-auto scrollbar-none whitespace-nowrap">
-        <button
-          onClick={() => setActiveTab("ledger")}
-          className={`pb-3 border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === "ledger" 
-              ? "border-[#C7D300] text-[#C7D300]" 
-              : "border-transparent text-gray-400 hover:text-white"
-          }`}
-        >
-          <FileText size={16} />
-          Grand Livre des Écritures ({filteredLedger.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab("deposits")}
-          className={`pb-3 border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === "deposits" 
-              ? "border-[#C7D300] text-[#C7D300]" 
-              : "border-transparent text-gray-400 hover:text-white"
-          }`}
-        >
-          <Clock size={16} />
-          Échéancier Fournisseurs & Dépôts Attendus ({suppliers.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab("overview")}
-          className={`pb-3 border-b-2 transition-all flex items-center gap-2 ${
-            activeTab === "overview" 
-              ? "border-[#C7D300] text-[#C7D300]" 
-              : "border-transparent text-gray-400 hover:text-white"
-          }`}
-        >
-          <Wallet size={16} />
-          Livre de Caisse Simplifié
-        </button>
+      {/* Tabs */}
+      <div className="flex border-b border-white/8 gap-4 sm:gap-6 text-xs font-semibold overflow-x-auto scrollbar-none whitespace-nowrap">
+        {[
+          { id: "ledger", label: `Grand Livre (${filteredLedger.length})`, icon: <FileText size={13} /> },
+          { id: "deposits", label: `Échéancier Fournisseurs (${suppliers.length})`, icon: <Clock size={13} /> },
+          { id: "overview", label: "Livre de Caisse", icon: <Wallet size={13} /> },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`pb-3 border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === tab.id
+                ? "border-[#C7D300] text-[#C7D300]"
+                : "border-transparent text-gray-500 hover:text-gray-300"
+            }`}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* TAB 1: GRAND LIVRE DES ÉCRITURES COMPTABLES */}
+      {/* TAB 1: GRAND LIVRE */}
       {activeTab === "ledger" && (
-        <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-          {/* Controls */}
-          <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex flex-wrap gap-2 text-xs">
+        <div className="bg-white/3 border border-white/8 rounded-xl overflow-hidden">
+          <div className="p-3 sm:p-4 border-b border-white/8 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-1.5 text-[11px]">
               {[
-                { code: "ALL", label: "Tous les Journaux" },
-                { code: "VT", label: "VT • Ventes" },
-                { code: "AB", label: "AB • Abonnements" },
-                { code: "AJ", label: "AJ • Ajustements Caisse" },
-                { code: "CS", label: "CS • Caisse" },
-                { code: "BQ", label: "BQ • Banque / Mobile Money" }
+                { code: "ALL", label: "Tous" },
+                { code: "VT", label: "VT · Ventes" },
+                { code: "AB", label: "AB · Abonnements" },
+                { code: "AJ", label: "AJ · Ajustements" },
+                { code: "CS", label: "CS · Caisse" },
+                { code: "BQ", label: "BQ · Banque" },
               ].map(j => (
                 <button
                   key={j.code}
                   onClick={() => setJournalFilter(j.code)}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition-colors ${
-                    journalFilter === j.code 
-                      ? "bg-[#C7D300] text-[#0F1D27] shadow-sm" 
-                      : "bg-white/5 text-gray-400 hover:text-white"
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                    journalFilter === j.code
+                      ? "bg-[#C7D300] text-[#0F1D27]"
+                      : "bg-white/5 text-gray-500 hover:text-gray-300"
                   }`}
                 >
                   {j.label}
                 </button>
               ))}
             </div>
-
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" size={13} />
               <input
                 type="text"
-                placeholder="Rechercher par libellé ou réf..."
+                placeholder="Libellé ou référence..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full sm:w-64 pl-9 pr-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#C7D300] text-white text-xs"
+                className="w-full sm:w-56 pl-8 pr-3 py-1.5 bg-white/5 border border-white/8 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 text-white text-[11px] placeholder:text-gray-600"
               />
             </div>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[850px] text-left text-xs text-gray-300">
-              <thead className="text-[11px] uppercase bg-black/30 text-gray-400">
-                <tr>
-                  <th className="px-5 py-3.5">N° Écriture</th>
-                  <th className="px-5 py-3.5">Date</th>
-                  <th className="px-5 py-3.5">Code Journal</th>
-                  <th className="px-5 py-3.5">Pièce Justificative</th>
-                  <th className="px-5 py-3.5">Libellé Comptable</th>
-                  <th className="px-5 py-3.5 text-right">Débit (+)</th>
-                  <th className="px-5 py-3.5 text-right">Crédit (-)</th>
-                  <th className="px-5 py-3.5 text-right">Solde Caisse</th>
+          {/* Desktop Table (Hidden on mobile < md) */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full min-w-[800px] text-left">
+              <thead>
+                <tr className="border-b border-white/8">
+                  {["N° Écriture", "Date", "Journal", "Réf. Pièce", "Libellé", "Débit", "Crédit", "Solde"].map(h => (
+                    <th key={h} className="px-4 py-3 text-[10px] font-semibold text-gray-600 uppercase tracking-wider text-left last:text-right">{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
                 {filteredLedger.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-10 text-center text-gray-400">
-                      <p className="font-semibold text-white">Aucune écriture comptable pour : {getPeriodLabel()}</p>
-                      {periodFilter === "today" ? (
-                        <p className="text-xs text-gray-400 mt-1">
-                          Les écritures de plus de 24h sont automatiquement archivées dans l'historique.<br />
-                          Pour les consulter, sélectionnez <strong className="text-white">"Hier"</strong>, <strong className="text-white">"7 derniers jours"</strong> ou <strong className="text-white">"Tout l'historique"</strong> ci-dessus.
-                        </p>
-                      ) : (
-                        <p className="text-xs text-gray-400 mt-1">
-                          Aucune écriture ne correspond à cette période ou au journal sélectionné.
-                        </p>
-                      )}
+                    <td colSpan={8} className="px-6 py-12 text-center">
+                      <p className="text-sm font-semibold text-gray-400">Aucune écriture pour {getPeriodLabel()}</p>
+                      <p className="text-xs text-gray-600 mt-1">Modifiez la période ou le filtre journal pour afficher l&apos;historique.</p>
                     </td>
                   </tr>
                 ) : (
                   filteredLedger.map((entry) => (
-                    <tr key={entry.id || entry.entryNumber} className="hover:bg-white/5 transition-colors">
-                      <td className="px-5 py-3.5 font-mono text-white font-bold">
-                        {entry.entryNumber}
+                    <tr key={entry.id || entry.entryNumber} className="hover:bg-white/3 transition-colors">
+                      <td className="px-4 py-3 font-mono text-[11px] text-gray-300 font-semibold">{entry.entryNumber}</td>
+                      <td className="px-4 py-3 text-[11px] text-gray-500">
+                        {entry.date?.toDate ? entry.date.toDate().toLocaleDateString("fr-FR") : "—"}
                       </td>
-                      <td className="px-5 py-3.5 text-gray-400">
-                        {entry.date?.toDate ? entry.date.toDate().toLocaleDateString('fr-FR') : "Date récente"}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span className={`px-2 py-0.5 rounded font-black text-[10px] ${
-                          entry.journal === "AB" ? "bg-emerald-500/20 text-emerald-300" :
-                          entry.journal === "VT" ? "bg-cyan-500/20 text-cyan-300" :
-                          entry.journal === "AJ" ? "bg-amber-500/20 text-amber-300" :
-                          "bg-purple-500/20 text-purple-300"
-                        }`}>
+                      <td className="px-4 py-3">
+                        <span className="font-mono text-[10px] font-black text-gray-300 bg-white/6 px-2 py-0.5 rounded">
                           {entry.journal}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-gray-400 font-mono">
-                        {entry.referencePiece || "-"}
+                      <td className="px-4 py-3 font-mono text-[11px] text-gray-500">{entry.referencePiece || "—"}</td>
+                      <td className="px-4 py-3 text-[11px] text-gray-300 max-w-xs truncate" title={entry.label}>{entry.label}</td>
+                      <td className="px-4 py-3 text-right text-[11px] font-bold text-[#C7D300]">
+                        {entry.debit > 0 ? `+$${entry.debit.toFixed(2)}` : "—"}
                       </td>
-                      <td className="px-5 py-3.5 text-white font-medium max-w-xs truncate" title={entry.label}>
-                        {entry.label}
+                      <td className="px-4 py-3 text-right text-[11px] font-bold text-red-400">
+                        {entry.credit > 0 ? `-$${entry.credit.toFixed(2)}` : "—"}
                       </td>
-                      <td className="px-5 py-3.5 text-right font-bold text-emerald-400">
-                        {entry.debit > 0 ? `+$${entry.debit.toFixed(2)}` : "-"}
-                      </td>
-                      <td className="px-5 py-3.5 text-right font-bold text-red-400">
-                        {entry.credit > 0 ? `-$${entry.credit.toFixed(2)}` : "-"}
-                      </td>
-                      <td className="px-5 py-3.5 text-right font-bold text-white">
-                        {entry.balanceAfter !== undefined ? `$${entry.balanceAfter.toFixed(2)}` : "-"}
+                      <td className="px-4 py-3 text-right text-[11px] font-semibold text-gray-300">
+                        {entry.balanceAfter !== undefined ? `$${entry.balanceAfter.toFixed(2)}` : "—"}
                       </td>
                     </tr>
                   ))
@@ -894,119 +736,136 @@ export default function AdminFinancePage() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Ledger Cards (< md) */}
+          <div className="md:hidden divide-y divide-white/5">
+            {filteredLedger.length === 0 ? (
+              <div className="p-8 text-center text-xs text-gray-400">
+                Aucune écriture pour {getPeriodLabel()}
+              </div>
+            ) : (
+              filteredLedger.map((entry) => (
+                <div key={entry.id || entry.entryNumber} className="p-3.5 space-y-2">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-gray-300 font-bold">{entry.entryNumber}</span>
+                      <span className="font-mono text-[9px] font-black text-gray-300 bg-white/10 px-1.5 py-0.5 rounded">
+                        {entry.journal}
+                      </span>
+                    </div>
+                    <span className="text-gray-500 text-[10px]">
+                      {entry.date?.toDate ? entry.date.toDate().toLocaleDateString("fr-FR") : "—"}
+                    </span>
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-white font-medium line-clamp-2">{entry.label}</p>
+                    {entry.referencePiece && (
+                      <p className="font-mono text-[10px] text-gray-500 mt-0.5">Réf: {entry.referencePiece}</p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-white/5 text-xs">
+                    <div>
+                      {entry.debit > 0 ? (
+                        <span className="font-bold text-[#C7D300]">+$${entry.debit.toFixed(2)}</span>
+                      ) : entry.credit > 0 ? (
+                        <span className="font-bold text-red-400">-$${entry.credit.toFixed(2)}</span>
+                      ) : (
+                        <span className="text-gray-500">—</span>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-gray-500 mr-1.5">Solde</span>
+                      <span className="font-semibold text-gray-300">
+                        {entry.balanceAfter !== undefined ? `$${entry.balanceAfter.toFixed(2)}` : "—"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
 
-      {/* TAB 2: ÉCHÉANCIER FOURNISSEURS & DÉPÔTS ATTENDUS */}
+      {/* TAB 2: ÉCHÉANCIER FOURNISSEURS */}
       {activeTab === "deposits" && (
-        <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+        <div className="bg-white/3 border border-white/8 rounded-xl overflow-hidden">
+          <div className="p-3.5 sm:p-4 border-b border-white/8 flex items-center justify-between">
             <div>
-              <h2 className="text-base font-bold text-white">Échéancier & Dépôts Attendus des Fournisseurs</h2>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Règle : 15 jours d'essai offerts. Si l'échéance mensuelle ($50) est dépassée, le fournisseur est bloqué de publication et messagerie.
-              </p>
+              <h2 className="text-sm font-bold text-white">Échéancier & Dépôts Fournisseurs</h2>
+              <p className="text-[10px] sm:text-[11px] text-gray-500 mt-0.5">Essai 15j · Dépôt mensuel $50 · Blocage automatique en cas d&apos;impayé</p>
             </div>
-            <span className="text-xs font-semibold px-3 py-1 bg-white/5 text-gray-300 rounded-lg">
-              {suppliers.length} fournisseur{suppliers.length > 1 ? "s" : ""} enregistré{suppliers.length > 1 ? "s" : ""}
+            <span className="text-[10px] sm:text-[11px] font-semibold px-2 sm:px-2.5 py-1 bg-white/5 text-gray-400 rounded-lg shrink-0">
+              {suppliers.length} fournisseur{suppliers.length > 1 ? "s" : ""}
             </span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[850px] text-left text-xs text-gray-300">
-              <thead className="text-[11px] uppercase bg-black/30 text-gray-400">
-                <tr>
-                  <th className="px-5 py-3.5">Fournisseur</th>
-                  <th className="px-5 py-3.5">Rayon</th>
-                  <th className="px-5 py-3.5">Cycle Actuel</th>
-                  <th className="px-5 py-3.5">Échéance Dépôt</th>
-                  <th className="px-5 py-3.5">Dépôt Attendu</th>
-                  <th className="px-5 py-3.5">Statut Plateforme</th>
-                  <th className="px-5 py-3.5 text-right">Actions Comptables</th>
+          {/* Desktop Table (Hidden on mobile < md) */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full min-w-[780px] text-left">
+              <thead>
+                <tr className="border-b border-white/8">
+                  {["Fournisseur", "Rayon", "Cycle", "Échéance", "Dépôt", "Statut", ""].map(h => (
+                    <th key={h} className="px-4 py-3 text-[10px] font-semibold text-gray-600 uppercase tracking-wider last:text-right">{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
                 {suppliers.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-6 py-10 text-center text-gray-400">
-                      Aucun fournisseur inscrit pour le moment.
-                    </td>
+                    <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-600">Aucun fournisseur inscrit.</td>
                   </tr>
                 ) : (
                   suppliers.map((s) => {
-                    const isOfficialStore = Boolean(s.isOfficialAdminStore || s.isAdminSupplier || s.email === "danielkiboko218@gmail.com");
+                    const isOfficial = isOfficialAdminSupplier(s);
                     const subInfo = evaluateSupplierSubscription(s);
                     const depositAmount = s.depositAmount || 50;
 
                     return (
-                      <tr key={s.id} className="hover:bg-white/5 transition-colors">
-                        <td className="px-5 py-3.5">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white">{s.displayName || s.company || "Partenaire"}</span>
-                            {isOfficialStore && (
-                              <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold">
-                                👑 Admin
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[11px] text-gray-400">{s.email}</div>
+                      <tr key={s.id} className="hover:bg-white/3 transition-colors">
+                        <td className="px-4 py-3">
+                          <p className="text-[11px] font-semibold text-white">{s.displayName || s.company || "Partenaire"}</p>
+                          <p className="text-[10px] text-gray-600">{s.email}</p>
                         </td>
-                        <td className="px-5 py-3.5 uppercase font-bold text-gray-300">
-                          {s.rayon || "Mode / Connect"}
+                        <td className="px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                          {s.rayon || "—"}
                         </td>
-                        <td className="px-5 py-3.5">
-                          {isOfficialStore ? (
-                            <span className="inline-flex items-center text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 rounded-full text-[11px] font-semibold">
-                              👑 Boutique Officielle Admin
-                            </span>
-                          ) : subInfo.isTrial ? (
-                            <span className="inline-flex items-center text-blue-400 bg-blue-500/15 px-2.5 py-1 rounded-full text-[11px] font-semibold">
-                              Essai 15 jours ({subInfo.daysLeft}j restants)
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center text-gray-300 bg-white/5 px-2.5 py-1 rounded-full text-[11px] font-semibold">
-                              Abonnement Mensuel
-                            </span>
-                          )}
+                        <td className="px-4 py-3 text-[11px] text-gray-400">
+                          {isOfficial ? "Admin (Exempté)" : subInfo.isTrial ? `Essai (${subInfo.daysLeft}j)` : "Mensuel"}
                         </td>
-                        <td className="px-5 py-3.5 font-medium text-gray-300">
-                          {isOfficialStore ? "Illimitée (Exempté)" : subInfo.formattedDueDate}
+                        <td className="px-4 py-3 text-[11px] text-gray-400">
+                          {isOfficial ? "—" : subInfo.formattedDueDate}
                         </td>
-                        <td className="px-5 py-3.5 font-bold text-white">
-                          {isOfficialStore ? "$0 (Exempté)" : `$${depositAmount} / mois`}
+                        <td className="px-4 py-3 text-[11px] font-semibold text-gray-300">
+                          {isOfficial ? "$0" : `$${depositAmount}/mois`}
                         </td>
-                        <td className="px-5 py-3.5">
-                          {isOfficialStore ? (
-                            <span className="inline-flex items-center text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded-full text-[11px] font-bold">
-                              <CheckCircle size={12} className="mr-1" /> Boutique Active
-                            </span>
+                        <td className="px-4 py-3">
+                          {isOfficial ? (
+                            <span className="text-[10px] font-bold text-[#C7D300] bg-[#C7D300]/8 px-2 py-0.5 rounded">Boutique Admin</span>
                           ) : subInfo.isBlocked ? (
-                            <span className="inline-flex items-center text-red-400 bg-red-500/15 border border-red-500/30 px-2.5 py-1 rounded-full text-[11px] font-bold">
-                              <Lock size={12} className="mr-1" /> Bloqué (Impayé)
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-400 bg-red-400/8 px-2 py-0.5 rounded">
+                              <Lock size={10} /> Bloqué
                             </span>
                           ) : subInfo.isTrial ? (
-                            <span className="inline-flex items-center text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-full text-[11px] font-semibold">
-                              Actif (En essai)
-                            </span>
+                            <span className="text-[10px] font-semibold text-gray-400 bg-white/5 px-2 py-0.5 rounded">En essai</span>
                           ) : (
-                            <span className="inline-flex items-center text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded-full text-[11px] font-bold">
-                              <CheckCircle size={12} className="mr-1" /> À jour
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#C7D300] bg-[#C7D300]/8 px-2 py-0.5 rounded">
+                              <CheckCircle size={10} /> À jour
                             </span>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 text-right">
-                          {isOfficialStore ? (
-                            <span className="text-xs text-amber-400 font-medium italic">
-                              Recettes liées à l'Admin
-                            </span>
+                        <td className="px-4 py-3 text-right">
+                          {isOfficial ? (
+                            <span className="text-[10px] text-gray-600 italic">N/A</span>
                           ) : (
                             <button
                               onClick={() => handleSettleSupplierDeposit(s)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] rounded-lg font-bold text-xs transition-colors shadow-sm"
-                              title="Encaisser le dépôt de 50$, débloquer le compte et passer l'écriture comptable AB"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] rounded-lg font-bold text-[11px] transition-colors cursor-pointer"
                             >
-                              <ArrowDownRight size={14} />
-                              Encaisser Dépôt ($50)
+                              <ArrowDownRight size={12} />
+                              Encaisser ${depositAmount}
                             </button>
                           )}
                         </td>
@@ -1017,48 +876,103 @@ export default function AdminFinancePage() {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile Supplier Deposit Cards (< md) */}
+          <div className="md:hidden divide-y divide-white/5">
+            {suppliers.length === 0 ? (
+              <div className="p-8 text-center text-xs text-gray-500">Aucun fournisseur inscrit.</div>
+            ) : (
+              suppliers.map((s) => {
+                const isOfficial = isOfficialAdminSupplier(s);
+                const subInfo = evaluateSupplierSubscription(s);
+                const depositAmount = s.depositAmount || 50;
+
+                return (
+                  <div key={s.id} className="p-3.5 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-xs font-bold text-white">{s.displayName || s.company || "Partenaire"}</h4>
+                        <p className="text-[10px] text-gray-500 truncate max-w-[180px]">{s.email}</p>
+                      </div>
+                      {isOfficial ? (
+                        <span className="text-[9px] font-bold text-[#C7D300] bg-[#C7D300]/10 px-2 py-0.5 rounded">Boutique Admin</span>
+                      ) : subInfo.isBlocked ? (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded">
+                          <Lock size={10} /> Bloqué
+                        </span>
+                      ) : subInfo.isTrial ? (
+                        <span className="text-[9px] font-semibold text-gray-400 bg-white/5 px-2 py-0.5 rounded">En essai ({subInfo.daysLeft}j)</span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-[#C7D300] bg-[#C7D300]/10 px-2 py-0.5 rounded">
+                          <CheckCircle size={10} /> À jour
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-gray-400">
+                      <span>Rayon: <strong className="text-gray-300 uppercase">{s.rayon || "—"}</strong></span>
+                      <span>Échéance: <strong className="text-gray-300">{isOfficial ? "—" : subInfo.formattedDueDate}</strong></span>
+                    </div>
+
+                    {!isOfficial && (
+                      <div className="flex items-center justify-between pt-1 border-t border-white/5">
+                        <span className="text-xs font-semibold text-gray-300">${depositAmount}/mois</span>
+                        <button
+                          onClick={() => handleSettleSupplierDeposit(s)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] rounded-lg font-bold text-xs transition-colors cursor-pointer active:scale-95"
+                        >
+                          <ArrowDownRight size={13} />
+                          <span>Encaisser ${depositAmount}</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       )}
 
-      {/* TAB 3: LIVRE DE CAISSE SIMPLIFIÉ (HISTORIQUE DES TRANSACTIONS) */}
+      {/* TAB 3: LIVRE DE CAISSE */}
       {activeTab === "overview" && (
-        <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-          <div className="p-4 border-b border-white/10">
-            <h2 className="text-base font-bold text-white">Transactions Comptables de Caisse</h2>
-            <p className="text-xs text-gray-400 mt-0.5">Historique brut des encaissements et décaissements.</p>
+        <div className="bg-white/3 border border-white/8 rounded-xl overflow-hidden">
+          <div className="p-4 border-b border-white/8">
+            <h2 className="text-sm font-bold text-white">Livre de Caisse</h2>
+            <p className="text-[11px] text-gray-600 mt-0.5">Historique brut des encaissements et décaissements.</p>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[650px] text-left text-xs text-gray-300">
-              <thead className="text-[11px] uppercase bg-black/30 text-gray-400">
-                <tr>
-                  <th className="px-5 py-3.5">Date</th>
-                  <th className="px-5 py-3.5">Nature</th>
-                  <th className="px-5 py-3.5">Description</th>
-                  <th className="px-5 py-3.5">Réf Pièce</th>
-                  <th className="px-5 py-3.5 text-right">Montant (USD)</th>
+            <table className="w-full min-w-[600px] text-left">
+              <thead>
+                <tr className="border-b border-white/8">
+                  {["Date", "Type", "Description", "Référence", "Montant"].map(h => (
+                    <th key={h} className="px-4 py-3 text-[10px] font-semibold text-gray-600 uppercase tracking-wider last:text-right">{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
                 {transactions.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-400">Aucune transaction trouvée.</td>
-                  </tr>
+                  <tr><td colSpan={5} className="px-6 py-12 text-center text-sm text-gray-600">Aucune transaction.</td></tr>
                 ) : (
                   transactions.map((t) => (
-                    <tr key={t.id} className="hover:bg-white/5 transition-colors">
-                      <td className="px-5 py-3.5 text-gray-400">
-                        {t.createdAt?.toDate ? t.createdAt.toDate().toLocaleDateString('fr-FR') : 'N/A'}
+                    <tr key={t.id} className="hover:bg-white/3 transition-colors">
+                      <td className="px-4 py-3 text-[11px] text-gray-500">
+                        {t.createdAt?.toDate ? t.createdAt.toDate().toLocaleDateString("fr-FR") : "—"}
                       </td>
-                      <td className="px-5 py-3.5">
-                        {t.type === "SUBSCRIPTION" && <span className="inline-flex items-center text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded text-[10px] font-bold"><ArrowDownRight size={11} className="mr-1"/> Abonnement Fournisseur</span>}
-                        {t.type === "OTHER_INCOME" && <span className="inline-flex items-center text-cyan-400 bg-cyan-400/10 px-2 py-0.5 rounded text-[10px] font-bold"><ArrowDownRight size={11} className="mr-1"/> Vente Produit Admin</span>}
-                        {t.type === "EXPENSE" && <span className="inline-flex items-center text-red-400 bg-red-400/10 px-2 py-0.5 rounded text-[10px] font-bold"><ArrowUpRight size={11} className="mr-1"/> Dépense</span>}
+                      <td className="px-4 py-3">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          t.type === "EXPENSE" ? "text-red-400 bg-red-400/8" : "text-[#C7D300] bg-[#C7D300]/8"
+                        }`}>
+                          {t.type === "SUBSCRIPTION" ? "Abonnement" : t.type === "OTHER_INCOME" ? "Recette" : "Dépense"}
+                        </span>
                       </td>
-                      <td className="px-5 py-3.5 text-white font-medium">{t.description}</td>
-                      <td className="px-5 py-3.5 text-gray-400 font-mono">{t.referenceId || "-"}</td>
-                      <td className={`px-5 py-3.5 text-right font-bold ${t.type === 'SUBSCRIPTION' || t.type === 'OTHER_INCOME' ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {t.type === 'SUBSCRIPTION' || t.type === 'OTHER_INCOME' ? '+' : '-'}${t.amount.toFixed(2)}
+                      <td className="px-4 py-3 text-[11px] text-gray-300 max-w-xs truncate">{t.description}</td>
+                      <td className="px-4 py-3 font-mono text-[11px] text-gray-600">{t.referenceId || "—"}</td>
+                      <td className={`px-4 py-3 text-right text-[11px] font-bold ${
+                        t.type === "EXPENSE" ? "text-red-400" : "text-[#C7D300]"
+                      }`}>
+                        {t.type === "EXPENSE" ? "-" : "+"}${t.amount.toFixed(2)}
                       </td>
                     </tr>
                   ))
@@ -1069,126 +983,86 @@ export default function AdminFinancePage() {
         </div>
       )}
 
-      {/* MODAL 1: AJUSTEMENT DE CAISSE FORMEL */}
+      {/* MODAL 1: AJUSTEMENT DE CAISSE */}
       <AnimatePresence>
         {isAdjustmentModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.97, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97 }}
               className="w-full max-w-lg bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
             >
-              <div className="flex items-center justify-between p-6 border-b border-white/10">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-white/8">
                 <div>
-                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    <Sliders className="text-[#C7D300]" size={18} />
+                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Sliders className="text-[#C7D300]" size={15} />
                     Ajustement de Caisse
                   </h2>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    Solde actuel avant ajustement : <strong>${currentBalance.toFixed(2)}</strong>
-                  </p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">Solde actuel : <span className="text-white font-semibold">${currentBalance.toFixed(2)}</span></p>
                 </div>
-                <button onClick={() => setIsAdjustmentModalOpen(false)} className="text-gray-400 hover:text-white">
-                  <X size={20} />
+                <button onClick={() => setIsAdjustmentModalOpen(false)} className="text-gray-500 hover:text-white transition-colors">
+                  <X size={18} />
                 </button>
               </div>
 
-              <form onSubmit={handleSaveAdjustment} className="p-6 space-y-4 text-xs">
+              <form onSubmit={handleSaveAdjustment} className="p-6 space-y-4">
                 <div>
-                  <label className="text-gray-300 font-semibold block mb-1.5">Sens de l'ajustement</label>
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-2 uppercase tracking-wider">Sens</label>
                   <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setAdjType("ADD")}
-                      className={`py-2.5 rounded-xl font-bold transition-all border ${
-                        adjType === "ADD" 
-                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm" 
-                          : "bg-white/5 text-gray-400 border-white/10"
-                      }`}
-                    >
-                      + Entrée / Apport Caisse
+                    <button type="button" onClick={() => setAdjType("ADD")}
+                      className={`py-2.5 rounded-lg text-xs font-bold transition-all border ${
+                        adjType === "ADD"
+                          ? "bg-[#C7D300]/10 text-[#C7D300] border-[#C7D300]/30"
+                          : "bg-white/4 text-gray-500 border-white/8 hover:border-white/15"
+                      }`}>
+                      + Entrée / Apport
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => setAdjType("SUBTRACT")}
-                      className={`py-2.5 rounded-xl font-bold transition-all border ${
-                        adjType === "SUBTRACT" 
-                          ? "bg-red-500/20 text-red-300 border-red-500/40 shadow-sm" 
-                          : "bg-white/5 text-gray-400 border-white/10"
-                      }`}
-                    >
-                      - Sortie / Prélèvement Caisse
+                    <button type="button" onClick={() => setAdjType("SUBTRACT")}
+                      className={`py-2.5 rounded-lg text-xs font-bold transition-all border ${
+                        adjType === "SUBTRACT"
+                          ? "bg-red-400/10 text-red-400 border-red-400/25"
+                          : "bg-white/4 text-gray-500 border-white/8 hover:border-white/15"
+                      }`}>
+                      - Sortie / Prélèvement
                     </button>
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-gray-300 font-semibold block mb-1">Montant ($ USD) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    required
-                    value={adjAmount}
-                    onChange={(e) => setAdjAmount(e.target.value)}
-                    placeholder="ex: 50.00"
-                    className="w-full px-3.5 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
-                  />
-                </div>
+                {[{ label: "Montant (USD) *", value: adjAmount, setter: setAdjAmount, type: "number", placeholder: "50.00", min: "0.01", step: "0.01" }].map(f => (
+                  <div key={f.label}>
+                    <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">{f.label}</label>
+                    <input type={f.type} step={f.step} min={f.min} required value={f.value} onChange={e => f.setter(e.target.value)} placeholder={f.placeholder}
+                      className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600" />
+                  </div>
+                ))}
 
                 <div>
-                  <label className="text-gray-300 font-semibold block mb-1">Motif comptable obligatoire *</label>
-                  <select
-                    value={adjReason}
-                    onChange={(e) => setAdjReason(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
-                  >
-                    {ADJUSTMENT_REASONS.map((r) => (
-                      <option key={r} value={r} className="bg-[#0F1D27] text-white">
-                        {r}
-                      </option>
-                    ))}
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Motif *</label>
+                  <select value={adjReason} onChange={e => setAdjReason(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50">
+                    {ADJUSTMENT_REASONS.map(r => <option key={r} value={r} className="bg-[#0F1D27]">{r}</option>)}
                   </select>
                 </div>
 
                 <div>
-                  <label className="text-gray-300 font-semibold block mb-1">Libellé précis de l'opération *</label>
-                  <input
-                    type="text"
-                    required
-                    value={adjLabel}
-                    onChange={(e) => setAdjLabel(e.target.value)}
-                    placeholder="ex: Régularisation suite à inventaire physique du coffre"
-                    className="w-full px-3.5 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
-                  />
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Libellé précis *</label>
+                  <input type="text" required value={adjLabel} onChange={e => setAdjLabel(e.target.value)} placeholder="ex: Régularisation inventaire du coffre"
+                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600" />
                 </div>
 
                 <div>
-                  <label className="text-gray-300 font-semibold block mb-1">Numéro de pièce / Justificatif (Optionnel)</label>
-                  <input
-                    type="text"
-                    value={adjRef}
-                    onChange={(e) => setAdjRef(e.target.value)}
-                    placeholder="ex: REC-INV-2026-01"
-                    className="w-full px-3.5 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
-                  />
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">N° Pièce justificative</label>
+                  <input type="text" value={adjRef} onChange={e => setAdjRef(e.target.value)} placeholder="ex: REC-INV-2026-01"
+                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600" />
                 </div>
 
                 <div className="pt-2 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsAdjustmentModalOpen(false)}
-                    className="px-4 py-2.5 text-gray-400 hover:text-white transition-colors"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmittingAdj}
-                    className="px-5 py-2.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold rounded-xl transition-all disabled:opacity-50"
-                  >
-                    {isSubmittingAdj ? "Enregistrement..." : "Valider l'Écriture d'Ajustement"}
+                  <button type="button" onClick={() => setIsAdjustmentModalOpen(false)}
+                    className="px-4 py-2 text-xs text-gray-500 hover:text-white transition-colors">Annuler</button>
+                  <button type="submit" disabled={isSubmittingAdj}
+                    className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg transition-all disabled:opacity-50">
+                    {isSubmittingAdj ? "Enregistrement..." : "Valider l'Ajustement"}
                   </button>
                 </div>
               </form>
@@ -1197,106 +1071,70 @@ export default function AdminFinancePage() {
         )}
       </AnimatePresence>
 
-      {/* MODAL 2: AJOUTER TRANSACTION / ÉCRITURE */}
+      {/* MODAL 2: NOUVELLE ÉCRITURE */}
       <AnimatePresence>
         {isTxModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.97, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97 }}
               className="w-full max-w-md bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
             >
-              <div className="flex items-center justify-between p-6 border-b border-white/10">
-                <h2 className="text-lg font-bold text-white">Nouvelle Écriture Comptable</h2>
-                <button onClick={() => setIsTxModalOpen(false)} className="text-gray-400 hover:text-white">
-                  <X size={20} />
+              <div className="flex items-center justify-between px-6 py-5 border-b border-white/8">
+                <h2 className="text-sm font-bold text-white">Nouvelle Écriture Comptable</h2>
+                <button onClick={() => setIsTxModalOpen(false)} className="text-gray-500 hover:text-white transition-colors">
+                  <X size={18} />
                 </button>
               </div>
 
-              <form onSubmit={handleAddTransaction} className="p-6 space-y-4 text-xs">
+              <form onSubmit={handleAddTransaction} className="p-6 space-y-4">
                 <div>
-                  <label className="text-gray-300 font-semibold block mb-1">Type d'opération</label>
-                  <select 
-                    value={txType}
-                    onChange={(e: any) => setTxType(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
-                  >
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Type d&apos;opération</label>
+                  <select value={txType} onChange={(e: any) => setTxType(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50">
                     <option value="SUBSCRIPTION" className="bg-[#0F1D27]">Encaissement Abonnement Fournisseur ($50)</option>
-                    <option value="OTHER_INCOME" className="bg-[#0F1D27]">Vente Directe Produit Admin / Autre Recette</option>
+                    <option value="OTHER_INCOME" className="bg-[#0F1D27]">Vente Directe / Autre Recette Admin</option>
                     <option value="EXPENSE" className="bg-[#0F1D27]">Dépense de Plateforme</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="text-gray-300 font-semibold block mb-1">Montant ($ USD) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    required
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
-                    placeholder="ex: 50.00"
-                  />
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Montant (USD) *</label>
+                  <input type="number" step="0.01" min="0.01" required value={amount} onChange={e => setAmount(e.target.value)} placeholder="50.00"
+                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600" />
                 </div>
 
                 {txType === "SUBSCRIPTION" ? (
                   <div>
-                    <label className="text-gray-300 font-semibold block mb-1">Fournisseur concerné *</label>
-                    <select 
-                      value={selectedSupplierId}
-                      onChange={(e) => setSelectedSupplierId(e.target.value)}
-                      required
-                      className="w-full px-3.5 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
-                    >
+                    <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Fournisseur *</label>
+                    <select value={selectedSupplierId} onChange={e => setSelectedSupplierId(e.target.value)} required
+                      className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50">
                       <option value="">Sélectionnez un fournisseur</option>
                       {suppliers.map(s => (
-                        <option key={s.id} value={s.id} className="bg-[#0F1D27]">
-                          {s.displayName || s.company || s.email}
-                        </option>
+                        <option key={s.id} value={s.id} className="bg-[#0F1D27]">{s.displayName || s.company || s.email}</option>
                       ))}
                     </select>
                   </div>
                 ) : (
                   <div>
-                    <label className="text-gray-300 font-semibold block mb-1">Description / Libellé *</label>
-                    <input
-                      type="text"
-                      required
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
-                      placeholder="ex: Vente directe stock Admin ou Achat serveurs"
-                    />
+                    <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Libellé *</label>
+                    <input type="text" required value={description} onChange={e => setDescription(e.target.value)} placeholder="ex: Achat serveurs, vente directe..."
+                      className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600" />
                   </div>
                 )}
-                
+
                 <div>
-                  <label className="text-gray-300 font-semibold block mb-1">Référence Pièce Justificative (Optionnel)</label>
-                  <input
-                    type="text"
-                    value={referenceId}
-                    onChange={(e) => setReferenceId(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
-                    placeholder="ex: FAC-ADMIN-01"
-                  />
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Référence pièce</label>
+                  <input type="text" value={referenceId} onChange={e => setReferenceId(e.target.value)} placeholder="ex: FAC-ADMIN-01"
+                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600" />
                 </div>
 
                 <div className="pt-2 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsTxModalOpen(false)}
-                    className="px-4 py-2.5 text-gray-400 hover:text-white transition-colors"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-5 py-2.5 bg-primary hover:bg-primary-light text-white font-bold rounded-xl transition-all disabled:opacity-50"
-                  >
+                  <button type="button" onClick={() => setIsTxModalOpen(false)}
+                    className="px-4 py-2 text-xs text-gray-500 hover:text-white transition-colors">Annuler</button>
+                  <button type="submit" disabled={isSubmitting}
+                    className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg transition-all disabled:opacity-50">
                     {isSubmitting ? "Enregistrement..." : "Valider l'Écriture"}
                   </button>
                 </div>

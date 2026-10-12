@@ -166,9 +166,9 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
   };
 
   return (
-    <div className="min-h-screen bg-[#0b061c] text-white">
+    <div className="min-h-screen bg-[#0F1D27] text-white">
       {/* Header simple */}
-      <header className="sticky top-0 z-50 bg-[#0b061c]/90 backdrop-blur-md border-b border-white/5">
+      <header className="sticky top-0 z-50 bg-[#0F1D27]/90 backdrop-blur-md border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center text-gray-400 hover:text-white transition-colors">
             <ChevronLeft size={20} className="mr-1" />
@@ -188,40 +188,40 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="flex flex-col lg:flex-row gap-12">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-10">
+        <div className="flex flex-col lg:flex-row gap-6 lg:gap-12">
           
           {/* Colonne Image */}
           <div className="lg:w-1/2">
-            <div className="sticky top-24">
-              <div className="relative aspect-square md:aspect-video lg:aspect-square bg-[#0F1D27] rounded-3xl overflow-hidden border border-white/10">
+            <div className="lg:sticky lg:top-24">
+              <div className="relative aspect-square md:aspect-video lg:aspect-square bg-[#0F1D27] rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10 shadow-lg">
                 <OptimizedImage
                   src={productData.image}
                   alt={productData.title[lang]}
                   fill
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute top-4 left-4">
-                  <span className="px-3 py-1.5 bg-black/60 backdrop-blur-md text-[#00e5ff] text-xs font-bold tracking-wider rounded border border-white/10 uppercase">
+                <div className="absolute top-3 left-3 sm:top-4 sm:left-4">
+                  <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 bg-black/60 backdrop-blur-md text-[#C7D300] text-[10px] sm:text-xs font-bold tracking-wider rounded-lg sm:rounded-xl border border-white/10 uppercase">
                     {productData.tag[lang]}
                   </span>
                 </div>
               </div>
               
               {/* Trust badges */}
-              <div className="grid grid-cols-2 gap-4 mt-6">
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center">
-                  <ShieldCheck size={24} className="text-green-400 mr-3" />
+              <div className="grid grid-cols-2 gap-2.5 sm:gap-4 mt-4 sm:mt-6">
+                <div className="bg-white/5 border border-white/10 rounded-xl p-3 sm:p-4 flex items-center">
+                  <ShieldCheck size={20} className="text-green-400 mr-2.5 sm:mr-3 shrink-0" />
                   <div>
-                    <h4 className="font-bold text-sm">Garantie Rayons</h4>
-                    <p className="text-xs text-gray-400">{lang === "fr" ? "Paiement & achat protégés" : "Protected purchase"}</p>
+                    <h4 className="font-bold text-xs sm:text-sm">Garantie Rayons</h4>
+                    <p className="text-[10px] sm:text-xs text-gray-400">{lang === "fr" ? "Paiement & achat protégés" : "Protected purchase"}</p>
                   </div>
                 </div>
-                <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center">
-                  <Truck size={24} className="text-blue-400 mr-3" />
+                <div className="bg-white/5 border border-white/10 rounded-xl p-3 sm:p-4 flex items-center">
+                  <Truck size={20} className="text-blue-400 mr-2.5 sm:mr-3 shrink-0" />
                   <div>
-                    <h4 className="font-bold text-sm">Livraison</h4>
-                    <p className="text-xs text-gray-400">{lang === "fr" ? "Rapide & Suivie" : "Fast & Tracked"}</p>
+                    <h4 className="font-bold text-xs sm:text-sm">Livraison</h4>
+                    <p className="text-[10px] sm:text-xs text-gray-400">{lang === "fr" ? "Rapide & Suivie" : "Fast & Tracked"}</p>
                   </div>
                 </div>
               </div>
@@ -319,23 +319,23 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
             </div>
 
             {/* Main CTAs */}
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8 space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-6 mb-5 sm:mb-8 space-y-2.5 sm:space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
                 <button 
                   type="button"
                   onClick={() => setIsBuyModalOpen(true)}
-                  className="w-full py-4 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-heading font-extrabold rounded-xl transition-all shadow-lg shadow-[#C7D300]/20 flex items-center justify-center gap-2 cursor-pointer active:scale-98 text-sm sm:text-base"
+                  className="w-full py-3.5 sm:py-4 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-heading font-extrabold rounded-xl transition-all shadow-lg shadow-[#C7D300]/20 flex items-center justify-center gap-2 cursor-pointer active:scale-98 text-xs sm:text-base"
                 >
-                  <ShoppingBag size={18} />
+                  <ShoppingBag size={17} />
                   <span>Acheter direct</span>
                 </button>
 
                 <button 
                   type="button"
                   onClick={() => addToCart(productData, 1)}
-                  className="w-full py-4 bg-white hover:bg-gray-100 text-[#0F1D27] font-heading font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 text-sm sm:text-base shadow-sm"
+                  className="w-full py-3.5 sm:py-4 bg-white hover:bg-gray-100 text-[#0F1D27] font-heading font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98 text-xs sm:text-base shadow-sm"
                 >
-                  <ShoppingCart size={18} className="text-primary" />
+                  <ShoppingCart size={17} className="text-primary" />
                   <span>Ajouter au panier</span>
                 </button>
               </div>
@@ -343,9 +343,9 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
               <button 
                 type="button"
                 onClick={handleOpenChat}
-                className="w-full py-3 bg-white/10 hover:bg-white/15 text-white font-semibold rounded-xl transition-all flex items-center justify-center space-x-2 border border-white/10 text-sm cursor-pointer"
+                className="w-full py-3 bg-white/10 hover:bg-white/15 text-white font-semibold rounded-xl transition-all flex items-center justify-center space-x-2 border border-white/10 text-xs sm:text-sm cursor-pointer"
               >
-                <MessageSquare size={18} />
+                <MessageSquare size={16} />
                 <span>
                   {lang === "fr" ? "Discuter / Négocier avec le fournisseur" : "Contact Supplier"} 
                 </span>

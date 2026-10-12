@@ -45,8 +45,8 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0F1D27]"></div>
       </div>
     );
   }
@@ -95,7 +95,7 @@ export default function OrderTrackingPage({ params }: { params: Promise<{ id: st
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="max-w-md mx-auto px-4 h-16 flex items-center justify-between">

@@ -242,33 +242,33 @@ export default function AdminDashboardPage() {
         <div className="lg:col-span-2 space-y-6">
           
           {/* 1. HERO BANNER SATINÉ (Deep Navy + lueur Lime Rayons.net) */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0F1D27] via-[#142634] to-[#0A151D] border border-white/10 p-6 sm:p-7 shadow-xl">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0F1D27] via-[#142634] to-[#0A151D] border border-white/10 p-4 sm:p-7 shadow-xl">
             {/* Lueur d'ambiance #C7D300 */}
             <div className="absolute top-0 right-0 -mt-10 -mr-10 w-48 h-48 bg-[#C7D300]/10 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="flex items-center justify-between gap-4 mb-3">
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-white/5 text-gray-300 border border-white/10">
-                <Clock size={13} className="text-[#C7D300]" />
-                Rapports programmés chaque jour à 07h00 (Kinshasa)
+            <div className="flex items-center justify-between gap-4 mb-2.5 sm:mb-3">
+              <span className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold bg-white/5 text-gray-300 border border-white/10">
+                <Clock size={12} className="text-[#C7D300] shrink-0" />
+                <span>Rapports chaque jour à 07h00 (Kinshasa)</span>
               </span>
-              <Calendar className="text-gray-500" size={18} />
+              <Calendar className="text-gray-500 shrink-0" size={16} />
             </div>
 
-            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight mb-2">
+            <h2 className="text-lg sm:text-2xl font-bold text-white tracking-tight mb-2">
               {totalPending > 0
-                ? `${totalPending} dossier(s) en attente d'approbation administrative`
+                ? `${totalPending} dossier(s) en attente d'approbation`
                 : "Toutes les opérations et catalogues sont à jour"}
             </h2>
-            <p className="text-gray-400 text-sm max-w-xl mb-5 leading-relaxed">
+            <p className="text-gray-400 text-xs sm:text-sm max-w-xl mb-4 sm:mb-5 leading-relaxed">
               {totalPending > 0
-                ? "De nouvelles demandes de fournisseurs, biens immobiliers ou articles e-commerce nécessitent votre autorisation pour être rendus visibles en ligne."
+                ? "De nouvelles demandes de fournisseurs, biens immobiliers ou articles e-commerce nécessitent votre autorisation."
                 : "La marketplace Rayons.net fonctionne normalement sur les 4 rayons (Saveurs, Mode, Connect, Immo)."}
             </p>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
               <Link
                 href="/admin/suppliers"
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs border border-white/15 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs border border-white/15 transition-colors"
               >
                 <span>Examiner les {stats.pendingSuppliers} fournisseur(s)</span>
                 <ArrowRight size={13} className="text-[#C7D300]" />
@@ -276,7 +276,7 @@ export default function AdminDashboardPage() {
               {stats.pendingProperties > 0 && (
                 <Link
                   href="/admin/properties"
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs border border-white/15 transition-colors"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-xs border border-white/15 transition-colors"
                 >
                   <span>Valider les {stats.pendingProperties} bien(s) immo</span>
                   <ArrowRight size={13} className="text-[#4C6EF5]" />
@@ -286,47 +286,47 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* 2. GRILLE DE 4 COMPTEURS MÉTRIQUES KPIS ÉPURÉS */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
             {/* KPI 1 : Fournisseurs en attente */}
-            <div className="bg-[#0F1D27] rounded-2xl p-5 border border-white/10 shadow-sm relative overflow-hidden group">
+            <div className="bg-[#0F1D27] rounded-xl sm:rounded-2xl p-3.5 sm:p-5 border border-white/10 shadow-xs relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-16 h-16 bg-blue-500/5 rounded-full blur-xl -mr-4 -mt-4" />
-              <p className="text-3xl font-extrabold text-blue-400">
+              <p className="text-2xl sm:text-3xl font-extrabold text-blue-400">
                 {dataLoading ? "-" : stats.pendingSuppliers}
               </p>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-2">
-                Fournisseurs en attente
+              <p className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider mt-1 sm:mt-2">
+                Fournisseurs attente
               </p>
             </div>
 
             {/* KPI 2 : Biens immo en attente */}
-            <div className="bg-[#0F1D27] rounded-2xl p-5 border border-white/10 shadow-sm relative overflow-hidden group">
+            <div className="bg-[#0F1D27] rounded-xl sm:rounded-2xl p-3.5 sm:p-5 border border-white/10 shadow-xs relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-16 h-16 bg-[#4C6EF5]/10 rounded-full blur-xl -mr-4 -mt-4" />
-              <p className="text-3xl font-extrabold text-[#4C6EF5]">
+              <p className="text-2xl sm:text-3xl font-extrabold text-[#4C6EF5]">
                 {dataLoading ? "-" : stats.pendingProperties}
               </p>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-2">
-                Biens immo en attente
+              <p className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider mt-1 sm:mt-2">
+                Biens immo attente
               </p>
             </div>
 
             {/* KPI 3 : Produits en attente */}
-            <div className="bg-[#0F1D27] rounded-2xl p-5 border border-white/10 shadow-sm relative overflow-hidden group">
+            <div className="bg-[#0F1D27] rounded-xl sm:rounded-2xl p-3.5 sm:p-5 border border-white/10 shadow-xs relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-16 h-16 bg-[#00B5A5]/10 rounded-full blur-xl -mr-4 -mt-4" />
-              <p className="text-3xl font-extrabold text-[#00B5A5]">
+              <p className="text-2xl sm:text-3xl font-extrabold text-[#00B5A5]">
                 {dataLoading ? "-" : stats.pendingProducts}
               </p>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-2">
-                Produits en attente
+              <p className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider mt-1 sm:mt-2">
+                Produits attente
               </p>
             </div>
 
             {/* KPI 4 : Partenaires Actifs */}
-            <div className="bg-[#0F1D27] rounded-2xl p-5 border border-white/10 shadow-sm relative overflow-hidden group">
+            <div className="bg-[#0F1D27] rounded-xl sm:rounded-2xl p-3.5 sm:p-5 border border-white/10 shadow-xs relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-16 h-16 bg-[#C7D300]/10 rounded-full blur-xl -mr-4 -mt-4" />
-              <p className="text-3xl font-extrabold text-[#C7D300]">
+              <p className="text-2xl sm:text-3xl font-extrabold text-[#C7D300]">
                 {dataLoading ? "-" : stats.totalActiveSuppliers}
               </p>
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-2">
+              <p className="text-[10px] sm:text-xs font-semibold text-gray-400 uppercase tracking-wider mt-1 sm:mt-2">
                 Partenaires Actifs
               </p>
             </div>
@@ -334,28 +334,28 @@ export default function AdminDashboardPage() {
 
           {/* 3. SECTION VALIDATIONS OPÉRATIONNELLES SANS SURCHARGE */}
           <div>
-            <h3 className="text-sm font-bold text-gray-300 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <AlertTriangle className="text-[#C7D300]" size={16} />
+            <h3 className="text-xs sm:text-sm font-bold text-gray-300 uppercase tracking-wider mb-3 sm:mb-4 flex items-center gap-2">
+              <AlertTriangle className="text-[#C7D300]" size={15} />
               Dossiers à Examiner
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-4">
               {/* Validation Fournisseurs */}
-              <div className="bg-[#0F1D27] p-5 rounded-2xl border border-white/10 flex flex-col justify-between hover:border-white/20 transition-all">
+              <div className="bg-[#0F1D27] p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-white/10 flex flex-col justify-between hover:border-white/20 transition-all">
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Fournisseurs</span>
-                    <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400">
-                      <Users size={16} />
+                  <div className="flex items-center justify-between mb-2.5 sm:mb-3">
+                    <span className="text-[11px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider">Fournisseurs</span>
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400">
+                      <Users size={15} />
                     </div>
                   </div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-white">{dataLoading ? "-" : stats.pendingSuppliers}</span>
-                    <span className="text-xs text-gray-500">en attente d'accord</span>
+                    <span className="text-2xl sm:text-3xl font-bold text-white">{dataLoading ? "-" : stats.pendingSuppliers}</span>
+                    <span className="text-[11px] sm:text-xs text-gray-500">en attente</span>
                   </div>
                 </div>
-                <Link href="/admin/suppliers" className="mt-5">
-                  <button className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-blue-400 text-xs font-semibold border border-white/10 transition-colors flex items-center justify-center gap-1.5">
+                <Link href="/admin/suppliers" className="mt-3.5 sm:mt-5">
+                  <button className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-blue-400 text-xs font-semibold border border-white/10 transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
                     <span>Examiner les comptes</span>
                     <ArrowRight size={13} />
                   </button>
@@ -363,21 +363,21 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Validation Immo */}
-              <div className="bg-[#0F1D27] p-5 rounded-2xl border border-white/10 flex flex-col justify-between hover:border-white/20 transition-all">
+              <div className="bg-[#0F1D27] p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-white/10 flex flex-col justify-between hover:border-white/20 transition-all">
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Immobilier</span>
-                    <div className="w-8 h-8 rounded-lg bg-[#4C6EF5]/15 flex items-center justify-center text-[#4C6EF5]">
-                      <Building size={16} />
+                  <div className="flex items-center justify-between mb-2.5 sm:mb-3">
+                    <span className="text-[11px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider">Immobilier</span>
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#4C6EF5]/15 flex items-center justify-center text-[#4C6EF5]">
+                      <Building size={15} />
                     </div>
                   </div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-white">{dataLoading ? "-" : stats.pendingProperties}</span>
-                    <span className="text-xs text-gray-500">biens soumis</span>
+                    <span className="text-2xl sm:text-3xl font-bold text-white">{dataLoading ? "-" : stats.pendingProperties}</span>
+                    <span className="text-[11px] sm:text-xs text-gray-500">biens soumis</span>
                   </div>
                 </div>
-                <Link href="/admin/properties" className="mt-5">
-                  <button className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-[#4C6EF5] text-xs font-semibold border border-white/10 transition-colors flex items-center justify-center gap-1.5">
+                <Link href="/admin/properties" className="mt-3.5 sm:mt-5">
+                  <button className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-[#4C6EF5] text-xs font-semibold border border-white/10 transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
                     <span>Valider les biens</span>
                     <ArrowRight size={13} />
                   </button>
@@ -385,21 +385,21 @@ export default function AdminDashboardPage() {
               </div>
 
               {/* Validation Produits */}
-              <div className="bg-[#0F1D27] p-5 rounded-2xl border border-white/10 flex flex-col justify-between hover:border-white/20 transition-all">
+              <div className="bg-[#0F1D27] p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-white/10 flex flex-col justify-between hover:border-white/20 transition-all">
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">E-Commerce</span>
-                    <div className="w-8 h-8 rounded-lg bg-[#00B5A5]/15 flex items-center justify-center text-[#00B5A5]">
-                      <Package size={16} />
+                  <div className="flex items-center justify-between mb-2.5 sm:mb-3">
+                    <span className="text-[11px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider">E-Commerce</span>
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#00B5A5]/15 flex items-center justify-center text-[#00B5A5]">
+                      <Package size={15} />
                     </div>
                   </div>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-bold text-white">{dataLoading ? "-" : stats.pendingProducts}</span>
-                    <span className="text-xs text-gray-500">articles soumis</span>
+                    <span className="text-2xl sm:text-3xl font-bold text-white">{dataLoading ? "-" : stats.pendingProducts}</span>
+                    <span className="text-[11px] sm:text-xs text-gray-500">articles soumis</span>
                   </div>
                 </div>
-                <Link href="/admin/products" className="mt-5">
-                  <button className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-[#00B5A5] text-xs font-semibold border border-white/10 transition-colors flex items-center justify-center gap-1.5">
+                <Link href="/admin/products" className="mt-3.5 sm:mt-5">
+                  <button className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-[#00B5A5] text-xs font-semibold border border-white/10 transition-colors flex items-center justify-center gap-1.5 cursor-pointer">
                     <span>Examiner les produits</span>
                     <ArrowRight size={13} />
                   </button>

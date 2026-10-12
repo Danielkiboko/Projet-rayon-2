@@ -8,21 +8,48 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.rayon.app"
+      "bundleIdentifier": "com.rayon.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Rayons utilise l'appareil photo pour scanner des codes ou ajouter des photos.",
+        "NSPhotoLibraryUsageDescription": "Rayons accède à vos photos pour vous permettre d'envoyer des justificatifs ou photos de profil.",
+        "NSLocationWhenInUseUsageDescription": "Rayons utilise votre position pour vous localiser lors de vos commandes et livraisons."
+      }
     },
     "android": {
       "package": "com.rayon.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
+      "permissions": [
+        "INTERNET",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "1ea43c35-47a0-466a-b18d-e766b7151a75"
+      }
     }
   }
 }

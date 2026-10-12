@@ -8,7 +8,7 @@ import AlibabaClientBottomNav from "@/modules/client/components/AlibabaClientBot
 
 export default function ClientChatsPage() {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col pb-20 sm:pb-8">
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col pb-20 sm:pb-8">
       <div className="max-w-6xl mx-auto w-full px-2 sm:px-4 py-4 sm:py-6 flex-1 flex flex-col">
         
         {/* Desktop Header */}

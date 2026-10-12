@@ -263,13 +263,13 @@ export default function SupplierTeamPage() {
       {activeTab === "list" && (
         <div className="space-y-6">
           {loadingTeam ? (
-            <div className="p-12 text-center bg-[#111] border border-gray-800 rounded-2xl">
-              <Loader2 size={32} className="animate-spin text-primary mx-auto mb-3" />
+            <div className="p-12 text-center bg-[#142430] border border-white/10 rounded-2xl">
+              <Loader2 size={32} className="animate-spin text-[#C7D300] mx-auto mb-3" />
               <p className="text-gray-400 text-sm">Chargement des sous-agents de votre agence...</p>
             </div>
           ) : teamMembers.length === 0 ? (
-            <div className="p-12 text-center bg-[#111] border border-gray-800 rounded-2xl">
-              <div className="w-16 h-16 bg-blue-500/10 text-blue-400 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-blue-500/20">
+            <div className="p-12 text-center bg-[#142430] border border-white/10 rounded-2xl">
+              <div className="w-16 h-16 bg-[#C7D300]/10 text-[#C7D300] rounded-2xl flex items-center justify-center mx-auto mb-4 border border-[#C7D300]/20">
                 <Users size={32} />
               </div>
               <h3 className="text-lg font-bold text-white mb-2">Aucun sous-agent pour le moment</h3>
@@ -278,7 +278,7 @@ export default function SupplierTeamPage() {
               </p>
               <button
                 onClick={() => setActiveTab("create")}
-                className="inline-flex items-center gap-2 bg-primary hover:bg-primary-light text-white px-5 py-2.5 rounded-xl font-medium transition-colors shadow-lg shadow-primary/25"
+                className="inline-flex items-center gap-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] px-5 py-2.5 rounded-xl font-bold transition-colors shadow-lg shadow-[#C7D300]/20 cursor-pointer"
               >
                 <UserPlus size={18} />
                 <span>Créer un premier sous-agent</span>
@@ -293,7 +293,7 @@ export default function SupplierTeamPage() {
                 return (
                   <div
                     key={member.id}
-                    className="bg-[#111] border border-gray-800 hover:border-gray-700 transition-all rounded-2xl p-5 flex flex-col justify-between"
+                    className="bg-[#142430] border border-white/10 hover:border-white/20 transition-all rounded-2xl p-5 flex flex-col justify-between"
                   >
                     <div>
                       {/* Top row: Name, Avatar, Status */}
@@ -414,10 +414,10 @@ export default function SupplierTeamPage() {
 
       {/* ── TAB 2: FORMULAIRE D'AJOUT D'UN SOUS-AGENT ── */}
       {activeTab === "create" && (
-        <div className="bg-[#111] border border-gray-800 p-6 rounded-2xl shadow-xl">
-          <div className="border-b border-gray-800 pb-4 mb-6">
+        <div className="bg-[#142430] border border-white/10 p-6 rounded-2xl shadow-xl">
+          <div className="border-b border-white/10 pb-4 mb-6">
             <h2 className="text-lg font-semibold text-white flex items-center gap-2">
-              <UserPlus size={18} className="text-primary" />
+              <UserPlus size={18} className="text-[#C7D300]" />
               <span>Nouveau Collaborateur / Sous-Agent</span>
             </h2>
             <p className="text-xs text-gray-400 mt-1">

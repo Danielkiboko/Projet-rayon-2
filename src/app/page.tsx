@@ -518,33 +518,36 @@ export default function Home() {
             </div>
           ))}
         </div>
+        <div className="absolute bottom-0 left-0 right-0 h-2 bg-gradient-to-b from-transparent to-black/25 pointer-events-none" />
       </section>
 
       {/* ═══════════════════════════════════════════════════════
           MAIN CONTENT — BENTO SHOWCASE & PRODUCT GRIDS
       ═══════════════════════════════════════════════════════ */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-16 pb-24 space-y-24">
+      <main className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-16 pb-24 space-y-24">
+        {/* Soft atmospheric gradient behind the Bento Showcase */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[350px] bg-gradient-to-b from-[#0F1D27]/4 via-transparent to-transparent rounded-full blur-3xl pointer-events-none -z-10" />
 
         {/* ── SECTION : LES 4 RAYONS EN BENTO GRID ── */}
         <section id="rayons" className="scroll-mt-24">
-          <div className="text-center mb-12">
-            <span className="inline-block text-xs font-bold uppercase tracking-widest text-emerald-600 bg-emerald-50 border border-emerald-200/60 px-3.5 py-1 rounded-full mb-3">
+          <div className="text-center mb-6 sm:mb-12">
+            <span className="inline-block text-[11px] sm:text-xs font-bold uppercase tracking-widest text-[#00B5A5] bg-[#00B5A5]/10 border border-[#00B5A5]/30 px-3 py-0.5 sm:px-3.5 sm:py-1 rounded-full mb-2 sm:mb-3">
               Quatre univers d&apos;excellence
             </span>
-            <h2 className="text-3xl sm:text-5xl font-heading font-black text-[#0F1D27] tracking-tight">
+            <h2 className="text-2xl sm:text-5xl font-heading font-black text-[#0F1D27] tracking-tight">
               Explorez les Rayons
             </h2>
-            <p className="text-gray-500 mt-3 max-w-xl mx-auto text-sm sm:text-base">
+            <p className="text-gray-500 mt-2 sm:mt-3 max-w-xl mx-auto text-xs sm:text-base px-2">
               Chaque rayon bénéficie de fournisseurs certifiés, d&apos;un catalogue spécifique et de la garantie de livraison Rayons.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
             {rayons.map((r) => (
               <Link
                 key={r.id}
                 href={r.href}
-                className="group relative bg-white rounded-3xl p-6 border border-slate-200/90 hover:border-slate-300 shadow-sm hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between overflow-hidden"
+                className="group relative bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 border border-slate-200/90 hover:border-slate-300 shadow-xs hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between overflow-hidden"
               >
                 {/* Glow ring on hover */}
                 <div
@@ -553,35 +556,35 @@ export default function Home() {
                 />
 
                 <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center justify-between mb-3 sm:mb-5">
                     <div
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 shadow-sm"
+                      className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl flex items-center justify-center transition-transform duration-300 group-hover:scale-110 shadow-xs"
                       style={{ backgroundColor: `${r.color}18`, color: r.color }}
                     >
-                      <r.icon size={24} />
+                      <r.icon className="w-4 h-4 sm:w-6 sm:h-6" />
                     </div>
                     <span
-                      className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border"
+                      className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg border"
                       style={{ color: r.color, backgroundColor: `${r.color}10`, borderColor: `${r.color}30` }}
                     >
                       {r.badge}
                     </span>
                   </div>
 
-                  <h3 className="text-xl font-heading font-extrabold text-[#0F1D27] mb-2 flex items-center justify-between">
+                  <h3 className="text-sm sm:text-xl font-heading font-extrabold text-[#0F1D27] mb-1 sm:mb-2 flex items-center justify-between">
                     <span>{r.title}</span>
                     <ChevronRight
-                      size={18}
-                      className="text-gray-400 group-hover:translate-x-1 transition-transform"
+                      size={16}
+                      className="text-gray-400 group-hover:translate-x-1 transition-transform hidden sm:block"
                       style={{ color: r.color }}
                     />
                   </h3>
-                  <p className="text-xs text-gray-500 leading-relaxed">{r.desc}</p>
+                  <p className="text-[11px] sm:text-xs text-gray-500 leading-snug sm:leading-relaxed line-clamp-2 sm:line-clamp-none">{r.desc}</p>
                 </div>
 
-                <div className="relative z-10 pt-5 mt-4 border-t border-gray-100 flex items-center justify-between text-xs font-bold" style={{ color: r.color }}>
-                  <span>Découvrir le rayon</span>
-                  <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                <div className="relative z-10 pt-3 sm:pt-5 mt-2.5 sm:mt-4 border-t border-gray-100 flex items-center justify-between text-[11px] sm:text-xs font-bold" style={{ color: r.color }}>
+                  <span>Découvrir</span>
+                  <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
                 </div>
               </Link>
             ))}

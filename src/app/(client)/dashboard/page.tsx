@@ -66,7 +66,7 @@ export default function DashboardRedirect() {
   }, [loading, user, userData, router])
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#0b061c] text-white">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#0F1D27] text-white">
       <div className="relative">
         <motion.div
           animate={{ rotate: 360 }}

@@ -1,92 +1,85 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, StyleSheet, Animated, PanResponder, Dimensions } from 'react-native';
+import { StyleSheet, Animated, PanResponder, ActivityIndicator, LayoutChangeEvent } from 'react-native';
 import { FontAwesome5 } from '@expo/vector-icons';
 
 interface SwipeButtonProps {
-  onConfirm: () => void;
+  /** Retourne false (ou lève une erreur) pour remettre le bouton à zéro */
+  onConfirm: () => Promise<boolean | void> | boolean | void;
   title?: string;
+  color?: string;
+  disabled?: boolean;
 }
 
 const BUTTON_HEIGHT = 60;
-const BUTTON_WIDTH = Dimensions.get('window').width - 48; // Padding 24 on each side
 const THUMB_SIZE = 52;
 const THUMB_MARGIN = 4;
-const MAX_TRANSLATE = BUTTON_WIDTH - THUMB_SIZE - THUMB_MARGIN * 2;
 
-export default function SwipeButton({ onConfirm, title = "Glissez pour valider" }: SwipeButtonProps) {
-  const pan = useRef(new Animated.ValueXY()).current;
-  const [confirmed, setConfirmed] = useState(false);
+export default function SwipeButton({ onConfirm, title = "Glissez pour valider", color = '#38bdf8', disabled = false }: SwipeButtonProps) {
+  const pan = useRef(new Animated.Value(0)).current;
+  const [state, setState] = useState<'idle' | 'loading' | 'done'>('idle');
+  // Largeur mesurée réellement (s'adapte à la carte qui contient le bouton)
+  const maxTranslate = useRef(0);
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const onConfirmRef = useRef(onConfirm);
+  onConfirmRef.current = onConfirm;
+  const disabledRef = useRef(disabled);
+  disabledRef.current = disabled;
+
+  const reset = () => {
+    setState('idle');
+    Animated.spring(pan, { toValue: 0, useNativeDriver: false, bounciness: 10 }).start();
+  };
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => !confirmed,
-      onMoveShouldSetPanResponder: () => !confirmed,
-      onPanResponderMove: (e, gesture) => {
-        if (gesture.dx > 0 && gesture.dx <= MAX_TRANSLATE) {
-          pan.setValue({ x: gesture.dx, y: 0 });
-        }
+      onStartShouldSetPanResponder: () => stateRef.current === 'idle' && !disabledRef.current,
+      onMoveShouldSetPanResponder: () => stateRef.current === 'idle' && !disabledRef.current,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderMove: (_e, g) => {
+        pan.setValue(Math.max(0, Math.min(g.dx, maxTranslate.current)));
       },
-      onPanResponderRelease: (e, gesture) => {
-        if (gesture.dx > MAX_TRANSLATE * 0.75) {
-          // Confirmed
-          setConfirmed(true);
-          Animated.spring(pan, {
-            toValue: { x: MAX_TRANSLATE, y: 0 },
-            useNativeDriver: false,
-            bounciness: 0,
-          }).start(() => {
-            onConfirm();
+      onPanResponderRelease: (_e, g) => {
+        if (g.dx > maxTranslate.current * 0.75) {
+          setState('loading');
+          Animated.timing(pan, { toValue: maxTranslate.current, duration: 120, useNativeDriver: false }).start(async () => {
+            try {
+              const ok = await onConfirmRef.current();
+              if (ok === false) reset();
+              else setState('done');
+            } catch {
+              reset();
+            }
           });
         } else {
-          // Reset
-          Animated.spring(pan, {
-            toValue: { x: 0, y: 0 },
-            useNativeDriver: false,
-            bounciness: 10,
-          }).start();
+          Animated.spring(pan, { toValue: 0, useNativeDriver: false, bounciness: 10 }).start();
         }
       },
     })
   ).current;
 
-  // Change opacity based on translation
-  const textOpacity = pan.x.interpolate({
-    inputRange: [0, MAX_TRANSLATE / 2],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
-  });
+  const onLayout = (e: LayoutChangeEvent) => {
+    maxTranslate.current = Math.max(0, e.nativeEvent.layout.width - THUMB_SIZE - THUMB_MARGIN * 2 - 2);
+  };
 
-  const bgInterpolation = pan.x.interpolate({
-    inputRange: [0, MAX_TRANSLATE],
-    outputRange: ['rgba(56, 189, 248, 0.1)', 'rgba(34, 197, 94, 0.2)'],
-    extrapolate: 'clamp',
-  });
-
-  const borderInterpolation = pan.x.interpolate({
-    inputRange: [0, MAX_TRANSLATE],
-    outputRange: ['rgba(56, 189, 248, 0.3)', 'rgba(34, 197, 94, 0.5)'],
-    extrapolate: 'clamp',
-  });
+  const range = Math.max(maxTranslate.current, 1);
+  const textOpacity = pan.interpolate({ inputRange: [0, range / 2], outputRange: [1, 0], extrapolate: 'clamp' });
 
   return (
-    <Animated.View style={[styles.container, { backgroundColor: bgInterpolation, borderColor: borderInterpolation }]}>
-      <Animated.Text style={[styles.title, { opacity: textOpacity }]}>
-        {title}
-      </Animated.Text>
-
+    <Animated.View
+      onLayout={onLayout}
+      style={[styles.container, { backgroundColor: `${color}1A`, borderColor: `${color}55`, opacity: disabled ? 0.5 : 1 }]}
+    >
+      <Animated.Text style={[styles.title, { opacity: textOpacity }]}>{title}</Animated.Text>
       <Animated.View
-        style={[
-          styles.thumb,
-          { transform: [{ translateX: pan.x }] },
-          confirmed && styles.thumbConfirmed,
-        ]}
+        style={[styles.thumb, { backgroundColor: state === 'done' ? '#22c55e' : color, shadowColor: color, transform: [{ translateX: pan }] }]}
         {...panResponder.panHandlers}
       >
-        <FontAwesome5 
-          name={confirmed ? "check" : "chevron-right"} 
-          size={20} 
-          color="#0b061c" 
-        />
+        {state === 'loading' ? (
+          <ActivityIndicator color="#0b061c" />
+        ) : (
+          <FontAwesome5 name={state === 'done' ? 'check' : 'chevron-right'} size={20} color="#0b061c" />
+        )}
       </Animated.View>
     </Animated.View>
   );
@@ -95,7 +88,7 @@ export default function SwipeButton({ onConfirm, title = "Glissez pour valider" 
 const styles = StyleSheet.create({
   container: {
     height: BUTTON_HEIGHT,
-    width: BUTTON_WIDTH,
+    width: '100%',
     borderRadius: BUTTON_HEIGHT / 2,
     borderWidth: 1,
     justifyContent: 'center',
@@ -113,20 +106,14 @@ const styles = StyleSheet.create({
     height: THUMB_SIZE,
     width: THUMB_SIZE,
     borderRadius: THUMB_SIZE / 2,
-    backgroundColor: '#38bdf8',
     position: 'absolute',
     left: THUMB_MARGIN,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#38bdf8',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.5,
     shadowRadius: 10,
     elevation: 5,
     zIndex: 2,
   },
-  thumbConfirmed: {
-    backgroundColor: '#22c55e',
-    shadowColor: '#22c55e',
-  }
 });

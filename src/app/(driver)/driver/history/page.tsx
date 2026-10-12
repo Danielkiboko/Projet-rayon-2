@@ -94,14 +94,14 @@ export default function DriverHistoryPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-[#0b061c]">
+      <div className="flex items-center justify-center min-h-screen bg-[#0F1D27]">
         <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="p-4 bg-[#0b061c] min-h-screen pb-24">
+    <div className="p-4 bg-[#0F1D27] min-h-screen pb-24">
       {/* Header */}
       <div className="flex items-center justify-between mb-5 mt-2">
         <h1 className="text-xl font-bold text-white">Historique</h1>

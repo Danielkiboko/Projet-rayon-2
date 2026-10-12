@@ -225,34 +225,34 @@ export default function AdminMyOrdersPage() {
       </div>
 
       {/* Cartes KPI Mes Ventes */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-[#0F1A23] border border-white/[0.08] p-4 rounded-2xl flex items-center justify-between">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
+        <div className="col-span-2 sm:col-span-1 bg-[#0F1A23] border border-white/[0.08] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center justify-between">
           <div>
-            <p className="text-[11px] text-gray-400 uppercase font-semibold">Chiffre d'affaires encaissé</p>
-            <p className="text-2xl font-bold text-white mt-0.5">{totalRevenue.toLocaleString()} $</p>
+            <p className="text-[10px] sm:text-[11px] text-gray-400 uppercase font-semibold">Chiffre d'affaires encaissé</p>
+            <p className="text-xl sm:text-2xl font-bold text-white mt-0.5">{totalRevenue.toLocaleString()} $</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0">
-            <DollarSign size={18} />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0">
+            <DollarSign size={17} />
           </div>
         </div>
 
-        <div className="bg-[#0F1A23] border border-white/[0.08] p-4 rounded-2xl flex items-center justify-between">
+        <div className="bg-[#0F1A23] border border-white/[0.08] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center justify-between">
           <div>
-            <p className="text-[11px] text-gray-400 uppercase font-semibold">À Traiter / En Cours</p>
-            <p className="text-2xl font-bold text-orange-400 mt-0.5">{pendingCount}</p>
+            <p className="text-[10px] sm:text-[11px] text-gray-400 uppercase font-semibold">À Traiter / En Cours</p>
+            <p className="text-xl sm:text-2xl font-bold text-orange-400 mt-0.5">{pendingCount}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20 flex items-center justify-center shrink-0">
-            <Clock size={18} />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20 flex items-center justify-center shrink-0">
+            <Clock size={17} />
           </div>
         </div>
 
-        <div className="bg-[#0F1A23] border border-white/[0.08] p-4 rounded-2xl flex items-center justify-between">
+        <div className="bg-[#0F1A23] border border-white/[0.08] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center justify-between">
           <div>
-            <p className="text-[11px] text-gray-400 uppercase font-semibold">Commandes Livrées</p>
-            <p className="text-2xl font-bold text-[#C7D300] mt-0.5">{deliveredCount}</p>
+            <p className="text-[10px] sm:text-[11px] text-gray-400 uppercase font-semibold">Commandes Livrées</p>
+            <p className="text-xl sm:text-2xl font-bold text-[#C7D300] mt-0.5">{deliveredCount}</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-[#C7D300]/10 text-[#C7D300] border border-[#C7D300]/20 flex items-center justify-center shrink-0">
-            <CheckCircle size={18} />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#C7D300]/10 text-[#C7D300] border border-[#C7D300]/20 flex items-center justify-center shrink-0">
+            <CheckCircle size={17} />
           </div>
         </div>
       </div>
@@ -260,22 +260,22 @@ export default function AdminMyOrdersPage() {
       {/* Table des commandes */}
       <div className="bg-[#0F1A23] border border-white/[0.08] rounded-2xl overflow-hidden shadow-lg">
         {/* Recherche et filtres */}
-        <div className="p-4 border-b border-white/[0.06] flex flex-col sm:flex-row justify-between gap-3 bg-white/[0.01]">
+        <div className="p-3 sm:p-4 border-b border-white/[0.06] flex flex-col sm:flex-row justify-between gap-2.5 sm:gap-3 bg-white/[0.01]">
           <div className="relative max-w-sm w-full">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
             <input
               type="text"
               placeholder="Rechercher par ID ou nom du client..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-black/30 border border-white/[0.08] rounded-xl focus:outline-none focus:border-purple-500 text-white text-xs placeholder:text-gray-500 transition-all"
+              className="w-full pl-9 pr-4 py-2 bg-black/30 border border-white/[0.08] rounded-xl focus:outline-none focus:border-purple-500 text-white text-xs placeholder:text-gray-500 transition-all"
             />
           </div>
 
-          <div className="flex items-center gap-1.5 p-1 bg-black/30 border border-white/[0.06] rounded-xl text-xs">
+          <div className="flex items-center gap-1.5 p-1 bg-black/30 border border-white/[0.06] rounded-xl text-xs overflow-x-auto scrollbar-none whitespace-nowrap">
             <button
               onClick={() => setFilter("all")}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
                 filter === "all" ? "bg-white text-gray-900 font-bold" : "text-gray-400 hover:text-white"
               }`}
             >
@@ -283,7 +283,7 @@ export default function AdminMyOrdersPage() {
             </button>
             <button
               onClick={() => setFilter("pending")}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
                 filter === "pending" ? "bg-orange-500 text-white font-bold" : "text-gray-400 hover:text-white"
               }`}
             >
@@ -291,7 +291,7 @@ export default function AdminMyOrdersPage() {
             </button>
             <button
               onClick={() => setFilter("delivered")}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
+              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
                 filter === "delivered" ? "bg-emerald-600 text-white font-bold" : "text-gray-400 hover:text-white"
               }`}
             >

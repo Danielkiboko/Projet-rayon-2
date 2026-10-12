@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Plus, X, Search, Truck, Smartphone } from "lucide-react";
+import { Plus, X, Search, Truck, Smartphone, Copy, Check, Download, ExternalLink } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { sendPasswordResetEmail } from "firebase/auth";
+
+const DRIVER_APP_APK_URL = "https://expo.dev/artifacts/eas/CuY-nZ0kk1GwVdTmiAimwLjc34w2wMJ924j3pcK7JpM.apk";
 
 interface Driver {
   id: string;
@@ -21,6 +23,7 @@ export default function DriversPage() {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [successMessage, setSuccessMessage] = useState("");
+  const [copiedAppUrl, setCopiedAppUrl] = useState(false);
 
   // Form states
   const [name, setName] = useState("");
@@ -155,6 +158,48 @@ export default function DriversPage() {
         </div>
       )}
 
+      {/* APK Distribution Card */}
+      <div className="bg-gradient-to-r from-primary/10 via-white/5 to-primary/10 border border-primary/30 rounded-2xl p-5 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 rounded-xl bg-primary/20 border border-primary/40 flex items-center justify-center text-primary-light shrink-0">
+            <Smartphone size={24} />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <h2 className="text-base font-semibold text-white">Application Mobile Livreur Android (.APK)</h2>
+              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary-light rounded-full border border-primary/30">Officielle</span>
+            </div>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Envoyée automatiquement par e-mail et SMS à chaque création de livreur. Vous pouvez aussi la télécharger ou copier le lien ici.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2 w-full md:w-auto">
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(DRIVER_APP_APK_URL);
+              setCopiedAppUrl(true);
+              setTimeout(() => setCopiedAppUrl(false), 2500);
+            }}
+            className="flex-1 md:flex-initial flex items-center justify-center space-x-2 px-3 py-2 bg-white/10 hover:bg-white/15 text-white rounded-lg text-xs font-medium border border-white/10 transition-colors"
+          >
+            {copiedAppUrl ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+            <span>{copiedAppUrl ? "Lien copié !" : "Copier le lien APK"}</span>
+          </button>
+
+          <a
+            href={DRIVER_APP_APK_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 md:flex-initial flex items-center justify-center space-x-2 px-3 py-2 bg-primary hover:bg-primary-light text-white rounded-lg text-xs font-semibold shadow-md shadow-primary/20 transition-colors"
+          >
+            <Download size={14} />
+            <span>Télécharger APK</span>
+          </a>
+        </div>
+      </div>
+
       <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
         <div className="p-4 border-b border-white/10">
           <div className="relative max-w-sm">
@@ -169,7 +214,8 @@ export default function DriversPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Desktop Table (Hidden on mobile < md) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm text-gray-300">
             <thead className="text-xs uppercase bg-black/20 text-gray-400">
               <tr>
@@ -217,22 +263,79 @@ export default function DriversPage() {
                       <button 
                         onClick={() => {
                           const firstName = driver.name.split(' ')[0];
-                          const shareText = `Bonjour ${firstName} !\n\nVotre compte livreur Rayons a été créé.\n\n📱 Cliquez sur ce lien pour installer l'application :\nhttps://rayons.net/livreur-app/\n\n(Ouvrez le lien et choisissez "Ajouter à l'écran d'accueil")`;
+                          const shareText = `Bonjour ${firstName} !\n\nVotre compte livreur Rayons a été créé.\n\n📲 Téléchargez votre application mobile Android officielle ici :\n${DRIVER_APP_APK_URL}\n\nIdentifiant : ${driver.email}`;
                           window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
                         }}
-                        className="text-green-400 hover:text-green-300 transition-colors inline-flex items-center"
+                        className="text-green-400 hover:text-green-300 transition-colors inline-flex items-center cursor-pointer"
                         title="Envoyer l'application par WhatsApp"
                       >
                         <Smartphone size={16} className="mr-1" />
                         <span>Envoyer App</span>
                       </button>
-                      <button className="text-primary-light hover:text-white transition-colors">Gérer</button>
+                      <button className="text-primary-light hover:text-white transition-colors cursor-pointer">Gérer</button>
                     </td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Cards (Visible on mobile < md) */}
+        <div className="md:hidden divide-y divide-white/5">
+          {isLoading ? (
+            <div className="p-8 text-center text-gray-400 text-xs">Chargement des livreurs...</div>
+          ) : filteredDrivers.length === 0 ? (
+            <div className="p-8 text-center text-gray-400 text-xs">Aucun livreur trouvé.</div>
+          ) : (
+            filteredDrivers.map((driver) => {
+              const firstName = driver.name.split(' ')[0];
+              const shareText = `Bonjour ${firstName} !\n\nVotre compte livreur Rayons a été créé.\n\n📲 Téléchargez votre application mobile Android officielle ici :\n${DRIVER_APP_APK_URL}\n\nIdentifiant : ${driver.email}`;
+              const isIndep = driver.supplierId === 'superAdmin' || driver.supplierId === 'admin';
+
+              return (
+                <div key={driver.id} className="p-4 space-y-3">
+                  {/* Header: Driver Name, Icon & Status */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center text-primary-light shrink-0">
+                        <Truck size={17} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-white leading-tight">{driver.name}</h4>
+                        <p className="text-[11px] text-gray-400 truncate max-w-[190px]">{driver.email}</p>
+                      </div>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      driver.status === "Actif"
+                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        : "bg-red-500/10 text-red-400 border-red-500/20"
+                    }`}>
+                      {driver.status}
+                    </span>
+                  </div>
+
+                  {/* Affiliation & WhatsApp Action Button */}
+                  <div className="flex items-center justify-between pt-1">
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${
+                      isIndep ? 'bg-purple-500/15 text-purple-300 border border-purple-500/20' : 'bg-blue-500/15 text-blue-300 border border-blue-500/20'
+                    }`}>
+                      {isIndep ? 'Indépendant' : 'Fournisseur'}
+                    </span>
+
+                    <button
+                      onClick={() => window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank")}
+                      className="px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/25 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
+                      title="Envoyer l'APK par WhatsApp"
+                    >
+                      <Smartphone size={13} />
+                      <span>WhatsApp APK</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 

@@ -74,7 +74,7 @@ export default function ClientQuickStats({
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-5">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 mb-5">
       {stats.map((stat, i) => {
         const Icon = stat.icon;
         return (
@@ -85,27 +85,27 @@ export default function ClientQuickStats({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.04 }}
             onClick={() => onSelectTab(stat.tab)}
-            className={`p-4 sm:p-5 rounded-2xl bg-white border border-gray-200/90 text-left transition-all hover:shadow-md hover:scale-[1.01] active:scale-99 flex flex-col justify-between group cursor-pointer relative shadow-xs ${stat.cardBorder}`}
+            className={`p-3 sm:p-5 rounded-xl sm:rounded-2xl bg-white border border-gray-200/90 text-left transition-all hover:shadow-md hover:scale-[1.01] active:scale-99 flex flex-col justify-between group cursor-pointer relative shadow-2xs ${stat.cardBorder}`}
           >
             {/* Top row: Icon + Status Badge */}
-            <div className="flex items-center justify-between w-full mb-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${stat.iconBg}`}>
-                <Icon size={20} />
+            <div className="flex items-center justify-between w-full mb-2 sm:mb-3">
+              <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105 ${stat.iconBg}`}>
+                <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
-              <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${stat.badgeCls}`}>
+              <span className={`text-[8px] sm:text-[10px] uppercase font-bold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-full border truncate max-w-[55%] text-right ${stat.badgeCls}`}>
                 {stat.activeBadge}
               </span>
             </div>
 
             {/* Bottom: Numbers and titles */}
             <div>
-              <div className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight mb-1">
+              <div className="text-xl sm:text-3xl font-black text-gray-900 tracking-tight mb-0.5 sm:mb-1">
                 {stat.value}
               </div>
-              <div className="font-bold text-gray-800 text-xs sm:text-sm mb-0.5 group-hover:text-primary transition-colors">
+              <div className="font-bold text-gray-800 text-[11px] sm:text-sm mb-0.5 group-hover:text-primary transition-colors leading-tight">
                 {stat.title}
               </div>
-              <div className="text-[11px] text-gray-400 font-medium truncate">
+              <div className="text-[10px] sm:text-[11px] text-gray-400 font-medium truncate">
                 {stat.subtext}
               </div>
             </div>

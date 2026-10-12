@@ -154,7 +154,7 @@ export default function MissionDetails({ params }: { params: Promise<{ id: strin
 
   if (isLoading) {
     return (
-      <div className="bg-[#0b061c] min-h-screen flex items-center justify-center">
+      <div className="bg-[#0F1D27] min-h-screen flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-white/20 border-t-primary rounded-full animate-spin"></div>
       </div>
     );
@@ -162,7 +162,7 @@ export default function MissionDetails({ params }: { params: Promise<{ id: strin
 
   if (error || !order) {
     return (
-      <div className="bg-[#0b061c] min-h-screen flex flex-col items-center justify-center p-4 text-center">
+      <div className="bg-[#0F1D27] min-h-screen flex flex-col items-center justify-center p-4 text-center">
         <h2 className="text-white text-xl font-bold mb-4">{error || "Erreur"}</h2>
         <Link href="/driver" className="px-6 py-2 bg-primary text-white rounded-lg">Retour</Link>
       </div>
@@ -175,7 +175,7 @@ export default function MissionDetails({ params }: { params: Promise<{ id: strin
   const remaining = order.remainingBalance || order.totalAmount;
 
   return (
-    <div className="bg-[#0b061c] min-h-screen flex flex-col relative pb-20">
+    <div className="bg-[#0F1D27] min-h-screen flex flex-col relative pb-20">
       {/* Header Over Map */}
       <div className="absolute top-0 w-full z-10 bg-gradient-to-b from-black/80 to-transparent p-4 flex items-center justify-between">
         <button onClick={() => router.back()} className="w-10 h-10 bg-black/40 backdrop-blur-md rounded-full flex items-center justify-center text-white">

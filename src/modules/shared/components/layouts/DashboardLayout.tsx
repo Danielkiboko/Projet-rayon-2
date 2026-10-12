@@ -266,7 +266,7 @@ export function DashboardLayout({
       {/* Main content wrapper */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
         {/* Topbar */}
-        <header className="h-16 flex items-center justify-between px-3 sm:px-6 border-b border-white/10 bg-[#0F1D27]/90 backdrop-blur-md z-30 relative gap-2">
+        <header className="h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 border-b border-white/10 bg-[#0F1D27]/90 backdrop-blur-md z-30 relative gap-2">
           <div className="flex items-center min-w-0 flex-1 mr-2">
             <button onClick={() => setIsSidebarOpen(true)} className="mr-2.5 sm:mr-4 text-gray-400 hover:text-white lg:hidden shrink-0 p-1 rounded-lg hover:bg-white/5">
               <Menu size={22} />
@@ -312,8 +312,8 @@ export function DashboardLayout({
         </header>
         
         {/* Scrollable Content with Mobile-friendly spacing */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8 pb-24 lg:pb-8">
-          <div className="max-w-7xl mx-auto space-y-6">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-5 md:p-8 pb-24 lg:pb-8">
+          <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
             {/* Bannière de communiqué officiel si non lu */}
             {unreadAnnouncement && (
               <div className="bg-gradient-to-r from-[#0F1D27] via-[#162a38] to-[#0F1D27] border border-[#C7D300]/40 rounded-2xl p-4 md:p-5 shadow-xl shadow-black/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

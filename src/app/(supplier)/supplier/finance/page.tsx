@@ -715,120 +715,119 @@ export default function SupplierFinancePage() {
 
   return (
     <div className="space-y-6 pb-20">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Mon Livre de Caisse & Comptabilité</h1>
-          <p className="text-sm text-gray-400">
-            {isImmo ? "Comptabilité connectée : séparez les loyers d'habitation et les recettes d'hôtels." : "Gérez vos revenus de ventes et vos paiements."}
+          <div className="flex items-center gap-3">
+            <h1 className="text-xl font-bold text-white tracking-tight">Livre de Caisse & Trésorerie</h1>
+            <span className="px-2 py-0.5 bg-white/5 text-gray-400 border border-white/10 rounded-md text-[10px] font-bold uppercase tracking-widest">
+              {isImmo ? "Immobilier & Hôtellerie" : "E-commerce"}
+            </span>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            {isImmo
+              ? "Gestion des encaissements de loyers d'habitation, nuitées hôtelières et dépenses"
+              : "Suivi des ventes, encaissements livreurs et trésorerie physique disponible"}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2.5">
-          <button 
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button
             onClick={() => setIsAdjustmentModalOpen(true)}
-            className="flex items-center space-x-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shadow-sm"
+            className="flex items-center gap-1.5 bg-white/4 hover:bg-white/8 border border-white/8 text-gray-300 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all"
           >
-            <Sliders size={16} />
-            <span>Ajustement Caisse Magasin</span>
+            <Sliders size={14} />
+            <span>Ajustement</span>
           </button>
-          <button 
+
+          <button
             onClick={downloadCSV}
-            className="flex items-center space-x-1.5 bg-black/20 hover:bg-black/40 border border-white/10 text-white px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors"
+            className="flex items-center gap-1.5 bg-white/4 hover:bg-white/8 border border-white/8 text-gray-300 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all"
           >
-            <Download size={16} />
+            <Download size={14} />
             <span>Exporter CSV</span>
           </button>
-          <button 
+
+          <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center space-x-1.5 bg-[#C7D300] hover:bg-[#b0ba00] text-[#0F1D27] px-4 py-2 rounded-xl text-xs font-extrabold transition-all shadow-md cursor-pointer"
+            className="flex items-center gap-1.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] px-4 py-2 rounded-lg text-xs font-bold transition-all"
           >
-            <Plus size={16} />
-            <span>Ajouter Opération</span>
+            <Plus size={14} />
+            <span>Nouvelle Opération</span>
           </button>
         </div>
       </div>
 
-      {/* Finance Notice */}
+      {/* Notification Banner */}
       {financeNotice && (
-        <div className="p-4 bg-emerald-500/15 border border-emerald-500/30 rounded-xl flex items-center gap-3 text-emerald-300 text-xs font-semibold">
-          <CheckCircle size={18} className="text-emerald-400 shrink-0" />
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3.5 bg-[#C7D300]/8 border border-[#C7D300]/20 rounded-xl flex items-center gap-3 text-[#C7D300] text-xs font-semibold"
+        >
+          <CheckCircle size={16} className="shrink-0" />
           <span>{financeNotice}</span>
-        </div>
+        </motion.div>
       )}
 
-      {/* Supplier Deposit & Subscription Status Card (Uniquement pour boutique officielle admin) */}
+      {/* Boutique Officielle Admin (si applicable) */}
       {(userData?.isOfficialAdminStore || userData?.isAdminSupplier) && (
-        <div className="p-4 rounded-2xl border bg-amber-500/15 border-amber-500/30 text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="p-4 rounded-xl border border-white/10 bg-white/3 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="p-3 rounded-xl shrink-0 bg-amber-500/20 text-amber-400">
-              <span className="text-2xl">👑</span>
+            <div className="p-2.5 rounded-lg bg-white/5 text-gray-300 shrink-0">
+              <ShieldAlert size={18} />
             </div>
             <div>
-              <h3 className="font-bold text-sm text-white flex items-center gap-2">
-                <span>Boutique Officielle de l'Administration</span>
-                <span className="text-[10px] bg-amber-500/30 text-amber-200 border border-amber-500/40 px-2 py-0.5 rounded-full font-bold uppercase">
-                  Liée à l'Admin
+              <h3 className="font-bold text-xs text-white flex items-center gap-2">
+                <span>Boutique Officielle Rayons</span>
+                <span className="text-[10px] bg-[#C7D300]/10 text-[#C7D300] border border-[#C7D300]/20 px-2 py-0.5 rounded font-bold uppercase">
+                  Admin
                 </span>
               </h3>
-              <p className="text-xs text-amber-200/80 mt-0.5">
-                Ce compte est dispensé de frais de tenue de compte et d'abonnement. Toutes vos recettes de ventes sont automatiquement consolidées dans la trésorerie et la comptabilité générale de l'Administration.
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                Ce compte est dispensé de frais de tenue de compte. Toutes vos recettes sont consolidées dans la comptabilité centrale.
               </p>
             </div>
           </div>
-          <div className="text-xs font-semibold px-3 py-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl w-max shrink-0">
-            Exempté de tenue de compte
+          <div className="text-[11px] font-semibold px-2.5 py-1 bg-white/5 text-gray-400 border border-white/8 rounded-lg shrink-0">
+            Exempté de dépôt
           </div>
         </div>
       )}
 
-      {/* Sélecteur de Date Comptable Épuré : Calendrier & Aujourd'hui (24h) */}
-      <div className="bg-[#0B0F17]/80 backdrop-blur-md border border-white/10 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      {/* Sélecteur de Période Comptable */}
+      <div className="bg-white/3 border border-white/8 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-[#C7D300]/15 text-[#C7D300] rounded-xl shrink-0 border border-[#C7D300]/30">
-            <Calendar size={20} />
+          <div className="p-2 bg-white/5 text-gray-400 rounded-lg shrink-0">
+            <Calendar size={16} />
           </div>
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-sm font-bold text-white">
-                Période Comptable : <span className="text-[#C7D300] font-bold">{getPeriodLabel()}</span>
-              </h3>
-              {periodFilter === "today" ? (
-                <span className="text-[11px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Journalier (24h en direct)
-                </span>
-              ) : (
-                <span className="text-[11px] bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/40 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
-                  📅 Date sélectionnée
+            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">Période comptable</p>
+            <h3 className="text-sm font-bold text-white mt-0.5">
+              {getPeriodLabel()}
+              {periodFilter === "today" && (
+                <span className="ml-2 text-[10px] text-[#C7D300] font-bold">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#C7D300] animate-pulse mr-1 align-middle"></span>
+                  En direct
                 </span>
               )}
-            </div>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {periodFilter === "today" 
-                ? "Écritures des dernières 24h. Choisissez une date précise au calendrier pour consulter une autre journée."
-                : `Comptabilité filtrée pour : ${getPeriodLabel()}.`}
-            </p>
+            </h3>
           </div>
         </div>
 
-        {/* Contrôles Calendrier & Reset Aujourd'hui */}
-        <div className="flex items-center gap-2.5 flex-wrap w-full md:w-auto justify-start md:justify-end">
-          <div className="flex items-center gap-2 bg-black/40 border border-white/15 rounded-xl px-3 py-1.5">
-            <span className="text-xs text-gray-300 font-medium flex items-center gap-1.5">
-              <Calendar size={14} className="text-[#C7D300]" />
-              <span className="hidden sm:inline">Choisir une date :</span>
-            </span>
-            <input
-              type="date"
-              value={selectedCalendarDate}
-              onChange={(e) => {
-                setSelectedCalendarDate(e.target.value);
-                setCalendarStartDate("");
-                setCalendarEndDate("");
-                setPeriodFilter("custom");
-              }}
-              className="bg-white/10 border border-white/20 rounded-lg px-2.5 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300] cursor-pointer"
-            />
-          </div>
+        {/* Contrôles Calendrier */}
+        <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
+          <input
+            type="date"
+            value={selectedCalendarDate}
+            onChange={(e) => {
+              setSelectedCalendarDate(e.target.value);
+              setCalendarStartDate("");
+              setCalendarEndDate("");
+              setPeriodFilter("custom");
+            }}
+            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300] cursor-pointer"
+          />
 
           {periodFilter === "custom" ? (
             <button
@@ -840,9 +839,9 @@ export default function SupplierFinancePage() {
                 setCalendarEndDate("");
                 setShowRangePicker(false);
               }}
-              className="text-xs bg-[#C7D300] hover:bg-[#b0ba00] text-[#0F1D27] font-extrabold px-3.5 py-2 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+              className="text-xs bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold px-3 py-1.5 rounded-lg transition-all"
             >
-              <span>⚡ Revenir à Aujourd'hui (24h)</span>
+              Aujourd&apos;hui
             </button>
           ) : (
             <button
@@ -851,28 +850,26 @@ export default function SupplierFinancePage() {
                 setPeriodFilter("today");
                 setSelectedCalendarDate("");
               }}
-              className="text-xs bg-[#C7D300]/20 text-[#C7D300] font-extrabold px-3.5 py-2 rounded-xl border border-[#C7D300]/40 flex items-center gap-1.5 shadow-sm"
+              className="text-xs border border-white/10 text-gray-400 font-semibold px-3 py-1.5 rounded-lg hover:text-white transition-all"
             >
-              <span>⚡ Aujourd'hui (24h)</span>
+              Aujourd&apos;hui
             </button>
           )}
 
           <button
             type="button"
             onClick={() => setShowRangePicker(!showRangePicker)}
-            className="text-xs text-gray-400 hover:text-white px-2 py-1 transition-colors cursor-pointer"
-            title="Plage de dates (Du / Au)"
+            className="text-xs text-gray-500 hover:text-gray-300 px-2 py-1.5 transition-colors"
           >
-            {showRangePicker ? "▾ Masquer plage" : "▸ Plage"}
+            {showRangePicker ? "▾ Plage" : "▸ Plage"}
           </button>
         </div>
 
-        {/* Plage personnalisée si dépliée */}
         {showRangePicker && (
-          <div className="w-full pt-3 border-t border-white/10 flex flex-wrap items-center gap-3 text-xs animate-fade-in">
-            <span className="text-gray-400 font-semibold">Plage personnalisée :</span>
+          <div className="w-full pt-3 border-t border-white/8 flex flex-wrap items-center gap-3 text-xs">
+            <span className="text-gray-500 font-semibold">Plage :</span>
             <div className="flex items-center gap-2">
-              <span className="text-gray-300">Du :</span>
+              <span className="text-gray-500">Du</span>
               <input
                 type="date"
                 value={calendarStartDate}
@@ -881,11 +878,11 @@ export default function SupplierFinancePage() {
                   setSelectedCalendarDate("");
                   setPeriodFilter("custom");
                 }}
-                className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300] cursor-pointer"
+                className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
               />
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-gray-300">Au :</span>
+              <span className="text-gray-500">Au</span>
               <input
                 type="date"
                 value={calendarEndDate}
@@ -894,206 +891,112 @@ export default function SupplierFinancePage() {
                   setSelectedCalendarDate("");
                   setPeriodFilter("custom");
                 }}
-                className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300] cursor-pointer"
+                className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
               />
             </div>
           </div>
         )}
       </div>
 
-      {/* KPI Cards */}
+      {/* KPI Cards — Palette Monochromatique Épurée */}
       {isImmo ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          <div className="bg-[#0F1D27] border border-[#C7D300]/30 rounded-2xl p-5 shadow-lg">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[#C7D300] text-xs font-bold uppercase tracking-wider">Caisse Magasin (Dispo)</h3>
-              <div className="p-2 bg-[#C7D300]/15 rounded-lg border border-[#C7D300]/25">
-                <Wallet className="text-[#C7D300]" size={18} />
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3">
+          {[
+            { label: "Caisse Magasin", value: `$${storeAvailableBalance.toFixed(2)}`, sub: "Cash disponible", icon: <Wallet size={14} />, accent: true },
+            { label: "Loyers Habitation", value: `$${totalHabitationIncome.toFixed(2)}`, sub: getPeriodLabel(), icon: <Home size={14} />, accent: false },
+            { label: "Hôtellerie", value: `$${totalHotelIncome.toFixed(2)}`, sub: getPeriodLabel(), icon: <Hotel size={14} />, accent: false },
+            { label: "Charges & Dépenses", value: `$${periodPayout.toFixed(2)}`, sub: getPeriodLabel(), icon: <ArrowUpRight size={14} />, accent: false, negative: true },
+            { label: "Capital Récupéré", value: `$${periodCapital.toFixed(2)}`, sub: "Investissement amorti", icon: <Landmark size={14} />, accent: false },
+            { label: "Marge Nette", value: `+$${periodNetProfit.toFixed(2)}`, sub: "Bénéfice net", icon: <TrendingUp size={14} />, accent: false, positive: true },
+          ].map((kpi, idx) => (
+            <div key={idx} className="bg-white/3 border border-white/8 rounded-xl p-3 sm:p-4 flex flex-col justify-between gap-2 sm:gap-3 min-h-[95px] sm:min-h-[110px]">
+              <div className="flex items-center justify-between gap-1">
+                <p className="text-gray-500 text-[10px] font-semibold uppercase tracking-wider truncate">{kpi.label}</p>
+                <span className={`p-1 sm:p-1.5 rounded-md shrink-0 ${kpi.accent ? "bg-[#C7D300]/10 text-[#C7D300]" : "bg-white/5 text-gray-500"}`}>
+                  {kpi.icon}
+                </span>
               </div>
+              <p className={`text-base sm:text-xl font-black tabular-nums truncate ${kpi.negative ? "text-rose-400" : kpi.positive ? "text-emerald-400" : kpi.accent ? "text-[#C7D300]" : "text-white"}`}>
+                {kpi.value}
+              </p>
+              <p className="text-[10px] text-gray-600 truncate">{kpi.sub}</p>
             </div>
-            <p className="text-2xl font-bold text-white mt-3">${storeAvailableBalance.toFixed(2)}</p>
-            <p className="text-[11px] text-gray-400 mt-1">Fonds physiques en caisse</p>
-          </div>
-
-          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-emerald-300 text-xs font-semibold uppercase">🏠 Loyers Habitation</h3>
-              <div className="p-2 bg-emerald-500/20 rounded-lg">
-                <Home className="text-emerald-400" size={18} />
-              </div>
-            </div>
-            <p className="text-2xl font-bold text-emerald-400 mt-3">${totalHabitationIncome.toFixed(2)}</p>
-            <p className="text-[11px] text-emerald-300/70 mt-1">{getPeriodLabel()}</p>
-          </div>
-
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-amber-300 text-xs font-semibold uppercase">🏨 Hôtellerie</h3>
-              <div className="p-2 bg-amber-500/20 rounded-lg">
-                <Hotel className="text-amber-400" size={18} />
-              </div>
-            </div>
-            <p className="text-2xl font-bold text-amber-400 mt-3">${totalHotelIncome.toFixed(2)}</p>
-            <p className="text-[11px] text-amber-300/70 mt-1">{getPeriodLabel()}</p>
-          </div>
-
-          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-red-300 text-xs font-semibold uppercase">Dépenses & Charges</h3>
-              <div className="p-2 bg-red-500/20 rounded-lg">
-                <ArrowUpRight className="text-red-400" size={18} />
-              </div>
-            </div>
-            <p className="text-2xl font-bold text-red-400 mt-3">${periodPayout.toFixed(2)}</p>
-            <p className="text-[11px] text-red-300/70 mt-1">{getPeriodLabel()}</p>
-          </div>
-
-          <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-indigo-300 text-xs font-semibold uppercase">Capital Récupéré</h3>
-              <div className="p-2 bg-indigo-500/20 rounded-lg">
-                <Landmark className="text-indigo-400" size={18} />
-              </div>
-            </div>
-            <p className="text-2xl font-bold text-indigo-400 mt-3">${periodCapital.toFixed(2)}</p>
-            <p className="text-[11px] text-indigo-300/70 mt-1">Investissement amorti</p>
-          </div>
-
-          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-emerald-300 text-xs font-semibold uppercase">Intérêts (Bénéfice)</h3>
-              <div className="p-2 bg-emerald-500/20 rounded-lg">
-                <TrendingUp className="text-emerald-400" size={18} />
-              </div>
-            </div>
-            <p className="text-2xl font-bold text-emerald-400 mt-3">+${periodNetProfit.toFixed(2)}</p>
-            <p className="text-[11px] text-emerald-300/70 mt-1">Marge nette {getPeriodLabel()}</p>
-          </div>
+          ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-          {/* 1. Caisse Magasin Disponible */}
-          <div className="bg-[#0F1D27] border border-[#C7D300]/30 rounded-2xl p-5 shadow-lg">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[#C7D300] text-xs font-bold uppercase tracking-wider">Caisse Magasin</h3>
-              <div className="p-2 bg-[#C7D300]/15 rounded-lg border border-[#C7D300]/25">
-                <Wallet className="text-[#C7D300]" size={18} />
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3">
+          {[
+            { label: "Caisse Magasin", value: `$${storeAvailableBalance.toFixed(2)}`, sub: "Cash disponible", icon: <Wallet size={14} />, accent: true },
+            { label: "Chez Livreurs", value: `$${pendingCashTotal.toFixed(2)}`, sub: `${pendingHandovers.length} course(s)`, icon: <Clock size={14} />, accent: pendingHandovers.length > 0, pending: true },
+            { label: "Revenus Ventes", value: `$${periodIncome.toFixed(2)}`, sub: getPeriodLabel(), icon: <ArrowDownRight size={14} />, accent: false },
+            { label: "Dépenses / Sorties", value: `$${periodPayout.toFixed(2)}`, sub: getPeriodLabel(), icon: <ArrowUpRight size={14} />, accent: false, negative: true },
+            { label: "Capital Récupéré", value: `$${periodCapital.toFixed(2)}`, sub: "Prix d'achat amorti", icon: <Landmark size={14} />, accent: false },
+            { label: "Marge Nette", value: `+$${periodNetProfit.toFixed(2)}`, sub: "Bénéfice net", icon: <TrendingUp size={14} />, accent: false, positive: true },
+          ].map((kpi, idx) => (
+            <div key={idx} className="bg-white/3 border border-white/8 rounded-xl p-3 sm:p-4 flex flex-col justify-between gap-2 sm:gap-3 min-h-[95px] sm:min-h-[110px]">
+              <div className="flex items-center justify-between gap-1">
+                <p className="text-gray-500 text-[10px] font-semibold uppercase tracking-wider truncate">{kpi.label}</p>
+                <span className={`p-1 sm:p-1.5 rounded-md shrink-0 ${kpi.accent ? "bg-[#C7D300]/10 text-[#C7D300]" : "bg-white/5 text-gray-500"}`}>
+                  {kpi.icon}
+                </span>
               </div>
+              <p className={`text-base sm:text-xl font-black tabular-nums truncate ${kpi.negative ? "text-rose-400" : kpi.positive ? "text-emerald-400" : kpi.pending ? "text-amber-300" : kpi.accent ? "text-[#C7D300]" : "text-white"}`}>
+                {kpi.value}
+              </p>
+              <p className="text-[10px] text-gray-600 truncate">{kpi.sub}</p>
             </div>
-            <p className="text-2xl sm:text-3xl font-bold text-white mt-3">${storeAvailableBalance.toFixed(2)}</p>
-            <p className="text-[11px] text-gray-400 mt-1">Cash physique disponible</p>
-          </div>
-
-          {/* 2. Chez les Livreurs */}
-          <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-amber-300 text-xs font-semibold uppercase">Chez les Livreurs</h3>
-              <div className="p-2 bg-amber-500/20 rounded-lg">
-                <Clock className="text-amber-400 animate-pulse" size={18} />
-              </div>
-            </div>
-            <p className="text-2xl sm:text-3xl font-bold text-amber-400 mt-3">${pendingCashTotal.toFixed(2)}</p>
-            <p className="text-[11px] text-amber-300/80 mt-1">{pendingHandovers.length} course(s) en attente</p>
-          </div>
-          
-          {/* 3. Revenus Réalisés Période */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-gray-400 text-xs font-semibold uppercase">Revenus ({getPeriodLabel()})</h3>
-              <div className="p-2 bg-green-500/20 rounded-lg">
-                <ArrowDownRight className="text-green-400" size={18} />
-              </div>
-            </div>
-            <p className="text-2xl sm:text-3xl font-bold text-white mt-3">${periodIncome.toFixed(2)}</p>
-            <p className="text-[11px] text-gray-400 mt-1">Entrées de la période</p>
-          </div>
-
-          {/* 4. Dépenses Période */}
-          <div className="bg-white/5 border border-white/10 rounded-2xl p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-gray-400 text-xs font-semibold uppercase">Dépenses ({getPeriodLabel()})</h3>
-              <div className="p-2 bg-red-500/20 rounded-lg">
-                <ArrowUpRight className="text-red-400" size={18} />
-              </div>
-            </div>
-            <p className="text-2xl sm:text-3xl font-bold text-white mt-3">${periodPayout.toFixed(2)}</p>
-            <p className="text-[11px] text-gray-400 mt-1">Sorties & charges</p>
-          </div>
-
-          {/* 5. Capital Récupéré (Prix d'achat des produits vendus) */}
-          <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-2xl p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-indigo-300 text-xs font-semibold uppercase">Capital Récupéré</h3>
-              <div className="p-2 bg-indigo-500/20 rounded-lg">
-                <Landmark className="text-indigo-400" size={18} />
-              </div>
-            </div>
-            <p className="text-2xl sm:text-3xl font-bold text-indigo-400 mt-3">${periodCapital.toFixed(2)}</p>
-            <p className="text-[11px] text-indigo-300/80 mt-1">Capital investi amorti</p>
-          </div>
-
-          {/* 6. Intérêts Réalisés (Marge nette) */}
-          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-5">
-            <div className="flex items-center justify-between">
-              <h3 className="text-emerald-300 text-xs font-semibold uppercase">Intérêts (Bénéfice)</h3>
-              <div className="p-2 bg-emerald-500/20 rounded-lg">
-                <TrendingUp className="text-emerald-400" size={18} />
-              </div>
-            </div>
-            <p className="text-2xl sm:text-3xl font-bold text-emerald-400 mt-3">+${periodNetProfit.toFixed(2)}</p>
-            <p className="text-[11px] text-emerald-300/80 mt-1">Marge nette {getPeriodLabel()}</p>
-          </div>
+          ))}
         </div>
       )}
 
-      {/* Bannière interactive des fonds chez les livreurs */}
+      {/* Bannière Interactive des Fonds chez les Livreurs */}
       {pendingHandovers.length > 0 && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-5 shadow-lg">
+        <div className="bg-white/3 border border-amber-500/25 rounded-xl p-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <div className="flex items-center space-x-3">
-              <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl">
-                <Clock size={22} className="animate-pulse" />
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-amber-500/10 text-amber-300 rounded-lg shrink-0">
+                <Clock size={18} />
               </div>
               <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <span>Fonds Encaissés par les Livreurs en Attente de Caisse</span>
-                  <span className="bg-amber-500/30 text-amber-300 text-xs px-2.5 py-0.5 rounded-full font-bold border border-amber-500/40">
+                <h3 className="text-xs font-bold text-white flex items-center gap-2">
+                  <span>Espèces Détenues par les Livreurs</span>
+                  <span className="text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/25 px-2 py-0.5 rounded font-bold">
                     {pendingHandovers.length} commande(s)
                   </span>
                 </h3>
-                <p className="text-xs text-amber-200/80">
-                  Ces sommes ont été payées en espèces par les clients à la livraison. Cliquez sur "Valider la réception" dès que le livreur vous remet l'argent en boutique pour l'intégrer au livre de caisse.
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  Validez la réception dès que le livreur vous remet le cash en boutique pour l&apos;intégrer à la caisse.
                 </p>
               </div>
             </div>
             <div className="sm:text-right shrink-0">
-              <span className="text-[11px] text-amber-300/80 uppercase font-bold tracking-wider">Total à reverser</span>
-              <p className="text-2xl font-black text-amber-400">${pendingCashTotal.toFixed(2)}</p>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">Total à recevoir</p>
+              <p className="text-lg font-black text-amber-300 tabular-nums">${pendingCashTotal.toFixed(2)}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {pendingHandovers.map((item) => (
-              <div key={item.orderId} className="bg-black/40 border border-amber-500/25 rounded-xl p-4 flex flex-col justify-between space-y-3">
+              <div key={item.orderId} className="bg-black/30 border border-white/8 rounded-lg p-3 flex flex-col justify-between gap-3">
                 <div className="flex items-start justify-between">
                   <div>
-                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">Commande #{item.orderNumber}</span>
-                    <p className="text-sm font-semibold text-white mt-0.5 line-clamp-1">{item.description || "Articles livrés"}</p>
+                    <span className="font-mono text-[10px] font-bold text-gray-400 uppercase">#{item.orderNumber}</span>
+                    <p className="text-xs font-semibold text-white mt-0.5 line-clamp-1">{item.description || "Articles livrés"}</p>
                   </div>
-                  <span className="text-lg font-black text-emerald-400">${Number(item.amount || 0).toFixed(2)}</span>
+                  <span className="text-sm font-black text-white tabular-nums">${Number(item.amount || 0).toFixed(2)}</span>
                 </div>
 
-                <div className="flex items-center justify-between text-xs text-gray-300 bg-white/5 p-2.5 rounded-lg border border-white/5">
+                <div className="flex items-center justify-between text-xs text-gray-400 bg-white/3 px-2.5 py-2 rounded-md">
                   <div>
-                    <p className="text-[10px] text-gray-400 uppercase">Livreur détenteur</p>
-                    <p className="font-bold text-white">{item.driverName || "Livreur"}</p>
+                    <p className="text-[10px] text-gray-600 uppercase">Livreur</p>
+                    <p className="font-medium text-gray-300 text-[11px]">{item.driverName || "Livreur"}</p>
                   </div>
                   {item.driverPhone && (
                     <a
                       href={`tel:${item.driverPhone}`}
-                      className="flex items-center space-x-1 text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 px-2.5 py-1 rounded-lg transition-colors"
+                      className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-white px-2 py-1 rounded bg-white/5 border border-white/8 transition-colors"
                     >
-                      <Phone size={12} />
+                      <Phone size={10} />
                       <span>{item.driverPhone}</span>
                     </a>
                   )}
@@ -1102,17 +1005,17 @@ export default function SupplierFinancePage() {
                 <button
                   onClick={() => handleClearCash(item.orderId)}
                   disabled={clearingOrderId === item.orderId}
-                  className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center justify-center space-x-2 disabled:opacity-50"
+                  className="w-full py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
                 >
                   {clearingOrderId === item.orderId ? (
                     <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>Enregistrement en caisse...</span>
+                      <Loader2 size={12} className="animate-spin" />
+                      <span>Validation...</span>
                     </>
                   ) : (
                     <>
-                      <CheckCircle size={14} />
-                      <span>Valider la réception en caisse</span>
+                      <CheckCircle size={12} />
+                      <span>Valider la réception</span>
                     </>
                   )}
                 </button>
@@ -1122,12 +1025,15 @@ export default function SupplierFinancePage() {
         </div>
       )}
 
-      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex space-x-2 overflow-x-auto pb-1 sm:pb-0">
+      {/* Table & Filtres */}
+      <div className="bg-white/3 border border-white/8 rounded-xl overflow-hidden">
+        <div className="p-4 border-b border-white/8 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-1.5 text-[11px]">
             <button
               onClick={() => setFilter("ALL")}
-              className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 ${filter === "ALL" ? "bg-white/10 text-white" : "text-gray-400 hover:text-white"}`}
+              className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                filter === "ALL" ? "bg-[#C7D300] text-[#0F1D27]" : "bg-white/5 text-gray-500 hover:text-gray-300"
+              }`}
             >
               Tous
             </button>
@@ -1135,93 +1041,98 @@ export default function SupplierFinancePage() {
               <>
                 <button
                   onClick={() => setFilter("RENT_INCOME")}
-                  className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 flex items-center gap-1.5 ${filter === "RENT_INCOME" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "text-gray-400 hover:text-white"}`}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors flex items-center gap-1 ${
+                    filter === "RENT_INCOME" ? "bg-[#C7D300] text-[#0F1D27]" : "bg-white/5 text-gray-500 hover:text-gray-300"
+                  }`}
                 >
-                  <Home size={14} />
+                  <Home size={12} />
                   <span>Loyers Habitation</span>
                 </button>
                 <button
                   onClick={() => setFilter("HOTEL_INCOME")}
-                  className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 flex items-center gap-1.5 ${filter === "HOTEL_INCOME" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "text-gray-400 hover:text-white"}`}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors flex items-center gap-1 ${
+                    filter === "HOTEL_INCOME" ? "bg-[#C7D300] text-[#0F1D27]" : "bg-white/5 text-gray-500 hover:text-gray-300"
+                  }`}
                 >
-                  <Hotel size={14} />
-                  <span>Recettes Hôtellerie</span>
+                  <Hotel size={12} />
+                  <span>Hôtellerie</span>
                 </button>
               </>
             ) : (
               <>
                 <button
                   onClick={() => setFilter("INCOME")}
-                  className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 ${filter === "INCOME" ? "bg-green-500/20 text-green-400" : "text-gray-400 hover:text-white"}`}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                    filter === "INCOME" ? "bg-[#C7D300] text-[#0F1D27]" : "bg-white/5 text-gray-500 hover:text-gray-300"
+                  }`}
                 >
-                  Entrées (Ventes)
+                  Ventes
                 </button>
                 <button
                   onClick={() => setFilter("PENDING_HANDOVER")}
-                  className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 flex items-center gap-1.5 ${filter === "PENDING_HANDOVER" ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "text-gray-400 hover:text-white"}`}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors flex items-center gap-1 ${
+                    filter === "PENDING_HANDOVER" ? "bg-[#C7D300] text-[#0F1D27]" : "bg-white/5 text-gray-500 hover:text-gray-300"
+                  }`}
                 >
-                  <Clock size={14} />
-                  <span>Chez les Livreurs {pendingHandovers.length > 0 ? `(${pendingHandovers.length})` : ''}</span>
+                  <Clock size={12} />
+                  <span>Chez Livreurs {pendingHandovers.length > 0 ? `(${pendingHandovers.length})` : ""}</span>
                 </button>
               </>
             )}
             {!isImmo && (
               <button
                 onClick={() => setFilter("PAYOUT")}
-                className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 ${filter === "PAYOUT" ? "bg-blue-500/20 text-blue-400" : "text-gray-400 hover:text-white"}`}
+                className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                  filter === "PAYOUT" ? "bg-[#C7D300] text-[#0F1D27]" : "bg-white/5 text-gray-500 hover:text-gray-300"
+                }`}
               >
                 Paiements Livreurs
               </button>
             )}
             <button
               onClick={() => setFilter("EXPENSE")}
-              className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors shrink-0 ${filter === "EXPENSE" ? "bg-red-500/20 text-red-400" : "text-gray-400 hover:text-white"}`}
+              className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                filter === "EXPENSE" ? "bg-[#C7D300] text-[#0F1D27]" : "bg-white/5 text-gray-500 hover:text-gray-300"
+              }`}
             >
               Dépenses
             </button>
           </div>
+
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" size={13} />
             <input
               type="text"
-              placeholder="Rechercher..."
+              placeholder="Rechercher description ou référence..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full sm:w-64 pl-10 pr-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white text-sm"
+              className="w-full sm:w-60 pl-8 pr-3 py-1.5 bg-white/5 border border-white/8 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 text-white text-[11px] placeholder:text-gray-600"
             />
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-300">
-            <thead className="text-xs uppercase bg-black/20 text-gray-400">
-              <tr>
-                <th className="px-6 py-4">Date</th>
-                <th className="px-6 py-4">Branche / Type</th>
-                <th className="px-6 py-4">Description</th>
-                <th className="px-6 py-4">Référence</th>
-                <th className="px-6 py-4 text-right">Montant (USD)</th>
+        {/* Desktop Table (≥ md) */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full min-w-[700px] text-left">
+            <thead>
+              <tr className="border-b border-white/8">
+                {["Date", "Type / Branche", "Description", "Référence", "Montant (USD)"].map((h) => (
+                  <th key={h} className="px-4 py-3 text-[10px] font-semibold text-gray-600 uppercase tracking-wider last:text-right">
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-white/5">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-400">Chargement...</td>
+                  <td colSpan={5} className="px-6 py-12 text-center text-xs text-gray-600">Chargement des opérations...</td>
                 </tr>
               ) : filteredTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-gray-400">
-                    <p className="font-semibold text-white">Aucune opération pour : {getPeriodLabel()}</p>
-                    {periodFilter === "today" ? (
-                      <p className="text-xs text-gray-400 mt-1">
-                        Les transactions de plus de 24h sont automatiquement archivées dans l'historique.<br />
-                        Pour les consulter, sélectionnez <strong className="text-white">"Hier"</strong>, <strong className="text-white">"7 derniers jours"</strong> ou <strong className="text-white">"Tout l'historique"</strong> dans la barre de période ci-dessus.
-                      </p>
-                    ) : (
-                      <p className="text-xs text-gray-400 mt-1">
-                        Aucune transaction ne correspond à cette période ou à vos filtres.
-                      </p>
-                    )}
+                  <td colSpan={5} className="px-6 py-12 text-center">
+                    <p className="text-sm font-semibold text-gray-400">Aucune opération pour {getPeriodLabel()}</p>
+                    <p className="text-xs text-gray-600 mt-1">Modifiez la période ou les filtres pour consulter l&apos;historique.</p>
                   </td>
                 </tr>
               ) : (
@@ -1231,85 +1142,77 @@ export default function SupplierFinancePage() {
                   const isPending = t.isPendingHandover || t.status === "PENDING_HANDOVER";
 
                   return (
-                    <tr key={t.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                      <td className="px-6 py-4">
-                        {t.createdAt?.toDate 
-                          ? t.createdAt.toDate().toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) 
-                          : t.createdAt?.seconds 
-                          ? new Date(t.createdAt.seconds * 1000).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })
-                          : (t.createdAt ? new Date(t.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Aujourd\'hui')}
+                    <tr key={t.id} className="hover:bg-white/3 transition-colors">
+                      <td className="px-4 py-3 text-[11px] text-gray-500">
+                        {t.createdAt?.toDate
+                          ? t.createdAt.toDate().toLocaleDateString("fr-FR")
+                          : t.createdAt?.seconds
+                          ? new Date(t.createdAt.seconds * 1000).toLocaleDateString("fr-FR")
+                          : t.createdAt
+                          ? new Date(t.createdAt).toLocaleDateString("fr-FR")
+                          : "—"}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3">
                         {isPending ? (
-                          <span className="inline-flex items-center text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 rounded text-xs font-semibold">
-                            <Clock size={12} className="mr-1"/> Chez le Livreur
+                          <span className="text-[10px] font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded">
+                            Chez Livreur
                           </span>
                         ) : t.type === "INCOME" ? (
                           isHotel ? (
-                            <span className="inline-flex items-center text-amber-300 bg-amber-500/15 border border-amber-500/30 px-2.5 py-1 rounded text-xs font-semibold">
-                              <Hotel size={12} className="mr-1"/> Hôtellerie
+                            <span className="text-[10px] font-bold text-gray-300 bg-white/6 px-2 py-0.5 rounded">
+                              Hôtellerie
                             </span>
                           ) : isRent ? (
-                            <span className="inline-flex items-center text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-1 rounded text-xs font-semibold">
-                              <Home size={12} className="mr-1"/> Habitation
+                            <span className="text-[10px] font-bold text-gray-300 bg-white/6 px-2 py-0.5 rounded">
+                              Habitation
                             </span>
                           ) : (
-                            <span className="inline-flex items-center text-green-400 bg-green-400/10 px-2.5 py-1 rounded text-xs">
-                              <ArrowDownRight size={12} className="mr-1"/> Entrée Caisse
+                            <span className="text-[10px] font-bold text-[#C7D300] bg-[#C7D300]/8 px-2 py-0.5 rounded">
+                              Vente
                             </span>
                           )
                         ) : t.type === "PAYOUT" ? (
-                          <span className="inline-flex items-center text-blue-400 bg-blue-400/10 px-2 py-1 rounded text-xs"><ArrowUpRight size={12} className="mr-1"/> Retrait</span>
+                          <span className="text-[10px] font-bold text-gray-400 bg-white/5 px-2 py-0.5 rounded">
+                            Paiement
+                          </span>
                         ) : (
-                          <span className="inline-flex items-center text-red-400 bg-red-400/10 px-2 py-1 rounded text-xs"><ArrowUpRight size={12} className="mr-1"/> Sortie {t.category ? `(${t.category})` : ''}</span>
+                          <span className="text-[10px] font-bold text-rose-400 bg-rose-400/8 px-2 py-0.5 rounded">
+                            Dépense {t.category ? `(${t.category})` : ""}
+                          </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-white font-medium">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span>{t.description}</span>
+                      <td className="px-4 py-3 text-[11px] text-gray-300 max-w-xs truncate">
+                        <div className="flex items-center gap-2">
+                          <span title={t.description}>{t.description}</span>
                           {isPending && (
                             <button
                               onClick={() => handleClearCash(t.orderId || t.referenceId || t.id)}
                               disabled={clearingOrderId === (t.orderId || t.referenceId || t.id)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/30 text-emerald-300 text-xs font-bold rounded-lg transition-colors"
+                              className="px-2 py-0.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-[10px] font-bold rounded transition-colors shrink-0"
                             >
-                              {clearingOrderId === (t.orderId || t.referenceId || t.id) ? (
-                                <>
-                                  <Loader2 size={12} className="animate-spin" />
-                                  <span>Validation...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <CheckCircle size={12} />
-                                  <span>Valider Réception</span>
-                                </>
-                              )}
+                              {clearingOrderId === (t.orderId || t.referenceId || t.id) ? "Validation..." : "Valider Cash"}
                             </button>
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-gray-400">{t.referenceId || "-"}</td>
-                      <td className={`px-6 py-4 text-right font-bold ${
-                        isPending 
-                          ? 'text-amber-400' 
-                          : t.type === 'INCOME' 
-                          ? 'text-green-400' 
-                          : 'text-white'
-                      }`}>
-                        <div>
-                          <div>{t.type === 'INCOME' ? '+' : '-'}${t.amount.toFixed(2)}</div>
-                          {t.type === 'INCOME' && (Number(t.capital) > 0 || Number(t.profit) > 0) && (
-                            <div className="flex flex-col text-[10px] font-normal mt-0.5 text-right">
-                              <span className="text-gray-400">Capital: ${Number(t.capital || 0).toFixed(2)}</span>
-                              <span className="text-emerald-400 font-semibold">Intérêt: +${Number(t.profit !== undefined ? t.profit : (t.amount - (t.capital || 0))).toFixed(2)}</span>
-                            </div>
-                          )}
-                          {isPending && (
-                            <span className="block text-[10px] text-amber-300/80 font-normal">
-                              en attente caisse
-                            </span>
-                          )}
-                        </div>
+                      <td className="px-4 py-3 font-mono text-[11px] text-gray-600">{t.referenceId || "—"}</td>
+                      <td className="px-4 py-3 text-right">
+                        <span
+                          className={`text-[11px] font-bold tabular-nums ${
+                            isPending
+                              ? "text-amber-300"
+                              : t.type === "INCOME"
+                              ? "text-[#C7D300]"
+                              : "text-rose-400"
+                          }`}
+                        >
+                          {t.type === "INCOME" ? "+" : "-"}${t.amount.toFixed(2)}
+                        </span>
+                        {t.type === "INCOME" && (Number(t.capital) > 0 || Number(t.profit) > 0) && (
+                          <div className="text-[10px] text-gray-600 font-mono">
+                            Marge: +${Number(t.profit !== undefined ? t.profit : t.amount - (t.capital || 0)).toFixed(2)}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -1318,108 +1221,201 @@ export default function SupplierFinancePage() {
             </tbody>
           </table>
         </div>
+
+        {/* Mobile Transactions List (< md) */}
+        <div className="md:hidden divide-y divide-white/5">
+          {isLoading ? (
+            <div className="p-8 text-center text-xs text-gray-500 font-medium">Chargement des opérations...</div>
+          ) : filteredTransactions.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-xs font-semibold text-gray-400">Aucune opération pour {getPeriodLabel()}</p>
+              <p className="text-[10px] text-gray-600 mt-0.5">Modifiez la période ou les filtres.</p>
+            </div>
+          ) : (
+            filteredTransactions.map((t) => {
+              const isHotel = t.branch === "hotel" || (t.category || "").toLowerCase().includes("hôtellerie") || (t.category || "").toLowerCase().includes("hotel");
+              const isRent = t.branch === "habitation" || (t.category || "").toLowerCase().includes("loyer") || t.id.startsWith("payment_");
+              const isPending = t.isPendingHandover || t.status === "PENDING_HANDOVER";
+
+              const dateStr = t.createdAt?.toDate
+                ? t.createdAt.toDate().toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })
+                : t.createdAt?.seconds
+                ? new Date(t.createdAt.seconds * 1000).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })
+                : t.createdAt
+                ? new Date(t.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })
+                : "—";
+
+              return (
+                <div key={t.id} className="p-3.5 flex flex-col gap-2 hover:bg-white/3 transition-colors">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-gray-500 font-mono">{dateStr}</span>
+                      {isPending ? (
+                        <span className="text-[9px] font-bold text-amber-300 bg-amber-500/15 px-1.5 py-0.5 rounded">
+                          Chez Livreur
+                        </span>
+                      ) : t.type === "INCOME" ? (
+                        isHotel ? (
+                          <span className="text-[9px] font-bold text-gray-300 bg-white/6 px-1.5 py-0.5 rounded">
+                            Hôtellerie
+                          </span>
+                        ) : isRent ? (
+                          <span className="text-[9px] font-bold text-gray-300 bg-white/6 px-1.5 py-0.5 rounded">
+                            Habitation
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-bold text-[#C7D300] bg-[#C7D300]/10 px-1.5 py-0.5 rounded">
+                            Vente
+                          </span>
+                        )
+                      ) : t.type === "PAYOUT" ? (
+                        <span className="text-[9px] font-bold text-gray-400 bg-white/5 px-1.5 py-0.5 rounded">
+                          Paiement
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-bold text-rose-400 bg-rose-400/10 px-1.5 py-0.5 rounded">
+                          Dépense {t.category ? `(${t.category})` : ""}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="text-right">
+                      <span
+                        className={`text-sm font-black tabular-nums ${
+                          isPending
+                            ? "text-amber-300"
+                            : t.type === "INCOME"
+                            ? "text-[#C7D300]"
+                            : "text-rose-400"
+                        }`}
+                      >
+                        {t.type === "INCOME" ? "+" : "-"}${t.amount.toFixed(2)}
+                      </span>
+                      {t.type === "INCOME" && (Number(t.capital) > 0 || Number(t.profit) > 0) && (
+                        <div className="text-[9px] text-emerald-400 font-mono leading-tight">
+                          Marge: +${Number(t.profit !== undefined ? t.profit : t.amount - (t.capital || 0)).toFixed(2)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-gray-300 line-clamp-2 leading-snug">
+                    {t.description || "Opération de caisse"}
+                  </p>
+
+                  <div className="flex items-center justify-between pt-1 text-[10px] text-gray-500">
+                    <span className="font-mono text-gray-600 truncate max-w-[150px]">
+                      {t.referenceId ? `Réf: ${t.referenceId}` : ''}
+                    </span>
+
+                    {isPending && (
+                      <button
+                        onClick={() => handleClearCash(t.orderId || t.referenceId || t.id)}
+                        disabled={clearingOrderId === (t.orderId || t.referenceId || t.id)}
+                        className="px-2.5 py-1 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-[10px] font-bold rounded-md transition-colors shadow-sm"
+                      >
+                        {clearingOrderId === (t.orderId || t.referenceId || t.id) ? "Validation..." : "Valider Cash"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
       </div>
 
-      {/* Modal Add Transaction */}
+      {/* Modal 1: Nouvelle Opération */}
       <AnimatePresence>
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md bg-[#0F1D27] border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
+              initial={{ opacity: 0, scale: 0.97, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              className="w-full max-w-md bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
             >
-              <div className="flex items-center justify-between p-6 border-b border-white/10">
-                <h2 className="text-xl font-semibold text-white">Nouvelle Opération</h2>
-                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white">
-                  <X size={24} />
+              <div className="flex items-center justify-between px-6 py-5 border-b border-white/8">
+                <h2 className="text-sm font-bold text-white">Nouvelle Opération de Caisse</h2>
+                <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-white transition-colors">
+                  <X size={18} />
                 </button>
               </div>
 
               <form onSubmit={handleAddTransaction} className="p-6 space-y-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-300">Type d'opération</label>
-                  <select 
+                <div>
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Type d&apos;opération</label>
+                  <select
                     value={txType}
                     onChange={(e: any) => setTxType(e.target.value)}
-                    className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
                   >
-                    {!isImmo && <option value="INCOME">Entrée (Vente produit/service)</option>}
-                    {isImmo && <option value="RENT_INCOME">🏠 Paiement Loyer (Habitation)</option>}
-                    {isImmo && <option value="HOTEL_INCOME">🏨 Recette Hôtelière (Séjour / Nuitée)</option>}
-                    {isImmo && <option value="INCOME">Entrée Générique</option>}
-                    {!isImmo && <option value="PAYOUT">Paiement d'un Livreur</option>}
-                    <option value="EXPENSE">Dépense (Entretien, Stock, Factures...)</option>
+                    {!isImmo && <option value="INCOME" className="bg-[#0F1D27]">Entrée (Vente produit/service)</option>}
+                    {isImmo && <option value="RENT_INCOME" className="bg-[#0F1D27]">Paiement Loyer (Habitation)</option>}
+                    {isImmo && <option value="HOTEL_INCOME" className="bg-[#0F1D27]">Recette Hôtelière (Séjour / Nuitée)</option>}
+                    {isImmo && <option value="INCOME" className="bg-[#0F1D27]">Entrée Générique</option>}
+                    {!isImmo && <option value="PAYOUT" className="bg-[#0F1D27]">Paiement d&apos;un Livreur</option>}
+                    <option value="EXPENSE" className="bg-[#0F1D27]">Dépense (Entretien, Stock, Factures...)</option>
                   </select>
                 </div>
 
                 {txType === "RENT_INCOME" && (
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-300">Locataire</label>
-                    <select 
+                  <div>
+                    <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Locataire *</label>
+                    <select
                       required
                       value={selectedTenantId}
                       onChange={(e) => {
                         const val = e.target.value;
                         setSelectedTenantId(val);
-                        const t = tenants.find(x => x.id === val);
+                        const t = tenants.find((x) => x.id === val);
                         if (t && t.rentAmount) setAmount(String(t.rentAmount));
                       }}
-                      className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                      className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
                     >
                       <option value="">Sélectionnez un locataire...</option>
-                      {tenants.map(t => {
-                        const tenantName = t.name || `${t.firstName || ''} ${t.lastName || ''}`.trim() || "Locataire";
+                      {tenants.map((t) => {
+                        const tenantName = t.name || `${t.firstName || ""} ${t.lastName || ""}`.trim() || "Locataire";
                         const propertyTitle = t.propertyName || t.propertyTitle || "Propriété";
                         const unitInfo = t.unitName || t.unitTitle ? ` (${t.unitName || t.unitTitle})` : "";
                         const rentInfo = t.rentAmount ? ` - $${t.rentAmount}` : "";
-                        const statusBadge = t.status === "PARTI" ? " [Parti]" : "";
                         return (
-                          <option key={t.id} value={t.id}>
-                            {tenantName} — {propertyTitle}{unitInfo}{rentInfo}{statusBadge}
+                          <option key={t.id} value={t.id} className="bg-[#0F1D27]">
+                            {tenantName} — {propertyTitle}{unitInfo}{rentInfo}
                           </option>
                         );
                       })}
                     </select>
-                    {tenants.length === 0 && (
-                      <p className="text-xs text-amber-400 mt-1">
-                        Aucun locataire enregistré pour le moment.
-                      </p>
-                    )}
                   </div>
                 )}
 
                 {txType === "HOTEL_INCOME" && (
-                  <div className="space-y-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
-                    <div className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
-                      <Hotel size={13} /> Détails de la réservation hôtelière
-                    </div>
+                  <div className="space-y-3 p-3 bg-white/3 border border-white/8 rounded-lg">
                     <div>
-                      <label className="text-xs text-gray-300 block mb-1">Nom du client / Voyageur</label>
+                      <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold block mb-1">Client / Voyageur *</label>
                       <input
                         type="text"
                         required
-                        placeholder="Ex: Jean Marc"
+                        placeholder="ex: Jean Marc"
                         value={hotelGuestName}
                         onChange={(e) => setHotelGuestName(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-black/30 border border-white/10 rounded-lg text-white text-sm"
+                        className="w-full px-3 py-2 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600"
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-gray-300 block mb-1">Chambre ou Suite</label>
+                      <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold block mb-1">Chambre / Suite *</label>
                       <input
                         type="text"
                         required
-                        placeholder="Ex: Suite Exécutive #102"
+                        placeholder="ex: Suite #102"
                         value={hotelRoom}
                         onChange={(e) => setHotelRoom(e.target.value)}
-                        className="w-full px-3 py-1.5 bg-black/30 border border-white/10 rounded-lg text-white text-sm"
+                        className="w-full px-3 py-2 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-xs text-gray-300 block mb-1">Nuitées</label>
+                        <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold block mb-1">Nuitées</label>
                         <input
                           type="number"
                           min="1"
@@ -1427,25 +1423,23 @@ export default function SupplierFinancePage() {
                           onChange={(e) => {
                             const n = parseInt(e.target.value) || 1;
                             setHotelNights(n);
-                            if (hotelNightlyRate) {
-                              setAmount((n * parseFloat(hotelNightlyRate)).toFixed(2));
-                            }
+                            if (hotelNightlyRate) setAmount((n * parseFloat(hotelNightlyRate)).toFixed(2));
                           }}
-                          className="w-full px-3 py-1.5 bg-black/30 border border-white/10 rounded-lg text-white text-sm"
+                          className="w-full px-3 py-2 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
                         />
                       </div>
                       <div>
-                        <label className="text-xs text-gray-300 block mb-1">Tarif / nuit ($)</label>
+                        <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold block mb-1">Tarif / nuit ($)</label>
                         <input
                           type="number"
-                          placeholder="Ex: 100"
+                          placeholder="100"
                           value={hotelNightlyRate}
                           onChange={(e) => {
                             setHotelNightlyRate(e.target.value);
                             const r = parseFloat(e.target.value) || 0;
                             setAmount((hotelNights * r).toFixed(2));
                           }}
-                          className="w-full px-3 py-1.5 bg-black/30 border border-white/10 rounded-lg text-white text-sm"
+                          className="w-full px-3 py-2 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600"
                         />
                       </div>
                     </div>
@@ -1453,90 +1447,91 @@ export default function SupplierFinancePage() {
                 )}
 
                 {txType === "EXPENSE" && (
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-300">Catégorie de la dépense</label>
-                    <select 
+                  <div>
+                    <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Catégorie *</label>
+                    <select
                       value={expenseCategory}
                       onChange={(e) => setExpenseCategory(e.target.value)}
-                      className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                      className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
                     >
                       {isImmo ? (
                         <>
-                          <option value="Entretien">Entretien & Nettoyage</option>
-                          <option value="Maintenance">Maintenance & Réparations</option>
-                          <option value="Groupe Electrogene">Groupe Électrogène & Carburant</option>
-                          <option value="Blanchisserie">Blanchisserie & Lingerie</option>
-                          <option value="Eau & Electricite">Eau & Électricité</option>
-                          <option value="Taxes">Taxes / Tourisme / Impôts</option>
-                          <option value="Commissions">Commissions / Salaires</option>
-                          <option value="Autre (Immo/Hotel)">Autre</option>
+                          <option value="Entretien" className="bg-[#0F1D27]">Entretien & Nettoyage</option>
+                          <option value="Maintenance" className="bg-[#0F1D27]">Maintenance & Réparations</option>
+                          <option value="Groupe Electrogene" className="bg-[#0F1D27]">Groupe Électrogène & Carburant</option>
+                          <option value="Blanchisserie" className="bg-[#0F1D27]">Blanchisserie & Lingerie</option>
+                          <option value="Eau & Electricite" className="bg-[#0F1D27]">Eau & Électricité</option>
+                          <option value="Taxes" className="bg-[#0F1D27]">Taxes & Impôts</option>
+                          <option value="Commissions" className="bg-[#0F1D27]">Salaires & Commissions</option>
+                          <option value="Autre (Immo/Hotel)" className="bg-[#0F1D27]">Autre</option>
                         </>
                       ) : (
                         <>
-                          <option value="Loyer">Loyer / Factures</option>
-                          <option value="Salaires">Salaires</option>
-                          <option value="Logistique">Logistique / Transport</option>
-                          <option value="Achats">Achats Marchandises</option>
-                          <option value="Marketing">Publicité / Marketing</option>
-                          <option value="Autre">Autre</option>
+                          <option value="Loyer" className="bg-[#0F1D27]">Loyer / Factures</option>
+                          <option value="Salaires" className="bg-[#0F1D27]">Salaires</option>
+                          <option value="Logistique" className="bg-[#0F1D27]">Logistique / Transport</option>
+                          <option value="Achats" className="bg-[#0F1D27]">Achats Marchandises</option>
+                          <option value="Marketing" className="bg-[#0F1D27]">Publicité / Marketing</option>
+                          <option value="Autre" className="bg-[#0F1D27]">Autre</option>
                         </>
                       )}
                     </select>
                   </div>
                 )}
 
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-300">Montant (USD)</label>
+                <div>
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Montant (USD) *</label>
                   <input
                     type="number"
                     step="0.01"
+                    min="0.01"
                     required
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                    placeholder="ex: 150.00"
+                    placeholder="150.00"
+                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600"
                   />
                 </div>
 
                 {txType !== "RENT_INCOME" && txType !== "HOTEL_INCOME" && (
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-300">Description</label>
+                  <div>
+                    <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Description *</label>
                     <input
                       type="text"
                       required
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                      placeholder={isImmo ? "ex: Réparation climatisation" : "ex: Vente de 3 articles"}
+                      placeholder={isImmo ? "ex: Réparation climatisation" : "ex: Vente directe magasin"}
+                      className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600"
                     />
                   </div>
                 )}
-                
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-300">Référence (Optionnel)</label>
+
+                <div>
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Référence pièce</label>
                   <input
                     type="text"
                     value={referenceId}
                     onChange={(e) => setReferenceId(e.target.value)}
-                    className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                    placeholder={txType === "RENT_INCOME" ? "Mois payé (ex: Loyer Mars 2026)" : (txType === "HOTEL_INCOME" ? "Dates séjour (ex: 12-15 Sept)" : "N° Facture / Reçu")}
+                    placeholder="ex: REC-001"
+                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600"
                   />
                 </div>
 
-                <div className="pt-4 flex justify-end space-x-3">
+                <div className="pt-2 flex justify-end gap-3">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                    className="px-4 py-2 text-xs text-gray-500 hover:text-white transition-colors"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors flex items-center disabled:opacity-50"
+                    className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg transition-all disabled:opacity-50"
                   >
-                    {isSubmitting ? "Enregistrement..." : "Enregistrer"}
+                    {isSubmitting ? "Enregistrement..." : "Valider l'Opération"}
                   </button>
                 </div>
               </form>
@@ -1545,42 +1540,42 @@ export default function SupplierFinancePage() {
         )}
       </AnimatePresence>
 
-      {/* Modal Ajustement de Caisse Magasin */}
+      {/* Modal 2: Ajustement de Caisse Magasin */}
       <AnimatePresence>
         {isAdjustmentModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
+              initial={{ opacity: 0, scale: 0.97, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97 }}
               className="w-full max-w-lg bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
             >
-              <div className="flex items-center justify-between p-6 border-b border-white/10">
+              <div className="flex items-center justify-between px-6 py-5 border-b border-white/8">
                 <div>
-                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    <Sliders className="text-[#C7D300]" size={18} />
-                    Ajustement de Caisse Magasin
+                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Sliders className="text-[#C7D300]" size={15} />
+                    Ajustement Caisse Magasin
                   </h2>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    Solde trésorerie actuel : <strong>${balance.toFixed(2)}</strong>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Solde actuel : <span className="text-white font-semibold">${balance.toFixed(2)}</span>
                   </p>
                 </div>
-                <button onClick={() => setIsAdjustmentModalOpen(false)} className="text-gray-400 hover:text-white">
-                  <X size={20} />
+                <button onClick={() => setIsAdjustmentModalOpen(false)} className="text-gray-500 hover:text-white transition-colors">
+                  <X size={18} />
                 </button>
               </div>
 
-              <form onSubmit={handleSaveAdjustment} className="p-6 space-y-4 text-xs">
+              <form onSubmit={handleSaveAdjustment} className="p-6 space-y-4">
                 <div>
-                  <label className="text-gray-300 font-semibold block mb-1.5">Sens de l'ajustement</label>
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-2 uppercase tracking-wider">Sens</label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setAdjType("ADD")}
-                      className={`py-2.5 rounded-xl font-bold transition-all border ${
-                        adjType === "ADD" 
-                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-sm" 
-                          : "bg-white/5 text-gray-400 border-white/10"
+                      className={`py-2.5 rounded-lg text-xs font-bold transition-all border ${
+                        adjType === "ADD"
+                          ? "bg-[#C7D300]/10 text-[#C7D300] border-[#C7D300]/30"
+                          : "bg-white/4 text-gray-500 border-white/8 hover:border-white/15"
                       }`}
                     >
                       + Entrée / Apport Caisse
@@ -1588,10 +1583,10 @@ export default function SupplierFinancePage() {
                     <button
                       type="button"
                       onClick={() => setAdjType("SUBTRACT")}
-                      className={`py-2.5 rounded-xl font-bold transition-all border ${
-                        adjType === "SUBTRACT" 
-                          ? "bg-red-500/20 text-red-300 border-red-500/40 shadow-sm" 
-                          : "bg-white/5 text-gray-400 border-white/10"
+                      className={`py-2.5 rounded-lg text-xs font-bold transition-all border ${
+                        adjType === "SUBTRACT"
+                          ? "bg-rose-400/10 text-rose-400 border-rose-400/25"
+                          : "bg-white/4 text-gray-500 border-white/8 hover:border-white/15"
                       }`}
                     >
                       - Sortie / Prélèvement Caisse
@@ -1600,7 +1595,7 @@ export default function SupplierFinancePage() {
                 </div>
 
                 <div>
-                  <label className="text-gray-300 font-semibold block mb-1">Montant ($ USD) *</label>
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Montant (USD) *</label>
                   <input
                     type="number"
                     step="0.01"
@@ -1608,20 +1603,20 @@ export default function SupplierFinancePage() {
                     required
                     value={adjAmount}
                     onChange={(e) => setAdjAmount(e.target.value)}
-                    placeholder="ex: 25.00"
-                    className="w-full px-3.5 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
+                    placeholder="25.00"
+                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600"
                   />
                 </div>
 
                 <div>
-                  <label className="text-gray-300 font-semibold block mb-1">Motif obligatoire *</label>
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Motif *</label>
                   <select
                     value={adjReason}
                     onChange={(e) => setAdjReason(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
+                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
                   >
                     {ADJUSTMENT_REASONS.map((r) => (
-                      <option key={r} value={r} className="bg-[#0F1D27] text-white">
+                      <option key={r} value={r} className="bg-[#0F1D27]">
                         {r}
                       </option>
                     ))}
@@ -1629,25 +1624,25 @@ export default function SupplierFinancePage() {
                 </div>
 
                 <div>
-                  <label className="text-gray-300 font-semibold block mb-1">Libellé explicatif *</label>
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Libellé précis *</label>
                   <input
                     type="text"
                     required
                     value={adjLabel}
                     onChange={(e) => setAdjLabel(e.target.value)}
-                    placeholder="ex: Régularisation suite à écart d'inventaire"
-                    className="w-full px-3.5 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
+                    placeholder="ex: Régularisation inventaire caisse"
+                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600"
                   />
                 </div>
 
                 <div>
-                  <label className="text-gray-300 font-semibold block mb-1">Pièce justificative (Optionnel)</label>
+                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">N° Pièce justificative</label>
                   <input
                     type="text"
                     value={adjRef}
                     onChange={(e) => setAdjRef(e.target.value)}
                     placeholder="ex: REC-CAISSE-001"
-                    className="w-full px-3.5 py-2.5 bg-black/30 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
+                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600"
                   />
                 </div>
 
@@ -1655,14 +1650,14 @@ export default function SupplierFinancePage() {
                   <button
                     type="button"
                     onClick={() => setIsAdjustmentModalOpen(false)}
-                    className="px-4 py-2.5 text-gray-400 hover:text-white transition-colors"
+                    className="px-4 py-2 text-xs text-gray-500 hover:text-white transition-colors"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmittingAdj}
-                    className="px-5 py-2.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold rounded-xl transition-all disabled:opacity-50"
+                    className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg transition-all disabled:opacity-50"
                   >
                     {isSubmittingAdj ? "Enregistrement..." : "Valider l'Ajustement"}
                   </button>

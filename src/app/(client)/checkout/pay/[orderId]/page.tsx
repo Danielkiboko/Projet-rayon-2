@@ -71,13 +71,13 @@ export default function FinalPaymentPage() {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
       <Loader2 className="animate-spin text-gray-400" size={32} />
     </div>
   );
 
   if (error && !order) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
       <div className="bg-white p-8 rounded-2xl shadow-sm max-w-md w-full text-center">
         <p className="text-red-600 mb-4">{error}</p>
         <Link href="/" className="text-gray-900 font-bold underline">Retour à l'accueil</Link>
@@ -103,7 +103,7 @@ export default function FinalPaymentPage() {
   );
 
   if (order?.status === "COMPLETED") return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4 text-center">
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-4 text-center">
       <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
         <ShieldCheck size={40} />
       </div>
@@ -116,7 +116,7 @@ export default function FinalPaymentPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB] pb-20">
+    <div className="min-h-screen bg-[#F8FAFC] pb-20">
       {/* Header */}
       <div className="bg-[#0F1D27] text-white">
         <div className="max-w-xl mx-auto px-4 py-5 flex items-center gap-3">

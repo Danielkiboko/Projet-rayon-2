@@ -71,10 +71,8 @@ export async function POST(req: NextRequest) {
       status: "VALIDATED",
     };
 
-    const ledgerRef = await adminDb.collection("accounting_ledger").add(ledgerEntry);
-
     // ─────────────────────────────────────────────────────────────
-    // 2. ÉCRITURE DANS LES TRANSACTIONS ADMIN (transactions)
+    // 2. TRANSACTIONS ADMIN (transactions)
     // ─────────────────────────────────────────────────────────────
     const adminTx = {
       type: "SUBSCRIPTION",
@@ -88,10 +86,8 @@ export async function POST(req: NextRequest) {
       createdAt: now,
     };
 
-    const adminTxRef = await adminDb.collection("transactions").add(adminTx);
-
     // ─────────────────────────────────────────────────────────────
-    // 3. ÉCRITURE DANS LE LIVRE DE CAISSE FOURNISSEUR (supplier_transactions)
+    // 3. LIVRE DE CAISSE FOURNISSEUR (supplier_transactions)
     // ─────────────────────────────────────────────────────────────
     const supplierTx = {
       type: "EXPENSE",
@@ -105,10 +101,8 @@ export async function POST(req: NextRequest) {
       createdAt: now,
     };
 
-    const supplierTxRef = await adminDb.collection("supplier_transactions").add(supplierTx);
-
     // ─────────────────────────────────────────────────────────────
-    // 4. MISE À JOUR DU COMPTE UTILISATEUR (users/{supplierId})
+    // 4. COMPTE UTILISATEUR (users/{supplierId})
     // ─────────────────────────────────────────────────────────────
     const nextDueDate = new Date();
     nextDueDate.setDate(nextDueDate.getDate() + 30); // 30 jours renouvelables
@@ -153,7 +147,6 @@ export async function POST(req: NextRequest) {
       if (companyData.address) userUpdatePayload.address = companyData.address.trim();
       if (companyData.description) userUpdatePayload.description = companyData.description.trim();
     } else {
-      // Données de base si pas de companyData
       if (supplierName && !existingUserData?.company) userUpdatePayload.company = supplierName.trim();
       if (supplierEmail && !existingUserData?.email) userUpdatePayload.email = supplierEmail.trim();
       if (!existingUserData?.rayon) userUpdatePayload.rayon = primaryRayon;
@@ -161,7 +154,23 @@ export async function POST(req: NextRequest) {
       if (!existingUserData?.businessType) userUpdatePayload.businessType = businessType;
     }
 
-    await userDocRef.set(userUpdatePayload, { merge: true });
+    // ─────────────────────────────────────────────────────────────
+    // ÉCRITURE ATOMIQUE VIA BATCH
+    // ─────────────────────────────────────────────────────────────
+    const batch = adminDb.batch();
+
+    const ledgerRef = adminDb.collection("accounting_ledger").doc();
+    batch.set(ledgerRef, ledgerEntry);
+
+    const adminTxRef = adminDb.collection("transactions").doc();
+    batch.set(adminTxRef, adminTx);
+
+    const supplierTxRef = adminDb.collection("supplier_transactions").doc();
+    batch.set(supplierTxRef, supplierTx);
+
+    batch.set(userDocRef, userUpdatePayload, { merge: true });
+
+    await batch.commit();
 
     return NextResponse.json({
       success: true,

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Montserrat, Inter } from "next/font/google";
 import "./globals.css";
@@ -12,6 +12,13 @@ const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
 });
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0F1D27",
+};
 
 export const metadata: Metadata = {
   title: "Rayons.net | Tout ce dont vous avez besoin, en un seul endroit",
