@@ -279,7 +279,7 @@ export default function SupplierLayout({
     >
       {/* ── Rayon Switcher ── */}
       {availableRayons.length > 1 && (
-        <div className="flex items-center space-x-2 bg-white/5 border border-white/10 p-2 rounded-xl overflow-x-auto mb-6 w-max shadow-lg backdrop-blur-md">
+        <div className="flex items-center space-x-2 bg-white/5 border border-white/10 p-2 rounded-xl overflow-x-auto mb-6 w-fit max-w-full shadow-lg backdrop-blur-md">
           <div className="flex items-center space-x-2 px-3 text-gray-400 shrink-0">
             <Layers size={18} className="text-primary" />
             <span className="text-sm font-semibold text-gray-200">Rayon actif :</span>

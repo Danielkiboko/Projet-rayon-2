@@ -168,7 +168,7 @@ function ImmoContent() {
     <div className="min-h-screen bg-[#F8FAFC] text-[#0F1D27] relative selection:bg-[#C7D300]/30 selection:text-[#0F1D27] overflow-x-hidden">
       {/* Ambient Chromatic Mesh Glow for Immo */}
       <div 
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[450px] rounded-full blur-[140px] pointer-events-none -z-0 opacity-30"
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(800px,100vw)] h-[450px] rounded-full blur-[140px] pointer-events-none -z-0 opacity-30"
         style={{
           background: "radial-gradient(circle, rgba(76, 110, 245, 0.45) 0%, transparent 70%)"
         }}

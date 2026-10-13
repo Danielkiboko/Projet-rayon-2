@@ -32,10 +32,24 @@
   --surface-light: #F8FAFC;
 }
 
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  -webkit-text-size-adjust: 100%;
+}
+
+img,
+video,
+svg,
+canvas {
+  max-width: 100%;
 }
 
 h1, h2, h3, h4, h5, h6, .font-heading {

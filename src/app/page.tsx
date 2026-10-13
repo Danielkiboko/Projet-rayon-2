@@ -227,19 +227,19 @@ export default function Home() {
   const statCounts = [s0, s1, s2, s3];
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] font-sans selection:bg-[#C7D300]/30 selection:text-[#0F1D27]">
+    <div className="min-h-screen bg-[#F8FAFC] font-sans overflow-x-clip selection:bg-[#C7D300]/30 selection:text-[#0F1D27]">
 
       {/* ═══════════════════════════════════════════════════════
           HEADER — Floating Ultra-Glass Navbar
       ═══════════════════════════════════════════════════════ */}
       <header className="sticky top-2 z-50 px-3 sm:px-6">
-        <div className="max-w-7xl mx-auto bg-[#0F1D27]/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/30 px-4 h-16 flex items-center justify-between gap-3 text-white">
+        <div className="max-w-7xl mx-auto bg-[#0F1D27]/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/30 px-2.5 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-3 text-white min-w-0">
 
           {/* Logo & Mobile Menu Trigger */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 -ml-2 text-gray-300 hover:text-white lg:hidden rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
+              className="p-2 -ml-1 sm:-ml-2 text-gray-300 hover:text-white lg:hidden rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
               aria-label="Menu"
             >
               {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -291,14 +291,14 @@ export default function Home() {
           </nav>
 
           {/* Right Utilities */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <CurrencySelector />
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            <CurrencySelector variant="dark" />
 
             {user ? (
               <div className="flex items-center gap-2">
                 <Link
                   href="/dashboard"
-                  className="flex items-center gap-1.5 text-xs font-bold text-white bg-white/10 hover:bg-white/20 border border-white/15 px-3.5 py-2 rounded-xl transition-all"
+                  className="flex items-center gap-1.5 text-xs font-bold text-white bg-white/10 hover:bg-white/20 border border-white/15 p-2 sm:px-3.5 sm:py-2 rounded-xl transition-all"
                 >
                   <User size={14} className="text-[#C7D300]" />
                   <span className="hidden sm:inline-block max-w-[120px] truncate">
@@ -316,9 +316,11 @@ export default function Home() {
               <div className="flex items-center gap-1.5">
                 <Link
                   href="/login"
-                  className="text-xs font-bold text-gray-200 hover:text-white bg-white/10 hover:bg-white/15 border border-white/10 px-3.5 py-2 rounded-xl transition-colors"
+                  aria-label="Connexion"
+                  className="flex items-center gap-1.5 text-xs font-bold text-gray-200 hover:text-white bg-white/10 hover:bg-white/15 border border-white/10 p-2 sm:px-3.5 sm:py-2 rounded-xl transition-colors"
                 >
-                  Connexion
+                  <User size={15} className="sm:hidden" />
+                  <span className="hidden sm:inline">Connexion</span>
                 </Link>
               </div>
             )}
@@ -328,7 +330,7 @@ export default function Home() {
             {/* Cart Trigger */}
             <button
               onClick={openCart}
-              className="relative p-2.5 text-white bg-white/10 hover:bg-[#C7D300] hover:text-[#0F1D27] rounded-xl border border-white/15 transition-all duration-200 group cursor-pointer shadow-md"
+              className="relative p-2 sm:p-2.5 text-white bg-white/10 hover:bg-[#C7D300] hover:text-[#0F1D27] rounded-xl border border-white/15 transition-all duration-200 group cursor-pointer shadow-md"
               title="Votre Panier & Factures Proformas"
             >
               <ShoppingBag size={19} className="group-hover:scale-110 transition-transform" />
@@ -390,8 +392,8 @@ export default function Home() {
       ═══════════════════════════════════════════════════════ */}
       <section className="relative min-h-[92vh] flex items-center bg-[#0F1D27] overflow-hidden -mt-20 pt-28 pb-16">
         {/* Ambient Glow mesh */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-gradient-to-tr from-[#C7D300]/15 via-[#00B5A5]/15 to-[#4C6EF5]/15 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute top-10 right-10 w-[350px] h-[350px] bg-[#FF6B35]/10 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(700px,120vw)] h-[500px] bg-gradient-to-tr from-[#C7D300]/15 via-[#00B5A5]/15 to-[#4C6EF5]/15 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute top-10 right-0 sm:right-10 w-[min(350px,80vw)] h-[350px] bg-[#FF6B35]/10 rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
 
         {/* Supermarket Photo Panel on Right (Desktop) */}
@@ -424,8 +426,8 @@ export default function Home() {
           <div className="max-w-3xl lg:max-w-[52%]">
 
             {/* Human trust signal with customer avatars */}
-            <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/8 border border-white/15 backdrop-blur-sm mb-6 w-max">
-              <div className="flex -space-x-1.5">
+            <div className="inline-flex items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-2 rounded-full bg-white/8 border border-white/15 backdrop-blur-sm mb-6 max-w-full">
+              <div className="flex -space-x-1.5 shrink-0">
                 {["MC", "PB", "AK"].map((init, i) => (
                   <div
                     key={i}
@@ -435,10 +437,10 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-              <span className="text-sm font-medium text-gray-300">
+              <span className="text-xs sm:text-sm font-medium text-gray-300 truncate">
                 +12 000 clients nous font déjà confiance
               </span>
-              <span className="text-[#C7D300] text-xs font-bold">★★★★★</span>
+              <span className="hidden sm:inline text-[#C7D300] text-xs font-bold shrink-0">★★★★★</span>
             </div>
 
             {/* Original main headline */}
@@ -482,7 +484,7 @@ export default function Home() {
             </div>
 
             {/* Trust Mini-Bar */}
-            <div className="mt-10 pt-6 border-t border-white/10 flex flex-wrap items-center gap-6 text-xs text-gray-400">
+            <div className="mt-10 pt-6 border-t border-white/10 flex flex-wrap items-center gap-x-6 gap-y-3 text-xs text-gray-400">
               <div className="flex items-center gap-2">
                 <CheckCircle size={15} className="text-[#C7D300]" />
                 <span>Paiement consigné et protégé</span>
@@ -526,7 +528,7 @@ export default function Home() {
       ═══════════════════════════════════════════════════════ */}
       <main className="relative max-w-7xl mx-auto px-4 sm:px-6 pt-16 pb-24 space-y-24">
         {/* Soft atmospheric gradient behind the Bento Showcase */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[350px] bg-gradient-to-b from-[#0F1D27]/4 via-transparent to-transparent rounded-full blur-3xl pointer-events-none -z-10" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[min(900px,100%)] h-[350px] bg-gradient-to-b from-[#0F1D27]/4 via-transparent to-transparent rounded-full blur-3xl pointer-events-none -z-10" />
 
         {/* ── SECTION : LES 4 RAYONS EN BENTO GRID ── */}
         <section id="rayons" className="scroll-mt-24">

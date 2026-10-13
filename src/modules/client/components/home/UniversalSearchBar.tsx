@@ -131,7 +131,7 @@ export function UniversalSearchBar({ products = [], properties = [] }: Universal
           </div>
         </div>
 
-        <div className="pl-3 pr-2 text-gray-400 shrink-0">
+        <div className="pl-2 sm:pl-3 pr-1.5 sm:pr-2 text-gray-400 shrink-0">
           <Search size={18} className="text-gray-400" />
         </div>
 
@@ -154,7 +154,7 @@ export function UniversalSearchBar({ products = [], properties = [] }: Universal
               ? "Rechercher un plat, ustensile de cuisine, traiteur..."
               : "Rechercher sur tout Rayons (ex: Starlink, Hôtel Gombe, Veste, Repas)..."
           }
-          className="w-full py-2.5 sm:py-3 text-sm sm:text-base text-gray-900 placeholder:text-gray-400 focus:outline-hidden bg-transparent pr-8"
+          className="w-full min-w-0 py-2.5 sm:py-3 text-sm sm:text-base text-gray-900 placeholder:text-gray-400 placeholder:truncate focus:outline-hidden bg-transparent pr-2 sm:pr-8"
         />
 
         {query && (
@@ -173,10 +173,11 @@ export function UniversalSearchBar({ products = [], properties = [] }: Universal
 
         <button
           type="submit"
-          className="shrink-0 bg-[#0F1D27] hover:bg-[#1a2d3b] text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl font-heading font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-md"
+          aria-label="Rechercher"
+          className="shrink-0 bg-[#0F1D27] hover:bg-[#1a2d3b] text-white px-3 sm:px-6 py-2.5 sm:py-3 rounded-xl font-heading font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-md"
         >
-          <span>Rechercher</span>
-          <ArrowRight size={15} />
+          <span className="hidden sm:inline">Rechercher</span>
+          <ArrowRight size={16} />
         </button>
       </form>
 
