@@ -34,18 +34,19 @@ export function RayonNavbar({ category, lang, setLang, t }: RayonNavbarProps) {
 
   return (
     <header className="sticky top-2 z-50 px-3 sm:px-6">
-      <div className="max-w-7xl mx-auto bg-[#0F1D27]/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/30 px-4 h-16 flex items-center justify-between gap-3 text-white">
+      <div className="max-w-7xl mx-auto bg-[#0F1D27]/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/30 px-2.5 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-3 text-white min-w-0">
         
         {/* Logo & Mobile Menu Trigger */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 -ml-2 text-gray-300 hover:text-white lg:hidden rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-2 -ml-1 sm:-ml-2 text-gray-300 hover:text-white lg:hidden rounded-xl hover:bg-white/10 transition-colors cursor-pointer shrink-0"
             aria-label="Menu"
           >
             {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <RayonsLogo rayon={category} size="md" href="/" />
+          <RayonsLogo rayon={category} size="sm" className="sm:hidden" href="/" />
+          <RayonsLogo rayon={category} size="md" className="hidden sm:inline-flex" href="/" />
         </div>
 
         {/* Desktop Categories Hub */}
@@ -108,8 +109,8 @@ export function RayonNavbar({ category, lang, setLang, t }: RayonNavbarProps) {
         </nav>
 
         {/* Right Utilities */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          <CurrencySelector />
+        <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
+          <CurrencySelector variant="dark" />
 
           <button 
             onClick={() => setLang(lang === "fr" ? "en" : "fr")}
@@ -118,27 +119,12 @@ export function RayonNavbar({ category, lang, setLang, t }: RayonNavbarProps) {
             <Globe size={13} className="mr-1 text-[#C7D300]" /> {lang.toUpperCase()}
           </button>
 
-          <NotificationBell />
-
-          {/* Cart Trigger */}
-          <button
-            onClick={openCart}
-            className="relative p-2.5 text-white bg-white/10 hover:bg-[#C7D300] hover:text-[#0F1D27] rounded-xl border border-white/15 transition-all duration-200 group cursor-pointer shadow-md"
-            title="Votre panier"
-          >
-            <ShoppingBag size={19} className="group-hover:scale-110 transition-transform" />
-            {totalItems > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#FF6B35] text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-[#0F1D27] shadow-sm animate-pulse">
-                {totalItems}
-              </span>
-            )}
-          </button>
-
           {user ? (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               <Link 
                 href="/dashboard" 
-                className="flex items-center gap-1.5 text-xs font-bold text-white bg-white/10 hover:bg-white/20 border border-white/15 px-3.5 py-2 rounded-xl transition-all"
+                aria-label="Mon compte"
+                className="flex items-center gap-1.5 text-xs font-bold text-white bg-white/10 hover:bg-white/20 border border-white/15 p-2 sm:px-3.5 sm:py-2 rounded-xl transition-all"
               >
                 <User size={14} className="text-[#C7D300]" />
                 <span className="hidden sm:inline-block max-w-[110px] truncate">
@@ -155,11 +141,29 @@ export function RayonNavbar({ category, lang, setLang, t }: RayonNavbarProps) {
           ) : (
             <Link 
               href="/login" 
-              className="text-xs font-bold text-gray-200 hover:text-white bg-white/10 hover:bg-white/15 border border-white/10 px-3.5 py-2 rounded-xl transition-colors"
+              aria-label="Connexion"
+              className="flex items-center gap-1.5 text-xs font-bold text-gray-200 hover:text-white bg-white/10 hover:bg-white/15 border border-white/10 p-2 sm:px-3.5 sm:py-2 rounded-xl transition-colors"
             >
-              {t?.login || "Connexion"}
+              <User size={14} className="sm:hidden" />
+              <span className="hidden sm:inline">{t?.login || "Connexion"}</span>
             </Link>
           )}
+
+          <NotificationBell />
+
+          {/* Cart Trigger */}
+          <button
+            onClick={openCart}
+            className="relative p-2 sm:p-2.5 text-white bg-white/10 hover:bg-[#C7D300] hover:text-[#0F1D27] rounded-xl border border-white/15 transition-all duration-200 group cursor-pointer shadow-md"
+            title="Votre panier"
+          >
+            <ShoppingBag size={18} className="group-hover:scale-110 transition-transform" />
+            {totalItems > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#FF6B35] text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-[#0F1D27] shadow-sm animate-pulse">
+                {totalItems}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 

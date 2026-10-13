@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Link from "next/link";
 import { ShieldCheck, Star, ShoppingBag, ShoppingCart, MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
@@ -18,6 +19,7 @@ interface ProductCardProps {
 export function ProductCard({ product, lang, t, category, index, handleChat, onBuy }: ProductCardProps) {
   const { addToCart } = useCart();
   const { formatPrice } = useCurrency();
+  const [imgSrc, setImgSrc] = useState(product.image || "");
   const isMode = category === "mode";
   const isSaveurs = category === "saveurs";
   const verification = evaluateProductVerification(product);
@@ -44,13 +46,16 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
       className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-xs overflow-hidden hover:shadow-md transition-all group flex flex-col h-full"
     >
       {/* Product Image */}
-      <div className="relative h-32 sm:h-36 overflow-hidden bg-gray-50">
+      <div className="relative h-32 sm:h-36 overflow-hidden bg-slate-100 flex items-center justify-center">
         <Link href={`/product/${product.id}`} className="block w-full h-full">
           <img 
-            src={product.image} 
+            src={imgSrc || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300' fill='%23F1F5F9'%3E%3Crect width='400' height='300' fill='%23F1F5F9'/%3E%3Ctext x='50%25' y='52%25' dominant-baseline='middle' text-anchor='middle' fill='%2394A3B8' font-family='sans-serif' font-size='14' font-weight='700'%3ERayons%3C/text%3E%3C/svg%3E"} 
             alt={product.title?.[lang] || product.title?.fr || "Produit"}
             loading="lazy"
             decoding="async"
+            onError={() => {
+              setImgSrc("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300' fill='%23F1F5F9'%3E%3Crect width='400' height='300' fill='%23F1F5F9'/%3E%3Ctext x='50%25' y='52%25' dominant-baseline='middle' text-anchor='middle' fill='%2394A3B8' font-family='sans-serif' font-size='14' font-weight='700'%3ERayons%3C/text%3E%3C/svg%3E");
+            }}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         </Link>
@@ -124,7 +129,7 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
             <button 
               type="button"
               onClick={() => onBuy(product)}
-              className="flex-1 py-1.5 sm:py-2 bg-[#0F1D27] hover:bg-[#1a2e3b] text-[#C7D300] text-[10px] sm:text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 active:scale-95 cursor-pointer shadow-2xs"
+              className="flex-1 min-w-0 py-1.5 sm:py-2 bg-[#0F1D27] hover:bg-[#1a2e3b] text-[#C7D300] text-[10px] sm:text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 active:scale-95 cursor-pointer shadow-2xs"
               title="Achat direct express"
             >
               <ShoppingBag size={11} className="shrink-0" />
@@ -134,7 +139,7 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
             <button 
               type="button"
               onClick={() => addToCart(product, 1)}
-              className="flex-1 py-1.5 sm:py-2 bg-[#0F1D27] hover:bg-[#1a2e3b] text-[#C7D300] text-[10px] sm:text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 active:scale-95 cursor-pointer shadow-2xs"
+              className="flex-1 min-w-0 py-1.5 sm:py-2 bg-[#0F1D27] hover:bg-[#1a2e3b] text-[#C7D300] text-[10px] sm:text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 active:scale-95 cursor-pointer shadow-2xs"
               title="Ajouter au panier"
             >
               <ShoppingCart size={11} className="shrink-0" />
@@ -156,7 +161,7 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
           <button 
             type="button"
             onClick={() => handleChat(product)}
-            className="w-7 h-7 sm:w-8 sm:h-8 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg transition-all flex items-center justify-center shrink-0 active:scale-95 cursor-pointer"
+            className="hidden sm:flex w-7 h-7 sm:w-8 sm:h-8 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg transition-all items-center justify-center shrink-0 active:scale-95 cursor-pointer"
             title="Négocier / Devis proforma"
           >
             <MessageCircle size={12} className="text-emerald-600" />
@@ -164,7 +169,7 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
 
           <Link 
             href={`/product/${product.id}`}
-            className="hidden sm:flex h-8 px-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 text-[10px] font-semibold rounded-lg transition-colors items-center justify-center shrink-0"
+            className="hidden md:flex h-8 px-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 text-[10px] font-semibold rounded-lg transition-colors items-center justify-center shrink-0"
             title="Détails de l'article"
           >
             {t?.details || "Détails"}

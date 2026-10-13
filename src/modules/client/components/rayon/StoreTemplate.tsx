@@ -175,7 +175,7 @@ function StoreTemplateContent({ category, heroImage, dummyProducts, dict }: Stor
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-4 sm:pt-8 pb-24 sm:pb-12">
         
         {/* Hero Section */}
         <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden mb-5 sm:mb-8 shadow-lg sm:shadow-xl h-[190px] sm:h-[280px] md:h-[320px]">
