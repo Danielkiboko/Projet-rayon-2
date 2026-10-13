@@ -153,10 +153,10 @@ export function TicketConversation({
         user.displayName ||
         (userRole === "admin" ? "Support Rayons.net" : userRole === "supplier" ? "Fournisseur" : "Client");
 
-      let recipientEmail = ticket.creatorEmail;
-      let recipientName = ticket.creatorName;
-      let recipientRole: "client" | "supplier" = ticket.creatorRole === "supplier" ? "supplier" : "client";
-      let recipientId = ticket.creatorId;
+      const recipientEmail = ticket.creatorEmail;
+      const recipientName = ticket.creatorName;
+      const recipientRole: "client" | "supplier" = ticket.creatorRole === "supplier" ? "supplier" : "client";
+      const recipientId = ticket.creatorId;
 
       await sendTicketReply({
         ticketId: ticket.id,

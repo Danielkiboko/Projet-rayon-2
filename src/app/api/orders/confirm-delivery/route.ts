@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     const orderRef = adminDb.collection("orders").doc(orderId);
     let clientPhoneToNotify = "";
     let clientEmailToNotify = "";
-    let orderNum = orderId.substring(0, 8).toUpperCase();
+    const orderNum = orderId.substring(0, 8).toUpperCase();
     let suppliersAffected: string[] = [];
 
     // 1. Transaction atomique : Mise à jour de la commande et enregistrement en caisse

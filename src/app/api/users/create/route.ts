@@ -98,7 +98,7 @@ export async function POST(req: Request) {
     }
     await adminAuth.setCustomUserClaims(userRecord.uid, claims);
 
-    let additionalData = { ...extraData };
+    const additionalData = { ...extraData };
     if (roleToCreate === 'driver') {
       const assignedSupplierId = isSupplierCaller ? callerUid : (extraData?.supplierId || 'admin');
       additionalData.supplierId = assignedSupplierId;

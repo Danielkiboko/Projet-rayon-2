@@ -150,7 +150,7 @@ export default function DriverDashboard() {
         // ── Mes courses en cours ──
         const qMy = query(collection(db, "orders"), where("driverId", "==", user.uid));
         unsubMyOrders = onSnapshot(qMy, (snapshot) => {
-          let orders = snapshot.docs
+          const orders = snapshot.docs
             .map(d => ({ id: d.id, ...d.data() }))
             .filter((o: any) => ["ACCEPTED", "ARRIVED_AWAITING_PAYMENT"].includes(o.status));
           orders.sort((a: any, b: any) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));

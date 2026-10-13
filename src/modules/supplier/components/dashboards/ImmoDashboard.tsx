@@ -73,7 +73,7 @@ export default function ImmoDashboard() {
     const qProps = query(collection(db, "properties"), where("supplierId", "==", activeSupplierId), limit(1000));
     const unsubProps = onSnapshot(qProps, (snapshot) => {
       let totalUnits = 0;
-      let propertiesCount = snapshot.size;
+      const propertiesCount = snapshot.size;
 
       snapshot.docs.forEach(doc => {
         const data = doc.data();

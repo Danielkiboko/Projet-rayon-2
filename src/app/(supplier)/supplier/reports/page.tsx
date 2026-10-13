@@ -80,7 +80,7 @@ export default function SupplierReportsPage() {
   useEffect(() => {
     if (!activeSupplierId) return;
     setLoading(true);
-    let unsubs: (() => void)[] = [];
+    const unsubs: (() => void)[] = [];
 
     // 1. Transactions de caisse fournisseur (partagé immo et non-immo)
     const qTx = query(

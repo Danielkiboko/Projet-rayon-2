@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
     let clientPhoneToNotify = "";
     let clientEmailToNotify = "";
-    let orderNum = orderId.substring(0, 8).toUpperCase();
+    const orderNum = orderId.substring(0, 8).toUpperCase();
 
     // 1. Transaction atomique stricte pour éliminer tout risque de doublon / course critique
     const result = await adminDb.runTransaction(async (transaction: any) => {

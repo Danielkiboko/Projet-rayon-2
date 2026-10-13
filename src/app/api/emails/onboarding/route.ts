@@ -17,7 +17,7 @@ export async function POST(req: Request) {
 
     let roleLabel = 'Fournisseur';
     let rayonLabel = 'Rayons.net';
-    let accentColor = '#C7D300';
+    const accentColor = '#C7D300';
     let welcomeText = `Votre compte <strong style="color:#C7D300;">Fournisseur</strong> a été créé avec succès. Vous faites maintenant partie du réseau Rayons.net.`;
     let trialText = `Votre période d'essai de <strong>15 jours</strong> démarre aujourd'hui. Profitez-en pour explorer votre tableau de bord.`;
 

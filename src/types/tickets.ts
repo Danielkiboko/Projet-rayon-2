@@ -10,6 +10,14 @@ export type TicketCategory =
   | "account" 
   | "general";
 
+export type FirestoreDate = {
+  seconds?: number;
+  nanoseconds?: number;
+  toMillis?: () => number;
+  toDate?: () => Date;
+  [key: string]: unknown;
+} | null | undefined;
+
 export interface TicketMessage {
   id: string;
   senderId: string;
@@ -18,7 +26,7 @@ export interface TicketMessage {
   senderRole: "client" | "supplier" | "admin";
   message: string;
   attachments?: string[];
-  createdAt: any;
+  createdAt: FirestoreDate;
 }
 
 export interface Ticket {
@@ -47,26 +55,26 @@ export interface Ticket {
     itemsCount?: number;
     itemsDescription?: string;
     status?: string;
-    createdAt?: any;
+    createdAt?: FirestoreDate;
   };
   attachments?: string[];
 
   // Archiving & resolution lifecycle
   isArchived?: boolean;
-  resolvedAt?: any;
-  reopenedAt?: any;
+  resolvedAt?: FirestoreDate;
+  reopenedAt?: FirestoreDate;
 
   // Last message & indicators
   lastMessage?: string;
   lastMessageSenderRole?: "client" | "supplier" | "admin";
   lastMessageSenderName?: string;
-  lastMessageAt?: any;
+  lastMessageAt?: FirestoreDate;
   
   // Unread flags
   unreadByAdmin?: boolean;
   unreadByClient?: boolean;
   unreadBySupplier?: boolean;
 
-  createdAt: any;
-  updatedAt: any;
+  createdAt: FirestoreDate;
+  updatedAt: FirestoreDate;
 }

@@ -72,7 +72,7 @@ export async function generateFormalInvoicePDF(data: InvoiceData) {
 
   // Determine brand colors based on universe
   let primaryColor = [15, 29, 39]; // #0F1D27 (Bleu Rayons)
-  let accentColor = [199, 211, 0]; // #C7D300 (Vert Rayons)
+  const accentColor = [199, 211, 0]; // #C7D300 (Vert Rayons)
   let badgeLabel = "PLATEFORME OFFICIELLE RAYONS.NET";
 
   if (rayon === "connect") {
