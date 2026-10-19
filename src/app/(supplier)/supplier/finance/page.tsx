@@ -526,19 +526,30 @@ export default function SupplierFinancePage() {
   };
 
   const handlePayDeposit = async () => {
-    const depositAmount = userData?.depositAmount || 50;
-    if (!confirm(`Confirmez-vous le paiement de votre dépôt mensuel de $${depositAmount} ?\n\nCette action débloquera instantanément votre compte pour 30 jours supplémentaires.`)) {
+    const baseAmount = userData?.depositAmount || 50;
+    const pendingDiscount = Number(userData?.referralDiscountPending) || 0;
+    const effectiveToPay = Math.max(0, baseAmount - pendingDiscount);
+
+    const discountMsg = pendingDiscount > 0
+      ? `\n\n🎉 Réduction de parrainage appliquée : -$${pendingDiscount} USD !\nMontant effectif à régler : $${effectiveToPay} USD au lieu de $${baseAmount} USD.`
+      : "";
+
+    if (!confirm(`Confirmez-vous le paiement de votre dépôt mensuel de $${effectiveToPay} ?${discountMsg}\n\nCette action débloquera instantanément votre compte pour 30 jours supplémentaires.`)) {
       return;
     }
     try {
+      const token = await user?.getIdToken();
       const res = await fetch("/api/supplier/subscribe", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           supplierId: activeSupplierId,
           supplierName: userData?.displayName || userData?.company || "Partenaire",
           supplierEmail: user?.email || "",
-          amount: depositAmount,
+          amount: baseAmount,
           currency: "USD",
           paymentMethod: "Paiement direct en ligne",
         }),

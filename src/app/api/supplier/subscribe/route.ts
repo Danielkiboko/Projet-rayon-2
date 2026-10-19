@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { getServerCaller, canActForSupplier } from "@/lib/serverAuth";
+import { attachReferral, creditReferralCommission } from "@/lib/referrals";
+import { computeDiscountedDeposit } from "@/lib/referralConfig";
 
 function generateEntryNumber(): string {
   const year = new Date().getFullYear();
@@ -21,6 +24,7 @@ export async function POST(req: NextRequest) {
       referencePiece,
       businessType = "COMMERCE",
       companyData,
+      referralCode,
     } = body;
 
     if (!supplierId) {
@@ -30,9 +34,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const finalAmount = Number(amount) || 50;
+    // ── Sécurité : seul le fournisseur lui-même (ou son sous-compte) ou un admin peut enregistrer un abonnement ──
+    const caller = await getServerCaller(req);
+    if (!canActForSupplier(caller, supplierId)) {
+      return NextResponse.json(
+        { success: false, error: "Authentification requise pour enregistrer un abonnement." },
+        { status: 401 }
+      );
+    }
+
+    const baseAmount = Number(amount) || 50;
     const ref = referencePiece || `RAY-DEP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const now = FieldValue.serverTimestamp();
+
+    // ── Idempotence : une même référence de paiement n'est comptabilisée qu'une seule fois ──
+    const paymentLockRef = adminDb.collection("subscription_payments").doc(
+      `${supplierId}_${ref}`.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 140)
+    );
+    const paymentLockSnap = await paymentLockRef.get();
+    const isDuplicatePayment = paymentLockSnap.exists;
 
     const assigned = businessType === "IMMOBILIER" 
       ? ["immo"] 
@@ -50,6 +70,18 @@ export async function POST(req: NextRequest) {
     const effectiveName = (companyData?.company || supplierName || "Boutique Partenaire").trim();
     const entryNumber = generateEntryNumber();
 
+    const userDocRef = adminDb.collection("users").doc(supplierId);
+    const userDocSnap = await userDocRef.get();
+    const existingUserData = userDocSnap.exists ? userDocSnap.data() : {};
+
+    // ── Réduction parrainage (-10 USD sur le mois suivant l'inscription) ──
+    // La réduction est posée à l'inscription et consommée au paiement suivant.
+    const { discount: referralDiscount, total: finalAmount } = computeDiscountedDeposit(
+      baseAmount,
+      isDuplicatePayment ? 0 : existingUserData?.referralDiscountPending
+    );
+    const discountLabel = referralDiscount > 0 ? ` (réduction parrainage -$${referralDiscount})` : "";
+
     // ─────────────────────────────────────────────────────────────
     // 1. ÉCRITURE DANS LE GRAND LIVRE COMPTABLE CENTRAL (accounting_ledger)
     // ─────────────────────────────────────────────────────────────
@@ -59,7 +91,7 @@ export async function POST(req: NextRequest) {
       journal: "AB",
       journalName: "Journal des Abonnements & Dépôts",
       referencePiece: ref,
-      label: `Encaissement abonnement mensuel - Fournisseur ${effectiveName} (${paymentMethod})`,
+      label: `Encaissement abonnement mensuel - Fournisseur ${effectiveName} (${paymentMethod})${discountLabel}`,
       debit: finalAmount, // Entrée d'argent dans la trésorerie de Rayons.net
       credit: 0,
       balanceAfter: finalAmount,
@@ -78,7 +110,7 @@ export async function POST(req: NextRequest) {
       type: "SUBSCRIPTION",
       amount: finalAmount,
       currency: currency || "USD",
-      description: `Abonnement Fournisseur - ${effectiveName} (${paymentMethod})`,
+      description: `Abonnement Fournisseur - ${effectiveName} (${paymentMethod})${discountLabel}`,
       referenceId: ref,
       status: "COMPLETED",
       supplierId,
@@ -94,7 +126,7 @@ export async function POST(req: NextRequest) {
       category: "Abonnement",
       amount: finalAmount,
       currency: currency || "USD",
-      description: `Cotisation mensuelle Abonnement Fournisseur Rayons ($${finalAmount})`,
+      description: `Cotisation mensuelle Abonnement Fournisseur Rayons ($${finalAmount})${discountLabel}`,
       referenceId: ref,
       status: "COMPLETED",
       supplierId,
@@ -107,10 +139,6 @@ export async function POST(req: NextRequest) {
     const nextDueDate = new Date();
     nextDueDate.setDate(nextDueDate.getDate() + 30); // 30 jours renouvelables
 
-    const userDocRef = adminDb.collection("users").doc(supplierId);
-    const userDocSnap = await userDocRef.get();
-    const existingUserData = userDocSnap.exists ? userDocSnap.data() : {};
-
     // Ne pas rétrograder le superAdmin si c'est lui qui teste
     let finalRole = targetRole;
     if (existingUserData?.role === "SUPER_ADMIN" || existingUserData?.role === "superAdmin") {
@@ -122,7 +150,8 @@ export async function POST(req: NextRequest) {
       role: finalRole,
       status: "ACTIVE",
       subscriptionStatus: "ACTIVE",
-      depositAmount: finalAmount,
+      // Le tarif de référence reste le montant plein (la réduction parrainage est ponctuelle)
+      depositAmount: baseAmount,
       subscriptionEndDate: nextDueDate,
       lastDepositPaidAt: now,
       lastDepositAmount: finalAmount,
@@ -131,6 +160,21 @@ export async function POST(req: NextRequest) {
       isBlocked: false,
       updatedAt: now,
     };
+
+    if (referralDiscount > 0) {
+      userUpdatePayload.referralDiscountPending = Math.max(
+        0,
+        (Number(existingUserData?.referralDiscountPending) || 0) - referralDiscount
+      );
+      userUpdatePayload.referralDiscountUsedAt = now;
+    }
+
+    // Doublon (ex : même paiement renvoyé à l'étape 2 de l'inscription) : on ne touche ni à l'échéance ni aux finances
+    if (isDuplicatePayment) {
+      delete userUpdatePayload.subscriptionEndDate;
+      delete userUpdatePayload.lastDepositPaidAt;
+      delete userUpdatePayload.lastDepositAmount;
+    }
 
     if (companyData) {
       if (companyData.name) {
@@ -160,17 +204,51 @@ export async function POST(req: NextRequest) {
     const batch = adminDb.batch();
 
     const ledgerRef = adminDb.collection("accounting_ledger").doc();
-    batch.set(ledgerRef, ledgerEntry);
-
     const adminTxRef = adminDb.collection("transactions").doc();
-    batch.set(adminTxRef, adminTx);
-
     const supplierTxRef = adminDb.collection("supplier_transactions").doc();
-    batch.set(supplierTxRef, supplierTx);
+
+    if (!isDuplicatePayment) {
+      batch.set(ledgerRef, ledgerEntry);
+      batch.set(adminTxRef, adminTx);
+      batch.set(supplierTxRef, supplierTx);
+      batch.set(paymentLockRef, {
+        supplierId,
+        referenceId: ref,
+        baseAmount,
+        amount: finalAmount,
+        referralDiscount,
+        paymentMethod,
+        recordedBy: caller?.uid || null,
+        createdAt: now,
+      });
+    }
 
     batch.set(userDocRef, userUpdatePayload, { merge: true });
 
     await batch.commit();
+
+    // ─────────────────────────────────────────────────────────────
+    // PARRAINAGE : rattachement (1ʳᵉ souscription uniquement) + commission 5 USD au parrain
+    // Les erreurs de parrainage ne doivent jamais bloquer l'abonnement.
+    // ─────────────────────────────────────────────────────────────
+    let referral: { attached?: boolean; reason?: string; credited?: boolean } = {};
+    try {
+      const isFirstSubscription = !existingUserData?.lastDepositPaidAt || isDuplicatePayment;
+      if (referralCode && isFirstSubscription && !existingUserData?.referredBy) {
+        const r = await attachReferral({
+          filleulId: supplierId,
+          code: referralCode,
+          filleulName: effectiveName,
+          filleulEmail: companyData?.email || supplierEmail || existingUserData?.email,
+        });
+        referral.attached = r.attached;
+        referral.reason = r.reason;
+      }
+      const c = await creditReferralCommission({ filleulId: supplierId, paymentRef: ref, amountPaid: finalAmount });
+      referral.credited = c.credited;
+    } catch (refErr) {
+      console.error("[SUPPLIER SUBSCRIBE] referral processing error:", refErr);
+    }
 
     return NextResponse.json({
       success: true,
@@ -180,6 +258,10 @@ export async function POST(req: NextRequest) {
       adminTxId: adminTxRef.id,
       supplierTxId: supplierTxRef.id,
       subscriptionEndDate: nextDueDate.toISOString(),
+      amountCharged: finalAmount,
+      referralDiscount,
+      duplicate: isDuplicatePayment,
+      referral,
       message: `Abonnement de $${finalAmount} validé et enregistré dans le Grand Livre Admin et l'Espace Fournisseur.`,
     });
   } catch (error: any) {

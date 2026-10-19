@@ -31,6 +31,8 @@ interface Supplier {
   serviceAttached?: string;
   isOfficialAdminStore?: boolean;
   isAdminSupplier?: boolean;
+  referralCode?: string;
+  referralCodeUsed?: string;
   createdAt?: any;
 }
 
@@ -125,6 +127,8 @@ export default function SuppliersPage() {
           serviceAttached: data.serviceAttached,
           isOfficialAdminStore: Boolean(data.isOfficialAdminStore || data.isAdminSupplier),
           isAdminSupplier: Boolean(data.isAdminSupplier),
+          referralCode: data.referralCode,
+          referralCodeUsed: data.referralCodeUsed,
           createdAt: data.createdAt, // Store createdAt to sort later
         });
       };
@@ -794,6 +798,16 @@ export default function SuppliersPage() {
                               {supplier.role === 'SUB_SUPPLIER' && (
                                 <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">
                                   Sous-Fournisseur
+                                </span>
+                              )}
+                              {supplier.referralCodeUsed && (
+                                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
+                                  Parrainé ({supplier.referralCodeUsed})
+                                </span>
+                              )}
+                              {supplier.referralCode && (
+                                <span className="text-[10px] bg-[#C7D300]/15 text-[#C7D300] border border-[#C7D300]/25 px-2 py-0.5 rounded-full font-mono font-bold">
+                                  Code: {supplier.referralCode}
                                 </span>
                               )}
                             </div>

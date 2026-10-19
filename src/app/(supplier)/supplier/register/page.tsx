@@ -82,6 +82,62 @@ export default function SupplierRegisterPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [generatedTempPassword, setGeneratedTempPassword] = useState("");
 
+  // Code promo / parrainage
+  const [promoCode, setPromoCode] = useState("");
+  const [promoValidating, setPromoValidating] = useState(false);
+  const [promoValidation, setPromoValidation] = useState<{
+    valid: boolean;
+    ownerName?: string;
+    discount?: number;
+    message?: string;
+  } | null>(null);
+
+  const handleValidatePromoCode = async (codeToTest: string) => {
+    const clean = codeToTest.trim().toUpperCase();
+    if (!clean) {
+      setPromoValidation(null);
+      return;
+    }
+    setPromoValidating(true);
+    try {
+      const res = await fetch(`/api/referrals/validate?code=${encodeURIComponent(clean)}`);
+      const data = await res.json();
+      if (data.valid) {
+        setPromoValidation({
+          valid: true,
+          ownerName: data.ownerName,
+          discount: data.discount,
+          message: data.message,
+        });
+      } else {
+        setPromoValidation({
+          valid: false,
+          message: data.error || "Code promo ou de parrainage introuvable.",
+        });
+      }
+    } catch {
+      setPromoValidation({
+        valid: false,
+        message: "Erreur lors de la vérification du code.",
+      });
+    } finally {
+      setPromoValidating(false);
+    }
+  };
+
+  // Détection du paramètre ?ref= ou ?promo= dans l'URL
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get("ref") || params.get("promo");
+      if (ref) {
+        const cleanRef = ref.trim().toUpperCase();
+        setPromoCode(cleanRef);
+        handleValidatePromoCode(cleanRef);
+      }
+    }
+  }, []);
+
   // Pré-remplissage si client déjà authentifié
   useEffect(() => {
     if (user) {
@@ -138,9 +194,13 @@ export default function SupplierRegisterPage() {
 
       // ── CAS CLIENT CONNECTÉ : ENREGISTRER DIRECTEMENT LA TRANSACTION DÈS L'ÉTAPE 1 ──
       if (user) {
+        const token = await user.getIdToken();
         const res = await fetch("/api/supplier/subscribe", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({
             supplierId: user.uid,
             supplierName: company.trim() || userData?.company || userData?.displayName || name.trim() || user.email || "Fournisseur",
@@ -150,6 +210,7 @@ export default function SupplierRegisterPage() {
             paymentMethod: methodStr,
             referencePiece: ref,
             businessType: businessType,
+            referralCode: promoCode.trim() || undefined,
             companyData: {
               name: name.trim() || userData?.displayName || "",
               company: company.trim() || userData?.company || "",
@@ -219,10 +280,14 @@ export default function SupplierRegisterPage() {
       // ── CAS 1 : CLIENT CONNECTÉ QUI SE MET À NIVEAU ──
       if (user) {
         supplierUid = user.uid;
+        const token = await user.getIdToken();
 
         const res = await fetch("/api/supplier/subscribe", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({
             supplierId: user.uid,
             supplierName: company.trim(),
@@ -232,6 +297,7 @@ export default function SupplierRegisterPage() {
             paymentMethod: methodStr,
             referencePiece: paidPaymentRef,
             businessType: businessType,
+            referralCode: promoCode.trim() || undefined,
             companyData: {
               name: name.trim(),
               company: company.trim(),
@@ -261,13 +327,17 @@ export default function SupplierRegisterPage() {
         const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), tempPassword);
         const newUser = userCredential.user;
         supplierUid = newUser.uid;
+        const token = await newUser.getIdToken();
 
         await updateProfile(newUser, { displayName: name.trim() });
 
         // 2. Appel sécurisé au backend pour enregistrer les finances et le compte
         const res = await fetch("/api/supplier/subscribe", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
           body: JSON.stringify({
             supplierId: newUser.uid,
             supplierName: company.trim(),
@@ -277,6 +347,7 @@ export default function SupplierRegisterPage() {
             paymentMethod: methodStr,
             referencePiece: paidPaymentRef,
             businessType: businessType,
+            referralCode: promoCode.trim() || undefined,
             companyData: {
               name: name.trim(),
               company: company.trim(),
@@ -713,6 +784,60 @@ export default function SupplierRegisterPage() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* CODE PROMO / PARRAINAGE */}
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-gray-700 flex items-center gap-1.5">
+                    <Sparkles size={14} className="text-[#FF6600]" />
+                    <span>Code promo ou de parrainage (optionnel) :</span>
+                  </label>
+                  {promoValidation?.valid && (
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      ✓ Réduction -$10 USD validée
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={promoCode}
+                    onChange={(e) => {
+                      setPromoCode(e.target.value.toUpperCase());
+                      if (promoValidation) setPromoValidation(null);
+                    }}
+                    placeholder="Ex: RAY-K7M2Q"
+                    className="flex-1 px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF6600] text-xs font-mono uppercase font-bold tracking-wider text-gray-900"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleValidatePromoCode(promoCode)}
+                    disabled={promoValidating || !promoCode.trim()}
+                    className="px-4 py-2.5 bg-[#0F1D27] hover:bg-black text-white rounded-xl text-xs font-bold transition-all disabled:opacity-40 shrink-0 cursor-pointer"
+                  >
+                    {promoValidating ? "Vérification..." : "Appliquer"}
+                  </button>
+                </div>
+                {promoValidation && (
+                  <div
+                    className={`p-3 rounded-xl text-xs flex items-start gap-2.5 ${
+                      promoValidation.valid
+                        ? "bg-emerald-50 border border-emerald-200 text-emerald-800"
+                        : "bg-red-50 border border-red-200 text-red-700"
+                    }`}
+                  >
+                    {promoValidation.valid ? (
+                      <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+                    )}
+                    <span className="leading-relaxed">{promoValidation.message}</span>
+                  </div>
+                )}
+                <p className="text-[10px] text-gray-400">
+                  Un code parrain vous fait bénéficier de <strong>10 USD de réduction</strong> sur votre prochain mois d'abonnement.
+                </p>
               </div>
 
               {/* BOUTON ÉTAPE 1 */}

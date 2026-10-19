@@ -1,4 +1,4 @@
-import { db } from "./firebase";
+import { db, auth } from "./firebase";
 import {
   collection,
   serverTimestamp,
@@ -243,6 +243,32 @@ export async function recordSubscriptionDeposit(params: {
   });
 
   await batch.commit();
+
+  // Déclencher la commission de parrainage en arrière-plan (5 USD à vie)
+  if (typeof window !== "undefined") {
+    setTimeout(async () => {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (token) {
+          await fetch("/api/referrals/credit", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              filleulId: supplierId,
+              paymentRef: ref,
+              amountPaid: amount,
+            }),
+          });
+        }
+      } catch (err) {
+        console.warn("[LEDGER] Referral commission trigger notice:", err);
+      }
+    }, 100);
+  }
+
   return entry;
 }
 

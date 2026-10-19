@@ -252,6 +252,41 @@ service cloud.firestore {
       );
     }
 
+    // Programme de parrainage (codes, filleuls, commissions, invitations)
+    match /referral_codes/{code} {
+      allow read: if true; // Pour validation du code promo à l'inscription
+      allow write: if isSuperAdmin() || isAdmin();
+    }
+
+    match /referrals/{filleulId} {
+      allow read: if request.auth != null && (
+        isSuperAdmin() || isAdmin() ||
+        resource.data.referrerId == request.auth.uid ||
+        ownsSupplierData(resource.data.referrerId) ||
+        resource.data.filleulId == request.auth.uid ||
+        ownsSupplierData(resource.data.filleulId)
+      );
+      allow write: if isSuperAdmin() || isAdmin();
+    }
+
+    match /referral_commissions/{commissionId} {
+      allow read: if request.auth != null && (
+        isSuperAdmin() || isAdmin() ||
+        resource.data.referrerId == request.auth.uid ||
+        ownsSupplierData(resource.data.referrerId)
+      );
+      allow write: if isSuperAdmin() || isAdmin();
+    }
+
+    match /referral_invites/{inviteId} {
+      allow read: if request.auth != null && (
+        isSuperAdmin() || isAdmin() ||
+        resource.data.referrerId == request.auth.uid ||
+        ownsSupplierData(resource.data.referrerId)
+      );
+      allow write: if isSuperAdmin() || isAdmin();
+    }
+
     // Platform Settings & Configuration (Multi-devise, Taux de change, etc.)
     match /settings/{docId} {
       allow read: if true; // Public/clients can read exchange rates for live currency conversion

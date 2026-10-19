@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { initFirebaseAdmin, adminDb } from "@/lib/firebase-admin";
+import { creditReferralCommission } from "@/lib/referrals";
 
 export async function POST(req: Request) {
   try {
@@ -57,6 +58,13 @@ export async function POST(req: Request) {
         createdAt: FieldValue.serverTimestamp(),
         createdBy: supplierId
       });
+
+      // Traitement du parrainage
+      try {
+        await creditReferralCommission({ filleulId: supplierId, paymentRef: refId, amountPaid: 20 });
+      } catch (refErr) {
+        console.warn("[MAKUTA API] referral commission notice:", refErr);
+      }
 
       return NextResponse.json({ success: true, message: "Paiement réussi" });
     } else {

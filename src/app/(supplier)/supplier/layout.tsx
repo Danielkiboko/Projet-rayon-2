@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { ShieldAlert, LayoutDashboard, Package, ShoppingCart, Truck, Wallet, CreditCard, Users, Layers, Lock, ArrowRight, Clock } from "lucide-react";
+import { ShieldAlert, LayoutDashboard, Package, ShoppingCart, Truck, Wallet, CreditCard, Users, Layers, Lock, ArrowRight, Clock, Gift } from "lucide-react";
 import { themeConfig } from "@/lib/themeConfig";
 import DashboardLayout from "@/modules/shared/components/layouts/DashboardLayout";
 import { isSupplier, getSupplierType, getSupplierAvailableRayons } from "@/lib/permissions";
@@ -59,8 +59,8 @@ export default function SupplierLayout({
       // Check subscription/trial expiry
       const subscriptionInfo = evaluateSupplierSubscription(userData);
       if (subscriptionInfo.isBlocked) {
-        // Allow dashboard and finance pages — block everything else
-        const allowedWhenExpired = ['/supplier', '/supplier/finance', '/supplier/settings'];
+        // Allow dashboard, finance, settings and referrals pages — block everything else
+        const allowedWhenExpired = ['/supplier', '/supplier/finance', '/supplier/settings', '/supplier/referrals'];
         const isAllowed = allowedWhenExpired.some(p => pathname === p || pathname.startsWith(p + '/'));
         if (!isAllowed) {
           router.push('/supplier');
@@ -209,6 +209,9 @@ export default function SupplierLayout({
     navItems.push({ title: "Équipe", href: "/supplier/team", icon: Users as any });
   }
 
+  // Programme de Parrainage ($5 par paiement de chaque filleul à vie)
+  navItems.push({ title: "Parrainage", href: "/supplier/referrals", icon: Gift as any });
+
   // Le sous-fournisseur ne voit que ce qui est dans ses permissions (et le dashboard)
   if (userData?.role === 'SUB_SUPPLIER' && Array.isArray(userData?.permissions)) {
     navItems = navItems.filter(item => 
@@ -219,7 +222,7 @@ export default function SupplierLayout({
   // Verrouillage strict des fonctionnalités si abonnement expiré
   if (subscriptionInfo.isBlocked) {
     navItems = navItems.map(item => {
-      const isAllowed = item.href === '/supplier' || item.href === '/supplier/finance' || item.href === '/supplier/settings';
+      const isAllowed = item.href === '/supplier' || item.href === '/supplier/finance' || item.href === '/supplier/settings' || item.href === '/supplier/referrals';
       return {
         ...item,
         locked: !isAllowed

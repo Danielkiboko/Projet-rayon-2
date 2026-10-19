@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { initFirebaseAdmin, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { creditReferralCommission } from "@/lib/referrals";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PAYMENT GATEWAY — Structure prête à brancher
@@ -212,6 +213,13 @@ export async function POST(req: Request) {
         status: "COMPLETED",
         createdAt: now,
       });
+
+      // Traitement du parrainage (5 USD au parrain à vie)
+      try {
+        await creditReferralCommission({ filleulId: supplierId, paymentRef: refId, amountPaid: amount });
+      } catch (refErr) {
+        console.warn("[PAYMENT API] referral commission notice:", refErr);
+      }
 
       return NextResponse.json({ success: true, referenceId: refId, message: "Abonnement activé" });
     }
