@@ -37,10 +37,13 @@ export default function HealthDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ logId }),
       });
-      if (!res.ok) throw new Error("Failed to analyze");
-    } catch (err) {
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error || `Erreur serveur (${res.status})`);
+      }
+    } catch (err: any) {
       console.error(err);
-      alert("Erreur lors de l'analyse avec l'IA.");
+      alert(`Erreur lors de l'analyse avec l'IA.\n\n${err.message}`);
     } finally {
       setAnalyzing(null);
     }

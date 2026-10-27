@@ -208,7 +208,7 @@ function ImmoContent() {
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.15 }}
-              className="text-xs sm:text-sm text-green-50/90 max-w-lg hidden sm:block"
+              className="text-xs sm:text-sm text-white/80 max-w-lg hidden sm:block"
             >
               {t.subtitle}
             </motion.p>
@@ -216,38 +216,38 @@ function ImmoContent() {
         </div>
 
         {/* Category Tabs */}
-        <div className="flex space-x-3 mb-6 overflow-x-auto pb-2">
+        <div className="flex space-x-2 sm:space-x-3 mb-6 overflow-x-auto pb-2 scrollbar-none">
           <button 
             onClick={() => setSelectedCategory("all")}
-            className={`px-5 py-2 font-semibold rounded-full text-sm transition-all whitespace-nowrap ${
-              selectedCategory === "all" ? "bg-gray-900 text-white shadow-md" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+            className={`px-4 sm:px-5 py-2 font-bold rounded-full text-xs sm:text-sm transition-all whitespace-nowrap cursor-pointer ${
+              selectedCategory === "all" ? "bg-[#0F1D27] text-white shadow-md" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
             }`}
           >
             {t.all}
           </button>
           <button 
             onClick={() => setSelectedCategory("hotel")}
-            className={`px-5 py-2 font-semibold rounded-full text-sm transition-all whitespace-nowrap flex items-center gap-1.5 ${
+            className={`px-4 sm:px-5 py-2 font-bold rounded-full text-xs sm:text-sm transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
               selectedCategory === "hotel" 
-                ? "bg-gray-900 text-white shadow-md" 
+                ? "bg-[#4C6EF5] text-white shadow-md shadow-[#4C6EF5]/20" 
                 : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300"
             }`}
           >
-            <Hotel size={16} className={selectedCategory === "hotel" ? "text-amber-400" : "text-amber-600"} />
+            <Hotel size={15} className={selectedCategory === "hotel" ? "text-white" : "text-amber-500"} />
             <span>{t.hotels}</span>
           </button>
           <button 
             onClick={() => setSelectedCategory("sale")}
-            className={`px-5 py-2 font-semibold rounded-full text-sm transition-all whitespace-nowrap ${
-              selectedCategory === "sale" ? "bg-green-700 text-white shadow-md" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+            className={`px-4 sm:px-5 py-2 font-bold rounded-full text-xs sm:text-sm transition-all whitespace-nowrap cursor-pointer ${
+              selectedCategory === "sale" ? "bg-[#4C6EF5] text-white shadow-md shadow-[#4C6EF5]/20" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
             }`}
           >
             {t.sale}
           </button>
           <button 
             onClick={() => setSelectedCategory("rent")}
-            className={`px-5 py-2 font-semibold rounded-full text-sm transition-all whitespace-nowrap ${
-              selectedCategory === "rent" ? "bg-blue-700 text-white shadow-md" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+            className={`px-4 sm:px-5 py-2 font-bold rounded-full text-xs sm:text-sm transition-all whitespace-nowrap cursor-pointer ${
+              selectedCategory === "rent" ? "bg-[#4C6EF5] text-white shadow-md shadow-[#4C6EF5]/20" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
             }`}
           >
             {t.rent}
@@ -389,7 +389,7 @@ function ImmoContent() {
             <div className="col-span-full py-16 text-center text-gray-500 bg-white rounded-2xl border border-gray-100">
               <Hotel size={48} className="mx-auto text-gray-300 mb-3" />
               <p className="font-semibold">Aucun bien disponible dans cette catégorie pour le moment.</p>
-              <button onClick={() => setSelectedCategory("all")} className="mt-3 text-sm text-green-700 hover:underline">
+              <button onClick={() => setSelectedCategory("all")} className="mt-3 text-sm text-[#4C6EF5] font-semibold hover:underline">
                 Voir tous les biens
               </button>
             </div>
@@ -441,7 +441,7 @@ function ImmoContent() {
                         <span className={`px-2 py-0.5 text-[9px] sm:text-[10px] font-bold tracking-wider rounded-md border uppercase backdrop-blur-md shadow-xs ${
                           isSale 
                             ? "bg-white/95 text-emerald-800 border-emerald-200/80" 
-                            : "bg-white/95 text-blue-800 border-blue-200/80"
+                            : "bg-white/95 text-[#4C6EF5] border-[#4C6EF5]/30"
                         }`}>
                           {isSale ? "À Vendre" : "À Louer"}
                         </span>
@@ -477,14 +477,14 @@ function ImmoContent() {
                           setSelectedDetailProperty(property);
                           setIsDetailModalOpen(true);
                         }}
-                        className="text-xs sm:text-sm font-bold text-gray-900 leading-snug cursor-pointer hover:text-green-700 transition-colors line-clamp-1 mb-1"
+                        className="text-xs sm:text-sm font-bold text-gray-900 leading-snug cursor-pointer hover:text-[#4C6EF5] transition-colors line-clamp-1 mb-1"
                         title={property.title?.[lang] || property.title?.fr || property.title}
                       >
                         {property.title?.[lang] || property.title?.fr || property.title}
                       </h3>
                       
                       <div className="flex items-center text-gray-500 text-[11px] mb-2">
-                        <MapPin size={12} className="mr-0.5 text-green-600 shrink-0" />
+                        <MapPin size={12} className="mr-0.5 text-[#4C6EF5] shrink-0" />
                         <span className="truncate">{property.location}</span>
                       </div>
 

@@ -522,7 +522,7 @@ export default function SuppliersPage() {
           </button>
           <button
             onClick={() => handleOpenCreateModal()}
-            className="flex items-center space-x-2 bg-gradient-to-r from-primary to-primary-light hover:brightness-110 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-primary/25 transition-all"
+            className="flex items-center space-x-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-[#C7D300]/20 transition-all active:scale-95"
           >
             <Plus size={20} />
             <span>
@@ -678,7 +678,7 @@ export default function SuppliersPage() {
             {selectedRayonFilter !== "all" && (
               <button
                 onClick={() => setSelectedRayonFilter("all")}
-                className="text-primary-light hover:underline ml-2"
+                className="text-[#C7D300] hover:underline ml-2 font-bold"
               >
                 Voir tout
               </button>
@@ -686,7 +686,7 @@ export default function SuppliersPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full min-w-[850px] text-left text-sm text-gray-300">
             <thead className="text-xs uppercase bg-black/30 text-gray-400 tracking-wider">
               <tr>
@@ -703,7 +703,7 @@ export default function SuppliersPage() {
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
                     <div className="flex flex-col items-center gap-2">
-                      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      <div className="w-6 h-6 border-2 border-[#C7D300] border-t-transparent rounded-full animate-spin" />
                       <span>Chargement des prestataires...</span>
                     </div>
                   </td>
@@ -733,7 +733,7 @@ export default function SuppliersPage() {
                       </p>
                       <button
                         onClick={() => handleOpenCreateModal(selectedRayonFilter !== "all" ? selectedRayonFilter : "immo")}
-                        className="flex items-center space-x-2 bg-primary hover:bg-primary-light text-white text-xs px-4 py-2 rounded-lg font-medium transition-colors"
+                        className="flex items-center space-x-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs px-4 py-2 rounded-lg font-bold transition-colors shadow-sm"
                       >
                         <Plus size={16} />
                         <span>
@@ -764,12 +764,12 @@ export default function SuppliersPage() {
                         <div className="flex items-center space-x-3">
                           <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                             isImmo
-                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                              ? "bg-[#4C6EF5]/20 text-[#4C6EF5] border border-[#4C6EF5]/30"
                               : isMode
-                              ? "bg-pink-500/20 text-pink-300 border border-pink-500/30"
+                              ? "bg-[#D4B08C]/20 text-[#D4B08C] border border-[#D4B08C]/30"
                               : isConnect
-                              ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                              : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                              ? "bg-[#00B5A5]/20 text-[#00B5A5] border border-[#00B5A5]/30"
+                              : "bg-[#FF6B35]/20 text-[#FF6B35] border border-[#FF6B35]/30"
                           }`}>
                             {isImmo ? (
                               <Home size={18} />
@@ -934,7 +934,7 @@ export default function SuppliersPage() {
                             </div>
                             <button 
                               onClick={() => openAccessModal(supplier)}
-                              className="text-xs text-primary-light hover:text-white flex items-center transition-colors"
+                              className="text-xs text-[#C7D300] hover:text-white flex items-center transition-colors font-medium"
                             >
                               <Shield size={12} className="mr-1" />
                               Gérer les accès
@@ -988,7 +988,7 @@ export default function SuppliersPage() {
                             )}
                             <button 
                               onClick={() => openSubModal(supplier)}
-                              className="text-xs text-primary-light font-medium mt-1 text-left hover:underline flex items-center gap-1 cursor-pointer"
+                              className="text-xs text-[#C7D300] font-medium mt-1 text-left hover:underline flex items-center gap-1 cursor-pointer"
                             >
                               <span>⚙️ Gérer l'abonnement / Essai</span>
                             </button>
@@ -1024,6 +1024,117 @@ export default function SuppliersPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Supplier Cards (< md) */}
+        <div className="md:hidden divide-y divide-white/5">
+          {isLoading ? (
+            <div className="p-8 text-center text-gray-400">
+              <div className="w-6 h-6 border-2 border-[#C7D300] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-xs">Chargement des prestataires...</p>
+            </div>
+          ) : filteredSuppliers.length === 0 ? (
+            <div className="p-8 text-center text-gray-400">
+              <p className="text-sm font-semibold text-white">Aucun fournisseur trouvé</p>
+            </div>
+          ) : (
+            filteredSuppliers.map((supplier) => {
+              const supplierRayons = getSupplierRayons(supplier);
+              const isImmo = supplierRayons.includes("immo");
+              const isMode = supplierRayons.includes("mode");
+              const isConnect = supplierRayons.includes("connect");
+
+              const status = supplier.subscriptionStatus || "TRIAL";
+              const endDate = supplier.subscriptionEndDate ? new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate) : null;
+              const daysLeft = endDate ? Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+              const isExpired = daysLeft <= 0;
+
+              return (
+                <div key={supplier.id} className="p-3.5 flex flex-col gap-2.5 hover:bg-white/[0.02] transition-colors">
+                  {/* Top: Icon + Name + Badges */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                        isImmo ? "bg-[#4C6EF5]/20 text-[#4C6EF5] border border-[#4C6EF5]/30" :
+                        isMode ? "bg-[#D4B08C]/20 text-[#D4B08C] border border-[#D4B08C]/30" :
+                        isConnect ? "bg-[#00B5A5]/20 text-[#00B5A5] border border-[#00B5A5]/30" :
+                        "bg-[#FF6B35]/20 text-[#FF6B35] border border-[#FF6B35]/30"
+                      }`}>
+                        {isImmo ? <Home size={15} /> : isMode ? <ShoppingBag size={15} /> : isConnect ? <Zap size={15} /> : <Store size={15} />}
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-xs text-white truncate">{supplier.name}</h4>
+                        <p className="text-[10px] text-gray-400 truncate">{supplier.email}</p>
+                      </div>
+                    </div>
+
+                    {/* Subscription Status Chip */}
+                    {(supplier.isOfficialAdminStore || supplier.isAdminSupplier) ? (
+                      <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full uppercase font-bold shrink-0">
+                        Admin
+                      </span>
+                    ) : isExpired ? (
+                      <span className="text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-md shrink-0">
+                        ⛔ Expiré
+                      </span>
+                    ) : status === "TRIAL" ? (
+                      <span className="text-[9px] font-bold text-blue-300 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md shrink-0">
+                        ⏱️ {daysLeft}j essai
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md shrink-0">
+                        ✅ {daysLeft}j actif
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Rayons tags */}
+                  <div className="flex flex-wrap items-center gap-1">
+                    {supplierRayons.map((rId) => {
+                      const rConfig = availableRayons.find(ar => ar.id === rId);
+                      return (
+                        <span key={rId} className="text-[9px] font-semibold bg-white/5 border border-white/10 text-gray-300 px-2 py-0.5 rounded">
+                          {rConfig?.label || rId}
+                        </span>
+                      );
+                    })}
+                    {supplier.referralCode && (
+                      <span className="text-[9px] bg-[#C7D300]/15 text-[#C7D300] border border-[#C7D300]/25 px-1.5 py-0.5 rounded font-mono font-bold">
+                        Promo: {supplier.referralCode}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Footer actions */}
+                  <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => openAccessModal(supplier)}
+                        className="text-[10px] bg-white/5 hover:bg-white/10 text-gray-300 px-2.5 py-1 rounded-md border border-white/8 font-medium transition-colors cursor-pointer"
+                      >
+                        Rayons d&apos;accès
+                      </button>
+                      {!(supplier.isOfficialAdminStore || supplier.isAdminSupplier) && (
+                        <button
+                          onClick={() => openSubModal(supplier)}
+                          className="text-[10px] text-[#C7D300] font-medium hover:underline px-1 py-1 cursor-pointer"
+                        >
+                          Abonnement
+                        </button>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => handleDeleteSupplier(supplier.id)}
+                      className="text-red-400 hover:bg-red-400/10 px-2 py-1 rounded text-[10px] font-medium transition-colors cursor-pointer"
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 

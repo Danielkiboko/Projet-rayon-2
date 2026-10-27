@@ -450,27 +450,34 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
     const ray = (p.rayon || "").toLowerCase();
     if (cat === "mode" || ray === "mode" || cat.includes("mode") || cat.includes("vetement") || cat.includes("habit") || cat.includes("chaussure")) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30 uppercase tracking-wider">
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-[#D4B08C]/15 text-[#D4B08C] border border-[#D4B08C]/30 uppercase tracking-wider">
           <span>👗</span> Mode
         </span>
       );
     }
-    if (cat === "connect" || ray === "connect" || cat.includes("connect") || cat.includes("electr") || cat.includes("tech") || cat.includes("telecom")) {
+    if (cat === "connect" || ray === "connect" || cat.includes("connect") || cat.includes("electr") || cat.includes("tech") || cat.includes("telecom") || cat.includes("starlink")) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30 uppercase tracking-wider">
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-[#00B5A5]/15 text-[#00B5A5] border border-[#00B5A5]/30 uppercase tracking-wider">
           <span>📡</span> Connect
+        </span>
+      );
+    }
+    if (cat === "saveurs" || ray === "saveurs" || cat.includes("saveur") || cat.includes("resto") || cat.includes("cuisine") || cat.includes("ustensil") || cat.includes("food") || cat.includes("boisson")) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-[#FF6B35]/15 text-[#FF6B35] border border-[#FF6B35]/30 uppercase tracking-wider">
+          <span>🍽️</span> Saveurs
         </span>
       );
     }
     if (cat === "immo" || ray === "immo") {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 uppercase tracking-wider">
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-[#4C6EF5]/15 text-[#4C6EF5] border border-[#4C6EF5]/30 uppercase tracking-wider">
           <span>🏢</span> Immo
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-gray-500/15 text-gray-300 uppercase tracking-wider">
+      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-white/10 text-gray-300 border border-white/10 uppercase tracking-wider">
         {p.category || "Général"}
       </span>
     );
@@ -534,8 +541,8 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
             className={`${
               !isAdmin && subscriptionInfo.isBlocked 
                 ? "bg-red-600/80 text-white cursor-not-allowed shadow-red-900/30" 
-                : "bg-primary text-white hover:bg-primary-light"
-            } px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center transition-colors shadow-sm`}
+                : "bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold shadow-md shadow-[#C7D300]/10"
+            } px-5 py-2.5 rounded-xl text-sm font-bold flex items-center transition-all active:scale-95`}
             title={!isAdmin && subscriptionInfo.isBlocked ? "Compte suspendu : Dépôt mensuel impayé" : undefined}
           >
             {!isAdmin && subscriptionInfo.isBlocked ? (
@@ -555,7 +562,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
             <p className="text-sm text-gray-400">Total Produits</p>
             <p className="text-2xl font-bold text-white mt-1">{products.length}</p>
           </div>
-          <div className="p-3 bg-purple-400/10 text-purple-400 rounded-lg">
+          <div className="p-3 bg-[#C7D300]/10 text-[#C7D300] rounded-lg">
             <Package size={20} />
           </div>
         </div>
@@ -602,7 +609,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
           </div>
           <button
             onClick={() => setSelectedRayonFilter("low_stock")}
-            className="px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shrink-0 self-start sm:self-center uppercase tracking-wider"
+            className="px-4 py-2.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shrink-0 self-start sm:self-center uppercase tracking-wider cursor-pointer"
           >
             Filtrer les stocks critiques ({lowStockCount})
           </button>
@@ -618,7 +625,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
               placeholder="Rechercher par titre ou marque..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white text-sm transition-all"
+              className="w-full pl-10 pr-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white text-sm transition-all"
             />
           </div>
 
@@ -626,9 +633,9 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
           <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1.5 scrollbar-none">
             <button
               onClick={() => setSelectedRayonFilter("all")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 cursor-pointer ${
                 selectedRayonFilter === "all"
-                  ? "bg-white text-gray-950 shadow-sm"
+                  ? "bg-white text-[#0F1D27] shadow-sm font-bold"
                   : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
               }`}
             >
@@ -638,7 +645,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
             {!isAdmin && (
               <button
                 onClick={() => setSelectedRayonFilter("low_stock")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
                   selectedRayonFilter === "low_stock"
                     ? "bg-red-600 text-white shadow-sm font-bold"
                     : lowStockCount > 0
@@ -653,10 +660,10 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
             {(isAdmin || assignedRayons.includes("mode") || assignedRayons.length === 0) && (
               <button
                 onClick={() => setSelectedRayonFilter("mode")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
                   selectedRayonFilter === "mode"
-                    ? "bg-purple-600 text-white shadow-sm"
-                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                    ? "bg-[#D4B08C] text-[#0F1D27] shadow-sm font-bold"
+                    : "bg-white/5 text-gray-400 hover:text-[#D4B08C] hover:bg-[#D4B08C]/10"
                 }`}
               >
                 <span>👗</span> Rayon Mode
@@ -666,10 +673,10 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
             {(isAdmin || assignedRayons.includes("connect") || assignedRayons.length === 0) && (
               <button
                 onClick={() => setSelectedRayonFilter("connect")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
                   selectedRayonFilter === "connect"
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                    ? "bg-[#00B5A5] text-white shadow-sm font-bold"
+                    : "bg-white/5 text-gray-400 hover:text-[#00B5A5] hover:bg-[#00B5A5]/10"
                 }`}
               >
                 <span>📡</span> Rayon Connect
@@ -679,9 +686,9 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
             {(isAdmin || assignedRayons.includes("saveurs") || assignedRayons.length === 0) && (
               <button
                 onClick={() => setSelectedRayonFilter("saveurs")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
                   selectedRayonFilter === "saveurs"
-                    ? "bg-[#FF6B35] text-white shadow-sm"
+                    ? "bg-[#FF6B35] text-white shadow-sm font-bold"
                     : "bg-white/5 text-gray-400 hover:text-[#FF6B35] hover:bg-[#FF6B35]/10"
                 }`}
               >
@@ -692,10 +699,10 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
             {(isAdmin || assignedRayons.includes("immo")) && (
               <button
                 onClick={() => setSelectedRayonFilter("immo")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer ${
                   selectedRayonFilter === "immo"
-                    ? "bg-emerald-600 text-white shadow-sm"
-                    : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                    ? "bg-[#4C6EF5] text-white shadow-sm font-bold"
+                    : "bg-white/5 text-gray-400 hover:text-[#4C6EF5] hover:bg-[#4C6EF5]/10"
                 }`}
               >
                 <span>🏢</span> Rayon Immo

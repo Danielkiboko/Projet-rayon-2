@@ -4,7 +4,17 @@ import { initFirebaseAdmin, adminDb } from "@/lib/firebase-admin";
 
 export async function POST(req: NextRequest) {
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    // Clé absente ou au format Vercel chiffré (AQ.*) non déchiffré en local
+    if (!apiKey || apiKey.startsWith("AQ.")) {
+      return NextResponse.json(
+        { error: "GEMINI_API_KEY manquante ou invalide. Assurez-vous d'utiliser une vraie clé API Google AI (format AIzaSy...) dans .env.local." },
+        { status: 500 }
+      );
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
     const { logId } = await req.json();
 
     if (!logId) {

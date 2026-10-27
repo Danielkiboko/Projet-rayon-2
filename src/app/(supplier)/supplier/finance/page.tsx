@@ -725,46 +725,46 @@ export default function SupplierFinancePage() {
     .reduce((acc, t) => acc + t.amount, 0);
 
   return (
-    <div className="space-y-6 pb-20">
+    <div className="space-y-4 sm:space-y-6 pb-20">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-white tracking-tight">Livre de Caisse & Trésorerie</h1>
-            <span className="px-2 py-0.5 bg-white/5 text-gray-400 border border-white/10 rounded-md text-[10px] font-bold uppercase tracking-widest">
-              {isImmo ? "Immobilier & Hôtellerie" : "E-commerce"}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight">Livre de Caisse & Trésorerie</h1>
+            <span className="px-2 py-0.5 bg-white/5 text-gray-400 border border-white/10 rounded-md text-[9px] sm:text-[10px] font-bold uppercase tracking-widest shrink-0">
+              {isImmo ? "Immo & Hôtel" : "E-commerce"}
             </span>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">
             {isImmo
               ? "Gestion des encaissements de loyers d'habitation, nuitées hôtelières et dépenses"
               : "Suivi des ventes, encaissements livreurs et trésorerie physique disponible"}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-3 sm:flex items-center gap-1.5 sm:gap-2">
           <button
             onClick={() => setIsAdjustmentModalOpen(true)}
-            className="flex items-center gap-1.5 bg-white/4 hover:bg-white/8 border border-white/8 text-gray-300 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all"
+            className="flex items-center justify-center gap-1 bg-white/4 hover:bg-white/8 border border-white/8 text-gray-300 px-2 sm:px-3.5 py-2 rounded-lg text-[11px] sm:text-xs font-semibold transition-all active:scale-95"
           >
-            <Sliders size={14} />
-            <span>Ajustement</span>
+            <Sliders size={13} />
+            <span className="truncate">Ajustement</span>
           </button>
 
           <button
             onClick={downloadCSV}
-            className="flex items-center gap-1.5 bg-white/4 hover:bg-white/8 border border-white/8 text-gray-300 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all"
+            className="flex items-center justify-center gap-1 bg-white/4 hover:bg-white/8 border border-white/8 text-gray-300 px-2 sm:px-3.5 py-2 rounded-lg text-[11px] sm:text-xs font-semibold transition-all active:scale-95"
           >
-            <Download size={14} />
-            <span>Exporter CSV</span>
+            <Download size={13} />
+            <span className="truncate">Export CSV</span>
           </button>
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-1.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] px-4 py-2 rounded-lg text-xs font-bold transition-all"
+            className="flex items-center justify-center gap-1 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] px-2 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all active:scale-95 shadow-sm"
           >
-            <Plus size={14} />
-            <span>Nouvelle Opération</span>
+            <Plus size={13} />
+            <span className="truncate">Opération</span>
           </button>
         </div>
       </div>
@@ -909,52 +909,52 @@ export default function SupplierFinancePage() {
         )}
       </div>
 
-      {/* KPI Cards — Palette Monochromatique Épurée */}
+      {/* KPI Cards — Palette Monochromatique Épurée Responsive */}
       {isImmo ? (
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3">
           {[
-            { label: "Caisse Magasin", value: `$${storeAvailableBalance.toFixed(2)}`, sub: "Cash disponible", icon: <Wallet size={14} />, accent: true },
-            { label: "Loyers Habitation", value: `$${totalHabitationIncome.toFixed(2)}`, sub: getPeriodLabel(), icon: <Home size={14} />, accent: false },
-            { label: "Hôtellerie", value: `$${totalHotelIncome.toFixed(2)}`, sub: getPeriodLabel(), icon: <Hotel size={14} />, accent: false },
-            { label: "Charges & Dépenses", value: `$${periodPayout.toFixed(2)}`, sub: getPeriodLabel(), icon: <ArrowUpRight size={14} />, accent: false, negative: true },
-            { label: "Capital Récupéré", value: `$${periodCapital.toFixed(2)}`, sub: "Investissement amorti", icon: <Landmark size={14} />, accent: false },
-            { label: "Marge Nette", value: `+$${periodNetProfit.toFixed(2)}`, sub: "Bénéfice net", icon: <TrendingUp size={14} />, accent: false, positive: true },
+            { label: "Caisse Magasin", value: `$${storeAvailableBalance.toFixed(2)}`, sub: "Cash disponible", icon: <Wallet size={13} />, accent: true },
+            { label: "Loyers Habitation", value: `$${totalHabitationIncome.toFixed(2)}`, sub: getPeriodLabel(), icon: <Home size={13} />, accent: false },
+            { label: "Hôtellerie", value: `$${totalHotelIncome.toFixed(2)}`, sub: getPeriodLabel(), icon: <Hotel size={13} />, accent: false },
+            { label: "Charges & Dépenses", value: `$${periodPayout.toFixed(2)}`, sub: getPeriodLabel(), icon: <ArrowUpRight size={13} />, accent: false, negative: true },
+            { label: "Capital Récupéré", value: `$${periodCapital.toFixed(2)}`, sub: "Investissement amorti", icon: <Landmark size={13} />, accent: false },
+            { label: "Marge Nette", value: `+$${periodNetProfit.toFixed(2)}`, sub: "Bénéfice net", icon: <TrendingUp size={13} />, accent: false, positive: true },
           ].map((kpi, idx) => (
-            <div key={idx} className="bg-white/3 border border-white/8 rounded-xl p-3 sm:p-4 flex flex-col justify-between gap-2 sm:gap-3 min-h-[95px] sm:min-h-[110px]">
+            <div key={idx} className="bg-white/3 border border-white/8 rounded-xl p-2.5 sm:p-3.5 flex flex-col justify-between gap-1.5 sm:gap-2 min-h-[82px] sm:min-h-[105px]">
               <div className="flex items-center justify-between gap-1">
-                <p className="text-gray-500 text-[10px] font-semibold uppercase tracking-wider truncate">{kpi.label}</p>
-                <span className={`p-1 sm:p-1.5 rounded-md shrink-0 ${kpi.accent ? "bg-[#C7D300]/10 text-[#C7D300]" : "bg-white/5 text-gray-500"}`}>
+                <p className="text-gray-500 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider truncate">{kpi.label}</p>
+                <span className={`p-1 rounded-md shrink-0 ${kpi.accent ? "bg-[#C7D300]/10 text-[#C7D300]" : "bg-white/5 text-gray-500"}`}>
                   {kpi.icon}
                 </span>
               </div>
-              <p className={`text-base sm:text-xl font-black tabular-nums truncate ${kpi.negative ? "text-rose-400" : kpi.positive ? "text-emerald-400" : kpi.accent ? "text-[#C7D300]" : "text-white"}`}>
+              <p className={`text-sm sm:text-lg md:text-xl font-black tabular-nums truncate ${kpi.negative ? "text-rose-400" : kpi.positive ? "text-emerald-400" : kpi.accent ? "text-[#C7D300]" : "text-white"}`}>
                 {kpi.value}
               </p>
-              <p className="text-[10px] text-gray-600 truncate">{kpi.sub}</p>
+              <p className="text-[9px] sm:text-[10px] text-gray-500 truncate">{kpi.sub}</p>
             </div>
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3">
           {[
-            { label: "Caisse Magasin", value: `$${storeAvailableBalance.toFixed(2)}`, sub: "Cash disponible", icon: <Wallet size={14} />, accent: true },
-            { label: "Chez Livreurs", value: `$${pendingCashTotal.toFixed(2)}`, sub: `${pendingHandovers.length} course(s)`, icon: <Clock size={14} />, accent: pendingHandovers.length > 0, pending: true },
-            { label: "Revenus Ventes", value: `$${periodIncome.toFixed(2)}`, sub: getPeriodLabel(), icon: <ArrowDownRight size={14} />, accent: false },
-            { label: "Dépenses / Sorties", value: `$${periodPayout.toFixed(2)}`, sub: getPeriodLabel(), icon: <ArrowUpRight size={14} />, accent: false, negative: true },
-            { label: "Capital Récupéré", value: `$${periodCapital.toFixed(2)}`, sub: "Prix d'achat amorti", icon: <Landmark size={14} />, accent: false },
-            { label: "Marge Nette", value: `+$${periodNetProfit.toFixed(2)}`, sub: "Bénéfice net", icon: <TrendingUp size={14} />, accent: false, positive: true },
+            { label: "Caisse Magasin", value: `$${storeAvailableBalance.toFixed(2)}`, sub: "Cash disponible", icon: <Wallet size={13} />, accent: true },
+            { label: "Chez Livreurs", value: `$${pendingCashTotal.toFixed(2)}`, sub: `${pendingHandovers.length} course(s)`, icon: <Clock size={13} />, accent: pendingHandovers.length > 0, pending: true },
+            { label: "Revenus Ventes", value: `$${periodIncome.toFixed(2)}`, sub: getPeriodLabel(), icon: <ArrowDownRight size={13} />, accent: false },
+            { label: "Dépenses / Sorties", value: `$${periodPayout.toFixed(2)}`, sub: getPeriodLabel(), icon: <ArrowUpRight size={13} />, accent: false, negative: true },
+            { label: "Capital Récupéré", value: `$${periodCapital.toFixed(2)}`, sub: "Prix d'achat amorti", icon: <Landmark size={13} />, accent: false },
+            { label: "Marge Nette", value: `+$${periodNetProfit.toFixed(2)}`, sub: "Bénéfice net", icon: <TrendingUp size={13} />, accent: false, positive: true },
           ].map((kpi, idx) => (
-            <div key={idx} className="bg-white/3 border border-white/8 rounded-xl p-3 sm:p-4 flex flex-col justify-between gap-2 sm:gap-3 min-h-[95px] sm:min-h-[110px]">
+            <div key={idx} className="bg-white/3 border border-white/8 rounded-xl p-2.5 sm:p-3.5 flex flex-col justify-between gap-1.5 sm:gap-2 min-h-[82px] sm:min-h-[105px]">
               <div className="flex items-center justify-between gap-1">
-                <p className="text-gray-500 text-[10px] font-semibold uppercase tracking-wider truncate">{kpi.label}</p>
-                <span className={`p-1 sm:p-1.5 rounded-md shrink-0 ${kpi.accent ? "bg-[#C7D300]/10 text-[#C7D300]" : "bg-white/5 text-gray-500"}`}>
+                <p className="text-gray-500 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider truncate">{kpi.label}</p>
+                <span className={`p-1 rounded-md shrink-0 ${kpi.accent ? "bg-[#C7D300]/10 text-[#C7D300]" : "bg-white/5 text-gray-500"}`}>
                   {kpi.icon}
                 </span>
               </div>
-              <p className={`text-base sm:text-xl font-black tabular-nums truncate ${kpi.negative ? "text-rose-400" : kpi.positive ? "text-emerald-400" : kpi.pending ? "text-amber-300" : kpi.accent ? "text-[#C7D300]" : "text-white"}`}>
+              <p className={`text-sm sm:text-lg md:text-xl font-black tabular-nums truncate ${kpi.negative ? "text-rose-400" : kpi.positive ? "text-emerald-400" : kpi.pending ? "text-amber-300" : kpi.accent ? "text-[#C7D300]" : "text-white"}`}>
                 {kpi.value}
               </p>
-              <p className="text-[10px] text-gray-600 truncate">{kpi.sub}</p>
+              <p className="text-[9px] sm:text-[10px] text-gray-500 truncate">{kpi.sub}</p>
             </div>
           ))}
         </div>
@@ -1339,21 +1339,21 @@ export default function SupplierFinancePage() {
       {/* Modal 1: Nouvelle Opération */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.97, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.97 }}
-              className="w-full max-w-md bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+              className="w-full max-w-md bg-[#0F1D27] border border-white/10 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] my-auto"
             >
-              <div className="flex items-center justify-between px-6 py-5 border-b border-white/8">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-white/8 shrink-0">
                 <h2 className="text-sm font-bold text-white">Nouvelle Opération de Caisse</h2>
-                <button onClick={() => setIsModalOpen(false)} className="text-gray-500 hover:text-white transition-colors">
+                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors">
                   <X size={18} />
                 </button>
               </div>
 
-              <form onSubmit={handleAddTransaction} className="p-6 space-y-4">
+              <form onSubmit={handleAddTransaction} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3.5 overscroll-contain">
                 <div>
                   <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Type d&apos;opération</label>
                   <select
@@ -1529,18 +1529,18 @@ export default function SupplierFinancePage() {
                   />
                 </div>
 
-                <div className="pt-2 flex justify-end gap-3">
+                <div className="pt-3 border-t border-white/8 flex items-center justify-end gap-2 sticky bottom-0 bg-[#0F1D27] pb-1">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 text-xs text-gray-500 hover:text-white transition-colors"
+                    className="px-3.5 py-2 text-xs text-gray-400 hover:text-white transition-colors"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg transition-all disabled:opacity-50"
+                    className="px-4 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg transition-all disabled:opacity-50"
                   >
                     {isSubmitting ? "Enregistrement..." : "Valider l'Opération"}
                   </button>
@@ -1554,36 +1554,36 @@ export default function SupplierFinancePage() {
       {/* Modal 2: Ajustement de Caisse Magasin */}
       <AnimatePresence>
         {isAdjustmentModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.97, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.97 }}
-              className="w-full max-w-lg bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+              className="w-full max-w-lg bg-[#0F1D27] border border-white/10 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] my-auto"
             >
-              <div className="flex items-center justify-between px-6 py-5 border-b border-white/8">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-white/8 shrink-0">
                 <div>
                   <h2 className="text-sm font-bold text-white flex items-center gap-2">
                     <Sliders className="text-[#C7D300]" size={15} />
                     Ajustement Caisse Magasin
                   </h2>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
+                  <p className="text-[10px] sm:text-[11px] text-gray-500 mt-0.5">
                     Solde actuel : <span className="text-white font-semibold">${balance.toFixed(2)}</span>
                   </p>
                 </div>
-                <button onClick={() => setIsAdjustmentModalOpen(false)} className="text-gray-500 hover:text-white transition-colors">
+                <button onClick={() => setIsAdjustmentModalOpen(false)} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors">
                   <X size={18} />
                 </button>
               </div>
 
-              <form onSubmit={handleSaveAdjustment} className="p-6 space-y-4">
+              <form onSubmit={handleSaveAdjustment} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3.5 overscroll-contain">
                 <div>
                   <label className="text-[11px] text-gray-500 font-semibold block mb-2 uppercase tracking-wider">Sens</label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setAdjType("ADD")}
-                      className={`py-2.5 rounded-lg text-xs font-bold transition-all border ${
+                      className={`py-2 rounded-lg text-xs font-bold transition-all border ${
                         adjType === "ADD"
                           ? "bg-[#C7D300]/10 text-[#C7D300] border-[#C7D300]/30"
                           : "bg-white/4 text-gray-500 border-white/8 hover:border-white/15"
@@ -1594,7 +1594,7 @@ export default function SupplierFinancePage() {
                     <button
                       type="button"
                       onClick={() => setAdjType("SUBTRACT")}
-                      className={`py-2.5 rounded-lg text-xs font-bold transition-all border ${
+                      className={`py-2 rounded-lg text-xs font-bold transition-all border ${
                         adjType === "SUBTRACT"
                           ? "bg-rose-400/10 text-rose-400 border-rose-400/25"
                           : "bg-white/4 text-gray-500 border-white/8 hover:border-white/15"
@@ -1657,18 +1657,18 @@ export default function SupplierFinancePage() {
                   />
                 </div>
 
-                <div className="pt-2 flex justify-end gap-3">
+                <div className="pt-3 border-t border-white/8 flex items-center justify-end gap-2 sticky bottom-0 bg-[#0F1D27] pb-1">
                   <button
                     type="button"
                     onClick={() => setIsAdjustmentModalOpen(false)}
-                    className="px-4 py-2 text-xs text-gray-500 hover:text-white transition-colors"
+                    className="px-3.5 py-2 text-xs text-gray-400 hover:text-white transition-colors"
                   >
                     Annuler
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmittingAdj}
-                    className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg transition-all disabled:opacity-50"
+                    className="px-4 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg transition-all disabled:opacity-50"
                   >
                     {isSubmittingAdj ? "Enregistrement..." : "Valider l'Ajustement"}
                   </button>

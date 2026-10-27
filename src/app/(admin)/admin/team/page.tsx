@@ -562,7 +562,7 @@ export default function AdminTeamPage() {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm text-gray-300">
             <thead className="text-xs uppercase bg-black/30 text-gray-400 tracking-wider">
               {activeTeamTab === "internal" ? (
@@ -799,6 +799,212 @@ export default function AdminTeamPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* ── Mobile Team Cards (< md) ── */}
+        <div className="md:hidden divide-y divide-white/5">
+          {isLoading ? (
+            <div className="p-8 text-center text-gray-400">
+              <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-xs">Chargement...</p>
+            </div>
+          ) : activeTeamTab === "internal" ? (
+            teamMembers.length === 0 ? (
+              <div className="p-8 text-center text-gray-400 text-xs">
+                Aucun collaborateur interne configuré.
+              </div>
+            ) : (
+              teamMembers.map((member) => {
+                const isMemberSuperAdmin = member.role?.toUpperCase().includes("SUPER");
+                return (
+                  <div key={member.id} className="p-4 space-y-3 hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center space-x-3 min-w-0">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
+                          isMemberSuperAdmin
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                            : member.role?.toUpperCase().includes("FINANCE")
+                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                            : member.role?.toUpperCase().includes("DB")
+                            ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                            : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                        }`}>
+                          {isMemberSuperAdmin ? "👑" : member.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-white text-sm truncate">{member.name}</p>
+                          <p className="text-xs text-gray-400 truncate">{member.email}</p>
+                          {member.phoneNumber && (
+                            <p className="text-[11px] text-gray-500 mt-0.5">{member.phoneNumber}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded-full shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Actif
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {getRoleBadge(member.role)}
+                    </div>
+
+                    <p className="text-[11px] text-gray-400 leading-relaxed bg-black/20 p-2.5 rounded-lg border border-white/5">
+                      {isMemberSuperAdmin && "Directeur Général : Tous les modules, paramètres & privilèges système complets"}
+                      {!isMemberSuperAdmin && (member.role === "SUB_ADMIN" || member.role === "ADMIN" || member.role === "SUBADMIN") && "Sous-Administrateur Général : Accès complet au dashboard, gestion des fournisseurs & validation"}
+                      {member.role?.toUpperCase().includes("FINANCE") && "Caisse, Écritures comptables, Trésorerie, Factures & Dépôts"}
+                      {member.role?.toUpperCase().includes("DB") && "Santé de l'app, Audits des collections, Erreurs système & Données"}
+                      {member.role?.toUpperCase().includes("OPS") && "Flotte de livreurs, Attribution des courses & Suivi des commandes"}
+                    </p>
+
+                    {isSuper && (
+                      <div className="pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+                        {!isMemberSuperAdmin ? (
+                          <>
+                            <select
+                              value={member.role}
+                              onChange={(e) => handleChangeRole(member.id, e.target.value)}
+                              disabled={isUpdating}
+                              className="text-xs bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-gray-300 focus:outline-none focus:border-indigo-500 [&>option]:bg-[#0F1D27] flex-1 min-w-[180px]"
+                            >
+                              <option value="SUB_ADMIN">🛡️ Sous-Administrateur Général</option>
+                              <option value="ADMIN_FINANCE">💼 Finance & Caisse</option>
+                              <option value="ADMIN_DB">🗄️ Base de Données</option>
+                              <option value="ADMIN_OPS">🚚 Opérations & Livreurs</option>
+                            </select>
+
+                            <button
+                              onClick={() => handleRevokeRole(member.id, member.name)}
+                              disabled={isUpdating}
+                              className="text-xs text-red-400 hover:text-white hover:bg-red-500/20 px-3 py-1.5 rounded-lg border border-red-500/30 transition-all font-medium"
+                            >
+                              Révoquer
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-[11px] text-amber-400 font-semibold px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg w-full text-center">
+                            👑 Propriétaire Système (Intouchable)
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )
+          ) : (
+            subSuppliers.length === 0 ? (
+              <div className="p-8 text-center text-gray-400 text-xs">
+                Aucun sous-agent ou délégué fournisseur enregistré.
+              </div>
+            ) : (
+              subSuppliers.map((sub) => {
+                const isSubActive = sub.status === "active";
+                return (
+                  <div key={sub.id} className="p-4 space-y-3 hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center space-x-3 min-w-0">
+                        <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-300 border border-blue-500/30 flex items-center justify-center font-bold text-sm shrink-0">
+                          {(sub.name || "A").slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-white text-sm truncate">{sub.name}</p>
+                          <p className="text-xs text-gray-400 truncate">{sub.email}</p>
+                          {sub.phone && (
+                            <p className="text-[11px] text-gray-500 mt-0.5">{sub.phone}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <span className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 ${
+                        isSubActive 
+                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${isSubActive ? "bg-emerald-400" : "bg-amber-400"}`} />
+                        {isSubActive ? "Actif" : "Suspendu"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                        <span>🏠</span>
+                        <span className="capitalize">{sub.serviceAttached || "Immobilier"}</span>
+                      </span>
+                    </div>
+
+                    <div className="bg-black/20 p-2.5 rounded-lg border border-white/5 space-y-1">
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Modules autorisés :</p>
+                      {sub.permissions && sub.permissions.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {sub.permissions.map((p: string) => (
+                            <span key={p} className="px-2 py-0.5 bg-white/5 border border-white/10 rounded text-[10px] text-gray-300">
+                              {p.replace('/supplier/', '')}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-gray-500 text-xs italic">Accès standard délégué</span>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-white/5 flex items-center justify-end gap-2">
+                      <button
+                        onClick={async () => {
+                          setIsUpdating(true);
+                          try {
+                            await updateDoc(doc(db, "users", sub.id), {
+                              status: isSubActive ? "suspended" : "active"
+                            });
+                            setSuccessMessage("Statut du sous-agent mis à jour.");
+                          } catch (err) {
+                            setErrorMessage("Erreur lors de la mise à jour.");
+                          } finally {
+                            setIsUpdating(false);
+                          }
+                        }}
+                        disabled={isUpdating}
+                        className={`text-xs px-3 py-1.5 rounded-lg border font-medium transition-all ${
+                          isSubActive
+                            ? "text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
+                            : "text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10"
+                        }`}
+                      >
+                        {isSubActive ? "Suspendre" : "Activer"}
+                      </button>
+
+                      {isSuper && (
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`Supprimer définitivement le sous-agent "${sub.name}" ?`)) return;
+                            setIsUpdating(true);
+                            try {
+                              const token = await auth.currentUser?.getIdToken();
+                              await fetch("/api/users/delete", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+                                body: JSON.stringify({ uid: sub.id })
+                              });
+                              setSuccessMessage("Sous-agent supprimé avec succès.");
+                            } catch (err: any) {
+                              setErrorMessage("Erreur lors de la suppression.");
+                            } finally {
+                              setIsUpdating(false);
+                            }
+                          }}
+                          disabled={isUpdating}
+                          className="text-xs text-red-400 hover:text-white hover:bg-red-500/20 px-3 py-1.5 rounded-lg border border-red-500/30 transition-all font-medium"
+                        >
+                          Supprimer
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )
+          )}
         </div>
       </div>
 

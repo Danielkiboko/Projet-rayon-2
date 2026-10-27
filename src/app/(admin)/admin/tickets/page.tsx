@@ -111,18 +111,18 @@ export default function AdminTicketsPage() {
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 flex items-center justify-between">
           <div>
-            <p className="text-xs text-slate-400 font-medium">Total Tickets</p>
+            <p className="text-xs text-gray-400 font-medium">Total Tickets</p>
             <p className="text-2xl font-bold text-white mt-0.5">{totalCount}</p>
           </div>
-          <div className="p-3 bg-slate-800/80 rounded-xl text-slate-400">
+          <div className="p-3 bg-white/5 rounded-xl text-gray-400">
             <Inbox size={20} />
           </div>
         </div>
 
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 flex items-center justify-between">
           <div>
             <p className="text-xs text-blue-400 font-medium">Ouverts (Nouveaux)</p>
             <p className="text-2xl font-bold text-blue-400 mt-0.5">{openCount}</p>
@@ -132,7 +132,7 @@ export default function AdminTicketsPage() {
           </div>
         </div>
 
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 flex items-center justify-between">
           <div>
             <p className="text-xs text-amber-400 font-medium">En cours de traitement</p>
             <p className="text-2xl font-bold text-amber-400 mt-0.5">{inProgressCount}</p>
@@ -142,29 +142,29 @@ export default function AdminTicketsPage() {
           </div>
         </div>
 
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 flex items-center justify-between">
           <div>
-            <p className="text-xs text-emerald-400 font-medium">Résolus / Clôturés</p>
-            <p className="text-2xl font-bold text-emerald-400 mt-0.5">{resolvedCount}</p>
+            <p className="text-xs text-[#C7D300] font-medium">Résolus / Clôturés</p>
+            <p className="text-2xl font-bold text-[#C7D300] mt-0.5">{resolvedCount}</p>
           </div>
-          <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+          <div className="p-3 bg-[#C7D300]/10 text-[#C7D300] rounded-xl border border-[#C7D300]/20">
             <CheckCircle2 size={20} />
           </div>
         </div>
       </div>
 
       {/* Desk View: Filters + Two-Pane Container */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[750px]">
+      <div className="bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[750px]">
         {/* Filters Bar */}
-        <div className="p-4 border-b border-slate-800 bg-slate-950/60 flex flex-wrap items-center justify-between gap-3">
+        <div className="p-4 border-b border-white/10 bg-black/30 flex flex-wrap items-center justify-between gap-3">
           <div className="relative flex-1 min-w-[220px] max-w-md">
-            <Search size={16} className="absolute left-3.5 top-3 text-slate-500" />
+            <Search size={16} className="absolute left-3.5 top-3 text-gray-400" />
             <input
               type="text"
               placeholder="Rechercher par #ticket, sujet, nom, email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
             />
           </div>
 
@@ -173,7 +173,7 @@ export default function AdminTicketsPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
             >
               <option value="all">Tous les statuts</option>
               <option value="open">Ouverts uniquement</option>
@@ -185,7 +185,7 @@ export default function AdminTicketsPage() {
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
             >
               <option value="all">Tous les demandeurs</option>
               <option value="client">Clients</option>
@@ -196,7 +196,7 @@ export default function AdminTicketsPage() {
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
             >
               <option value="all">Toutes catégories</option>
               <option value="order">Commandes</option>
@@ -214,7 +214,7 @@ export default function AdminTicketsPage() {
         <div className="flex-1 flex overflow-hidden">
           {/* Left Column: Tickets List */}
           <div
-            className={`w-full lg:w-96 border-r border-slate-800 overflow-y-auto flex flex-col bg-slate-900/40 ${
+            className={`w-full lg:w-96 border-r border-white/10 overflow-y-auto flex flex-col bg-black/10 ${
               selectedTicketId ? "hidden lg:flex" : "flex"
             }`}
           >
@@ -238,18 +238,18 @@ export default function AdminTicketsPage() {
                   <div
                     key={t.id}
                     onClick={() => setSelectedTicketId(t.id)}
-                    className={`p-4 border-b border-slate-800/80 cursor-pointer transition-colors relative ${
+                    className={`p-4 border-b border-white/5 cursor-pointer transition-colors relative ${
                       isSelected
-                        ? "bg-purple-600/10 border-l-4 border-l-purple-500"
-                        : "hover:bg-slate-800/50"
+                        ? "bg-[#C7D300]/10 border-l-4 border-l-[#C7D300]"
+                        : "hover:bg-white/[0.03]"
                     }`}
                   >
                     {isUnread && (
-                      <span className="absolute top-4 right-4 w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" />
+                      <span className="absolute top-4 right-4 w-2.5 h-2.5 rounded-full bg-[#C7D300] animate-pulse" />
                     )}
 
                     <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
-                      <span className="font-mono text-[11px] font-bold text-slate-400">
+                      <span className="font-mono text-[11px] font-bold text-gray-400">
                         {t.ticketNumber}
                       </span>
                       <span className={`text-[10px] px-2 py-0.5 rounded-md font-medium border ${category.color}`}>
@@ -266,7 +266,7 @@ export default function AdminTicketsPage() {
                         {t.creatorRole === "supplier" ? "Fournisseur" : "Client"}
                       </span>
                       {isArchived && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-800 text-slate-400 border border-slate-700">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-white/5 text-gray-400 border border-white/10">
                           Archivé
                         </span>
                       )}
@@ -278,7 +278,7 @@ export default function AdminTicketsPage() {
                     {(t.orderId || t.supplierName) && (
                       <div className="flex flex-wrap items-center gap-2 mb-1.5 text-[10px]">
                         {t.orderId && (
-                          <span className="text-purple-400 font-mono bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded">
+                          <span className="text-[#C7D300] font-mono bg-[#C7D300]/10 border border-[#C7D300]/20 px-1.5 py-0.5 rounded">
                             Cmd: #{t.orderId.slice(-6).toUpperCase()}
                           </span>
                         )}

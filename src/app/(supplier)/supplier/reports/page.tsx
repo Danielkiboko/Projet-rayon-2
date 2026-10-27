@@ -573,55 +573,95 @@ export default function SupplierReportsPage() {
                 <p className="text-xs text-gray-600">Les encaissements apparaîtront automatiquement lors des livraisons et des paiements reçus.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm text-gray-300">
-                  <thead className="text-xs uppercase bg-black/20 text-gray-400 border-b border-white/10">
-                    <tr>
-                      <th className="px-6 py-3">Date</th>
-                      <th className="px-6 py-3">Description</th>
-                      <th className="px-6 py-3">Montant</th>
-                      <th className="px-6 py-3">Statut</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentPayments.map((tx) => {
-                      const date = tx.createdAt?.toDate?.() || new Date(tx.createdAt);
-                      return (
-                        <tr key={tx.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                          <td className="px-6 py-3 text-gray-400 text-xs">
-                            {date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}
-                          </td>
-                          <td className="px-6 py-3">
-                            <div className="flex items-center gap-2">
-                              {isImmo ? (
-                                <Home size={13} className="text-[#4C6EF5] shrink-0" />
-                              ) : isSaveurs ? (
-                                <UtensilsCrossed size={13} className="text-[#FF6B35] shrink-0" />
-                              ) : (
-                                <Package size={13} className="text-emerald-400 shrink-0" />
-                              )}
-                              <span className="truncate max-w-[280px]">{tx.description || "Vente"}</span>
-                            </div>
-                          </td>
-                          <td className="px-6 py-3 font-bold text-green-400">
-                            + {(tx.amount || 0).toLocaleString("fr-FR")} $
-                          </td>
-                          <td className="px-6 py-3">
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${
-                              tx.status === "COMPLETED"
-                                ? "bg-green-500/15 text-green-400"
-                                : "bg-orange-500/15 text-orange-400"
-                            }`}>
-                              {tx.status === "COMPLETED" ? <CheckCircle size={10} /> : <Clock size={10} />}
-                              {tx.status === "COMPLETED" ? "Encaissé" : "En cours"}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                {/* Desktop Table (≥ md) */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left text-sm text-gray-300">
+                    <thead className="text-xs uppercase bg-black/20 text-gray-400 border-b border-white/10">
+                      <tr>
+                        <th className="px-6 py-3">Date</th>
+                        <th className="px-6 py-3">Description</th>
+                        <th className="px-6 py-3">Montant</th>
+                        <th className="px-6 py-3">Statut</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recentPayments.map((tx) => {
+                        const date = tx.createdAt?.toDate?.() || new Date(tx.createdAt);
+                        return (
+                          <tr key={tx.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                            <td className="px-6 py-3 text-gray-400 text-xs">
+                              {date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}
+                            </td>
+                            <td className="px-6 py-3">
+                              <div className="flex items-center gap-2">
+                                {isImmo ? (
+                                  <Home size={13} className="text-[#4C6EF5] shrink-0" />
+                                ) : isSaveurs ? (
+                                  <UtensilsCrossed size={13} className="text-[#FF6B35] shrink-0" />
+                                ) : (
+                                  <Package size={13} className="text-[#00B5A5] shrink-0" />
+                                )}
+                                <span className="truncate max-w-[280px]">{tx.description || "Vente"}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-3 font-bold text-[#C7D300]">
+                              + {(tx.amount || 0).toLocaleString("fr-FR")} $
+                            </td>
+                            <td className="px-6 py-3">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium ${
+                                tx.status === "COMPLETED"
+                                  ? "bg-green-500/15 text-green-400"
+                                  : "bg-orange-500/15 text-orange-400"
+                              }`}>
+                                {tx.status === "COMPLETED" ? <CheckCircle size={10} /> : <Clock size={10} />}
+                                {tx.status === "COMPLETED" ? "Encaissé" : "En cours"}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Cards (< md) */}
+                <div className="md:hidden divide-y divide-white/5">
+                  {recentPayments.map((tx) => {
+                    const date = tx.createdAt?.toDate?.() || new Date(tx.createdAt);
+                    return (
+                      <div key={tx.id} className="p-4 flex flex-col gap-2 hover:bg-white/5 transition-colors">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {isImmo ? (
+                              <Home size={14} className="text-[#4C6EF5] shrink-0" />
+                            ) : isSaveurs ? (
+                              <UtensilsCrossed size={14} className="text-[#FF6B35] shrink-0" />
+                            ) : (
+                              <Package size={14} className="text-[#00B5A5] shrink-0" />
+                            )}
+                            <span className="font-semibold text-xs text-white truncate">{tx.description || "Vente"}</span>
+                          </div>
+                          <span className="font-extrabold text-sm text-[#C7D300] shrink-0">
+                            +{(tx.amount || 0).toLocaleString("fr-FR")} $
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
+                          <span>{date.toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                            tx.status === "COMPLETED"
+                              ? "bg-green-500/15 text-green-400 border border-green-500/30"
+                              : "bg-orange-500/15 text-orange-400 border border-orange-500/30"
+                          }`}>
+                            {tx.status === "COMPLETED" ? <CheckCircle size={10} /> : <Clock size={10} />}
+                            {tx.status === "COMPLETED" ? "Encaissé" : "En cours"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </motion.div>
         </>

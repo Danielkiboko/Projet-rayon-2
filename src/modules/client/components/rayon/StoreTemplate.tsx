@@ -219,7 +219,7 @@ function StoreTemplateContent({ category, heroImage, dummyProducts, dict }: Stor
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={`Rechercher dans Rayons ${t[category] || category}...`}
-              className="w-full pl-9 pr-9 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg sm:rounded-xl text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              className="w-full pl-9 pr-9 py-2 sm:py-2.5 bg-gray-50 border border-gray-200 rounded-lg sm:rounded-xl text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-[#0F1D27]/15 focus:border-[#0F1D27] transition-all"
             />
             {searchQuery && (
               <button 
@@ -247,7 +247,7 @@ function StoreTemplateContent({ category, heroImage, dummyProducts, dict }: Stor
             </p>
             <button
               onClick={() => setSearchQuery("")}
-              className="px-4 py-2 bg-primary text-white text-xs font-semibold rounded-xl hover:bg-primary-dark transition-colors cursor-pointer"
+              className="px-4 py-2 bg-[#0F1D27] hover:bg-[#1a2e3b] text-[#C7D300] text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
             >
               Afficher tous les articles
             </button>

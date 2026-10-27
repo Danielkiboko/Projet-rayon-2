@@ -958,7 +958,7 @@ export default function SupplierTenantsPage() {
             setDepositAmount(rentAmount ? Number(rentAmount) * 3 : "");
             setIsModalOpen(true);
           }}
-          className="flex items-center space-x-2 bg-primary hover:bg-primary-light text-white px-4 py-2 rounded-lg transition-colors font-medium shadow-md"
+          className="flex items-center space-x-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold px-4 py-2 rounded-xl transition-all shadow-md shadow-[#C7D300]/15 active:scale-95"
         >
           <Plus size={20} />
           <span>Nouveau Bail & Locataire</span>
@@ -1134,12 +1134,13 @@ export default function SupplierTenantsPage() {
               placeholder="Rechercher par nom ou bien loué..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white text-sm transition-all"
+              className="w-full pl-10 pr-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4C6EF5] text-white text-sm transition-all"
             />
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Desktop Table (Hidden on mobile < md) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm text-gray-300">
             <thead className="text-xs uppercase bg-black/20 text-gray-400">
               <tr>
@@ -1162,7 +1163,7 @@ export default function SupplierTenantsPage() {
                   <tr key={tenant.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
                     <td className="px-5 py-4 font-medium text-white">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary-light uppercase font-bold text-xs shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-[#4C6EF5]/15 flex items-center justify-center text-[#4C6EF5] uppercase font-bold text-xs shrink-0 border border-[#4C6EF5]/20">
                           {tenant.name.charAt(0)}
                         </div>
                         <div>
@@ -1174,7 +1175,7 @@ export default function SupplierTenantsPage() {
                     <td className="px-5 py-4">
                       <div className="flex flex-col space-y-0.5">
                         <div className="flex items-center space-x-1.5 text-white font-medium">
-                          <Home size={14} className="text-primary-light shrink-0" />
+                          <Home size={14} className="text-[#4C6EF5] shrink-0" />
                           <span className="truncate max-w-[160px]">{tenant.propertyName}</span>
                         </div>
                         {tenant.unitName && (
@@ -1239,7 +1240,7 @@ export default function SupplierTenantsPage() {
                         <button
                           onClick={() => handleDownloadInspection(tenant, tenant.status === "PARTI" ? "SORTIE" : "ENTRÉE")}
                           title="Fiche d'État des Lieux (Entrée/Sortie)"
-                          className="px-2 py-1 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded text-xs flex items-center gap-1 transition-all"
+                          className="px-2 py-1 bg-[#4C6EF5]/10 hover:bg-[#4C6EF5]/20 text-[#4C6EF5] border border-[#4C6EF5]/30 rounded text-xs flex items-center gap-1 transition-all"
                         >
                           <ClipboardCheck size={13} />
                           <span>État lieux</span>
@@ -1313,6 +1314,145 @@ export default function SupplierTenantsPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Cards (Visible only on mobile < md) */}
+        <div className="md:hidden divide-y divide-white/5">
+          {isLoading ? (
+            <div className="p-8 text-center text-gray-400 text-sm">Chargement des baux...</div>
+          ) : filteredTenants.length === 0 ? (
+            <div className="p-8 text-center text-gray-400 text-sm">Aucun locataire enregistré.</div>
+          ) : (
+            filteredTenants.map((tenant) => (
+              <div key={tenant.id} className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-9 h-9 rounded-full bg-[#4C6EF5]/15 flex items-center justify-center text-[#4C6EF5] uppercase font-bold text-xs shrink-0 border border-[#4C6EF5]/20">
+                      {tenant.name.charAt(0)}
+                    </div>
+                    <div>
+                      <span className="font-bold text-white text-sm block">{tenant.name}</span>
+                      <span className="text-xs text-gray-400">{tenant.phone}</span>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                    tenant.status === "À jour" 
+                      ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                      : tenant.status === "PARTI" 
+                      ? "bg-gray-500/10 text-gray-400 border border-gray-500/20" 
+                      : "bg-red-500/10 text-red-400 border border-red-500/20"
+                  }`}>
+                    {tenant.status}
+                  </span>
+                </div>
+
+                <div className="bg-black/20 rounded-xl p-3 border border-white/5 space-y-1.5 text-xs">
+                  <div className="flex items-center justify-between text-gray-300">
+                    <span className="flex items-center gap-1">
+                      <Home size={13} className="text-[#4C6EF5]" />
+                      <strong className="text-white">{tenant.propertyName}</strong>
+                      {tenant.unitName && <span className="text-gray-400">({tenant.unitName})</span>}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-white/5 text-[11px]">
+                    <span className="text-gray-400">Loyer : <strong className="text-white">{tenant.rentAmount} $</strong>/{tenant.periodicity || "Mois"}</span>
+                    <span className="text-emerald-400 font-semibold">
+                      Caution : {(tenant.depositAmount || (tenant.rentAmount * (tenant.depositMonths || 3))).toLocaleString()} $
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-gray-400">
+                    Échéance : <span className="text-white">{tenant.nextPayment ? new Date(tenant.nextPayment).toLocaleDateString("fr-FR") : "Non définie"}</span>
+                  </div>
+                </div>
+
+                {/* Mobile Actions Toolbar */}
+                <div className="flex items-center justify-end gap-1.5 flex-wrap pt-1">
+                  <button
+                    onClick={() => handleDownloadLease(tenant)}
+                    className="px-2.5 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all"
+                  >
+                    <FileText size={12} />
+                    <span>Bail</span>
+                  </button>
+
+                  {tenant.email && (
+                    <button
+                      onClick={() => handleSendLeaseByEmail(tenant)}
+                      disabled={sendingEmailTenantId === tenant.id}
+                      className="px-2.5 py-1 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all disabled:opacity-50"
+                    >
+                      <Mail size={12} className={sendingEmailTenantId === tenant.id ? "animate-spin" : ""} />
+                      <span>Email</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => handleDownloadInspection(tenant, tenant.status === "PARTI" ? "SORTIE" : "ENTRÉE")}
+                    className="px-2.5 py-1 bg-[#4C6EF5]/10 hover:bg-[#4C6EF5]/20 text-[#4C6EF5] border border-[#4C6EF5]/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all"
+                  >
+                    <ClipboardCheck size={12} />
+                    <span>État</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setMaintenanceTenant(tenant);
+                      setIsMaintenanceModalOpen(true);
+                    }}
+                    className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all"
+                  >
+                    <Wrench size={12} />
+                    <span>Panne</span>
+                  </button>
+
+                  <button
+                    onClick={() => loadTenantPayments(tenant)}
+                    className="px-2.5 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all"
+                  >
+                    <History size={12} />
+                    <span>Hist.</span>
+                  </button>
+
+                  {tenant.status === "En retard" && (
+                    <button
+                      onClick={() => handleSendReminder(tenant)}
+                      className="px-2.5 py-1 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all"
+                    >
+                      <MessageSquare size={12} />
+                      <span>Relancer</span>
+                    </button>
+                  )}
+
+                  {tenant.status !== "PARTI" ? (
+                    <>
+                      <button 
+                        onClick={() => {
+                          setTenantToPay(tenant);
+                          setPaymentAmount(tenant.rentAmount);
+                          setIsPaymentModalOpen(true);
+                        }}
+                        className="text-emerald-400 hover:text-emerald-300 transition-colors flex items-center text-xs font-semibold bg-emerald-400/10 hover:bg-emerald-400/20 px-2.5 py-1 rounded-lg border border-emerald-500/30"
+                      >
+                        <DollarSign size={12} className="mr-0.5" />
+                        <span>Paiement</span>
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setTenantToDepart(tenant);
+                          setIsDepartureModalOpen(true);
+                        }}
+                        className="text-red-400 hover:text-red-300 transition-colors flex items-center text-xs font-semibold bg-red-400/10 hover:bg-red-400/20 px-2.5 py-1 rounded-lg border border-red-500/30"
+                      >
+                        <span>Départ</span>
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-xs text-gray-500">Dette: {tenant.debtAmount || 0} $</span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

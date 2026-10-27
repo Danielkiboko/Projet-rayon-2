@@ -93,19 +93,19 @@ export default function SupplierTicketsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-2 bg-purple-500/10 text-purple-400 rounded-xl border border-purple-500/20">
+            <span className="p-2 bg-[#C7D300]/15 text-[#C7D300] rounded-xl border border-[#C7D300]/30">
               <LifeBuoy size={20} />
             </span>
             <h1 className="text-2xl font-bold text-white tracking-tight">Support & Tickets</h1>
           </div>
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="text-sm text-gray-400 mt-1">
             Posez vos questions à l'équipe Rayons.net ou répondez aux requêtes d'assistance de vos clients.
           </p>
         </div>
 
         <button
           onClick={() => setIsNewTicketOpen(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-110 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-lg shadow-purple-600/25 transition-all w-max"
+          className="flex items-center gap-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] px-4 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-[#C7D300]/20 transition-all w-max active:scale-95"
         >
           <Plus size={16} />
           <span>Ouvrir un ticket</span>
@@ -113,24 +113,24 @@ export default function SupplierTicketsPage() {
       </div>
 
       {/* Two-Pane Container */}
-      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[720px]">
+      <div className="bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[720px]">
         {/* Search & Status Filters */}
-        <div className="p-4 border-b border-slate-800 bg-slate-950/60 flex flex-wrap items-center justify-between gap-3">
+        <div className="p-4 border-b border-white/10 bg-black/40 flex flex-wrap items-center justify-between gap-3">
           <div className="relative flex-1 min-w-[200px] max-w-sm">
-            <Search size={16} className="absolute left-3.5 top-3 text-slate-500" />
+            <Search size={16} className="absolute left-3.5 top-3 text-gray-500" />
             <input
               type="text"
               placeholder="Rechercher par #ticket, sujet..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700/80 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-purple-500"
+              className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
             />
           </div>
 
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:ring-1 focus:ring-purple-500"
+            className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
           >
             <option value="all">Tous les statuts</option>
             <option value="open">Ouverts</option>
@@ -144,19 +144,19 @@ export default function SupplierTicketsPage() {
         <div className="flex-1 flex overflow-hidden">
           {/* Left Column: List */}
           <div
-            className={`w-full lg:w-96 border-r border-slate-800 overflow-y-auto flex flex-col bg-slate-900/40 ${
+            className={`w-full lg:w-96 border-r border-white/10 overflow-y-auto flex flex-col bg-[#0F1D27]/80 ${
               selectedTicketId ? "hidden lg:flex" : "flex"
             }`}
           >
             {loading ? (
-              <div className="p-8 text-center text-slate-500 text-sm">Chargement...</div>
+              <div className="p-8 text-center text-gray-500 text-sm">Chargement...</div>
             ) : filteredTickets.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 text-sm flex flex-col items-center gap-2">
+              <div className="p-8 text-center text-gray-500 text-sm flex flex-col items-center gap-2">
                 <LifeBuoy size={32} className="opacity-40" />
                 <p>Aucun ticket d'assistance pour le moment.</p>
                 <button
                   onClick={() => setIsNewTicketOpen(true)}
-                  className="mt-2 text-xs text-purple-400 hover:underline"
+                  className="mt-2 text-xs text-[#C7D300] hover:underline font-bold"
                 >
                   Créer votre premier ticket
                 </button>
@@ -172,14 +172,14 @@ export default function SupplierTicketsPage() {
                   <div
                     key={t.id}
                     onClick={() => setSelectedTicketId(t.id)}
-                    className={`p-4 border-b border-slate-800/80 cursor-pointer transition-colors relative ${
+                    className={`p-4 border-b border-white/5 cursor-pointer transition-colors relative ${
                       isSelected
-                        ? "bg-purple-600/10 border-l-4 border-l-purple-500"
-                        : "hover:bg-slate-800/50"
+                        ? "bg-[#C7D300]/10 border-l-4 border-l-[#C7D300]"
+                        : "hover:bg-white/5"
                     }`}
                   >
                     {isUnread && (
-                      <span className="absolute top-4 right-4 w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse" />
+                      <span className="absolute top-4 right-4 w-2.5 h-2.5 rounded-full bg-[#C7D300] animate-pulse" />
                     )}
 
                     <div className="flex items-center gap-2 mb-1.5">

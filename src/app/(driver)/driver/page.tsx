@@ -201,7 +201,7 @@ export default function DriverDashboard() {
   if (loading || isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen bg-[#0F1D27]">
-        <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-[#C7D300]/30 border-t-[#C7D300] rounded-full animate-spin" />
       </div>
     );
   }
@@ -231,8 +231,8 @@ export default function DriverDashboard() {
             <LogOut size={16} />
           </button>
           <Link href="/driver/profile">
-            <div className="w-11 h-11 bg-primary/15 rounded-full flex items-center justify-center border border-primary/30 hover:bg-primary/25 transition-all">
-              <span className="text-primary-light font-black text-base">
+            <div className="w-11 h-11 bg-[#C7D300]/15 rounded-full flex items-center justify-center border border-[#C7D300]/30 hover:bg-[#C7D300]/25 transition-all">
+              <span className="text-[#C7D300] font-black text-base">
                 {driverName.charAt(0).toUpperCase()}
               </span>
             </div>
@@ -247,9 +247,9 @@ export default function DriverDashboard() {
             initial={{ opacity: 0, y: -14 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -14 }}
-            className="flex items-center gap-3 mb-4 px-4 py-3 bg-primary/15 border border-primary/40 rounded-2xl shadow-lg shadow-primary/10"
+            className="flex items-center gap-3 mb-4 px-4 py-3 bg-[#C7D300]/15 border border-[#C7D300]/40 rounded-2xl shadow-lg shadow-[#C7D300]/10"
           >
-            <Bell size={18} className="text-primary-light animate-bounce shrink-0" />
+            <Bell size={18} className="text-[#C7D300] animate-bounce shrink-0" />
             <div>
               <p className="text-sm font-bold text-white">🚚 Nouvelle course disponible !</p>
               <p className="text-xs text-gray-400">Une commande vient d'être mise en ligne.</p>
@@ -263,13 +263,13 @@ export default function DriverDashboard() {
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-gradient-to-br from-green-500/15 to-green-500/5 border border-green-500/20 rounded-2xl p-4"
+          className="bg-gradient-to-br from-[#C7D300]/15 to-[#C7D300]/5 border border-[#C7D300]/20 rounded-2xl p-4"
         >
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp size={16} className="text-green-400" />
+            <TrendingUp size={16} className="text-[#C7D300]" />
             <p className="text-gray-400 text-xs font-medium">Gains du jour</p>
           </div>
-          <p className="text-2xl font-black text-green-400">${todayEarnings.toFixed(2)}</p>
+          <p className="text-2xl font-black text-[#C7D300]">${todayEarnings.toFixed(2)}</p>
         </motion.div>
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -278,7 +278,7 @@ export default function DriverDashboard() {
           className="bg-white/5 border border-white/10 rounded-2xl p-4"
         >
           <div className="flex items-center gap-2 mb-2">
-            <Bike size={16} className="text-primary-light" />
+            <Bike size={16} className="text-[#C7D300]" />
             <p className="text-gray-400 text-xs font-medium">Courses en cours</p>
           </div>
           <p className="text-2xl font-black text-white">{myOrders.length}</p>
@@ -295,11 +295,11 @@ export default function DriverDashboard() {
                 <motion.div
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-[#0F1D27] border border-primary/40 rounded-2xl p-4 shadow-[0_0_20px_rgba(139,92,246,0.1)] hover:border-primary/60 transition-all"
+                  className="bg-[#0F1D27] border border-[#00B5A5]/40 rounded-2xl p-4 shadow-lg shadow-black/30 hover:border-[#00B5A5]/70 transition-all"
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-2">
-                      <div className="p-2 rounded-xl bg-primary/20 text-primary-light">
+                      <div className="p-2 rounded-xl bg-[#00B5A5]/20 text-[#00B5A5]">
                         <Package size={18} />
                       </div>
                       <div>
@@ -309,7 +309,7 @@ export default function DriverDashboard() {
                     </div>
                     <span className={`text-[10px] font-bold px-2 py-1 rounded-lg uppercase border ${
                       mission.status === "ACCEPTED"
-                        ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                        ? "bg-[#00B5A5]/20 text-[#00B5A5] border-[#00B5A5]/30"
                         : "bg-orange-500/20 text-orange-400 border-orange-500/30"
                     }`}>
                       {mission.status === "ACCEPTED" ? "En route" : "Arrivé"}
@@ -328,7 +328,7 @@ export default function DriverDashboard() {
                       <Clock size={12} />
                       {mission.createdAt?.toDate ? mission.createdAt.toDate().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }) : "—"}
                     </div>
-                    <div className="flex items-center font-bold text-green-400 text-sm gap-1">
+                    <div className="flex items-center font-bold text-[#C7D300] text-sm gap-1">
                       {formatPrice(mission.remainingBalance || mission.totalAmount)}
                       <ChevronRight size={14} />
                     </div>
@@ -344,7 +344,7 @@ export default function DriverDashboard() {
       <h2 className="text-sm font-bold text-white uppercase tracking-wider mb-3">
         🟢 Courses disponibles
         {availableOrders.length > 0 && (
-          <span className="ml-2 px-2 py-0.5 bg-primary/20 text-primary-light text-xs rounded-full font-bold">
+          <span className="ml-2 px-2 py-0.5 bg-[#C7D300]/20 text-[#C7D300] text-xs rounded-full font-bold">
             {availableOrders.length}
           </span>
         )}
@@ -368,7 +368,7 @@ export default function DriverDashboard() {
             >
               <div className="flex justify-between items-start mb-3">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-xl bg-orange-500/20 text-orange-400">
+                  <div className="p-2 rounded-xl bg-[#00B5A5]/20 text-[#00B5A5]">
                     <Package size={18} />
                   </div>
                   <div>
@@ -379,7 +379,7 @@ export default function DriverDashboard() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="font-black text-green-400 text-sm">{formatPrice(mission.remainingBalance || mission.totalAmount)}</p>
+                  <p className="font-black text-[#C7D300] text-sm">{formatPrice(mission.remainingBalance || mission.totalAmount)}</p>
                   <p className="text-[10px] text-gray-500">à encaisser</p>
                 </div>
               </div>
@@ -395,12 +395,12 @@ export default function DriverDashboard() {
               <button
                 onClick={() => handleAcceptOrder(mission.id)}
                 disabled={acceptingOrderId !== null}
-                className="w-full bg-primary hover:bg-primary-light text-white font-bold py-3 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-black py-3 rounded-xl shadow-lg shadow-[#C7D300]/20 transition-all flex items-center justify-center gap-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {acceptingOrderId === mission.id ? (
-                  <><Loader2 size={17} className="animate-spin" /><span>Attribution...</span></>
+                  <><Loader2 size={17} className="animate-spin text-[#0F1D27]" /><span>Attribution...</span></>
                 ) : (
-                  <><CheckCircle size={17} /><span>Accepter la course</span></>
+                  <><CheckCircle size={17} className="text-[#0F1D27]" /><span>Accepter la course</span></>
                 )}
               </button>
             </motion.div>

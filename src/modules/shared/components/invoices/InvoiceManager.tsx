@@ -391,7 +391,7 @@ export default function InvoiceManager() {
             <button
               onClick={() => setSelectedRayonFilter("all")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
-                selectedRayonFilter === "all" ? "bg-white text-[#0F1D27] shadow-sm" : "bg-white/5 text-gray-400 hover:text-white"
+                selectedRayonFilter === "all" ? "bg-[#C7D300] text-[#0F1D27] shadow-sm font-bold" : "bg-white/5 text-gray-400 hover:text-white"
               }`}
             >
               Tous ({invoices.length})
@@ -399,7 +399,7 @@ export default function InvoiceManager() {
             <button
               onClick={() => setSelectedRayonFilter("mode")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
-                selectedRayonFilter === "mode" ? "bg-[#D4B08C] text-[#0F1D27] shadow-sm" : "bg-white/5 text-gray-400 hover:text-[#D4B08C]"
+                selectedRayonFilter === "mode" ? "bg-[#D4B08C] text-[#0F1D27] shadow-sm font-bold" : "bg-white/5 text-gray-400 hover:text-[#D4B08C]"
               }`}
             >
               <span>👗</span> Mode ({modeCount})
@@ -407,7 +407,7 @@ export default function InvoiceManager() {
             <button
               onClick={() => setSelectedRayonFilter("connect")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
-                selectedRayonFilter === "connect" ? "bg-[#00B5A5] text-white shadow-sm" : "bg-white/5 text-gray-400 hover:text-[#00B5A5]"
+                selectedRayonFilter === "connect" ? "bg-[#00B5A5] text-white shadow-sm font-bold" : "bg-white/5 text-gray-400 hover:text-[#00B5A5]"
               }`}
             >
               <span>⚡</span> Connect ({connectCount})
@@ -415,7 +415,7 @@ export default function InvoiceManager() {
             <button
               onClick={() => setSelectedRayonFilter("saveurs")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
-                selectedRayonFilter === "saveurs" ? "bg-[#FF6B35] text-white shadow-sm" : "bg-white/5 text-gray-400 hover:text-[#FF6B35]"
+                selectedRayonFilter === "saveurs" ? "bg-[#FF6B35] text-white shadow-sm font-bold" : "bg-white/5 text-gray-400 hover:text-[#FF6B35]"
               }`}
             >
               <span>🍽️</span> Saveurs ({saveursCount})
@@ -423,7 +423,7 @@ export default function InvoiceManager() {
             <button
               onClick={() => setSelectedRayonFilter("immo")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
-                selectedRayonFilter === "immo" ? "bg-[#4C6EF5] text-white shadow-sm" : "bg-white/5 text-gray-400 hover:text-[#4C6EF5]"
+                selectedRayonFilter === "immo" ? "bg-[#4C6EF5] text-white shadow-sm font-bold" : "bg-white/5 text-gray-400 hover:text-[#4C6EF5]"
               }`}
             >
               <span>🏠</span> Immo ({immoCount})
@@ -431,8 +431,8 @@ export default function InvoiceManager() {
           </div>
         </div>
 
-        {/* Invoices Table */}
-        <div className="overflow-x-auto">
+        {/* Desktop Table (Hidden on mobile < md) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-black/30 text-xs uppercase tracking-wider text-gray-400 font-semibold border-b border-white/10">
@@ -482,7 +482,7 @@ export default function InvoiceManager() {
                             {inv.invoiceNumber || `#RAY-${inv.id.slice(0, 8).toUpperCase()}`}
                           </span>
                           <span className={`w-fit px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider ${
-                            inv.type === 'PROFORMA' ? 'bg-purple-500/20 text-purple-300' : 'bg-green-500/20 text-green-300'
+                            inv.type === 'PROFORMA' ? 'bg-[#00B5A5]/15 text-[#00B5A5] border border-[#00B5A5]/30' : 'bg-green-500/15 text-green-400 border border-green-500/30'
                           }`}>
                             {inv.type === "PROFORMA" ? "Proforma / Devis" : "Facture Officielle"}
                           </span>
@@ -509,7 +509,7 @@ export default function InvoiceManager() {
                         <button 
                           onClick={() => downloadInvoicePDF(inv)}
                           title="Télécharger PDF officiel Rayons"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-[#C7D300] hover:text-[#0F1D27] text-white rounded-lg text-xs font-bold transition-all active:scale-95 shadow-xs"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#C7D300]/20 hover:bg-[#C7D300]/30 text-[#C7D300] border border-[#C7D300]/30 rounded-lg text-xs font-bold transition-all active:scale-95 shadow-xs"
                         >
                           <Download size={14} />
                           <span>PDF</span>
@@ -528,6 +528,102 @@ export default function InvoiceManager() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Cards (Visible only on mobile < md) */}
+        <div className="md:hidden divide-y divide-white/5">
+          {loading ? (
+            <div className="p-8 text-center text-gray-400">
+              <div className="w-6 h-6 border-2 border-[#C7D300] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              Chargement des documents...
+            </div>
+          ) : filteredInvoices.length === 0 ? (
+            <div className="p-8 text-center text-gray-400">
+              <Receipt className="mx-auto text-gray-600 mb-2" size={32} />
+              <p className="font-semibold text-white text-sm">Aucun document trouvé.</p>
+            </div>
+          ) : (
+            filteredInvoices.map((inv) => {
+              const r = inv.rayon || (inv.immoBranch ? "immo" : "general");
+              const badgeColor = 
+                r === "connect" ? "bg-[#00B5A5]/15 text-[#00B5A5] border-[#00B5A5]/30" :
+                r === "immo" ? "bg-[#4C6EF5]/15 text-[#4C6EF5] border-[#4C6EF5]/30" :
+                r === "saveurs" ? "bg-[#FF6B35]/15 text-[#FF6B35] border-[#FF6B35]/30" :
+                "bg-[#D4B08C]/15 text-[#D4B08C] border-[#D4B08C]/30";
+
+              const rayonName = 
+                r === "connect" ? "Connect" :
+                r === "immo" ? (inv.immoBranch === "hotel" ? "Hôtel" : "Habitation") :
+                r === "saveurs" ? "Saveurs" : "Mode";
+
+              return (
+                <div key={inv.id} className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-mono font-bold text-white text-xs block">
+                        {inv.invoiceNumber || `#RAY-${inv.id.slice(0, 8).toUpperCase()}`}
+                      </span>
+                      <span className="text-[11px] text-gray-400">
+                        {inv.createdAt ? new Date(inv.createdAt.seconds * 1000).toLocaleDateString("fr-FR") : "-"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${badgeColor}`}>
+                        {rayonName}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider ${
+                        inv.type === 'PROFORMA' ? 'bg-[#00B5A5]/15 text-[#00B5A5] border border-[#00B5A5]/30' : 'bg-green-500/15 text-green-400 border border-green-500/30'
+                      }`}>
+                        {inv.type === "PROFORMA" ? "Proforma" : "Facture"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-black/20 rounded-xl p-3 border border-white/5 space-y-1">
+                    <div className="text-xs text-white font-semibold flex items-center justify-between">
+                      <span>Client :</span>
+                      <span>{inv.clientName}</span>
+                    </div>
+                    {inv.clientPhone && (
+                      <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                        <span>Contact :</span>
+                        <span>{inv.clientPhone}</span>
+                      </div>
+                    )}
+                    {inv.items && inv.items.length > 0 && (
+                      <div className="text-[11px] text-gray-400 pt-1 border-t border-white/5 truncate">
+                        {inv.items.length} prestation(s) : {inv.items[0]?.description}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <div>
+                      <span className="text-[10px] uppercase text-gray-400 block tracking-wider">Total Net</span>
+                      <span className="text-base font-extrabold text-[#C7D300]">
+                        {formatPrice(inv.total)}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => downloadInvoicePDF(inv)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#C7D300]/20 hover:bg-[#C7D300]/30 text-[#C7D300] border border-[#C7D300]/30 rounded-xl text-xs font-bold transition-all active:scale-95"
+                      >
+                        <Download size={13} />
+                        <span>PDF</span>
+                      </button>
+                      <button
+                        onClick={() => handleDelete(inv.id)}
+                        className="p-1.5 bg-white/5 text-gray-400 hover:text-red-400 hover:bg-red-500/20 rounded-lg transition-colors"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
@@ -623,7 +719,7 @@ export default function InvoiceManager() {
                       type="button"
                       onClick={() => setImmoBranch("habitation")}
                       className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold border transition-all ${
-                        immoBranch === "habitation" ? "bg-emerald-500/20 border-emerald-500 text-emerald-300" : "border-white/10 text-gray-400"
+                        immoBranch === "habitation" ? "bg-[#4C6EF5]/20 border-[#4C6EF5] text-white shadow-xs" : "border-white/10 text-gray-400"
                       }`}
                     >
                       🏠 Habitation & Bail

@@ -602,8 +602,8 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider">
-        <Home size={13} className="text-emerald-400" />
+      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold bg-[#4C6EF5]/15 text-[#4C6EF5] border border-[#4C6EF5]/30 uppercase tracking-wider">
+        <Home size={13} className="text-[#4C6EF5]" />
         <span>Habitation • {property.type || "Bien"}</span>
       </span>
     );
@@ -614,7 +614,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            <Building className="text-blue-500" /> 
+            <Building className="text-[#4C6EF5]" /> 
             {isAdmin ? "Gestion & Validation de l'Immobilier / Hôtellerie" : "Mes Propriétés & Hôtels"}
           </h1>
           <p className="text-sm text-gray-400 mt-1">
@@ -630,8 +630,8 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
             className={`${
               !isAdmin && subscriptionInfo.isBlocked 
                 ? "bg-red-600/80 text-white cursor-not-allowed shadow-red-900/30" 
-                : "bg-primary text-white hover:bg-primary-light"
-            } px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center transition-colors shadow-sm`}
+                : "bg-[#C7D300] text-[#0F1D27] hover:bg-[#b5c000] font-bold"
+            } px-5 py-2.5 rounded-xl text-sm flex items-center transition-all shadow-md shadow-[#C7D300]/15 active:scale-95`}
             title={!isAdmin && subscriptionInfo.isBlocked ? "Compte suspendu : Dépôt mensuel impayé" : undefined}
           >
             {!isAdmin && subscriptionInfo.isBlocked ? (
@@ -703,7 +703,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
         </div>
       </div>
 
-      <div className="bg-[#1a1a1a] rounded-2xl shadow-sm border border-white/5 overflow-hidden">
+      <div className="bg-[#0F1D27] rounded-2xl shadow-sm border border-white/10 overflow-hidden">
         <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
           <div className="relative max-w-sm w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -712,7 +712,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
               placeholder="Rechercher par titre ou ville..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white text-sm transition-all"
+              className="w-full pl-10 pr-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4C6EF5] text-white text-sm transition-all"
             />
           </div>
 
@@ -722,7 +722,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
               onClick={() => setSelectedBranchFilter("all")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 ${
                 selectedBranchFilter === "all"
-                  ? "bg-white text-gray-950 shadow-sm"
+                  ? "bg-[#4C6EF5] text-white shadow-sm font-bold"
                   : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
               }`}
             >
@@ -732,8 +732,8 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
               onClick={() => setSelectedBranchFilter("habitation")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
                 selectedBranchFilter === "habitation"
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                  ? "bg-[#4C6EF5] text-white shadow-sm font-bold"
+                  : "bg-white/5 text-gray-400 hover:text-[#4C6EF5] hover:bg-white/10"
               }`}
             >
               <Home size={13} />
@@ -743,7 +743,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
               onClick={() => setSelectedBranchFilter("hotel")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
                 selectedBranchFilter === "hotel"
-                  ? "bg-amber-600 text-white shadow-sm"
+                  ? "bg-amber-600 text-white shadow-sm font-bold"
                   : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
               }`}
             >
@@ -755,7 +755,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
                 onClick={() => setSelectedBranchFilter("pending")}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 ${
                   selectedBranchFilter === "pending"
-                    ? "bg-orange-600 text-white shadow-sm"
+                    ? "bg-orange-600 text-white shadow-sm font-bold"
                     : "bg-orange-500/15 text-orange-300 border border-orange-500/30 hover:bg-orange-500/25"
                 }`}
               >
@@ -766,7 +766,8 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* Desktop Table (Hidden on mobile < md) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-white/5 text-xs uppercase tracking-wider text-gray-400 font-semibold">
@@ -795,7 +796,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
                            // eslint-disable-next-line @next/next/no-img-element
                            <img src={property.image} alt="bien immo" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                         ) : (
-                           <Home size={16} className="text-primary-light" />
+                           <Home size={16} className="text-[#4C6EF5]" />
                         )}
                       </div>
                     </td>
@@ -864,7 +865,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
                         <button 
                           onClick={() => setPreviewProperty(property)}
                           title="Prévisualiser"
-                          className="inline-flex p-2 bg-white/5 text-blue-400 hover:text-white rounded-lg hover:bg-blue-600 transition-colors border border-transparent hover:border-blue-600 mr-2"
+                          className="inline-flex p-2 bg-white/5 text-[#4C6EF5] hover:text-white rounded-lg hover:bg-[#4C6EF5] transition-colors border border-transparent hover:border-[#4C6EF5] mr-2"
                         >
                           <Eye size={18} />
                         </button>
@@ -872,7 +873,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
                       <button 
                         onClick={() => openEditModal(property)}
                         title="Modifier la propriété"
-                        className="inline-flex p-2 bg-white/5 text-gray-400 hover:text-white rounded-lg hover:bg-purple-600 transition-colors border border-transparent hover:border-purple-600 mr-2"
+                        className="inline-flex p-2 bg-white/5 text-gray-400 hover:text-white rounded-lg hover:bg-[#4C6EF5] transition-colors border border-transparent hover:border-[#4C6EF5] mr-2"
                       >
                         <Edit size={18} />
                       </button>
@@ -889,6 +890,119 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Mobile Cards (Visible only on mobile < md) */}
+      <div className="md:hidden divide-y divide-white/5">
+        {isLoading ? (
+          <div className="p-8 text-center text-gray-500 font-medium">Chargement des biens...</div>
+        ) : filteredProperties.length === 0 ? (
+          <div className="p-8 text-center text-gray-500 font-medium">Aucun bien trouvé.</div>
+        ) : (
+          filteredProperties.map((property) => {
+            const isHotel = property.immoBranch === "hotel" || property.type === "hotel" || !!property.hotelDetails;
+            return (
+              <div key={property.id} className="p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-16 h-16 bg-white/5 rounded-xl overflow-hidden border border-white/10 shrink-0 flex items-center justify-center">
+                    {property.image ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={property.image} alt="bien immo" className="w-full h-full object-cover" />
+                    ) : (
+                      <Home size={20} className="text-[#4C6EF5]" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="font-bold text-white text-sm line-clamp-1">
+                      {getTitle(property.title)}
+                    </span>
+                    <div className="flex items-center gap-1 text-xs text-gray-400 mt-0.5">
+                      <MapPin size={12} className="shrink-0 text-gray-400" />
+                      <span className="truncate">{property.location || "-"}</span>
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                      {getBranchBadge(property)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-1">
+                  <div>
+                    <span className="text-base font-extrabold text-white">
+                      {typeof property.price === "number" ? formatPrice(property.price) : property.price}
+                    </span>
+                    <span className="text-xs text-gray-400 ml-1">
+                      {isHotel ? "/ nuit" : (property.typeTransaction === "À Louer" ? "/ mois" : "")}
+                    </span>
+                  </div>
+                  <div>
+                    {property.status === "PENDING_APPROVAL" ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-orange-500/15 text-orange-400 border border-orange-500/30 uppercase tracking-wider">
+                        <Clock size={10} className="animate-pulse" />
+                        <span>En attente</span>
+                      </span>
+                    ) : property.status === "Disponible" ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-green-500/15 text-green-400 border border-green-500/30 uppercase tracking-wider">
+                        <CheckCircle size={10} />
+                        <span>En ligne</span>
+                      </span>
+                    ) : property.status === "REJECTED" ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-red-500/15 text-red-400 border border-red-500/30 uppercase tracking-wider">
+                        <XCircle size={10} />
+                        <span>Rejeté</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white/10 text-gray-300 uppercase tracking-wider">
+                        {property.status || "Inconnu"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Actions mobile */}
+                <div className="flex items-center justify-end gap-2 pt-1 border-t border-white/5">
+                  {isAdmin && property.status !== "Disponible" && (
+                    <>
+                      <button
+                        onClick={() => handleApproveProperty(property)}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white rounded-lg text-xs font-bold transition-all shadow-xs"
+                      >
+                        <CheckCircle size={13} />
+                        <span>Valider</span>
+                      </button>
+                      <button
+                        onClick={() => handleRejectProperty(property.id)}
+                        className="p-1.5 bg-red-500/20 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition-colors border border-red-500/30"
+                      >
+                        <XCircle size={15} />
+                      </button>
+                    </>
+                  )}
+                  {isAdmin && (
+                    <button
+                      onClick={() => setPreviewProperty(property)}
+                      className="p-2 bg-white/5 text-[#4C6EF5] hover:bg-[#4C6EF5] hover:text-white rounded-lg transition-colors"
+                    >
+                      <Eye size={16} />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => openEditModal(property)}
+                    className="p-2 bg-white/5 text-gray-300 hover:bg-[#4C6EF5] hover:text-white rounded-lg transition-colors"
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteProperty(property.id)}
+                    className="p-2 bg-white/5 text-gray-300 hover:bg-red-600 hover:text-white rounded-lg transition-colors"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
     </div>
 

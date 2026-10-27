@@ -467,8 +467,8 @@ export default function ClientsPage() {
           </div>
         </div>
 
-        {/* Tableau des clients */}
-        <div className="overflow-x-auto">
+        {/* ── Desktop Table (hidden on mobile) ── */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-sm text-gray-300">
             <thead className="text-[11px] uppercase bg-black/20 text-gray-400 font-semibold border-b border-white/[0.06]">
               <tr>
@@ -508,7 +508,6 @@ export default function ClientsPage() {
 
                   return (
                     <tr key={client.id} className="hover:bg-white/[0.02] transition-colors">
-                      {/* Nom & Initiales */}
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-3.5">
                           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600/30 to-indigo-600/30 border border-blue-500/30 flex items-center justify-center text-blue-200 font-bold text-sm shrink-0 shadow-sm">
@@ -518,93 +517,44 @@ export default function ClientsPage() {
                             <div className="font-semibold text-white tracking-tight text-sm flex items-center gap-2">
                               <span>{client.name}</span>
                               {isNew && (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30 animate-pulse">
-                                  NOUVEAU
-                                </span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30 animate-pulse">NOUVEAU</span>
                               )}
                             </div>
-                            <div className="text-[11px] text-gray-500 font-mono mt-0.5">
-                              ID: {client.id.substring(0, 8)}...
-                            </div>
+                            <div className="text-[11px] text-gray-500 font-mono mt-0.5">ID: {client.id.substring(0, 8)}...</div>
                           </div>
                         </div>
                       </td>
-
-                      {/* Téléphone */}
                       <td className="px-6 py-4">
                         {client.phone ? (
                           <div className="flex items-center gap-2">
                             <span className="font-mono text-xs text-gray-200 font-semibold">{client.phone}</span>
-                            <button
-                              onClick={() => copyToClipboard(client.phone, `phone-${client.id}`)}
-                              className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-                              title="Copier le numéro"
-                            >
+                            <button onClick={() => copyToClipboard(client.phone, `phone-${client.id}`)} className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors" title="Copier">
                               {copiedId === `phone-${client.id}` ? <Check size={12} className="text-[#C7D300]" /> : <Copy size={12} />}
                             </button>
-                            <a
-                              href={`tel:${client.phone}`}
-                              className="p-1 rounded-md text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
-                              title="Appeler"
-                            >
-                              <Phone size={12} />
-                            </a>
-                            <a
-                              href={`https://wa.me/${client.phone.replace(/[^0-9]/g, "")}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1 rounded-md text-gray-400 hover:text-green-400 hover:bg-green-500/10 transition-colors"
-                              title="Contacter sur WhatsApp"
-                            >
-                              <MessageCircle size={12} />
-                            </a>
+                            <a href={`tel:${client.phone}`} className="p-1 rounded-md text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors" title="Appeler"><Phone size={12} /></a>
+                            <a href={`https://wa.me/${client.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer" className="p-1 rounded-md text-gray-400 hover:text-green-400 hover:bg-green-500/10 transition-colors" title="WhatsApp"><MessageCircle size={12} /></a>
                           </div>
-                        ) : (
-                          <span className="text-xs text-gray-600 italic">Non renseigné</span>
-                        )}
+                        ) : <span className="text-xs text-gray-600 italic">Non renseigné</span>}
                       </td>
-
-                      {/* Email */}
                       <td className="px-6 py-4">
                         {client.email ? (
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-300">{client.email}</span>
-                            <button
-                              onClick={() => copyToClipboard(client.email, `email-${client.id}`)}
-                              className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-                              title="Copier l'email"
-                            >
-                              {copiedId === `email-${client.id}` ? <Check size={12} className="text-[#C7D300]" /> : <Copy size={12} />}
-                            </button>
-                            <a
-                              href={`mailto:${client.email}`}
-                              className="p-1 rounded-md text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
-                              title="Envoyer un email"
-                            >
-                              <Mail size={12} />
-                            </a>
+                            <button onClick={() => copyToClipboard(client.email, `email-${client.id}`)} className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors" title="Copier">{copiedId === `email-${client.id}` ? <Check size={12} className="text-[#C7D300]" /> : <Copy size={12} />}</button>
+                            <a href={`mailto:${client.email}`} className="p-1 rounded-md text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors" title="Email"><Mail size={12} /></a>
                           </div>
-                        ) : (
-                          <span className="text-xs text-gray-600 italic">Non renseigné</span>
-                        )}
+                        ) : <span className="text-xs text-gray-600 italic">Non renseigné</span>}
                       </td>
-
-                      {/* Date d'inscription */}
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-1.5 text-xs text-gray-300">
                           <Calendar size={13} className="text-gray-500 shrink-0" />
                           <span>{formatDate(client.createdAt)}</span>
                         </div>
                       </td>
-
-                      {/* Statut de présence */}
                       <td className="px-6 py-4">
                         {client.isOnline ? (
                           <span className="inline-flex items-center space-x-2 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full text-xs font-semibold">
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                            </span>
+                            <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
                             <span>En Ligne</span>
                           </span>
                         ) : (
@@ -614,19 +564,11 @@ export default function ClientsPage() {
                           </span>
                         )}
                       </td>
-
-                      {/* Actions rapides */}
                       <td className="px-6 py-4 text-right">
                         <button
-                          onClick={() => {
-                            const details = `Client : ${client.name}\nTéléphone : ${client.phone || "Non renseigné"}\nEmail : ${client.email || "Non renseigné"}\nDate inscription : ${formatDate(client.createdAt)}`;
-                            navigator.clipboard.writeText(details);
-                            alert("📋 Fiche contact copiée dans le presse-papier !");
-                          }}
+                          onClick={() => { const d = `Client : ${client.name}\nTél : ${client.phone || "—"}\nEmail : ${client.email || "—"}\nInscrit le : ${formatDate(client.createdAt)}`; navigator.clipboard.writeText(d); alert("📋 Fiche copiée !"); }}
                           className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-lg text-xs font-medium transition-colors border border-white/5"
-                        >
-                          Copier fiche
-                        </button>
+                        >Copier fiche</button>
                       </td>
                     </tr>
                   );
@@ -634,6 +576,98 @@ export default function ClientsPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* ── Mobile Cards (visible on mobile < md) ── */}
+        <div className="md:hidden p-3 space-y-3">
+          {isLoading ? (
+            <div className="p-8 text-center text-gray-400">
+              <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-xs">Chargement...</p>
+            </div>
+          ) : filteredAndSortedClients.length === 0 ? (
+            <div className="p-8 text-center text-gray-400">
+              <UsersIcon size={32} className="mx-auto mb-2 opacity-30" />
+              <p className="text-xs font-semibold text-white">Aucun client trouvé</p>
+            </div>
+          ) : (
+            filteredAndSortedClients.map((client) => {
+              const initial = (client.name || "C").charAt(0).toUpperCase();
+              const isNew = isRecentClient(client.createdAt);
+              return (
+                <div key={client.id} className="bg-black/30 border border-white/[0.08] rounded-2xl p-4 space-y-3">
+                  {/* Top row: avatar + name + status */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600/30 to-indigo-600/30 border border-blue-500/30 flex items-center justify-center text-blue-200 font-bold text-sm shrink-0">
+                      {initial}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-white text-sm truncate">{client.name}</span>
+                        {isNew && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30 shrink-0">NOUVEAU</span>}
+                      </div>
+                      <div className="text-[11px] text-gray-500 font-mono">ID: {client.id.substring(0, 8)}...</div>
+                    </div>
+                    {client.isOnline ? (
+                      <span className="inline-flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-1 rounded-full text-[10px] font-semibold shrink-0">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        En ligne
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-gray-500 bg-white/5 border border-white/5 px-2 py-1 rounded-full text-[10px] font-medium shrink-0">
+                        <Clock size={10} />Hors ligne
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Contact info */}
+                  <div className="space-y-2 text-xs">
+                    {client.phone && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-gray-300">
+                          <Phone size={12} className="text-gray-500 shrink-0" />
+                          <span className="font-mono font-semibold">{client.phone}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={() => copyToClipboard(client.phone, `phone-${client.id}`)} className="p-1.5 rounded-lg bg-white/5 text-gray-400 hover:text-white border border-white/10" title="Copier">
+                            {copiedId === `phone-${client.id}` ? <Check size={11} className="text-[#C7D300]" /> : <Copy size={11} />}
+                          </button>
+                          <a href={`tel:${client.phone}`} className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" title="Appeler"><Phone size={11} /></a>
+                          <a href={`https://wa.me/${client.phone.replace(/[^0-9]/g, "")}`} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg bg-green-500/10 text-green-400 border border-green-500/20" title="WhatsApp"><MessageCircle size={11} /></a>
+                        </div>
+                      </div>
+                    )}
+                    {client.email && (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-gray-400 min-w-0">
+                          <Mail size={12} className="text-gray-500 shrink-0" />
+                          <span className="truncate">{client.email}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                          <button onClick={() => copyToClipboard(client.email, `email-${client.id}`)} className="p-1.5 rounded-lg bg-white/5 text-gray-400 hover:text-white border border-white/10" title="Copier">
+                            {copiedId === `email-${client.id}` ? <Check size={11} className="text-[#C7D300]" /> : <Copy size={11} />}
+                          </button>
+                          <a href={`mailto:${client.email}`} className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20" title="Email"><Mail size={11} /></a>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Footer: date + action */}
+                  <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                    <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                      <Calendar size={11} />
+                      <span>{formatDate(client.createdAt)}</span>
+                    </div>
+                    <button
+                      onClick={() => { const d = `Client : ${client.name}\nTél : ${client.phone || "—"}\nEmail : ${client.email || "—"}\nInscrit le : ${formatDate(client.createdAt)}`; navigator.clipboard.writeText(d); alert("📋 Fiche copiée !"); }}
+                      className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-xl text-[11px] font-medium transition-colors border border-white/5"
+                    >Copier fiche</button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 

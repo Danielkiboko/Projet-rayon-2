@@ -181,7 +181,7 @@ export default function SupplierDriversPage() {
             setSuccess("");
             setError("");
           }}
-          className="flex items-center space-x-2 bg-primary hover:bg-primary-light text-white px-4 py-2 rounded-lg transition-colors shadow-lg shadow-primary/20"
+          className="flex items-center space-x-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold px-4 py-2 rounded-xl transition-all shadow-md shadow-[#C7D300]/15 active:scale-95"
         >
           <Plus size={20} />
           <span>Ajouter un livreur</span>
@@ -195,15 +195,15 @@ export default function SupplierDriversPage() {
       )}
 
       {/* APK Distribution Card */}
-      <div className="bg-gradient-to-r from-primary/10 via-white/5 to-primary/10 border border-primary/30 rounded-2xl p-5 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div className="bg-gradient-to-r from-[#C7D300]/10 via-[#0F1D27] to-[#C7D300]/10 border border-[#C7D300]/30 rounded-2xl p-5 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center space-x-4">
-          <div className="w-12 h-12 rounded-xl bg-primary/20 border border-primary/40 flex items-center justify-center text-primary-light shrink-0">
+          <div className="w-12 h-12 rounded-xl bg-[#C7D300]/15 border border-[#C7D300]/30 flex items-center justify-center text-[#C7D300] shrink-0">
             <Smartphone size={24} />
           </div>
           <div>
             <div className="flex items-center space-x-2">
               <h2 className="text-base font-semibold text-white">Application Mobile Livreur Android (.APK)</h2>
-              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-primary/20 text-primary-light rounded-full border border-primary/30">Officielle</span>
+              <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-[#C7D300]/20 text-[#C7D300] rounded-full border border-[#C7D300]/30">Officielle</span>
             </div>
             <p className="text-xs text-gray-400 mt-0.5">
               Le lien de téléchargement est envoyé automatiquement par e-mail et SMS lors de l'ajout. Vous pouvez aussi le copier ou l'envoyer via WhatsApp.
@@ -228,7 +228,7 @@ export default function SupplierDriversPage() {
             href={DRIVER_APP_APK_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 md:flex-initial flex items-center justify-center space-x-2 px-3 py-2 bg-primary hover:bg-primary-light text-white rounded-lg text-xs font-semibold shadow-md shadow-primary/20 transition-colors"
+            className="flex-1 md:flex-initial flex items-center justify-center space-x-2 px-3 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] rounded-lg text-xs font-bold shadow-md shadow-[#C7D300]/20 transition-all active:scale-95"
           >
             <Download size={14} />
             <span>Télécharger APK</span>
@@ -244,14 +244,15 @@ export default function SupplierDriversPage() {
           <p className="text-gray-300 font-medium mb-4">Vous n'avez pas encore de livreurs affiliés.</p>
           <button 
             onClick={() => setIsAddingDriver(true)}
-            className="text-primary-light hover:text-white font-medium transition-colors"
+            className="text-[#C7D300] hover:underline font-medium transition-colors"
           >
             Ajouter mon premier livreur
           </button>
         </div>
       ) : (
         <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden shadow-xl">
-          <div className="overflow-x-auto">
+          {/* Desktop Table (Hidden on mobile < md) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-sm text-gray-300">
               <thead className="bg-black/40 text-gray-400 text-xs uppercase tracking-wider">
                 <tr>
@@ -273,7 +274,7 @@ export default function SupplierDriversPage() {
                     <tr key={driver.id} className="hover:bg-white/5 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary-light font-bold">
+                          <div className="h-10 w-10 rounded-full bg-[#C7D300]/15 flex items-center justify-center text-[#C7D300] font-bold border border-[#C7D300]/20">
                             {driver.displayName?.charAt(0) || "L"}
                           </div>
                           <div className="ml-4">
@@ -320,6 +321,61 @@ export default function SupplierDriversPage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Cards View (Visible only on mobile < md) */}
+          <div className="md:hidden divide-y divide-white/5">
+            {isLoading ? (
+              <div className="p-8 text-center text-gray-400 text-sm">Chargement des livreurs...</div>
+            ) : (
+              drivers.map(driver => (
+                <div key={driver.id} className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="h-10 w-10 rounded-full bg-[#C7D300]/15 flex items-center justify-center text-[#C7D300] font-bold border border-[#C7D300]/20 shrink-0">
+                        {driver.displayName?.charAt(0) || "L"}
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-white">{driver.displayName || "Sans nom"}</div>
+                        <div className="text-xs text-gray-400">{driver.email}</div>
+                      </div>
+                    </div>
+                    <div>
+                      {driver.status === "pending_deletion" ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                          <Clock size={10} className="mr-1" /> En suppression
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-green-500/20 text-green-400 border border-green-500/30">
+                          Actif
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-white/5">
+                    <button 
+                      onClick={() => {
+                        const firstName = (driver.displayName || "").split(' ')[0] || "Livreur";
+                        const shareText = `Bonjour ${firstName} !\n\nVotre compte livreur Rayons a été créé.\n\n📲 Téléchargez votre application mobile Android officielle ici :\n${DRIVER_APP_APK_URL}\n\nIdentifiant : ${driver.email}`;
+                        window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
+                      }}
+                      className="px-3 py-1.5 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-xl text-xs font-semibold transition-colors inline-flex items-center"
+                    >
+                      <Smartphone size={13} className="mr-1" />
+                      <span>WhatsApp</span>
+                    </button>
+                    <button 
+                      onClick={() => handleRequestDeleteDriver(driver.id)}
+                      disabled={driver.status === "pending_deletion"}
+                      className="p-1.5 text-red-400 bg-red-400/10 rounded-xl hover:bg-red-400/20 transition-colors disabled:opacity-50 inline-flex items-center"
+                    >
+                      <UserX size={15} />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
@@ -401,7 +457,7 @@ export default function SupplierDriversPage() {
                     required 
                     value={newDriverName} 
                     onChange={(e) => setNewDriverName(e.target.value)} 
-                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-white" 
+                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white" 
                     placeholder="Ex: Jean Dupont" 
                   />
                 </div>
@@ -413,7 +469,7 @@ export default function SupplierDriversPage() {
                     required 
                     value={newDriverEmail} 
                     onChange={(e) => setNewDriverEmail(e.target.value)} 
-                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-white" 
+                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white" 
                     placeholder="jean.dupont@email.com" 
                   />
                 </div>
@@ -429,10 +485,10 @@ export default function SupplierDriversPage() {
                   <button 
                     type="submit" 
                     disabled={isProcessingDriver} 
-                    className="px-6 py-2 bg-primary text-white font-bold rounded-xl hover:bg-primary-light transition-colors disabled:opacity-50 flex items-center"
+                    className="px-6 py-2 bg-[#C7D300] text-[#0F1D27] font-bold rounded-xl hover:bg-[#b5c000] transition-all disabled:opacity-50 flex items-center shadow-md shadow-[#C7D300]/20 active:scale-95"
                   >
                     {isProcessingDriver ? (
-                      <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" /> Création...</>
+                      <><div className="w-4 h-4 border-2 border-[#0F1D27]/30 border-t-[#0F1D27] rounded-full animate-spin mr-2" /> Création...</>
                     ) : "Ajouter"}
                   </button>
                 </div>

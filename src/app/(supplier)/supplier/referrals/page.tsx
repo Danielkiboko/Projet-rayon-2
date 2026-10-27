@@ -144,15 +144,15 @@ export default function SupplierReferralsPage() {
       <Toaster position="top-right" />
 
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-[#C7D300]/10 text-[#C7D300]">
-              <Gift size={20} />
+            <span className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-[#C7D300]/10 text-[#C7D300]">
+              <Gift size={18} />
             </span>
-            <h1 className="text-2xl font-black text-white tracking-tight">Programme de Parrainage</h1>
+            <h1 className="text-lg sm:text-2xl font-black text-white tracking-tight">Programme de Parrainage</h1>
           </div>
-          <p className="text-xs text-gray-400 mt-1 max-w-xl">
+          <p className="text-[11px] sm:text-xs text-gray-400 mt-1 max-w-xl leading-relaxed">
             Invitez d'autres commerçants et entrepreneurs sur Rayons.net. Vous gagnez{" "}
             <strong className="text-[#C7D300]">5 USD de commission à vie</strong> sur chacun de leurs paiements d'abonnement,
             et ils bénéficient de <strong className="text-emerald-400">10 USD de réduction</strong> sur leur prochain mois.
@@ -160,33 +160,33 @@ export default function SupplierReferralsPage() {
         </div>
 
         {stats.pendingDiscount > 0 && (
-          <div className="px-4 py-2.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center gap-2">
-            <Sparkles size={16} className="text-emerald-400 shrink-0" />
+          <div className="px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl sm:rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] sm:text-xs flex items-center gap-2 shrink-0">
+            <Sparkles size={14} className="text-emerald-400 shrink-0" />
             <span>
-              Réduction active sur votre prochain abonnement : <strong>-${stats.pendingDiscount} USD</strong>
+              Réduction active : <strong>-${stats.pendingDiscount} USD</strong>
             </span>
           </div>
         )}
       </div>
 
       {/* BANNIÈRE CODE & LIEN DE PARRAINAGE */}
-      <div className="p-6 rounded-3xl bg-gradient-to-br from-[#13222e] via-[#0F1D27] to-[#162734] border border-white/10 shadow-xl relative overflow-hidden">
+      <div className="p-4 sm:p-6 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-[#13222e] via-[#0F1D27] to-[#162734] border border-white/10 shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-80 h-80 bg-[#C7D300]/5 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10 items-center">
-          <div className="lg:col-span-7 space-y-3">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-[#C7D300] bg-[#C7D300]/10 px-3 py-1 rounded-full">
-              <Sparkles size={12} /> Votre Code Promo Exclusif
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 relative z-10 items-center">
+          <div className="lg:col-span-7 space-y-2.5 sm:space-y-3">
+            <span className="inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#C7D300] bg-[#C7D300]/10 px-2.5 py-0.5 rounded-full">
+              <Sparkles size={11} /> Votre Code Promo Exclusif
             </span>
-            <h2 className="text-3xl font-black text-white tracking-wider font-mono">{code}</h2>
-            <p className="text-xs text-gray-300 leading-relaxed">
+            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-wider font-mono">{code}</h2>
+            <p className="text-[11px] sm:text-xs text-gray-300 leading-relaxed">
               Partagez ce code ou votre lien direct. Dès qu'un commerçant s'inscrit avec ce code et active son compte, vous
               êtes automatiquement rattaché comme son parrain.
             </p>
-            <div className="flex flex-wrap items-center gap-2 pt-1">
+            <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 pt-1">
               <button
                 onClick={handleCopyCode}
-                className="px-4 py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 border border-white/10 cursor-pointer"
+                className="px-3.5 py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 border border-white/10 cursor-pointer active:scale-95"
               >
                 {copiedCode ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
                 <span>{copiedCode ? "Copié !" : "Copier le code"}</span>
@@ -194,7 +194,7 @@ export default function SupplierReferralsPage() {
 
               <button
                 onClick={handleCopyLink}
-                className="px-4 py-2.5 bg-[#C7D300] hover:bg-[#b8c200] text-[#0F1D27] rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-lg shadow-[#C7D300]/20 cursor-pointer"
+                className="px-3.5 py-2.5 bg-[#C7D300] hover:bg-[#b8c200] text-[#0F1D27] rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#C7D300]/20 cursor-pointer active:scale-95"
               >
                 {copiedLink ? <Check size={14} /> : <Share2 size={14} />}
                 <span>{copiedLink ? "Lien copié !" : "Copier mon lien d'invitation"}</span>
@@ -202,7 +202,7 @@ export default function SupplierReferralsPage() {
 
               <button
                 onClick={handleShareWhatsApp}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-md cursor-pointer"
+                className="px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-md cursor-pointer active:scale-95"
               >
                 <ExternalLink size={14} />
                 <span>Partager sur WhatsApp</span>
@@ -211,31 +211,31 @@ export default function SupplierReferralsPage() {
           </div>
 
           {/* RÉSUMÉ RÈGLE */}
-          <div className="lg:col-span-5 bg-white/5 border border-white/10 rounded-2xl p-4 text-xs space-y-2.5">
-            <div className="font-bold text-white flex items-center gap-1.5">
+          <div className="lg:col-span-5 bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl p-3.5 sm:p-4 text-xs space-y-2">
+            <div className="font-bold text-white flex items-center gap-1.5 text-[11px] sm:text-xs">
               <HelpCircle size={14} className="text-[#C7D300]" />
               <span>Comment fonctionne la commission ?</span>
             </div>
-            <ul className="space-y-1.5 text-gray-300 text-[11px] leading-relaxed">
-              <li className="flex items-start gap-2">
+            <ul className="space-y-1.5 text-gray-300 text-[10px] sm:text-[11px] leading-relaxed">
+              <li className="flex items-start gap-1.5">
                 <span className="text-[#C7D300] font-black">•</span>
                 <span>
                   <strong>5 USD à l'inscription</strong> : Dès que votre invité règle son 1er abonnement ($50).
                 </span>
               </li>
-              <li className="flex items-start gap-2">
+              <li className="flex items-start gap-1.5">
                 <span className="text-[#C7D300] font-black">•</span>
                 <span>
-                  <strong>5 USD à chaque réabonnement mensuel</strong> : Valable <em>à vie</em> tant que le filleul renouvelle.
+                  <strong>5 USD à chaque réabonnement</strong> : Valable <em>à vie</em> tant que le filleul renouvelle.
                 </span>
               </li>
-              <li className="flex items-start gap-2">
+              <li className="flex items-start gap-1.5">
                 <span className="text-emerald-400 font-black">•</span>
                 <span>
-                  <strong>10 USD de réduction pour votre invité</strong> : Sur son prochain mois de cotisation.
+                  <strong>10 USD de réduction</strong> : Pour votre invité sur son prochain mois de cotisation.
                 </span>
               </li>
-              <li className="flex items-start gap-2">
+              <li className="flex items-start gap-1.5">
                 <span className="text-blue-400 font-black">•</span>
                 <span>
                   <strong>Versement sur demande</strong> : Retirez vos gains en cash ou Mobile Money via la caisse centrale.
@@ -247,53 +247,53 @@ export default function SupplierReferralsPage() {
       </div>
 
       {/* KPI STATS CARDS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Solde en attente */}
-        <div className="p-4 rounded-2xl bg-[#0F1D27] border border-white/10 shadow-sm relative overflow-hidden">
-          <div className="flex items-center justify-between text-gray-400 text-xs mb-1">
+        <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-[#0F1D27] border border-white/10 shadow-sm relative overflow-hidden flex flex-col justify-between min-h-[85px] sm:min-h-[105px]">
+          <div className="flex items-center justify-between text-gray-400 text-[10px] sm:text-xs mb-1">
             <span>Solde à recevoir</span>
-            <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
-              <DollarSign size={16} />
+            <span className="p-1 rounded-md sm:rounded-lg bg-amber-500/10 text-amber-400">
+              <DollarSign size={14} />
             </span>
           </div>
-          <div className="text-2xl font-black text-white">${stats.referralBalance?.toFixed(2) || "0.00"}</div>
-          <span className="text-[10px] text-amber-400 font-medium mt-1 block">Prêt pour versement admin</span>
+          <div className="text-lg sm:text-2xl font-black text-white tabular-nums">${stats.referralBalance?.toFixed(2) || "0.00"}</div>
+          <span className="text-[9px] sm:text-[10px] text-amber-400 font-medium mt-0.5 block truncate">Prêt pour versement</span>
         </div>
 
         {/* Total gagné à vie */}
-        <div className="p-4 rounded-2xl bg-[#0F1D27] border border-white/10 shadow-sm">
-          <div className="flex items-center justify-between text-gray-400 text-xs mb-1">
+        <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-[#0F1D27] border border-white/10 shadow-sm flex flex-col justify-between min-h-[85px] sm:min-h-[105px]">
+          <div className="flex items-center justify-between text-gray-400 text-[10px] sm:text-xs mb-1">
             <span>Total gagné à vie</span>
-            <span className="p-1.5 rounded-lg bg-[#C7D300]/10 text-[#C7D300]">
-              <TrendingUp size={16} />
+            <span className="p-1 rounded-md sm:rounded-lg bg-[#C7D300]/10 text-[#C7D300]">
+              <TrendingUp size={14} />
             </span>
           </div>
-          <div className="text-2xl font-black text-[#C7D300]">${stats.referralTotalEarned?.toFixed(2) || "0.00"}</div>
-          <span className="text-[10px] text-gray-400 mt-1 block">Commissions cumulées</span>
+          <div className="text-lg sm:text-2xl font-black text-[#C7D300] tabular-nums">${stats.referralTotalEarned?.toFixed(2) || "0.00"}</div>
+          <span className="text-[9px] sm:text-[10px] text-gray-400 mt-0.5 block truncate">Commissions cumulées</span>
         </div>
 
         {/* Déjà versé */}
-        <div className="p-4 rounded-2xl bg-[#0F1D27] border border-white/10 shadow-sm">
-          <div className="flex items-center justify-between text-gray-400 text-xs mb-1">
+        <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-[#0F1D27] border border-white/10 shadow-sm flex flex-col justify-between min-h-[85px] sm:min-h-[105px]">
+          <div className="flex items-center justify-between text-gray-400 text-[10px] sm:text-xs mb-1">
             <span>Total déjà perçu</span>
-            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-              <CheckCircle2 size={16} />
+            <span className="p-1 rounded-md sm:rounded-lg bg-emerald-500/10 text-emerald-400">
+              <CheckCircle2 size={14} />
             </span>
           </div>
-          <div className="text-2xl font-black text-emerald-400">${stats.referralPaidTotal?.toFixed(2) || "0.00"}</div>
-          <span className="text-[10px] text-gray-400 mt-1 block">Versé par la caisse centrale</span>
+          <div className="text-lg sm:text-2xl font-black text-emerald-400 tabular-nums">${stats.referralPaidTotal?.toFixed(2) || "0.00"}</div>
+          <span className="text-[9px] sm:text-[10px] text-gray-400 mt-0.5 block truncate">Versé par l'admin</span>
         </div>
 
         {/* Nombre de filleuls */}
-        <div className="p-4 rounded-2xl bg-[#0F1D27] border border-white/10 shadow-sm">
-          <div className="flex items-center justify-between text-gray-400 text-xs mb-1">
+        <div className="p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-[#0F1D27] border border-white/10 shadow-sm flex flex-col justify-between min-h-[85px] sm:min-h-[105px]">
+          <div className="flex items-center justify-between text-gray-400 text-[10px] sm:text-xs mb-1">
             <span>Filleuls rattachés</span>
-            <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
-              <Users size={16} />
+            <span className="p-1 rounded-md sm:rounded-lg bg-blue-500/10 text-blue-400">
+              <Users size={14} />
             </span>
           </div>
-          <div className="text-2xl font-black text-white">{filleuls.length}</div>
-          <span className="text-[10px] text-gray-400 mt-1 block">Boutiques partenaires actives</span>
+          <div className="text-lg sm:text-2xl font-black text-white tabular-nums">{filleuls.length}</div>
+          <span className="text-[9px] sm:text-[10px] text-gray-400 mt-0.5 block truncate">Partenaires actifs</span>
         </div>
       </div>
 
@@ -399,43 +399,77 @@ export default function SupplierReferralsPage() {
                 <p>Partagez votre code promo ou envoyez des invitations pour commencer à toucher des commissions à vie.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-white/5 border-b border-white/10 text-gray-400 uppercase tracking-wider text-[10px]">
-                    <tr>
-                      <th className="py-3 px-4">Boutique Filleul</th>
-                      <th className="py-3 px-4">Email</th>
-                      <th className="py-3 px-4">Inscrit le</th>
-                      <th className="py-3 px-4 text-center">Paiements validés</th>
-                      <th className="py-3 px-4 text-right">Commissions générées</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5 text-gray-200">
-                    {filleuls.map((f: any) => (
-                      <tr key={f.id} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="py-3 px-4 font-bold text-white flex items-center gap-2">
+              <>
+                {/* Desktop Table (≥ md) */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-white/5 border-b border-white/10 text-gray-400 uppercase tracking-wider text-[10px]">
+                      <tr>
+                        <th className="py-3 px-4">Boutique Filleul</th>
+                        <th className="py-3 px-4">Email</th>
+                        <th className="py-3 px-4">Inscrit le</th>
+                        <th className="py-3 px-4 text-center">Paiements validés</th>
+                        <th className="py-3 px-4 text-right">Commissions générées</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 text-gray-200">
+                      {filleuls.map((f: any) => (
+                        <tr key={f.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="py-3 px-4 font-bold text-white flex items-center gap-2">
+                            <span className="w-7 h-7 rounded-lg bg-[#C7D300]/10 text-[#C7D300] flex items-center justify-center font-bold text-xs shrink-0">
+                              {f.filleulName?.charAt(0).toUpperCase() || "B"}
+                            </span>
+                            <span>{f.filleulName}</span>
+                          </td>
+                          <td className="py-3 px-4 text-gray-400">{f.filleulEmail || "---"}</td>
+                          <td className="py-3 px-4 text-gray-400">
+                            {f.createdAt ? new Date(f.createdAt).toLocaleDateString("fr-FR") : "---"}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-bold text-[11px]">
+                              {f.paymentsCount || 0} mois
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right font-black text-[#C7D300]">
+                            +${Number(f.totalCommissions || 0).toFixed(2)} USD
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Cards (< md) */}
+                <div className="md:hidden divide-y divide-white/5">
+                  {filleuls.map((f: any) => (
+                    <div key={f.id} className="p-3.5 flex flex-col gap-2 hover:bg-white/[0.02] transition-colors">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
                           <span className="w-7 h-7 rounded-lg bg-[#C7D300]/10 text-[#C7D300] flex items-center justify-center font-bold text-xs shrink-0">
                             {f.filleulName?.charAt(0).toUpperCase() || "B"}
                           </span>
-                          <span>{f.filleulName}</span>
-                        </td>
-                        <td className="py-3 px-4 text-gray-400">{f.filleulEmail || "---"}</td>
-                        <td className="py-3 px-4 text-gray-400">
+                          <span className="font-bold text-xs text-white truncate">{f.filleulName}</span>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-bold text-[10px] shrink-0">
+                          {f.paymentsCount || 0} mois validé(s)
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-gray-400 flex items-center justify-between">
+                        <span className="truncate">{f.filleulEmail || "---"}</span>
+                        <span className="text-[10px] text-gray-500 shrink-0">
                           {f.createdAt ? new Date(f.createdAt).toLocaleDateString("fr-FR") : "---"}
-                        </td>
-                        <td className="py-3 px-4 text-center">
-                          <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-bold text-[11px]">
-                            {f.paymentsCount || 0} mois
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right font-black text-[#C7D300]">
+                        </span>
+                      </div>
+                      <div className="pt-1.5 border-t border-white/5 flex items-center justify-between text-xs">
+                        <span className="text-gray-400 text-[11px]">Gains cumulés :</span>
+                        <span className="font-black text-[#C7D300]">
                           +${Number(f.totalCommissions || 0).toFixed(2)} USD
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -450,48 +484,85 @@ export default function SupplierReferralsPage() {
                 <p>Chaque fois qu'un de vos filleuls s'abonne ou se réabonne, une entrée de 5 USD sera créditée ici.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-white/5 border-b border-white/10 text-gray-400 uppercase tracking-wider text-[10px]">
-                    <tr>
-                      <th className="py-3 px-4">Date</th>
-                      <th className="py-3 px-4">Filleul</th>
-                      <th className="py-3 px-4">Type</th>
-                      <th className="py-3 px-4">Réf Paiement</th>
-                      <th className="py-3 px-4">Montant</th>
-                      <th className="py-3 px-4 text-right">Statut</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5 text-gray-200">
-                    {commissions.map((c: any) => (
-                      <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="py-3 px-4 text-gray-400">
-                          {c.createdAt ? new Date(c.createdAt).toLocaleDateString("fr-FR") : "---"}
-                        </td>
-                        <td className="py-3 px-4 font-bold text-white">{c.filleulName}</td>
-                        <td className="py-3 px-4">
-                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 text-gray-300">
-                            {c.kind === "SIGNUP" ? "Adhésion initiale" : "Réabonnement"}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 font-mono text-gray-400 text-[11px]">{c.paymentRef || "---"}</td>
-                        <td className="py-3 px-4 font-black text-emerald-400">+${c.amount.toFixed(2)} USD</td>
-                        <td className="py-3 px-4 text-right">
-                          {c.status === "PAID" ? (
-                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold text-[10px]">
-                              Versé
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-bold text-[10px]">
-                              En attente
-                            </span>
-                          )}
-                        </td>
+              <>
+                {/* Desktop Table (≥ md) */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-white/5 border-b border-white/10 text-gray-400 uppercase tracking-wider text-[10px]">
+                      <tr>
+                        <th className="py-3 px-4">Date</th>
+                        <th className="py-3 px-4">Filleul</th>
+                        <th className="py-3 px-4">Type</th>
+                        <th className="py-3 px-4">Réf Paiement</th>
+                        <th className="py-3 px-4">Montant</th>
+                        <th className="py-3 px-4 text-right">Statut</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 text-gray-200">
+                      {commissions.map((c: any) => (
+                        <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="py-3 px-4 text-gray-400">
+                            {c.createdAt ? new Date(c.createdAt).toLocaleDateString("fr-FR") : "---"}
+                          </td>
+                          <td className="py-3 px-4 font-bold text-white">{c.filleulName}</td>
+                          <td className="py-3 px-4">
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 text-gray-300">
+                              {c.kind === "SIGNUP" ? "Adhésion initiale" : "Réabonnement"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-mono text-gray-400 text-[11px]">{c.paymentRef || "---"}</td>
+                          <td className="py-3 px-4 font-black text-emerald-400">+${c.amount.toFixed(2)} USD</td>
+                          <td className="py-3 px-4 text-right">
+                            {c.status === "PAID" ? (
+                              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold text-[10px]">
+                                Versé
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-bold text-[10px]">
+                                En attente
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Cards (< md) */}
+                <div className="md:hidden divide-y divide-white/5">
+                  {commissions.map((c: any) => (
+                    <div key={c.id} className="p-3.5 flex flex-col gap-1.5 hover:bg-white/[0.02] transition-colors">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-xs text-white truncate">{c.filleulName}</span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            c.status === "PAID"
+                              ? "bg-emerald-500/10 text-emerald-400"
+                              : "bg-amber-500/10 text-amber-400"
+                          }`}
+                        >
+                          {c.status === "PAID" ? "Versé" : "En attente"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-gray-400">
+                        <span className="text-[10px] bg-white/5 px-2 py-0.5 rounded text-gray-300">
+                          {c.kind === "SIGNUP" ? "Adhésion" : "Réabonnement"}
+                        </span>
+                        <span className="font-mono text-[10px] text-gray-500">
+                          {c.paymentRef ? `Réf: ${c.paymentRef}` : ""}
+                        </span>
+                      </div>
+                      <div className="pt-1.5 border-t border-white/5 flex items-center justify-between text-xs">
+                        <span className="text-[10px] text-gray-500">
+                          {c.createdAt ? new Date(c.createdAt).toLocaleDateString("fr-FR") : "---"}
+                        </span>
+                        <span className="font-black text-emerald-400">+${c.amount.toFixed(2)} USD</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}
@@ -506,38 +577,64 @@ export default function SupplierReferralsPage() {
                 <p>Utilisez le formulaire ci-dessus pour inviter des commerçants par email.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-white/5 border-b border-white/10 text-gray-400 uppercase tracking-wider text-[10px]">
-                    <tr>
-                      <th className="py-3 px-4">Destinataire</th>
-                      <th className="py-3 px-4">Envoyée le</th>
-                      <th className="py-3 px-4 text-right">Statut</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5 text-gray-200">
-                    {invites.map((inv: any) => (
-                      <tr key={inv.id} className="hover:bg-white/[0.02] transition-colors">
-                        <td className="py-3 px-4 font-medium text-white">{inv.email}</td>
-                        <td className="py-3 px-4 text-gray-400">
-                          {inv.sentAt ? new Date(inv.sentAt).toLocaleDateString("fr-FR") : "---"}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          {inv.status === "REGISTERED" ? (
-                            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold text-[10px]">
-                              Inscrit & abonné
-                            </span>
-                          ) : (
-                            <span className="px-2.5 py-0.5 rounded-full bg-gray-500/10 text-gray-400 font-bold text-[10px]">
-                              Invitation envoyée
-                            </span>
-                          )}
-                        </td>
+              <>
+                {/* Desktop Table (≥ md) */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-white/5 border-b border-white/10 text-gray-400 uppercase tracking-wider text-[10px]">
+                      <tr>
+                        <th className="py-3 px-4">Destinataire</th>
+                        <th className="py-3 px-4">Envoyée le</th>
+                        <th className="py-3 px-4 text-right">Statut</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-white/5 text-gray-200">
+                      {invites.map((inv: any) => (
+                        <tr key={inv.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="py-3 px-4 font-medium text-white">{inv.email}</td>
+                          <td className="py-3 px-4 text-gray-400">
+                            {inv.sentAt ? new Date(inv.sentAt).toLocaleDateString("fr-FR") : "---"}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            {inv.status === "REGISTERED" ? (
+                              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold text-[10px]">
+                                Inscrit & abonné
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-0.5 rounded-full bg-gray-500/10 text-gray-400 font-bold text-[10px]">
+                                Invitation envoyée
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Cards (< md) */}
+                <div className="md:hidden divide-y divide-white/5">
+                  {invites.map((inv: any) => (
+                    <div key={inv.id} className="p-3.5 flex items-center justify-between gap-2 hover:bg-white/[0.02] transition-colors">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-white truncate">{inv.email}</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">
+                          {inv.sentAt ? new Date(inv.sentAt).toLocaleDateString("fr-FR") : "---"}
+                        </p>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-full font-bold text-[10px] shrink-0 ${
+                          inv.status === "REGISTERED"
+                            ? "bg-emerald-500/10 text-emerald-400"
+                            : "bg-gray-500/10 text-gray-400"
+                        }`}
+                      >
+                        {inv.status === "REGISTERED" ? "Inscrit & abonné" : "Envoyée"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         )}

@@ -38,11 +38,11 @@ function NavItem({ href, label, icon: Icon, active }: { href: string; label: str
     <Link
       href={href}
       className={`flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors ${
-        active ? "text-primary-light" : "text-gray-500 hover:text-gray-300"
+        active ? "text-[#C7D300] font-semibold" : "text-gray-500 hover:text-gray-300"
       }`}
     >
-      <Icon size={22} />
-      <span className="text-[10px] font-medium">{label}</span>
+      <Icon size={20} className={active ? "text-[#C7D300]" : "text-gray-400"} />
+      <span className="text-[11px]">{label}</span>
     </Link>
   );
 }

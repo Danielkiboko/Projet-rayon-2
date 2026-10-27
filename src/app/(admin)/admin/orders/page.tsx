@@ -197,7 +197,7 @@ export default function AdminMyOrdersPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-extrabold text-white tracking-tight">Mes Ventes & Commandes</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30">
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#C7D300]/15 text-[#C7D300] border border-[#C7D300]/30">
               Ma Boutique Personnelle
             </span>
           </div>
@@ -268,7 +268,7 @@ export default function AdminMyOrdersPage() {
               placeholder="Rechercher par ID ou nom du client..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-black/30 border border-white/[0.08] rounded-xl focus:outline-none focus:border-purple-500 text-white text-xs placeholder:text-gray-500 transition-all"
+              className="w-full pl-9 pr-4 py-2 bg-black/30 border border-white/[0.08] rounded-xl focus:outline-none focus:border-[#C7D300] text-white text-xs placeholder:text-gray-500 transition-all"
             />
           </div>
 
@@ -319,7 +319,7 @@ export default function AdminMyOrdersPage() {
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-gray-400">
                     <div className="flex flex-col items-center justify-center gap-2">
-                      <div className="w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                      <div className="w-6 h-6 border-2 border-[#C7D300] border-t-transparent rounded-full animate-spin" />
                       <p className="text-xs">Chargement de vos ventes...</p>
                     </div>
                   </td>
@@ -328,7 +328,7 @@ export default function AdminMyOrdersPage() {
                 <tr>
                   <td colSpan={7} className="px-6 py-14 text-center text-gray-400">
                     <div className="flex flex-col items-center justify-center max-w-md mx-auto text-center">
-                      <div className="w-14 h-14 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center mb-3">
+                      <div className="w-14 h-14 rounded-2xl bg-[#C7D300]/10 border border-[#C7D300]/20 text-[#C7D300] flex items-center justify-center mb-3">
                         <ShoppingBag size={26} />
                       </div>
                       <p className="text-sm font-bold text-white">Aucune vente enregistrée sur vos articles</p>
@@ -337,7 +337,7 @@ export default function AdminMyOrdersPage() {
                       </p>
                       <Link
                         href="/admin/products"
-                        className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
+                        className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] rounded-xl text-xs font-bold transition-all shadow-sm"
                       >
                         <span>Publier ou vérifier mes articles</span>
                         <ArrowUpRight size={14} />
@@ -394,7 +394,7 @@ export default function AdminMyOrdersPage() {
                       {/* Articles */}
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-1.5 text-xs text-gray-300 font-medium">
-                          <Package size={13} className="text-purple-400 shrink-0" />
+                          <Package size={13} className="text-[#C7D300] shrink-0" />
                           <span>{itemsCount} article(s)</span>
                         </div>
                         <div className="mt-1 space-y-0.5 max-w-[200px]">
@@ -422,7 +422,7 @@ export default function AdminMyOrdersPage() {
                         <select
                           value={(order.status || "PENDING").toUpperCase()}
                           onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                          className="bg-black/40 border border-white/10 text-white text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-purple-500"
+                          className="bg-black/40 border border-white/10 text-white text-[11px] rounded-lg px-2 py-1 focus:outline-none focus:border-[#C7D300]"
                         >
                           <option value="CONFIRMED_AWAITING_DRIVER">Nouvelle</option>
                           <option value="PREPARING">En préparation</option>
@@ -455,12 +455,12 @@ export default function AdminMyOrdersPage() {
         <div className="md:hidden p-3 space-y-3">
           {loading ? (
             <div className="p-8 text-center text-gray-400">
-              <div className="w-6 h-6 border-2 border-purple-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <div className="w-6 h-6 border-2 border-[#C7D300] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
               <p className="text-xs">Chargement de vos ventes...</p>
             </div>
           ) : filteredOrders.length === 0 ? (
             <div className="p-6 text-center text-gray-400">
-              <ShoppingBag size={32} className="mx-auto mb-2 opacity-30 text-purple-400" />
+              <ShoppingBag size={32} className="mx-auto mb-2 opacity-30 text-[#C7D300]" />
               <p className="text-xs font-semibold text-white">Aucune commande trouvée</p>
             </div>
           ) : (
@@ -533,7 +533,7 @@ export default function AdminMyOrdersPage() {
                     <select
                       value={(order.status || "PENDING").toUpperCase()}
                       onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                      className="flex-1 bg-black/60 border border-white/15 text-white text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-purple-500 font-medium"
+                      className="flex-1 bg-black/60 border border-white/15 text-white text-xs rounded-xl px-3 py-2 focus:outline-none focus:border-[#C7D300] font-medium"
                     >
                       <option value="CONFIRMED_AWAITING_DRIVER">Nouvelle</option>
                       <option value="PREPARING">En préparation</option>

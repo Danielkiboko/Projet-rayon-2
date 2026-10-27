@@ -266,12 +266,12 @@ export function DashboardLayout({
       {/* Main content wrapper */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
         {/* Topbar */}
-        <header className="h-14 sm:h-16 flex items-center justify-between px-3 sm:px-6 border-b border-white/10 bg-[#0F1D27]/90 backdrop-blur-md z-30 relative gap-2">
+        <header className="h-13 sm:h-16 flex items-center justify-between px-3 sm:px-6 border-b border-white/10 bg-[#0F1D27]/90 backdrop-blur-md z-30 relative gap-2 shrink-0">
           <div className="flex items-center min-w-0 flex-1 mr-2">
-            <button onClick={() => setIsSidebarOpen(true)} className="mr-2.5 sm:mr-4 text-gray-400 hover:text-white lg:hidden shrink-0 p-1 rounded-lg hover:bg-white/5">
-              <Menu size={22} />
+            <button onClick={() => setIsSidebarOpen(true)} className="mr-2 sm:mr-4 text-gray-400 hover:text-white lg:hidden shrink-0 p-1.5 rounded-lg hover:bg-white/5 active:scale-95 transition-all">
+              <Menu size={20} />
             </button>
-            <h1 className="text-sm sm:text-base md:text-lg font-semibold text-white truncate">{topbarTitle}</h1>
+            <h1 className="text-xs sm:text-base md:text-lg font-bold text-white truncate">{topbarTitle}</h1>
           </div>
           
           <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
@@ -305,36 +305,36 @@ export function DashboardLayout({
                 <span className="text-[10px] text-gray-500 block leading-tight">{userRole}</span>
               </div>
               <button className="p-1 rounded-full bg-white/5 text-gray-400 hover:text-white border border-white/5">
-                <UserCircle size={28} />
+                <UserCircle size={26} />
               </button>
             </div>
           </div>
         </header>
         
         {/* Scrollable Content with Mobile-friendly spacing */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-5 md:p-8 pb-24 lg:pb-8">
-          <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+        <div className="flex-1 overflow-y-auto p-2.5 sm:p-5 md:p-8 pb-20 lg:pb-8">
+          <div className="max-w-7xl mx-auto space-y-3.5 sm:space-y-6">
             {/* Bannière de communiqué officiel si non lu */}
             {unreadAnnouncement && (
-              <div className="bg-gradient-to-r from-[#0F1D27] via-[#162a38] to-[#0F1D27] border border-[#C7D300]/40 rounded-2xl p-4 md:p-5 shadow-xl shadow-black/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-start sm:items-center gap-3.5">
-                  <div className="w-10 h-10 rounded-xl bg-[#C7D300]/15 border border-[#C7D300]/30 flex items-center justify-center text-[#C7D300] shrink-0">
-                    <Megaphone size={20} />
+              <div className="bg-gradient-to-r from-[#0F1D27] via-[#162a38] to-[#0F1D27] border border-[#C7D300]/40 rounded-xl sm:rounded-2xl p-3 sm:p-5 shadow-xl shadow-black/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="flex items-start sm:items-center gap-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-[#C7D300]/15 border border-[#C7D300]/30 flex items-center justify-center text-[#C7D300] shrink-0">
+                    <Megaphone size={18} />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30">
+                      <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30">
                         Communiqué Officiel
                       </span>
-                      <span className="text-xs text-gray-400">Direction Rayons.net</span>
+                      <span className="text-[10px] sm:text-xs text-gray-400">Direction Rayons.net</span>
                     </div>
-                    <h4 className="text-sm font-bold text-white mt-1">{unreadAnnouncement.title}</h4>
+                    <h4 className="text-xs sm:text-sm font-bold text-white mt-0.5">{unreadAnnouncement.title}</h4>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setSelectedAnnouncement(unreadAnnouncement)}
-                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#C7D300] to-[#b5c000] text-[#0F1D27] text-xs font-bold transition-all shadow-md shadow-[#C7D300]/20 hover:brightness-110 active:scale-95 shrink-0 cursor-pointer"
+                  className="px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg sm:rounded-xl bg-gradient-to-r from-[#C7D300] to-[#b5c000] text-[#0F1D27] text-[11px] sm:text-xs font-bold transition-all shadow-md shadow-[#C7D300]/20 hover:brightness-110 active:scale-95 shrink-0 cursor-pointer w-full sm:w-auto text-center"
                 >
                   Lire le communiqué
                 </button>
@@ -346,7 +346,7 @@ export function DashboardLayout({
         </div>
 
         {/* Tactile Mobile Bottom Navigation Bar */}
-        <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-[#0F1D27]/95 backdrop-blur-md border-t border-white/10 px-2 py-1.5 flex items-center justify-around shadow-2xl">
+        <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-[#0F1D27]/95 backdrop-blur-md border-t border-white/10 px-1.5 pt-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom,0px))] flex items-center justify-around shadow-2xl">
           {pathname.startsWith("/admin") ? (
             /* ── ADMIN MOBILE QUICK BAR ── */
             <>

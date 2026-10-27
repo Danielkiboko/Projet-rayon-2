@@ -236,9 +236,9 @@ export default function SupplierTeamPage() {
         <div className="flex items-center bg-white/5 border border-white/10 p-1 rounded-xl">
           <button
             onClick={() => setActiveTab("list")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
               activeTab === "list"
-                ? "bg-primary text-white shadow-md"
+                ? "bg-[#C7D300] text-[#0F1D27] shadow-md"
                 : "text-gray-400 hover:text-white"
             }`}
           >
@@ -247,9 +247,9 @@ export default function SupplierTeamPage() {
           </button>
           <button
             onClick={() => setActiveTab("create")}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
               activeTab === "create"
-                ? "bg-primary text-white shadow-md"
+                ? "bg-[#C7D300] text-[#0F1D27] shadow-md"
                 : "text-gray-400 hover:text-white"
             }`}
           >
@@ -299,7 +299,7 @@ export default function SupplierTeamPage() {
                       {/* Top row: Name, Avatar, Status */}
                       <div className="flex items-start justify-between gap-3 mb-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary/30 to-purple-600/30 border border-primary/40 flex items-center justify-center text-white font-bold text-base uppercase">
+                          <div className="w-11 h-11 rounded-xl bg-[#C7D300]/15 border border-[#C7D300]/30 flex items-center justify-center text-[#C7D300] font-bold text-base uppercase">
                             {(member.displayName || member.name || "A").slice(0, 2)}
                           </div>
                           <div>
@@ -537,18 +537,18 @@ export default function SupplierTeamPage() {
                       onClick={() => togglePermission(item.href)}
                       className={`cursor-pointer p-3.5 rounded-xl border flex items-center gap-3 transition-all ${
                         isSelected
-                          ? "border-primary bg-primary/10 text-white shadow-sm"
+                          ? "border-[#C7D300] bg-[#C7D300]/10 text-white shadow-sm"
                           : "border-gray-800 bg-black/40 text-gray-400 hover:border-gray-700"
                       }`}
                     >
                       <div
                         className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
-                          isSelected ? "border-primary bg-primary text-white" : "border-gray-700"
+                          isSelected ? "border-[#C7D300] bg-[#C7D300] text-[#0F1D27]" : "border-gray-700"
                         }`}
                       >
-                        {isSelected && <Check size={13} className="text-white" />}
+                        {isSelected && <Check size={13} className="text-[#0F1D27] stroke-[3]" />}
                       </div>
-                      <Icon size={18} className={isSelected ? "text-primary-light" : "text-gray-500"} />
+                      <Icon size={18} className={isSelected ? "text-[#C7D300]" : "text-gray-500"} />
                       <span className="font-medium text-xs">{item.title}</span>
                     </div>
                   );
@@ -568,7 +568,7 @@ export default function SupplierTeamPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-primary hover:bg-primary-light text-white px-6 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-all disabled:opacity-50 shadow-lg shadow-primary/25 text-sm"
+                className="bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 transition-all disabled:opacity-50 shadow-md shadow-[#C7D300]/20 text-sm active:scale-95"
               >
                 {loading && <Loader2 size={16} className="animate-spin" />}
                 <span>Créer le sous-agent</span>

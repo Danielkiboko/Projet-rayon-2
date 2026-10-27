@@ -199,7 +199,7 @@ export default function SupplierOrdersPage() {
     }
   };
 
-  const accentColor = isSaveurs ? "#FF6B35" : rayon === "mode" ? "#D4B08C" : rayon === "connect" ? "#00B5A5" : "#C7D300";
+  const accentColor = isSaveurs ? "#FF6B35" : rayon === "mode" ? "#D4B08C" : rayon === "connect" ? "#00B5A5" : rayon === "immo" ? "#4C6EF5" : "#C7D300";
 
   return (
     <div className="space-y-6">
@@ -219,13 +219,13 @@ export default function SupplierOrdersPage() {
           <div className="flex bg-white/5 border border-white/10 rounded-xl p-1 gap-1">
             <button
               onClick={() => setViewMode("table")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${viewMode === "table" ? "bg-white text-gray-950" : "text-gray-400 hover:text-white"}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${viewMode === "table" ? "bg-[#C7D300] text-[#0F1D27] shadow-sm font-bold" : "text-gray-400 hover:text-white"}`}
             >
               <List size={14} />Liste
             </button>
             <button
               onClick={() => setViewMode("kanban")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${viewMode === "kanban" ? "bg-white text-gray-950" : "text-gray-400 hover:text-white"}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${viewMode === "kanban" ? "bg-[#C7D300] text-[#0F1D27] shadow-sm font-bold" : "text-gray-400 hover:text-white"}`}
             >
               <LayoutGrid size={14} />Kanban
             </button>
@@ -335,7 +335,7 @@ export default function SupplierOrdersPage() {
                         <td className="px-6 py-4 text-right">
                           <button
                             onClick={() => generateOrderInvoicePDF(order, userData, "$")}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-all active:scale-95"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#C7D300]/20 hover:bg-[#C7D300]/30 text-[#C7D300] border border-[#C7D300]/30 rounded-lg text-xs font-bold transition-all active:scale-95"
                           >
                             <Download size={12} />Facture
                           </button>
