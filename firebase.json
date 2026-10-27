@@ -11,7 +11,8 @@
     ],
     "providers": {
       "anonymous": false,
-      "emailPassword": true
+      "emailPassword": true,
+      "googleSignIn": true
     }
   }
 }
