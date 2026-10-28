@@ -137,6 +137,8 @@ function LoginContent() {
         return;
       } else if (err.code === "auth/popup-blocked") {
         setError("La fenêtre de connexion a été bloquée par votre navigateur. Veuillez autoriser les fenêtres pop-up.");
+      } else if (err.code === "auth/unauthorized-domain") {
+        setError("Le domaine rayons.net doit être ajouté dans Firebase Console (Authentication > Paramètres > Domaines autorisés).");
       } else if (err.code === "auth/account-exists-with-different-credential") {
         setError("Un compte existe déjà avec cette adresse email via une autre méthode de connexion.");
       } else {

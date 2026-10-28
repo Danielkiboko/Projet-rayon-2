@@ -128,6 +128,8 @@ function RegisterContent() {
         return;
       } else if (err.code === "auth/popup-blocked") {
         setError("La fenêtre d'inscription a été bloquée par votre navigateur. Veuillez autoriser les fenêtres pop-up.");
+      } else if (err.code === "auth/unauthorized-domain") {
+        setError("Le domaine rayons.net doit être ajouté dans Firebase Console (Authentication > Paramètres > Domaines autorisés).");
       } else {
         setError(err.message || "Erreur lors de l'inscription avec Google.");
       }
