@@ -165,7 +165,7 @@ function LoginContent() {
           className="max-w-md w-full"
         >
           <div className="mb-6">
-            <RayonsLogo size="lg" href="/" />
+            <RayonsLogo size="lg" variant="light" href="/" />
           </div>
 
           <div className="space-y-2 mb-8">

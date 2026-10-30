@@ -45,8 +45,8 @@ export function RayonNavbar({ category, lang, setLang, t }: RayonNavbarProps) {
           >
             {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
-          <RayonsLogo rayon={category} size="sm" className="sm:hidden" href="/" />
-          <RayonsLogo rayon={category} size="md" className="hidden sm:inline-flex" href="/" />
+          <RayonsLogo rayon={category} size="sm" variant="dark" className="sm:hidden" href="/" />
+          <RayonsLogo rayon={category} size="md" variant="dark" className="hidden sm:inline-flex" href="/" />
         </div>
 
         {/* Desktop Categories Hub */}

@@ -14,7 +14,7 @@ interface RayonsLogoProps {
 }
 
 export function RayonsLogo({
-  variant = "light",
+  variant = "dark",
   rayon,
   withDomain = true,
   size = "md",
@@ -23,11 +23,11 @@ export function RayonsLogo({
 }: RayonsLogoProps) {
   // Déterminer la couleur du symbole et du texte
   let markColor = "#C7D300"; // Vert Rayons officiel
-  let textColor = "#0F1D27"; // Bleu Rayons officiel
+  let textColor = "#FFFFFF"; // Blanc par défaut pour nos headers sombres #0F1D27
 
-  if (variant === "dark") {
+  if (variant === "light") {
     markColor = "#C7D300";
-    textColor = "#FFFFFF";
+    textColor = "#0F1D27";
   } else if (variant === "monochrome-white") {
     markColor = "#FFFFFF";
     textColor = "#FFFFFF";
@@ -38,10 +38,10 @@ export function RayonsLogo({
 
   // Dimensions selon size
   const config = {
-    sm: { markSize: 22, textSize: "text-lg", domainSize: "text-xs", badgeSize: "text-[10px] px-1.5 py-0.5" },
-    md: { markSize: 30, textSize: "text-2xl", domainSize: "text-sm", badgeSize: "text-xs px-2 py-0.5" },
-    lg: { markSize: 40, textSize: "text-3xl", domainSize: "text-base", badgeSize: "text-xs px-2.5 py-1" },
-    xl: { markSize: 52, textSize: "text-4xl", domainSize: "text-lg", badgeSize: "text-sm px-3 py-1" },
+    sm: { markSize: 24, textSize: "text-lg", domainSize: "text-xs", badgeSize: "text-[10px] px-1.5 py-0.5" },
+    md: { markSize: 32, textSize: "text-2xl", domainSize: "text-sm", badgeSize: "text-xs px-2 py-0.5" },
+    lg: { markSize: 42, textSize: "text-3xl", domainSize: "text-base", badgeSize: "text-xs px-2.5 py-1" },
+    xl: { markSize: 56, textSize: "text-4xl", domainSize: "text-lg", badgeSize: "text-sm px-3 py-1" },
   }[size];
 
   // Univers spécifique
@@ -55,8 +55,8 @@ export function RayonsLogo({
   const currentUniverse = rayon ? universeConfig[rayon] : null;
 
   const content = (
-    <div className={`inline-flex items-center gap-2.5 select-none ${className}`}>
-      {/* Emblème ailé */}
+    <div className={`inline-flex items-center gap-2 select-none ${className}`}>
+      {/* Emblème ailé officiel */}
       <RayonsMark size={config.markSize} color={markColor} />
       
       {/* Typographie Montserrat du Logo */}
@@ -70,8 +70,8 @@ export function RayonsLogo({
         
         {withDomain && !currentUniverse && (
           <span 
-            className={`font-heading font-normal ${config.domainSize} ml-0.5 opacity-60`}
-            style={{ color: textColor }}
+            className={`font-heading font-medium ${config.domainSize} ml-0.5 opacity-80`}
+            style={{ color: variant === "dark" ? "#C7D300" : textColor }}
           >
             .net
           </span>
@@ -90,7 +90,7 @@ export function RayonsLogo({
 
   if (href) {
     return (
-      <Link href={href} className="inline-flex items-center group transition-opacity hover:opacity-90">
+      <Link href={href} className="inline-flex items-center group transition-opacity hover:opacity-95">
         {content}
       </Link>
     );
