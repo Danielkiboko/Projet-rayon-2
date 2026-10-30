@@ -21,8 +21,7 @@ export function Footer() {
               <RayonsLogo variant="dark" size="md" href="/" />
             </div>
             <p className="text-gray-300 text-sm max-w-md leading-relaxed">
-              Rayons.net, une identité unifiée, quatre expertises complémentaires.
-              Tout ce dont vous avez besoin, en un seul endroit.
+              La marketplace unifiée de référence en RDC. Commandez vos produits, équipements et services en toute sérénité avec paiement consigné et livraison sécurisée.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <span className="text-xs px-2.5 py-1 rounded-full bg-white/10 text-gray-300 border border-white/10 font-medium">Rayons Connect</span>
@@ -34,16 +33,25 @@ export function Footer() {
 
           {/* Contact */}
           <div className="flex flex-col items-center md:items-start">
-            <h3 className="font-heading font-bold text-base mb-4 text-[#C7D300] uppercase tracking-wider">Contact & Support</h3>
-            <div className="space-y-2.5 text-sm text-gray-300">
-              <p className="flex items-center gap-2 justify-center md:justify-start">
-                <span>📞</span> +243 85 91 800 31
+            <h3 className="font-heading font-bold text-base mb-4 text-[#C7D300] uppercase tracking-wider">Contact &amp; Assistance</h3>
+            <div className="space-y-3 text-sm text-gray-300">
+              <a 
+                href="https://wa.me/243859180031?text=Bonjour%20Rayons,%20j%27ai%20besoin%20d%27assistance"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 transition-colors font-medium text-xs"
+              >
+                <span>💬 WhatsApp direct</span>
+                <span className="text-white font-bold">+243 85 91 800 31</span>
+              </a>
+              <p className="flex items-center gap-2 justify-center md:justify-start text-xs">
+                <span>📞</span> Appel : <a href="tel:+243859180031" className="hover:underline text-white font-medium">+243 85 91 800 31</a>
               </p>
-              <p className="flex items-center gap-2 justify-center md:justify-start">
-                <span>✉️</span> contact@rayons.net
+              <p className="flex items-center gap-2 justify-center md:justify-start text-xs">
+                <span>✉️</span> <a href="mailto:contact@rayons.net" className="hover:underline text-gray-300">contact@rayons.net</a>
               </p>
-              <p className="text-xs text-gray-400 mt-2">
-                Kinshasa, République Démocratique du Congo
+              <p className="text-xs text-gray-400 mt-1">
+                Kinshasa &amp; Lubumbashi — Équipe joignable 7j/7
               </p>
             </div>
           </div>

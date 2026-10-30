@@ -43,27 +43,27 @@ function useCounter(target: number, duration = 2000, start = false) {
 // --- Testimonials data ---
 const testimonials = [
   {
-    quote: "En trois semaines, j'ai listé mon appartement et trouvé un locataire sérieux. Le processus avec le séquestre était incroyablement simple.",
+    quote: "J'avais peur des mauvais payeurs pour ma maison à Gombe. Avec le contrat et la caution bloquée sur Rayons, tout est carré. Le locataire paie à temps, je suis tranquille.",
     name: "Marie-Claire N.",
-    role: "Propriétaire à Kinshasa",
+    role: "Propriétaire bailleur (Kinshasa Gombe)",
     avatar: "MC",
     rayon: "Immo",
     rayonColor: "#4C6EF5",
     stars: 5,
   },
   {
-    quote: "Je vends mes plats préparés depuis chez moi. Rayons m'a donné une vraie vitrine professionnelle sans frais énormes.",
+    quote: "Avant je gérais les commandes à la main sur WhatsApp avec trop d'oublis. Maintenant mes clients à Bandalungwa et Limete commandent direct, les livreurs passent et l'argent arrive sur mon M-Pesa.",
     name: "Patrick B.",
-    role: "Chef cuisinier indépendant",
+    role: "Traiteur & Restaurateur (Kinshasa)",
     avatar: "PB",
     rayon: "Saveurs",
     rayonColor: "#FF6B35",
     stars: 5,
   },
   {
-    quote: "J'ai commandé du matériel tech pour mon bureau. Livraison rapide, produit conforme et paiement sécurisé. Je recommande sans hésiter.",
+    quote: "J'ai commandé 3 kits Starlink et 5 écrans pour notre cabinet à Lubumbashi. Facture proforma reçue en 2 minutes pour la comptabilité, et le livreur a attendu qu'on teste le matériel avant de valider.",
     name: "Astrid K.",
-    role: "Directrice d'agence",
+    role: "Gérante de cabinet (Lubumbashi)",
     avatar: "AK",
     rayon: "Connect",
     rayonColor: "#00B5A5",
@@ -131,26 +131,26 @@ const rayons = [
 const whyFeatures = [
   {
     icon: ShieldCheck,
-    title: "Séquestre Garanti 100%",
-    desc: "Votre argent reste bloqué sur compte séquestre Rayons et n'est remis au vendeur qu'après vérification du colis.",
+    title: "L'argent débloqué à la livraison",
+    desc: "Vous payez par Mobile Money ou carte : nous gardons la somme en sécurité. Le commerçant n'est payé que quand vous avez validé votre commande en main propre.",
     color: "#C7D300",
   },
   {
     icon: Zap,
-    title: "Devis & Proformas Directs",
-    desc: "Négociez en direct avec les fournisseurs et recevez une facture proforma officielle en 1 clic.",
+    title: "Proformas & Devis en direct",
+    desc: "Discutez en direct avec le fournisseur, convenez du tarif et téléchargez votre facture proforma officielle immédiate avec TVA conforme.",
     color: "#00B5A5",
   },
   {
     icon: BadgeCheck,
-    title: "Fournisseurs Vérifiés (KYC)",
-    desc: "Tous les vendeurs font l'objet d'un contrôle rigoureux de leur identité et de leur boutique physique.",
+    title: "Boutiques contrôlées sur place",
+    desc: "Chaque boutique sur Rayons a été auditée : adresse physique dans votre ville, registre de commerce et pièces d'identité vérifiées.",
     color: "#4C6EF5",
   },
   {
     icon: Clock,
-    title: "Assistance & Support 7j/7",
-    desc: "Une équipe dédiée vous accompagne en temps réel avec suivi de tickets et médiation impartiale.",
+    title: "Vrais conseillers 7j/7",
+    desc: "Un souci avec un article ou un retard ? Notre équipe locale intervient directement pour vous assister et débloquer la situation rapidement.",
     color: "#FF6B35",
   },
 ];
@@ -439,16 +439,16 @@ export default function Home() {
                 ))}
               </div>
               <span className="text-xs sm:text-sm font-medium text-gray-300 truncate">
-                +12 000 clients nous font déjà confiance
+                Déjà +12 000 commandes livrées avec succès en RDC
               </span>
               <span className="hidden sm:inline text-[#C7D300] text-xs font-bold shrink-0">★★★★★</span>
             </div>
 
             {/* Original main headline */}
             <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-[1.08] mb-6 tracking-tight">
-              Ce que vous cherchez{" "}
+              Achetez en toute confiance.{" "}
               <span className="text-[#C7D300] relative">
-                existe ici.
+                Livré & garanti chez vous.
                 <svg className="absolute -bottom-1 left-0 w-full" height="6" viewBox="0 0 200 6" fill="none">
                   <path d="M0 5 Q50 1 100 5 Q150 1 200 5" stroke="#C7D300" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.6" />
                 </svg>
@@ -457,7 +457,7 @@ export default function Home() {
 
             {/* Original subheadline */}
             <p className="text-gray-300 text-lg sm:text-xl mb-8 max-w-xl leading-relaxed">
-              Immobilier, mode, tech ou gastronomie — Rayons connecte les acheteurs aux meilleurs fournisseurs locaux, simplement.
+              Tech, mode, gastronomie ou immobilier : commandez auprès des meilleurs commerçants locaux. Votre paiement reste consigné jusqu&apos;à la remise en main propre.
             </p>
 
             {/* Universal Search Bar with Glass Glow */}
@@ -479,7 +479,7 @@ export default function Home() {
                 href="/supplier/register"
                 className="inline-flex items-center gap-2 px-6 py-4 rounded-xl text-white font-bold text-sm sm:text-base bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md transition-all active:scale-95"
               >
-                <span>Devenir Fournisseur</span>
+                <span>Ouvrir une Boutique</span>
                 <BadgeCheck size={18} className="text-[#C7D300]" />
               </Link>
             </div>
@@ -488,15 +488,15 @@ export default function Home() {
             <div className="mt-10 pt-6 border-t border-white/10 flex flex-wrap items-center gap-x-6 gap-y-3 text-xs text-gray-400">
               <div className="flex items-center gap-2">
                 <CheckCircle size={15} className="text-[#C7D300]" />
-                <span>Paiement consigné et protégé</span>
+                <span>Paiement consigné : 0 risque d&apos;arnaque</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle size={15} className="text-[#00B5A5]" />
-                <span>Facturation proforma en direct</span>
+                <span>Facture proforma immédiate en 1 clic</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle size={15} className="text-[#4C6EF5]" />
-                <span>Fournisseurs audités en RDC</span>
+                <span>Boutiques vérifiées à Kinshasa &amp; provinces</span>
               </div>
             </div>
 
@@ -601,13 +601,13 @@ export default function Home() {
 
           <div className="relative z-10 text-center mb-12">
             <span className="inline-block text-xs font-bold uppercase tracking-widest text-[#C7D300] bg-[#C7D300]/10 border border-[#C7D300]/30 px-3.5 py-1 rounded-full mb-3">
-              Sécurité & Confiance Absolue
+              Garantie Sérénité Rayons
             </span>
             <h2 className="text-3xl sm:text-5xl font-heading font-black tracking-tight text-white">
-              Comment fonctionne le Séquestre Rayons ?
+              Comment vos achats sont protégés ?
             </h2>
             <p className="text-gray-400 mt-3 max-w-xl mx-auto text-sm sm:text-base">
-              Fini les craintes d&apos;arnaque ou de marchandise non reçue. Votre argent est en lieu sûr.
+              Fini les doutes avant de commander : nous gardons votre argent en sécurité et ne payons le commerçant qu&apos;après votre accord.
             </p>
           </div>
 

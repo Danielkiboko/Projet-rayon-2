@@ -14,32 +14,32 @@ interface ClientBuyerProtectionBannerProps {
 const GUARANTEES = [
   {
     icon: ShieldCheck,
-    title: "Paiement Protégé",
-    desc: "Vos fonds sont sécurisés jusqu'à la livraison confirmée",
+    title: "Argent Consigné",
+    desc: "Le vendeur n'est payé qu'après votre confirmation de réception du colis.",
     color: "text-emerald-600",
     bg: "bg-emerald-50 border-emerald-200/60",
     glow: "shadow-emerald-100",
   },
   {
     icon: Truck,
-    title: "Livraison Garantie",
-    desc: "Remboursement intégral si votre commande n'arrive pas",
+    title: "Colis Garanti",
+    desc: "Vérifiez vos articles à la livraison : conforme ou remboursé sous 48h.",
     color: "text-blue-600",
     bg: "bg-blue-50 border-blue-200/60",
     glow: "shadow-blue-100",
   },
   {
     icon: Clock,
-    title: "Support 7j/7",
-    desc: "Une équipe dédiée disponible pour résoudre tout litige",
+    title: "Équipe Locale 7j/7",
+    desc: "De vrais conseillers joignables tous les jours pour vous assister en direct.",
     color: "text-purple-600",
     bg: "bg-purple-50 border-purple-200/60",
     glow: "shadow-purple-100",
   },
   {
     icon: HeartHandshake,
-    title: "Satisfaction Garantie",
-    desc: "Contestez toute commande non conforme en 48h",
+    title: "Vendeurs Contrôlés",
+    desc: "Boutiques physiques auditées avec identité et registre vérifiés.",
     color: "text-rose-600",
     bg: "bg-rose-50 border-rose-200/60",
     glow: "shadow-rose-100",
@@ -59,7 +59,7 @@ export default function ClientBuyerProtectionBanner({ compact = false, onOpenTic
             <ShieldCheck size={14} />
           </div>
           <span className="font-extrabold text-emerald-800 whitespace-nowrap">
-            Rayons Trade Assurance
+            Garantie Sérénité Rayons
           </span>
         </div>
 
@@ -80,14 +80,14 @@ export default function ClientBuyerProtectionBanner({ compact = false, onOpenTic
             onClick={onOpenTickets}
             className="ml-auto shrink-0 flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-bold transition-colors whitespace-nowrap cursor-pointer"
           >
-            En savoir plus <ChevronRight size={13} />
+            Comment ça marche <ChevronRight size={13} />
           </button>
         ) : (
           <Link
             href="/dashboard/client?tab=tickets"
             className="ml-auto shrink-0 flex items-center gap-1 text-emerald-700 hover:text-emerald-900 font-bold transition-colors whitespace-nowrap"
           >
-            En savoir plus <ChevronRight size={13} />
+            Comment ça marche <ChevronRight size={13} />
           </Link>
         )}
       </motion.div>
@@ -114,14 +114,14 @@ export default function ClientBuyerProtectionBanner({ compact = false, onOpenTic
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-black text-base sm:text-lg tracking-tight text-white">
-                Rayons Trade Assurance
+                Garantie Sérénité Rayons
               </h3>
               <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                <Star size={9} fill="currentColor" /> Actif
+                <Star size={9} fill="currentColor" /> Protection 100% active
               </span>
             </div>
-            <p className="text-xs text-white/60 mt-0.5">
-              Chaque achat sur Rayons.net est protégé par notre garantie commerciale exclusive
+            <p className="text-xs text-white/70 mt-0.5">
+              Commandez l&apos;esprit tranquille : votre argent reste consigné jusqu&apos;à ce que vous validiez votre commande en main propre.
             </p>
           </div>
         </div>
@@ -131,14 +131,14 @@ export default function ClientBuyerProtectionBanner({ compact = false, onOpenTic
             onClick={onOpenTickets}
             className="self-start sm:self-center inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all border border-white/20 shrink-0 cursor-pointer"
           >
-            Aide &amp; Litiges <ChevronRight size={13} />
+            Assistance &amp; Litiges <ChevronRight size={13} />
           </button>
         ) : (
           <Link
             href="/dashboard/client?tab=tickets"
             className="self-start sm:self-center inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all border border-white/20 shrink-0"
           >
-            Aide &amp; Litiges <ChevronRight size={13} />
+            Assistance &amp; Litiges <ChevronRight size={13} />
           </Link>
         )}
       </div>
