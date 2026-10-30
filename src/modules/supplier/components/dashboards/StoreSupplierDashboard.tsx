@@ -198,6 +198,38 @@ export default function StoreSupplierDashboard({ rayon }: StoreSupplierDashboard
           </td>
         </tr>
       )}
+      renderRecentCard={(order: any) => (
+        <div key={order.id} className="p-3.5 bg-white/[0.03] border border-white/5 rounded-xl space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-mono font-bold text-white text-xs">
+              #{order.id.slice(0, 8).toUpperCase()}
+            </span>
+            <span
+              className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                order.status === "COMPLETED"
+                  ? "bg-green-500/15 text-green-400"
+                  : order.status === "CANCELLED"
+                  ? "bg-red-500/15 text-red-400"
+                  : "bg-orange-500/15 text-orange-400"
+              }`}
+            >
+              {order.status || "EN COURS"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-xs text-gray-400">
+            <span>{order.clientName || order.clientPhone || "Client"}</span>
+            <span className="text-[11px] font-mono">
+              {order.createdAt ? new Date(order.createdAt.seconds * 1000).toLocaleDateString() : "-"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between pt-1 border-t border-white/5">
+            <span className="text-[10px] uppercase tracking-wider text-gray-500">Montant</span>
+            <span className="text-sm font-extrabold" style={{ color: cfg.chartColor }}>
+              {formatPrice(order.myTotal || order.itemsTotal || 0)}
+            </span>
+          </div>
+        </div>
+      )}
     />
   );
 }

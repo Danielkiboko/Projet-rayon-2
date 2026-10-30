@@ -46,6 +46,7 @@ import ClientOrderCardAlibaba from "@/modules/client/components/ClientOrderCardA
 import ClientProformaSection from "@/modules/client/components/ClientProformaSection";
 import ClientProfileSection from "@/modules/client/components/ClientProfileSection";
 import AlibabaClientBottomNav from "@/modules/client/components/AlibabaClientBottomNav";
+import ClientBuyerProtectionBanner from "@/modules/client/components/ClientBuyerProtectionBanner";
 
 type ClientDashboardTab = "orders" | "proformas" | "hotels" | "visits" | "messages" | "tickets" | "profile";
 type OrderStatusFilter = "all" | "pending" | "preparing" | "in_transit" | "delivered" | "cancelled";
@@ -413,6 +414,9 @@ export default function ClientDashboard() {
           unreadMessagesCount={unreadMessagesCount}
           onSelectTab={(tab) => setActiveTab(tab)}
         />
+
+        {/* 2.bis Rayons Trade Assurance Protection Banner */}
+        <ClientBuyerProtectionBanner onOpenTickets={() => setActiveTab("tickets")} />
 
         {/* 3. Main Navigation Tabs (Alibaba My Alibaba Bar) */}
         <div className="flex space-x-1 sm:space-x-2 border-b border-gray-200 mb-6 overflow-x-auto pb-0.5 scrollbar-none">

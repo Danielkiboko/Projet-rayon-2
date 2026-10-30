@@ -284,9 +284,11 @@ export default function ImmoDashboard() {
         isBlocked={isBlocked}
         rightColumnExtra={<StatusPieChart data={occupancyData} title="Taux d'Occupation" />}
         bottomExtra={
-          <div className="bg-[#1a1a1a] border border-white/5 rounded-2xl p-6 shadow-sm">
-            <h2 className="text-xl font-bold text-white mb-6">Demandes de Visites ({visits.length})</h2>
-            <div className="overflow-x-auto">
+          <div className="bg-[#1a1a1a] border border-white/5 rounded-2xl p-4 sm:p-6 shadow-sm">
+            <h2 className="text-base sm:text-xl font-bold text-white mb-4 sm:mb-6">Demandes de Visites ({visits.length})</h2>
+            
+            {/* Desktop Table (≥ md) */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-white/5 text-xs uppercase tracking-wider text-gray-400 font-semibold">
@@ -351,6 +353,67 @@ export default function ImmoDashboard() {
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Cards (< md) */}
+            <div className="md:hidden space-y-3">
+              {visits.length === 0 ? (
+                <div className="p-6 text-center text-gray-500 font-medium text-xs bg-white/[0.02] border border-white/5 rounded-xl">
+                  Aucune demande de visite pour le moment.
+                </div>
+              ) : (
+                visits.map((visit) => (
+                  <div key={visit.id} className="p-4 bg-white/[0.03] border border-white/5 rounded-2xl space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-bold text-white text-sm">{visit.visitorName}</div>
+                        {visit.visitorPhone && (
+                          <div className="text-xs text-gray-400 mt-0.5">📞 {visit.visitorPhone}</div>
+                        )}
+                      </div>
+                      {visit.status === "PENDING" ? (
+                        <span className="inline-flex px-2 py-0.5 bg-orange-500/15 text-orange-400 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                          En attente
+                        </span>
+                      ) : visit.status === "APPROVED" ? (
+                        <span className="inline-flex px-2 py-0.5 bg-green-500/15 text-green-400 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                          Validée
+                        </span>
+                      ) : (
+                        <span className="inline-flex px-2 py-0.5 bg-gray-500/15 text-gray-400 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                          {visit.status}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="bg-black/20 rounded-xl p-2.5 text-xs space-y-1 border border-white/5">
+                      <div className="text-amber-400 font-medium truncate">🏢 {visit.propertyTitle}</div>
+                      <div className="text-gray-400 text-[11px]">📅 Date : {visit.requestedDate || "Non spécifiée"}</div>
+                    </div>
+
+                    {(visit.status === "PENDING" || visit.clientId) && (
+                      <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                        {visit.status === "PENDING" && (
+                          <button
+                            onClick={() => handleApproveVisit(visit)}
+                            className="flex-1 min-h-[44px] py-2.5 px-3 bg-green-600 hover:bg-green-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center cursor-pointer"
+                          >
+                            Valider
+                          </button>
+                        )}
+                        {visit.clientId && (
+                          <button
+                            onClick={() => handleChatWithClient(visit)}
+                            className="flex-1 min-h-[44px] py-2.5 px-3 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center cursor-pointer"
+                          >
+                            Discuter
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         }
       />
@@ -377,8 +440,9 @@ export default function ImmoDashboard() {
               </button>
             </div>
             
-            <div className="p-5 overflow-y-auto flex-1">
-              <div className="overflow-x-auto">
+            <div className="p-4 sm:p-5 overflow-y-auto flex-1">
+              {/* Desktop Table (≥ md) */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-white/5 text-[10px] uppercase tracking-widest text-gray-400 font-bold">
@@ -452,6 +516,66 @@ export default function ImmoDashboard() {
                     })}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile Cards (< md) */}
+              <div className="md:hidden space-y-2.5">
+                {selectedKpiDetail === "gains_recus" && rawPayments.length > 0 && rawPayments.map(p => (
+                  <div key={p.id} className="p-3 bg-white/[0.03] border border-white/5 rounded-xl space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-white text-sm">{p.tenantName || "Inconnu"}</span>
+                      <span className="font-mono font-extrabold text-emerald-400 text-sm">${p.amount?.toFixed(2) || "0.00"}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-gray-400 text-[11px]">
+                      <span className="truncate">{p.propertyTitle || "-"}</span>
+                      <span>{p.createdAt ? new Date((p.createdAt.seconds || p.createdAt._seconds) * 1000).toLocaleDateString("fr-FR") : "-"}</span>
+                    </div>
+                  </div>
+                ))}
+
+                {selectedKpiDetail === "gains_prevus" && rawTenants.filter(t => t.status !== "PARTI").map(t => (
+                  <div key={t.id} className="p-3 bg-white/[0.03] border border-white/5 rounded-xl space-y-1.5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-white text-sm">{t.name || `${t.firstName || ''} ${t.lastName || ''}`.trim() || "Locataire"}</span>
+                      <span className="font-mono font-extrabold text-white text-sm">${t.rentAmount?.toFixed(2) || "0.00"}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-gray-400 text-[11px]">
+                      <span className="truncate">{(t.propertyName || t.propertyTitle || "Bien")} - {t.unitName || t.unitTitle || "Entier"}</span>
+                      <span className="px-2 py-0.5 bg-green-500/15 text-green-400 rounded-full text-[10px] font-bold">Actif</span>
+                    </div>
+                  </div>
+                ))}
+
+                {selectedKpiDetail === "dettes" && rawTenants.filter(t => {
+                  if (t.status === "PARTI" && (t.debtAmount || 0) > 0) return true;
+                  let isLate = false;
+                  if (t.status === "LATE" || t.status === "En retard") isLate = true;
+                  else if (t.nextPayment) {
+                     const paymentDate = new Date(t.nextPayment);
+                     const today = new Date();
+                     paymentDate.setHours(0, 0, 0, 0);
+                     today.setHours(0, 0, 0, 0);
+                     if (paymentDate < today) isLate = true;
+                  }
+                  return isLate;
+                }).map(t => {
+                  const isFormer = t.status === "PARTI";
+                  const amount = isFormer ? t.debtAmount : t.rentAmount;
+                  return (
+                    <div key={t.id} className="p-3 bg-white/[0.03] border border-red-500/20 rounded-xl space-y-1.5 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-white text-sm">{t.name || `${t.firstName || ''} ${t.lastName || ''}`.trim() || "Locataire"}</span>
+                        <span className="font-mono font-extrabold text-orange-400 text-sm">${amount?.toFixed(2) || "0.00"}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-gray-400 text-[11px]">
+                        <span className="truncate">{(t.propertyName || t.propertyTitle || "Bien")} - {t.unitName || t.unitTitle || "Entier"}</span>
+                        <span className="px-2 py-0.5 bg-red-500/15 text-red-400 rounded-full text-[10px] font-bold">
+                          {isFormer ? "Ancien (Dette)" : "En Retard"}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
             

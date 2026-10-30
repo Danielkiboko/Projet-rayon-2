@@ -34,6 +34,7 @@ interface GenericDashboardProps<T> {
   recentItemsHeaders?: string[];
   recentItemsData?: T[];
   renderRecentRow?: (item: T) => ReactNode;
+  renderRecentCard?: (item: T) => ReactNode;
   emptyStateMessage?: string;
   actionsTitle: string;
   actions: ActionConfig[];
@@ -53,6 +54,7 @@ export default function GenericDashboard<T>({
   recentItemsHeaders,
   recentItemsData,
   renderRecentRow,
+  renderRecentCard,
   emptyStateMessage,
   actionsTitle,
   actions,
@@ -138,7 +140,8 @@ export default function GenericDashboard<T>({
                 <span>{recentItemsTitle}</span>
                 <span className="text-xs text-gray-400 font-normal">{recentItemsData.length} enregistrement(s)</span>
               </h2>
-              <div className="overflow-x-auto">
+              {/* Desktop Table (≥ md) */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-white/[0.04] text-[11px] uppercase tracking-wider text-gray-400 font-semibold border-b border-white/[0.06]">
@@ -161,6 +164,34 @@ export default function GenericDashboard<T>({
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile Cards (< md) */}
+              <div className="md:hidden">
+                {recentItemsData.length === 0 ? (
+                  <div className="p-6 text-center text-gray-500 font-medium text-xs bg-white/[0.02] border border-white/5 rounded-xl">
+                    {emptyStateMessage || "Aucun élément récent à afficher."}
+                  </div>
+                ) : renderRecentCard ? (
+                  <div className="space-y-3">
+                    {recentItemsData.map(renderRecentCard)}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-white/[0.04] text-[10px] uppercase tracking-wider text-gray-400 font-semibold border-b border-white/[0.06]">
+                          {recentItemsHeaders.map((h) => (
+                            <th key={h} className="p-2.5">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="text-xs text-gray-300 divide-y divide-white/[0.04]">
+                        {recentItemsData.map(renderRecentRow)}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -221,7 +252,7 @@ export default function GenericDashboard<T>({
                       e.stopPropagation();
                       handleActionClick();
                     }}
-                    className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 ${
+                    className={`w-full min-h-[44px] py-3 px-4 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer active:scale-[0.99] ${
                       isBlocked
                         ? 'bg-red-600/30 hover:bg-red-600/50 text-red-200 border border-red-500/30'
                         : action.isPrimary 

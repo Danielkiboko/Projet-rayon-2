@@ -252,22 +252,22 @@ export default function SupplierOrdersPage() {
       </AnimatePresence>
 
       {/* Filtres / Recherche */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex flex-col sm:flex-row gap-3">
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row gap-2.5 sm:gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           <input
             type="text"
             placeholder="Rechercher par ID ou téléphone..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-black/20 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:ring-2 transition-all"
+            className="w-full pl-10 pr-4 py-2.5 min-h-[42px] bg-black/20 border border-white/10 rounded-xl text-white text-sm focus:outline-none focus:ring-2 transition-all placeholder:text-gray-500"
             style={{ "--tw-ring-color": accentColor } as any}
           />
         </div>
         <select
           value={filter}
           onChange={e => setFilter(e.target.value)}
-          className="bg-black/20 border border-white/10 rounded-xl px-4 py-2 text-sm text-white focus:outline-none [&>option]:bg-[#0F1D27]"
+          className="bg-black/20 border border-white/10 rounded-xl px-4 py-2.5 min-h-[42px] text-sm text-white focus:outline-none [&>option]:bg-[#0F1D27] cursor-pointer"
         >
           <option value="all">Tous les statuts</option>
           <option value="pending">Nouvelles / En attente</option>
@@ -409,17 +409,17 @@ export default function SupplierOrdersPage() {
                         {canAdvance && (
                           <button
                             onClick={() => advanceOrder(order)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all active:scale-95"
+                            className="inline-flex items-center justify-center gap-1 min-h-[38px] px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 active:bg-white/30 text-white text-xs font-bold transition-all active:scale-95 cursor-pointer"
                           >
                             <span>Avancer</span>
-                            <ChevronRight size={12} />
+                            <ChevronRight size={13} />
                           </button>
                         )}
                         <button
                           onClick={() => generateOrderInvoicePDF(order, userData, "$")}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#C7D300]/20 hover:bg-[#C7D300]/30 text-[#C7D300] border border-[#C7D300]/30 rounded-xl text-xs font-bold transition-all active:scale-95"
+                          className="inline-flex items-center justify-center gap-1.5 min-h-[38px] px-3.5 py-2 bg-[#C7D300]/20 hover:bg-[#C7D300]/30 active:bg-[#C7D300]/40 text-[#C7D300] border border-[#C7D300]/30 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer"
                         >
-                          <Download size={12} />
+                          <Download size={13} />
                           <span>Facture</span>
                         </button>
                       </div>

@@ -282,16 +282,16 @@ export default function SupplierLayout({
     >
       {/* ── Rayon Switcher ── */}
       {availableRayons.length > 1 && (
-        <div className="flex items-center space-x-2 bg-white/5 border border-white/10 p-2 rounded-xl overflow-x-auto mb-6 w-fit max-w-full shadow-lg backdrop-blur-md">
-          <div className="flex items-center space-x-2 px-3 text-gray-400 shrink-0">
-            <Layers size={18} className="text-primary" />
-            <span className="text-sm font-semibold text-gray-200">Rayon actif :</span>
+        <div className="flex items-center space-x-2 bg-white/5 border border-white/10 p-2 rounded-xl overflow-x-auto scrollbar-none mb-4 sm:mb-6 w-full sm:w-fit max-w-full shadow-lg backdrop-blur-md">
+          <div className="flex items-center space-x-2 px-2.5 sm:px-3 text-gray-400 shrink-0">
+            <Layers size={17} className="text-primary" />
+            <span className="text-xs sm:text-sm font-semibold text-gray-200">Rayon actif :</span>
           </div>
           {availableRayons.map((r: string) => (
             <button
               key={r}
               onClick={() => handleSwitchRayon(r)}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all shrink-0 flex items-center gap-2 ${
+              className={`px-3.5 sm:px-4 py-2 min-h-[38px] rounded-lg text-xs sm:text-sm font-semibold transition-all shrink-0 flex items-center gap-2 cursor-pointer active:scale-95 ${
                 activeRayon === r
                   ? "bg-white text-gray-950 shadow-md shadow-black/30 font-bold"
                   : "text-gray-400 hover:text-white hover:bg-white/10"

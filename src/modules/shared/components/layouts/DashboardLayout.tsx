@@ -117,6 +117,20 @@ export function DashboardLayout({
   const orderBadgeCount = orderItem?.badge || 0;
   const messageBadgeCount = messageItem?.badge || 0;
 
+  const isSupplierMenuSubRoute = pathname.startsWith("/supplier") &&
+    pathname !== "/supplier" &&
+    !pathname.includes("products") &&
+    !pathname.includes("properties") &&
+    !pathname.includes("orders") &&
+    !pathname.includes("messages");
+
+  const isAdminMenuSubRoute = pathname.startsWith("/admin") &&
+    pathname !== "/admin" &&
+    pathname !== "/admin/dashboard" &&
+    !pathname.startsWith("/admin/orders") &&
+    !pathname.startsWith("/admin/products") &&
+    !pathname.startsWith("/admin/tickets");
+
   return (
     <div className="flex h-screen bg-[#0B151C] overflow-hidden font-sans">
       {customProfileModal}
@@ -406,9 +420,16 @@ export function DashboardLayout({
               <button
                 type="button"
                 onClick={() => setIsSidebarOpen(true)}
-                className="flex flex-col items-center justify-center flex-1 py-1 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors cursor-pointer relative ${
+                  isAdminMenuSubRoute ? themeColors.accentText || "text-[#C7D300]" : "text-gray-400 hover:text-white"
+                }`}
               >
-                <Menu size={19} />
+                <div className="relative">
+                  <Menu size={19} strokeWidth={isAdminMenuSubRoute ? 2.5 : 2} />
+                  {isAdminMenuSubRoute && (
+                    <span className="absolute -top-1 -right-1.5 w-2 h-2 rounded-full bg-[#C7D300] animate-pulse" />
+                  )}
+                </div>
                 <span className="text-[10px] font-semibold mt-1">Menu</span>
               </button>
             </>
@@ -481,9 +502,16 @@ export function DashboardLayout({
               <button
                 type="button"
                 onClick={() => setIsSidebarOpen(true)}
-                className="flex flex-col items-center justify-center flex-1 py-1 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors cursor-pointer relative ${
+                  isSupplierMenuSubRoute ? themeColors.accentText || "text-[#C7D300]" : "text-gray-400 hover:text-white"
+                }`}
               >
-                <Menu size={19} />
+                <div className="relative">
+                  <Menu size={19} strokeWidth={isSupplierMenuSubRoute ? 2.5 : 2} />
+                  {isSupplierMenuSubRoute && (
+                    <span className="absolute -top-1 -right-1.5 w-2 h-2 rounded-full bg-[#C7D300] animate-pulse" />
+                  )}
+                </div>
                 <span className="text-[10px] font-semibold mt-1">Menu</span>
               </button>
             </>
