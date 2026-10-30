@@ -292,7 +292,7 @@ export function ClientTicketsWidget() {
                   </div>
 
                   <div className="flex items-center gap-2 text-gray-400 shrink-0">
-                    <span className="text-xs font-medium text-purple-600 hidden sm:inline">
+                    <span className="text-xs font-bold text-[#C7D300] hidden sm:inline">
                       Voir la conversation
                     </span>
                     <ChevronRight size={18} />
@@ -306,8 +306,8 @@ export function ClientTicketsWidget() {
 
       {/* Ticket Conversation Modal for Client */}
       {selectedTicket && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/80 backdrop-blur-sm">
-          <div className="w-full max-w-4xl h-[85vh] flex flex-col bg-slate-900 rounded-2xl overflow-hidden shadow-2xl border border-slate-800">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-black/85 backdrop-blur-md">
+          <div className="w-full max-w-4xl h-[92vh] sm:h-[85vh] flex flex-col bg-[#0F1D27] rounded-2xl overflow-hidden shadow-2xl border border-white/10">
             <TicketConversation
               ticket={selectedTicket}
               userRole="client"

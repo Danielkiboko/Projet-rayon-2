@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { collection, query, orderBy, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
@@ -21,7 +21,8 @@ import {
   ExternalLink,
   Trash2,
   X,
-  Lock
+  Lock,
+  Sparkles
 } from "lucide-react";
 import { 
   Ticket, 
@@ -48,6 +49,79 @@ interface TicketConversationProps {
   onStatusChange?: (newStatus: TicketStatus) => void;
 }
 
+interface TicketTheme {
+  name: string;
+  color: string;
+  glowColor: string;
+  badgeBg: string;
+  badgeBorder: string;
+  badgeText: string;
+  isLightColor: boolean;
+}
+
+function getTicketTheme(ticket: Ticket): TicketTheme {
+  const cat = (ticket.category || "").toLowerCase();
+  
+  if (cat === "property" || cat === "immo") {
+    return {
+      name: "Rayons Immo",
+      color: "#4C6EF5",
+      glowColor: "rgba(76, 110, 245, 0.25)",
+      badgeBg: "rgba(76, 110, 245, 0.12)",
+      badgeBorder: "rgba(76, 110, 245, 0.3)",
+      badgeText: "#4C6EF5",
+      isLightColor: false,
+    };
+  }
+
+  if (cat === "technical" || cat === "connect") {
+    return {
+      name: "Rayons Connect",
+      color: "#00B5A5",
+      glowColor: "rgba(0, 181, 165, 0.25)",
+      badgeBg: "rgba(0, 181, 165, 0.12)",
+      badgeBorder: "rgba(0, 181, 165, 0.3)",
+      badgeText: "#00B5A5",
+      isLightColor: false,
+    };
+  }
+
+  if (cat === "mode") {
+    return {
+      name: "Rayons Mode",
+      color: "#D4B08C",
+      glowColor: "rgba(212, 176, 140, 0.25)",
+      badgeBg: "rgba(212, 176, 140, 0.12)",
+      badgeBorder: "rgba(212, 176, 140, 0.3)",
+      badgeText: "#D4B08C",
+      isLightColor: true,
+    };
+  }
+
+  if (cat === "saveurs") {
+    return {
+      name: "Rayons Saveurs",
+      color: "#FF6B35",
+      glowColor: "rgba(255, 107, 53, 0.25)",
+      badgeBg: "rgba(255, 107, 53, 0.12)",
+      badgeBorder: "rgba(255, 107, 53, 0.3)",
+      badgeText: "#FF6B35",
+      isLightColor: false,
+    };
+  }
+
+  // Rayons Officiel (Paiement, Commande, Produit, Général, Compte, etc.)
+  return {
+    name: "Rayons.net",
+    color: "#C7D300",
+    glowColor: "rgba(199, 211, 0, 0.25)",
+    badgeBg: "rgba(199, 211, 0, 0.12)",
+    badgeBorder: "rgba(199, 211, 0, 0.35)",
+    badgeText: "#C7D300",
+    isLightColor: true,
+  };
+}
+
 export function TicketConversation({
   ticket,
   userRole,
@@ -64,6 +138,8 @@ export function TicketConversation({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const theme = getTicketTheme(ticket);
 
   useEffect(() => {
     setCurrentStatus(ticket.status);
@@ -222,47 +298,79 @@ export function TicketConversation({
   ];
 
   return (
-    <div className="flex flex-col h-full bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-      {/* Header */}
-      <div className="p-4 sm:p-5 border-b border-slate-800 bg-slate-950/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-start gap-3">
+    <div className="flex flex-col h-full bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+      {/* Header — Compact and responsive */}
+      <div className="px-3 py-2.5 sm:px-5 sm:py-3.5 border-b border-white/10 bg-[#0B151D]/90 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0">
           {onBack && (
             <button
               onClick={onBack}
-              className="mt-0.5 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 lg:hidden"
+              className="p-1.5 rounded-xl text-gray-300 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+              title="Retour à la liste"
+              aria-label="Retour"
             >
               <ChevronLeft size={20} />
             </button>
           )}
-          <div>
-            <div className="flex flex-wrap items-center gap-2 mb-1">
-              <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20">
+
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-0.5">
+              {/* Ticket number styled with Rayons brand theme */}
+              <span 
+                className="font-mono font-bold text-xs px-2.5 py-0.5 rounded-lg border shadow-xs"
+                style={{
+                  color: theme.badgeText,
+                  backgroundColor: theme.badgeBg,
+                  borderColor: theme.badgeBorder,
+                }}
+              >
                 {ticket.ticketNumber}
               </span>
-              <span className={`text-xs px-2 py-0.5 rounded-md border font-medium ${catBadge.color}`}>
+
+              {/* Rayon universe badge if specific */}
+              {theme.name !== "Rayons.net" && (
+                <span 
+                  className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md border"
+                  style={{
+                    color: theme.color,
+                    backgroundColor: theme.badgeBg,
+                    borderColor: theme.badgeBorder,
+                  }}
+                >
+                  {theme.name}
+                </span>
+              )}
+
+              <span className={`text-[11px] px-2 py-0.5 rounded-md border font-medium ${catBadge.color}`}>
                 {catBadge.label}
               </span>
-              <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${priorityBadge.color}`}>
+
+              <span className={`text-[11px] px-2 py-0.5 rounded-md font-medium ${priorityBadge.color}`}>
                 {priorityBadge.label}
               </span>
+
               {isArchived && (
-                <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-slate-800 border border-slate-700 text-slate-400">
+                <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-gray-400">
                   <Archive size={11} />
                   <span>Archivé</span>
                 </span>
               )}
             </div>
-            <h2 className="text-base sm:text-lg font-bold text-white line-clamp-1">{ticket.subject}</h2>
-            <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-slate-400">
-              <span>Par <strong className="text-slate-200">{ticket.creatorName}</strong> ({ticket.creatorRole})</span>
+
+            <h2 className="text-sm sm:text-base font-heading font-extrabold text-white truncate leading-snug">
+              {ticket.subject}
+            </h2>
+
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-400">
+              <span className="truncate">Par <strong className="text-gray-200">{ticket.creatorName}</strong> ({ticket.creatorRole})</span>
               <span>•</span>
-              <span>{ticket.creatorEmail}</span>
+              <span className="truncate">{ticket.creatorEmail}</span>
               {ticket.supplierName && (
                 <>
                   <span>•</span>
-                  <span className="text-amber-400 font-medium flex items-center gap-1">
-                    <Store size={12} />
-                    Fournisseur: {ticket.supplierName}
+                  <span className="text-amber-400 font-medium flex items-center gap-1 truncate">
+                    <Store size={11} />
+                    {ticket.supplierName}
                   </span>
                 </>
               )}
@@ -271,84 +379,91 @@ export function TicketConversation({
         </div>
 
         {/* Status controls */}
-        <div className="flex items-center gap-2 self-end sm:self-center">
+        <div className="flex items-center gap-2 self-start sm:self-center shrink-0">
           {userRole === "admin" ? (
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-400">Statut :</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-gray-400">Statut :</span>
               <select
                 value={isClosedOrArchived ? "closed" : currentStatus}
                 onChange={(e) => handleStatusChange(e.target.value as TicketStatus)}
-                className="bg-slate-800 border border-slate-700 text-xs rounded-xl px-3 py-1.5 text-white font-medium focus:outline-none focus:ring-1 focus:ring-purple-500"
+                className="bg-white/10 border border-white/15 text-xs rounded-xl px-2.5 py-1 text-white font-medium focus:outline-none"
               >
-                <option value="open">🔵 Ouvert</option>
-                <option value="in_progress">🟡 En cours</option>
-                <option value="resolved">🟢 Résolu (Clôturer & Archiver)</option>
-                <option value="closed">⚪ Clôturé & Archivé</option>
+                <option value="open" className="bg-[#0F1D27]">🔵 Ouvert</option>
+                <option value="in_progress" className="bg-[#0F1D27]">🟡 En cours</option>
+                <option value="resolved" className="bg-[#0F1D27]">🟢 Résolu (Clôturer)</option>
+                <option value="closed" className="bg-[#0F1D27]">⚪ Clôturé &amp; Archivé</option>
               </select>
 
               {isClosedOrArchived && (
                 <button
                   type="button"
                   onClick={handleReopenTicket}
-                  className="flex items-center gap-1.5 text-xs bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-xl font-medium transition-colors shadow-xs"
+                  className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-xl font-bold transition-all shadow-xs"
+                  style={{
+                    backgroundColor: theme.color,
+                    color: theme.isLightColor ? "#0F1D27" : "#FFFFFF",
+                  }}
                   title="Réactiver le ticket et déverrouiller les échanges"
                 >
-                  <RotateCcw size={13} />
+                  <RotateCcw size={12} />
                   <span>Réactiver</span>
                 </button>
               )}
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <span className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border font-semibold ${statusBadge.color}`}>
+              <span className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-xl border font-semibold ${statusBadge.color}`}>
                 <span className={`w-2 h-2 rounded-full ${statusBadge.dot}`} />
-                {isClosedOrArchived ? "Clôturé / Archivé" : statusBadge.label}
+                {isClosedOrArchived ? "Clôturé" : statusBadge.label}
               </span>
             </div>
           )}
         </div>
       </div>
 
-      {/* Linked Activity / Order Card Banner */}
+      {/* Linked Activity / Order Card Banner — Compact & Styled with Rayons Theme */}
       {(ticket.orderSummary || ticket.orderId) && (
-        <div className="px-5 py-3 bg-purple-950/30 border-b border-purple-500/20 flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400">
-              <ShoppingBag size={16} />
+        <div className="px-3 sm:px-5 py-2 bg-[#142430]/90 border-b border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div 
+              className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 shadow-xs"
+              style={{ backgroundColor: `${theme.color}20`, color: theme.color }}
+            >
+              <ShoppingBag size={14} />
             </div>
-            <div>
-              <p className="font-semibold text-white flex items-center gap-1.5">
-                <span>Commande liée :</span>
-                <span className="font-mono text-purple-300">
+            <div className="min-w-0">
+              <p className="font-bold text-white flex items-center gap-1.5 text-xs truncate">
+                <span className="text-gray-300">Commande :</span>
+                <span className="font-mono font-black" style={{ color: theme.color }}>
                   #{ticket.orderSummary?.orderId?.slice(-6)?.toUpperCase() || ticket.orderId}
                 </span>
                 {ticket.orderSummary?.status && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                    Statut: {ticket.orderSummary.status}
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-white/10 text-gray-200 border border-white/10">
+                    {ticket.orderSummary.status}
                   </span>
                 )}
               </p>
-              <p className="text-slate-400 text-[11px] mt-0.5">
+              <p className="text-gray-400 text-[11px] truncate">
                 {ticket.orderSummary?.itemsDescription
-                  ? `Articles : ${ticket.orderSummary.itemsDescription}`
-                  : "Détails de la vente et des articles associés"}
+                  ? ticket.orderSummary.itemsDescription
+                  : "Articles et détails de la commande"}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 text-[11px]">
+          <div className="flex items-center gap-3 text-[11px] ml-auto shrink-0">
             {ticket.orderSummary?.totalAmount !== undefined && (
-              <div>
-                <span className="text-slate-400">Montant : </span>
+              <div className="bg-black/30 px-2 py-0.5 rounded-md border border-white/10">
+                <span className="text-gray-400">Total : </span>
                 <span className="font-bold text-white">
                   {ticket.orderSummary.totalAmount.toLocaleString()} CDF
                 </span>
               </div>
             )}
             {ticket.supplierName && (
-              <div className="flex items-center gap-1 bg-amber-500/10 text-amber-400 px-2.5 py-1 rounded-lg border border-amber-500/20 font-medium">
-                <Store size={12} />
-                <span>Fournisseur : {ticket.supplierName}</span>
+              <div className="flex items-center gap-1 bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded-md border border-amber-500/20 font-medium text-[11px]">
+                <Store size={11} />
+                <span>{ticket.supplierName}</span>
               </div>
             )}
           </div>
@@ -357,24 +472,30 @@ export function TicketConversation({
 
       {/* Closed & Archived Banner notice */}
       {isArchived && (
-        <div className="px-5 py-2.5 bg-slate-800/80 border-b border-slate-700/60 flex items-center justify-between gap-3 text-xs text-slate-300">
-          <div className="flex items-center gap-2">
-            <Archive size={15} className="text-amber-400 shrink-0" />
-            <span>
-              Cette requête est actuellement <strong>clôturée et archivée</strong>. Vous pouvez la réactiver à tout moment en cliquant sur le bouton ou en écrivant un nouveau message.
+        <div className="px-3 sm:px-5 py-2 bg-white/5 border-b border-white/10 flex items-center justify-between gap-3 text-xs text-gray-300 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <Archive size={14} className="text-[#C7D300] shrink-0" />
+            <span className="truncate">
+              Requête <strong>clôturée</strong>.
             </span>
           </div>
-          <button
-            onClick={handleReopenTicket}
-            className="text-xs bg-purple-600 hover:bg-purple-500 text-white px-3 py-1 rounded-lg font-medium transition-colors shrink-0"
-          >
-            Réactiver
-          </button>
+          {userRole === "admin" && (
+            <button
+              onClick={handleReopenTicket}
+              className="text-xs px-2.5 py-1 rounded-lg font-bold transition-all shrink-0"
+              style={{
+                backgroundColor: theme.color,
+                color: theme.isLightColor ? "#0F1D27" : "#FFFFFF",
+              }}
+            >
+              Réactiver
+            </button>
+          )}
         </div>
       )}
 
       {/* Messages Feed */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-slate-900/50">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3.5 bg-[#0B151D] min-h-0">
         {messages.map((msg) => {
           const isMe = msg.senderId === user?.uid;
           const isAdmin = msg.senderRole === "admin";
@@ -385,11 +506,11 @@ export function TicketConversation({
               key={msg.id}
               className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
             >
-              <div className="flex items-center gap-1.5 mb-1 px-1 text-[11px] text-slate-400">
+              <div className="flex items-center gap-1.5 mb-1 px-1 text-[11px] text-gray-400">
                 {isAdmin ? (
-                  <span className="flex items-center gap-1 font-semibold text-purple-400">
+                  <span className="flex items-center gap-1 font-bold text-[#C7D300]">
                     <ShieldCheck size={13} />
-                    <span>Support Rayons.net (Admin)</span>
+                    <span>Support Rayons.net</span>
                   </span>
                 ) : isSupplier ? (
                   <span className="flex items-center gap-1 font-semibold text-amber-400">
@@ -397,7 +518,7 @@ export function TicketConversation({
                     <span>{msg.senderName} (Fournisseur)</span>
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1 font-medium text-slate-300">
+                  <span className="flex items-center gap-1 font-medium text-gray-300">
                     <User size={13} />
                     <span>{msg.senderName}</span>
                   </span>
@@ -410,25 +531,45 @@ export function TicketConversation({
                 </span>
               </div>
 
+              {/* Message Bubble — Brand Rayons Theme */}
               <div
-                className={`max-w-[88%] sm:max-w-[75%] rounded-2xl p-3.5 sm:p-4 text-sm leading-relaxed ${
-                  isAdmin
-                    ? "bg-gradient-to-br from-purple-900/60 to-indigo-900/60 border border-purple-500/30 text-white shadow-lg shadow-purple-900/20"
-                    : isMe
-                    ? "bg-purple-600 text-white shadow-md shadow-purple-600/20"
-                    : "bg-slate-800 border border-slate-700/80 text-slate-200"
+                className={`max-w-[88%] sm:max-w-[75%] rounded-2xl p-3 sm:p-3.5 text-sm leading-relaxed shadow-lg ${
+                  isMe
+                    ? "rounded-tr-xs"
+                    : "rounded-tl-xs bg-[#142430] border border-white/10 text-white"
                 }`}
+                style={
+                  isMe
+                    ? {
+                        backgroundColor: theme.color,
+                        color: theme.isLightColor ? "#0F1D27" : "#FFFFFF",
+                        boxShadow: `0 4px 14px ${theme.glowColor}`,
+                      }
+                    : isAdmin
+                    ? {
+                        borderColor: `${theme.color}40`,
+                      }
+                    : undefined
+                }
               >
-                {msg.message && <p className="whitespace-pre-wrap">{msg.message}</p>}
+                {/* Admin certified tag in bubble */}
+                {!isMe && isAdmin && (
+                  <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-[#C7D300] mb-1">
+                    <Sparkles size={11} />
+                    <span>Assistance Officielle Rayons</span>
+                  </div>
+                )}
+
+                {msg.message && <p className="whitespace-pre-wrap font-medium">{msg.message}</p>}
 
                 {/* Attachments rendering */}
                 {msg.attachments && msg.attachments.length > 0 && (
-                  <div className="mt-2.5 pt-2 border-t border-white/10 flex flex-wrap gap-2">
+                  <div className="mt-2.5 pt-2 border-t border-white/15 flex flex-wrap gap-2">
                     {msg.attachments.map((imgUrl, imgIdx) => (
                       <div
                         key={imgIdx}
                         onClick={() => setPreviewImage(imgUrl)}
-                        className="w-24 h-24 rounded-xl overflow-hidden border border-white/20 cursor-pointer hover:opacity-90 transition-opacity bg-black/30"
+                        className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-white/20 cursor-pointer hover:opacity-90 transition-opacity bg-black/40"
                       >
                         <img
                           src={imgUrl}
@@ -446,18 +587,17 @@ export function TicketConversation({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Admin Quick Replies */}
-      {/* Reply Input Bar or Closed/Locked Banner */}
+      {/* Admin Quick Replies & Input Bar */}
       {isClosedOrArchived ? (
-        <div className="p-4 sm:p-5 border-t border-slate-800 bg-slate-950/90 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
-              <Lock size={20} />
+        <div className="p-3 sm:p-4 border-t border-white/10 bg-[#0B151D] flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+              <Lock size={16} />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white">Requête clôturée et archivée</p>
-              <p className="text-xs text-slate-400">
-                Les échanges sont verrouillés. {userRole === "admin" ? "En tant qu'administrateur, vous pouvez réactiver ce ticket pour autoriser à nouveau les messages." : "Seul un administrateur peut réactiver ce ticket pour autoriser de nouveaux messages."}
+              <p className="text-xs font-bold text-white">Requête clôturée</p>
+              <p className="text-[11px] text-gray-400">
+                Les échanges sont verrouillés. {userRole === "admin" ? "Vous pouvez la réactiver pour autoriser à nouveau les réponses." : "Un administrateur peut réactiver ce ticket si besoin."}
               </p>
             </div>
           </div>
@@ -465,38 +605,42 @@ export function TicketConversation({
             <button
               type="button"
               onClick={handleReopenTicket}
-              className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-purple-600/25 shrink-0"
+              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-md shrink-0"
+              style={{
+                backgroundColor: theme.color,
+                color: theme.isLightColor ? "#0F1D27" : "#FFFFFF",
+              }}
             >
-              <RotateCcw size={14} />
-              <span>Réactiver le ticket</span>
+              <RotateCcw size={13} />
+              <span>Réactiver</span>
             </button>
           )}
         </div>
       ) : (
-        <>
+        <div className="shrink-0">
           {userRole === "admin" && (
-            <div className="px-4 py-2 bg-slate-950/40 border-t border-slate-800/80 overflow-x-auto flex items-center gap-2 scrollbar-none">
-              <span className="text-[10px] uppercase font-bold text-slate-400 shrink-0">Réponses types :</span>
+            <div className="px-3 py-1.5 bg-[#0B151D] border-t border-white/10 overflow-x-auto flex items-center gap-1.5 scrollbar-none">
+              <span className="text-[10px] uppercase font-bold text-gray-400 shrink-0">Réponses types :</span>
               {adminCanned.map((canned, idx) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => setNewMessage(canned)}
-                  className="text-xs text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700 px-2.5 py-1 rounded-lg shrink-0 transition-colors"
+                  className="text-xs text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 px-2 py-0.5 rounded-lg shrink-0 transition-colors"
                 >
-                  {canned.slice(0, 32)}...
+                  {canned.slice(0, 30)}...
                 </button>
               ))}
             </div>
           )}
 
           {/* Reply Input Bar */}
-          <div className="p-3 sm:p-4 border-t border-slate-800 bg-slate-950/80">
+          <div className="p-2.5 sm:p-3.5 border-t border-white/10 bg-[#0F1D27]">
             {/* Reply attachments preview */}
             {replyAttachments.length > 0 && (
-              <div className="flex items-center gap-2 mb-2 p-2 bg-slate-900 border border-slate-800 rounded-xl">
+              <div className="flex items-center gap-2 mb-2 p-2 bg-black/30 border border-white/10 rounded-xl">
                 {replyAttachments.map((img, idx) => (
-                  <div key={idx} className="relative group w-12 h-12 rounded-lg overflow-hidden border border-slate-700">
+                  <div key={idx} className="relative group w-12 h-12 rounded-lg overflow-hidden border border-white/20">
                     <img src={img} alt="Aperçu" className="w-full h-full object-cover" />
                     <button
                       type="button"
@@ -507,15 +651,21 @@ export function TicketConversation({
                     </button>
                   </div>
                 ))}
-                <span className="text-[11px] text-slate-400">Photo(s) prête(s) à être envoyée(s)</span>
+                <span className="text-[11px] text-gray-400">Photo(s) prête(s) à être envoyée(s)</span>
               </div>
             )}
 
             <form onSubmit={handleSendMessage} className="flex items-center gap-2">
               {/* Add Image Button */}
-              <label className="p-2.5 rounded-xl bg-slate-900 border border-slate-700/80 hover:border-purple-500/60 text-slate-400 hover:text-purple-300 cursor-pointer transition-colors shrink-0">
+              <label 
+                className="p-2.5 rounded-xl bg-white/5 border border-white/10 hover:border-white/20 text-gray-400 hover:text-white cursor-pointer transition-colors shrink-0"
+                title="Joindre une photo"
+              >
                 {isUploadingImage ? (
-                  <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                  <div 
+                    className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
+                    style={{ borderColor: theme.color, borderTopColor: "transparent" }}
+                  />
                 ) : (
                   <ImageIcon size={18} />
                 )}
@@ -539,15 +689,24 @@ export function TicketConversation({
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 disabled={isSending}
-                className="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none transition-all"
+                style={{
+                  outlineColor: theme.color,
+                }}
               />
+
               <button
                 type="submit"
                 disabled={isSending || (!newMessage.trim() && replyAttachments.length === 0)}
-                className="flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 disabled:opacity-50 text-white px-4 py-2.5 rounded-xl font-medium text-sm shadow-lg shadow-purple-600/25 transition-all shrink-0"
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl font-extrabold text-sm transition-all shadow-md active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+                style={{
+                  backgroundColor: theme.color,
+                  color: theme.isLightColor ? "#0F1D27" : "#FFFFFF",
+                  boxShadow: `0 4px 14px ${theme.glowColor}`,
+                }}
               >
                 {isSending ? (
-                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
                 ) : (
                   <>
                     <Send size={15} />
@@ -557,7 +716,7 @@ export function TicketConversation({
               </button>
             </form>
           </div>
-        </>
+        </div>
       )}
 
       {/* Lightbox / Zoom Modal for Images */}
@@ -584,4 +743,3 @@ export function TicketConversation({
     </div>
   );
 }
-

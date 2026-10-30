@@ -94,15 +94,15 @@ export default function AdminTicketsPage() {
   const unreadCount = tickets.filter((t) => t.unreadByAdmin).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${selectedTicketId ? "hidden lg:flex" : "flex"}`}>
         <div>
           <div className="flex items-center gap-2">
-            <span className="p-2 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
+            <span className="p-2 bg-[#C7D300]/15 text-[#C7D300] rounded-xl border border-[#C7D300]/30">
               <LifeBuoy size={20} />
             </span>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Support & Assistance Tickets</h1>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Support &amp; Assistance Tickets</h1>
           </div>
           <p className="text-sm text-slate-400 mt-1">
             Gérez toutes les demandes et réclamations des clients et des fournisseurs en temps réel.
@@ -111,7 +111,7 @@ export default function AdminTicketsPage() {
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <div className={`grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 ${selectedTicketId ? "hidden lg:grid" : "grid"}`}>
         <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 flex items-center justify-between">
           <div>
             <p className="text-xs text-gray-400 font-medium">Total Tickets</p>
@@ -154,9 +154,9 @@ export default function AdminTicketsPage() {
       </div>
 
       {/* Desk View: Filters + Two-Pane Container */}
-      <div className="bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[750px]">
+      <div className={`bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col ${selectedTicketId ? "h-[calc(100dvh-130px)] sm:h-[750px]" : "h-[750px]"}`}>
         {/* Filters Bar */}
-        <div className="p-4 border-b border-white/10 bg-black/30 flex flex-wrap items-center justify-between gap-3">
+        <div className={`p-3 sm:p-4 border-b border-white/10 bg-black/30 flex flex-wrap items-center justify-between gap-3 ${selectedTicketId ? "hidden lg:flex" : "flex"}`}>
           <div className="relative flex-1 min-w-[220px] max-w-md">
             <Search size={16} className="absolute left-3.5 top-3 text-gray-400" />
             <input

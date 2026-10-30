@@ -88,18 +88,18 @@ export default function SupplierTicketsPage() {
   const selectedTicket = tickets.find((t) => t.id === selectedTicketId) || null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${selectedTicketId ? "hidden lg:flex" : "flex"}`}>
         <div>
           <div className="flex items-center gap-2">
             <span className="p-2 bg-[#C7D300]/15 text-[#C7D300] rounded-xl border border-[#C7D300]/30">
               <LifeBuoy size={20} />
             </span>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Support & Tickets</h1>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Support &amp; Tickets</h1>
           </div>
           <p className="text-sm text-gray-400 mt-1">
-            Posez vos questions à l'équipe Rayons.net ou répondez aux requêtes d'assistance de vos clients.
+            Posez vos questions à l&apos;équipe Rayons.net ou répondez aux requêtes d&apos;assistance de vos clients.
           </p>
         </div>
 
@@ -113,9 +113,9 @@ export default function SupplierTicketsPage() {
       </div>
 
       {/* Two-Pane Container */}
-      <div className="bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col h-[720px]">
+      <div className={`bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col ${selectedTicketId ? "h-[calc(100dvh-130px)] sm:h-[720px]" : "h-[720px]"}`}>
         {/* Search & Status Filters */}
-        <div className="p-4 border-b border-white/10 bg-black/40 flex flex-wrap items-center justify-between gap-3">
+        <div className={`p-3 sm:p-4 border-b border-white/10 bg-black/40 flex flex-wrap items-center justify-between gap-3 ${selectedTicketId ? "hidden lg:flex" : "flex"}`}>
           <div className="relative flex-1 min-w-[200px] max-w-sm">
             <Search size={16} className="absolute left-3.5 top-3 text-gray-500" />
             <input

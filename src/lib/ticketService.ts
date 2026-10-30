@@ -276,21 +276,21 @@ export async function reopenTicket(
 export function getCategoryBadge(category: TicketCategory) {
   switch (category) {
     case "order":
-      return { label: "Commande", color: "bg-blue-500/10 text-blue-500 border-blue-500/20" };
+      return { label: "Commande", color: "bg-sky-500/15 text-sky-400 border-sky-500/30" };
     case "payment":
-      return { label: "Paiement", color: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" };
+      return { label: "Paiement", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" };
     case "delivery":
-      return { label: "Livraison", color: "bg-amber-500/10 text-amber-500 border-amber-500/20" };
+      return { label: "Livraison", color: "bg-amber-500/15 text-amber-400 border-amber-500/30" };
     case "property":
-      return { label: "Immobilier", color: "bg-indigo-500/10 text-indigo-500 border-indigo-500/20" };
+      return { label: "Immobilier", color: "bg-[#4C6EF5]/15 text-[#4C6EF5] border-[#4C6EF5]/30" };
     case "product":
-      return { label: "Produit", color: "bg-purple-500/10 text-purple-500 border-purple-500/20" };
+      return { label: "Produit", color: "bg-[#C7D300]/15 text-[#C7D300] border-[#C7D300]/30" };
     case "technical":
-      return { label: "Technique", color: "bg-rose-500/10 text-rose-500 border-rose-500/20" };
+      return { label: "Technique", color: "bg-[#00B5A5]/15 text-[#00B5A5] border-[#00B5A5]/30" };
     case "account":
-      return { label: "Compte", color: "bg-cyan-500/10 text-cyan-500 border-cyan-500/20" };
+      return { label: "Compte", color: "bg-cyan-500/15 text-cyan-400 border-cyan-500/30" };
     default:
-      return { label: "Général", color: "bg-gray-500/10 text-gray-400 border-gray-500/20" };
+      return { label: "Général", color: "bg-white/10 text-gray-300 border-white/15" };
   }
 }
 
