@@ -8,9 +8,8 @@ import {
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { collection, getDocs, query, where, doc, updateDoc, onSnapshot, orderBy, limit } from "firebase/firestore";
-import { sendPasswordResetEmail } from "firebase/auth";
 import { useAuth } from "@/context/AuthContext";
-import { hasAdminAccess, isTeamMember } from "@/lib/permissions";
+import { hasAdminAccess, isTeamMember, SUPER_ADMIN_EMAILS } from "@/lib/permissions";
 import AdminBroadcastModal from "@/modules/admin/components/AdminBroadcastModal";
 
 interface Supplier {
@@ -157,8 +156,7 @@ export default function SuppliersPage() {
     const userRole = (userData?.role || "").toString().toLowerCase();
     const userEmail = (user.email || "").toLowerCase();
     const isAdminUser = 
-      userEmail === "danielkiboko218@gmail.com" || 
-      userEmail === "admin@rayons.net" || 
+      SUPER_ADMIN_EMAILS.includes(userEmail) || 
       ["admin", "superadmin", "super_admin", "sub_admin", "admin_finance", "admin_db"].includes(userRole) ||
       hasAdminAccess(user, userData);
     

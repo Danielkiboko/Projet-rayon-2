@@ -1,5 +1,6 @@
 import { db } from "./firebase";
 import { doc, getDoc, updateDoc, collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
+import { SUPER_ADMIN_EMAILS } from "./permissions";
 
 /**
  * Système de certification et de vote client pour les produits
@@ -39,7 +40,7 @@ export function evaluateProductVerification(product: any): ProductVerificationSt
     (
       (product.isAdminProduct === true || product.isOfficialRayons === true) &&
       (
-        product.supplierEmail === "danielkiboko218@gmail.com" ||
+        SUPER_ADMIN_EMAILS.includes((product.supplierEmail || "").toLowerCase().trim()) ||
         product.supplierId === "admin" ||
         product.supplierRole === "SUPER_ADMIN" ||
         product.supplierRole === "superAdmin" ||

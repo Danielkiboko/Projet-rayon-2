@@ -4,6 +4,8 @@
  * Si l'échéance est dépassée sans règlement, blocage automatique des publications et messageries.
  */
 
+import { SUPER_ADMIN_EMAILS } from "./permissions";
+
 export const TRIAL_DURATION_DAYS = 15;
 export const DEFAULT_MONTHLY_DEPOSIT = 50; // $50 par mois par défaut
 
@@ -30,11 +32,12 @@ export function evaluateSupplierSubscription(userData: any): SupplierSubscriptio
   }
 
   // Si c'est l'administrateur principal, un sous-admin, ou une boutique officielle de l'admin
+  const email = (userData.email || "").toLowerCase().trim();
   if (
     userData.role === "ADMIN" || 
     userData.role === "admin" || 
     userData.role === "SUB_ADMIN" ||
-    userData.email === "danielkiboko218@gmail.com" ||
+    SUPER_ADMIN_EMAILS.includes(email) ||
     userData.isOfficialAdminStore === true ||
     userData.isAdminSupplier === true
   ) {

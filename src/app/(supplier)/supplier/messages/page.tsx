@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
-import { MessageSquare, Send, User, Lock, Package, Loader2, Megaphone, CheckCircle2, Calendar, ShieldCheck } from "lucide-react";
+import { MessageSquare, Send, User, Lock, Package, Loader2, Megaphone, CheckCircle2, Calendar, ShieldCheck, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, addDoc, orderBy, serverTimestamp, doc, updateDoc, getDoc, limit } from "firebase/firestore";
 import { motion } from "framer-motion";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
+import { useCurrency } from "@/context/CurrencyContext";
 
 type Chat = {
   id: string;
@@ -45,6 +46,7 @@ type ChatMessage = {
 
 export default function SupplierMessagesPage() {
   const { user, userData } = useAuth();
+  const { formatPrice } = useCurrency();
   const activeSupplierId = userData?.parentSupplierId || user?.uid;
   const subscriptionInfo = evaluateSupplierSubscription(userData);
   const [chats, setChats] = useState<Chat[]>([]);
@@ -489,7 +491,7 @@ export default function SupplierMessagesPage() {
       {activeTab === "communiques" ? (
         <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col md:flex-row shadow-xl">
           {/* Liste des communiqués */}
-          <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-white/10 flex flex-col bg-black/20">
+          <div className={`w-full md:w-1/3 border-b md:border-b-0 md:border-r border-white/10 flex flex-col bg-black/20 ${selectedCommuniqueId ? 'hidden md:flex' : 'flex'}`}>
             <div className="p-4 border-b border-white/10 flex items-center justify-between">
               <h3 className="font-semibold text-white flex items-center gap-2 text-sm">
                 <Megaphone size={16} className="text-[#C7D300]" />
@@ -550,7 +552,7 @@ export default function SupplierMessagesPage() {
           </div>
 
           {/* Panneau de lecture du communiqué */}
-          <div className="flex-1 flex flex-col bg-transparent overflow-y-auto p-6 md:p-8">
+          <div className={`flex-1 flex flex-col bg-transparent overflow-y-auto p-4 md:p-8 ${!selectedCommuniqueId ? 'hidden md:flex' : 'flex'}`}>
             {(() => {
               const activeC = communiques.find(c => c.id === selectedCommuniqueId);
               if (!activeC) {
@@ -564,6 +566,15 @@ export default function SupplierMessagesPage() {
 
               return (
                 <div className="space-y-6 max-w-3xl">
+                  {/* Bouton retour sur mobile */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCommuniqueId(null)}
+                    className="md:hidden flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/10 text-white hover:bg-white/15 text-xs font-semibold w-fit mb-2 cursor-pointer"
+                  >
+                    <ArrowLeft size={14} />
+                    <span>Retour aux communiqués</span>
+                  </button>
                   {/* Entête communiqué */}
                   <div className="bg-black/30 border border-white/10 rounded-2xl p-5 space-y-3">
                     <div className="flex items-center justify-between flex-wrap gap-2">
@@ -629,7 +640,7 @@ export default function SupplierMessagesPage() {
         <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col md:flex-row shadow-xl">
         
         {/* Chats List Sidebar */}
-        <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-white/10 flex flex-col bg-black/20">
+        <div className={`w-full md:w-1/3 border-b md:border-b-0 md:border-r border-white/10 flex flex-col bg-black/20 ${activeChatId ? 'hidden md:flex' : 'flex'}`}>
           <div className="p-4 border-b border-white/10">
             <h3 className="font-semibold text-white flex items-center">
               <MessageSquare size={18} className="mr-2 text-primary-light" />
@@ -677,7 +688,7 @@ export default function SupplierMessagesPage() {
         </div>
 
         {/* Chat Box area */}
-        <div className="flex-1 flex flex-col bg-transparent">
+        <div className={`flex-1 flex flex-col bg-transparent ${!activeChatId ? 'hidden md:flex' : 'flex'}`}>
           {!activeChatId ? (
             <div className="flex-1 flex flex-col items-center justify-center text-gray-500 p-8">
               <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
@@ -691,6 +702,14 @@ export default function SupplierMessagesPage() {
               {/* Chat Header */}
               <div className="p-4 border-b border-white/10 bg-black/20 flex items-center justify-between">
                 <div className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setActiveChatId(null)}
+                    className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 text-white hover:bg-white/15 mr-2.5 cursor-pointer"
+                    aria-label="Retour"
+                  >
+                    <ArrowLeft size={16} />
+                  </button>
                   <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary-light mr-3">
                     {isHotelChat ? <span className="text-sm">🏨</span> : <User size={16} />}
                   </div>
@@ -773,26 +792,26 @@ export default function SupplierMessagesPage() {
                                   <span>{msg.proforma.type === 'hotel' ? 'Tarif total séjour :' : 'Sous-total produits :'}</span>
                                   <span className="font-bold text-emerald-400">
                                     {msg.proforma.type !== 'hotel' 
-                                      ? `${msg.proforma.quantity} x $${Number(msg.proforma.unitPrice || (msg.proforma.price / (msg.proforma.quantity || 1))).toFixed(2)} = $${Number(msg.proforma.totalPrice || msg.proforma.price).toFixed(2)}`
-                                      : `$${Number(msg.proforma.price).toFixed(2)}`}
+                                      ? `${msg.proforma.quantity} x ${formatPrice(msg.proforma.unitPrice || (msg.proforma.price / (msg.proforma.quantity || 1)))} = ${formatPrice(msg.proforma.totalPrice || msg.proforma.price)}`
+                                      : formatPrice(msg.proforma.price)}
                                   </span>
                                 </div>
                                 {msg.proforma.type !== 'hotel' && (
                                   <div className="flex justify-between text-gray-300">
                                     <span>Frais Livraison :</span>
-                                    <span className="font-medium text-white">${Number(msg.proforma.deliveryFee ?? 3).toFixed(2)}</span>
+                                    <span className="font-medium text-white">{formatPrice(msg.proforma.deliveryFee ?? 3)}</span>
                                   </div>
                                 )}
                                 <div className="flex justify-between font-bold border-t border-white/20 pt-1 text-white">
                                   <span>{msg.proforma.type === 'hotel' ? 'Total Séjour :' : 'Total Commande :'}</span>
                                   <span className="text-sm">
-                                    ${(Number(msg.proforma.totalPrice || msg.proforma.price) + (msg.proforma.type === 'hotel' ? 0 : Number(msg.proforma.deliveryFee ?? 3))).toFixed(2)}
+                                    {formatPrice(Number(msg.proforma.totalPrice || msg.proforma.price) + (msg.proforma.type === 'hotel' ? 0 : Number(msg.proforma.deliveryFee ?? 3)))}
                                   </span>
                                 </div>
                                 {msg.proforma.type !== 'hotel' && (
                                   <div className="text-[11px] text-amber-300 flex justify-between pt-0.5">
                                     <span>À régler au livreur :</span>
-                                    <span className="font-bold">${Number(msg.proforma.totalPrice || msg.proforma.price).toFixed(2)}</span>
+                                    <span className="font-bold">{formatPrice(msg.proforma.totalPrice || msg.proforma.price)}</span>
                                   </div>
                                 )}
                               </div>

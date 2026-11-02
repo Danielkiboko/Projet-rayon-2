@@ -5,9 +5,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Plus, X, Search, Truck, Smartphone, Copy, Check, Download, ExternalLink } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
-import { sendPasswordResetEmail } from "firebase/auth";
 
-const DRIVER_APP_APK_URL = "https://expo.dev/artifacts/eas/CuY-nZ0kk1GwVdTmiAimwLjc34w2wMJ924j3pcK7JpM.apk";
+import { PERMANENT_DRIVER_APK_PATH, getPermanentDriverApkUrl } from "@/lib/constants";
+import DriverFormModal from "@/modules/shared/components/drivers/DriverFormModal";
 
 interface Driver {
   id: string;
@@ -24,14 +24,6 @@ export default function DriversPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [successMessage, setSuccessMessage] = useState("");
   const [copiedAppUrl, setCopiedAppUrl] = useState(false);
-
-  // Form states
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [notificationMethod, setNotificationMethod] = useState<'email' | 'sms'>("email");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
 
   const fetchDrivers = async () => {
     setIsLoading(true);
@@ -63,69 +55,6 @@ export default function DriversPage() {
     fetchDrivers();
   }, []);
 
-  const handleCreateDriver = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setError("");
-    setSuccessMessage("");
-
-    try {
-      const token = await auth.currentUser?.getIdToken(true);
-      if (!token) {
-        throw new Error("Vous devez être connecté pour effectuer cette action.");
-      }
-
-      // Generate a strong random password since the user will reset it anyway
-      const randomPassword = Math.random().toString(36).slice(-10) + "A1@";
-
-      // 1. Create the user account via API
-      const response = await fetch("/api/users/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          email,
-          password: randomPassword,
-          displayName: name,
-          roleToCreate: "driver",
-          notificationMethod,
-          phoneNumber: notificationMethod === 'sms' ? phoneNumber : undefined
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Erreur lors de la création du livreur.");
-      }
-
-      if (notificationMethod === 'email') {
-        // 2. Send the password reset email so they can choose their own password
-        await sendPasswordResetEmail(auth, email);
-      }
-
-      // Reset form and close modal
-      setName("");
-      setEmail("");
-      setPhoneNumber("");
-      setIsModalOpen(false);
-      const methodMsg = notificationMethod === 'email' 
-        ? `Un e-mail a été envoyé à ${email} pour qu'il configure son mot de passe.` 
-        : `Un SMS a été envoyé au ${phoneNumber} avec le mot de passe.`;
-      setSuccessMessage(`Le compte livreur a été créé. ${methodMsg}`);
-      
-      // Refresh list
-      fetchDrivers();
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Une erreur est survenue.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const filteredDrivers = drivers.filter(
     (s) =>
       s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -143,7 +72,6 @@ export default function DriversPage() {
           onClick={() => {
             setIsModalOpen(true);
             setSuccessMessage("");
-            setError("");
           }}
           className="flex items-center space-x-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold px-4 py-2 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
         >
@@ -178,7 +106,7 @@ export default function DriversPage() {
         <div className="flex items-center space-x-2 w-full md:w-auto">
           <button
             onClick={() => {
-              navigator.clipboard.writeText(DRIVER_APP_APK_URL);
+              navigator.clipboard.writeText(getPermanentDriverApkUrl());
               setCopiedAppUrl(true);
               setTimeout(() => setCopiedAppUrl(false), 2500);
             }}
@@ -189,7 +117,7 @@ export default function DriversPage() {
           </button>
 
           <a
-            href={DRIVER_APP_APK_URL}
+            href={PERMANENT_DRIVER_APK_PATH}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 md:flex-initial flex items-center justify-center space-x-2 px-3.5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] rounded-xl text-xs font-bold shadow-md shadow-[#C7D300]/20 transition-all cursor-pointer"
@@ -263,7 +191,7 @@ export default function DriversPage() {
                       <button 
                         onClick={() => {
                           const firstName = driver.name.split(' ')[0];
-                          const shareText = `Bonjour ${firstName} !\n\nVotre compte livreur Rayons a été créé.\n\n📲 Téléchargez votre application mobile Android officielle ici :\n${DRIVER_APP_APK_URL}\n\nIdentifiant : ${driver.email}`;
+                          const shareText = `Bonjour ${firstName} !\n\nVotre compte livreur Rayons a été créé.\n\n📲 Téléchargez votre application mobile Android officielle ici :\n${getPermanentDriverApkUrl()}\n\nIdentifiant : ${driver.email}`;
                           window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
                         }}
                         className="text-green-400 hover:text-green-300 transition-colors inline-flex items-center cursor-pointer"
@@ -290,7 +218,7 @@ export default function DriversPage() {
           ) : (
             filteredDrivers.map((driver) => {
               const firstName = driver.name.split(' ')[0];
-              const shareText = `Bonjour ${firstName} !\n\nVotre compte livreur Rayons a été créé.\n\n📲 Téléchargez votre application mobile Android officielle ici :\n${DRIVER_APP_APK_URL}\n\nIdentifiant : ${driver.email}`;
+              const shareText = `Bonjour ${firstName} !\n\nVotre compte livreur Rayons a été créé.\n\n📲 Téléchargez votre application mobile Android officielle ici :\n${getPermanentDriverApkUrl()}\n\nIdentifiant : ${driver.email}`;
               const isIndep = driver.supplierId === 'superAdmin' || driver.supplierId === 'admin';
 
               return (
@@ -340,119 +268,15 @@ export default function DriversPage() {
       </div>
 
       {/* Create Driver Modal */}
-      <AnimatePresence>
-        {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-lg bg-[#0F1D27] border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
-            >
-              <div className="flex items-center justify-between p-6 border-b border-white/10">
-                <h2 className="text-xl font-semibold text-white">Créer un Livreur Indépendant</h2>
-                <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white">
-                  <X size={24} />
-                </button>
-              </div>
-
-              <form onSubmit={handleCreateDriver} className="p-6 space-y-4">
-                {error && (
-                  <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
-                    {error}
-                  </div>
-                )}
-                
-                <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-300 text-sm mb-2">
-                  Choisissez comment notifier le livreur. Ce livreur pourra recevoir des missions de tous les fournisseurs.
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-300">Méthode de notification</label>
-                  <div className="flex space-x-4">
-                    <label className="flex items-center space-x-2 text-white cursor-pointer">
-                      <input 
-                        type="radio" 
-                        name="notificationMethod" 
-                        value="email" 
-                        checked={notificationMethod === 'email'} 
-                        onChange={() => setNotificationMethod('email')}
-                        className="text-primary focus:ring-primary bg-black/20 border-white/10"
-                      />
-                      <span>Email</span>
-                    </label>
-                    <label className="flex items-center space-x-2 text-white cursor-pointer">
-                      <input 
-                        type="radio" 
-                        name="notificationMethod" 
-                        value="sms" 
-                        checked={notificationMethod === 'sms'} 
-                        onChange={() => setNotificationMethod('sms')}
-                        className="text-primary focus:ring-primary bg-black/20 border-white/10"
-                      />
-                      <span>SMS</span>
-                    </label>
-                  </div>
-                </div>
-
-                {notificationMethod === 'sms' && (
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-300">Numéro de téléphone</label>
-                    <input
-                      type="tel"
-                      required
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="+243..."
-                      className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white"
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-300">Nom du livreur</label>
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-300">Email (identifiant de connexion)</label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white"
-                  />
-                </div>
-
-                <div className="pt-4 flex justify-end space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    disabled={isSubmitting}
-                    className="px-4 py-2 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold rounded-xl transition-all flex items-center disabled:opacity-50 active:scale-95 cursor-pointer text-xs"
-                  >
-                    {isSubmitting ? "Création en cours..." : "Créer le compte"}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <DriverFormModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onDriverCreated={() => {
+          setSuccessMessage("Le compte livreur a été créé avec succès.");
+          fetchDrivers();
+        }}
+        targetSupplierId={null}
+      />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { adminDb } from "@/lib/firebase-admin";
 import { sendEmail } from "@/lib/email";
 import { sendMobiShastraSMS } from "@/lib/sms";
 import { FieldValue } from "firebase-admin/firestore";
+import { SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
 
 // ─── Security ────────────────────────────────────────────────────────────────
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -197,7 +198,7 @@ async function handleDailyReports(req: Request) {
       console.warn("[DailyReport] Warning fetching suppliers collection:", err);
     }
 
-    const adminEmails = new Set<string>(["admin@rayons.net", "danielkiboko218@gmail.com"]);
+    const adminEmails = new Set<string>(SUPER_ADMIN_EMAILS);
     const subAdminsMap = new Map<string, any>();
     let newUsersCount = 0;
 
@@ -269,7 +270,7 @@ async function handleDailyReports(req: Request) {
     });
 
     // S'assurer que l'admin principal est toujours présent
-    adminEmails.add("danielkiboko218@gmail.com");
+    SUPER_ADMIN_EMAILS.forEach(e => adminEmails.add(e));
     adminEmails.add("daniel.k@telkosh.com");
     console.log(`[DailyReport] Total suppliers detected: ${suppliersList.length}`);
     console.log(`[DailyReport] Total sub-admins detected: ${subAdminsList.length}`);

@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb, adminAuth } from "@/lib/firebase-admin";
 import { sendEmail } from "@/lib/email";
 import { FieldValue } from "firebase-admin/firestore";
-
-// ─── Sécurité : Admin uniquement ─────────────────────────────────────────────
-const SUPER_ADMIN_EMAIL = "danielkiboko218@gmail.com";
-const ADMIN_ROLES = ["SUPER_ADMIN", "SUPERADMIN", "SUB_ADMIN", "ADMIN", "ADMIN_FINANCE", "ADMIN_OPS", "ADMIN_DB", "ADMIN_TECH"];
+import { SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
 
 export async function POST(req: NextRequest) {
   // 1. Vérification du token Firebase
@@ -27,7 +24,7 @@ export async function POST(req: NextRequest) {
   // 2. Vérification du rôle admin
   const callerDoc = await adminDb.collection("users").doc(callerUid).get();
   const callerRole = (callerDoc.data()?.role || "").toUpperCase();
-  const isAdmin = callerEmail === SUPER_ADMIN_EMAIL || ADMIN_ROLES.includes(callerRole);
+  const isAdmin = SUPER_ADMIN_EMAILS.includes(callerEmail) || ADMIN_ROLES.includes(callerRole);
   if (!isAdmin) {
     return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
   }
@@ -50,7 +47,7 @@ export async function POST(req: NextRequest) {
     const email = (data.email || "").toLowerCase().trim();
 
     // 1. Super Admin & Administrateurs internes (JAMAIS clients)
-    if (email === SUPER_ADMIN_EMAIL || ADMIN_ROLES.includes(role)) return false;
+    if (SUPER_ADMIN_EMAILS.includes(email) || ADMIN_ROLES.includes(role)) return false;
     if (role.includes("ADMIN") || role.includes("STAFF") || role.includes("FONCTIONNAIRE") || role.includes("COLLABORAT")) return false;
 
     // 2. Fournisseurs & Partenaires
@@ -71,7 +68,7 @@ export async function POST(req: NextRequest) {
     if (!data) return false;
     const role = (data.role || "").toUpperCase();
     const email = (data.email || "").toLowerCase().trim();
-    return email === SUPER_ADMIN_EMAIL || ADMIN_ROLES.includes(role) || role.includes("ADMIN");
+    return SUPER_ADMIN_EMAILS.includes(email) || ADMIN_ROLES.includes(role) || role.includes("ADMIN");
   }
 
   const seen = new Set<string>();

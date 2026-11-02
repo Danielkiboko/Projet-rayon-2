@@ -514,8 +514,8 @@ export default function AdminSettingsPage() {
             <Loader2 size={20} className="animate-spin" /> Chargement des rayons...
           </div>
         ) : (
-          <div className="border border-white/5 rounded-xl overflow-hidden">
-            <table className="w-full text-sm">
+          <div className="border border-white/5 rounded-xl overflow-x-auto">
+            <table className="w-full text-sm min-w-[500px]">
               <thead>
                 <tr className="bg-white/5 text-xs uppercase tracking-wider text-gray-400">
                   <th className="px-4 py-3 text-left">Nom</th>

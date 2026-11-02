@@ -17,13 +17,13 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
   return (
     <div className="bg-[#0F1D27] min-h-screen text-white flex flex-col max-w-md mx-auto border-x border-white/5 shadow-2xl relative">
       {/* Contenu principal */}
-      <div className={`flex-1 overflow-y-auto ${isMission ? "" : "pb-20"}`}>
+      <div className={`flex-1 overflow-y-auto ${isMission ? "" : "pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]"}`}>
         {children}
       </div>
 
       {/* Bottom Nav — masquée sur la page mission (elle a son propre layout plein écran) */}
       {!isMission && (
-        <nav className="absolute bottom-0 w-full h-16 bg-[#0F1D27] border-t border-white/10 flex justify-around items-center px-2 z-50">
+        <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-[#0F1D27]/95 backdrop-blur-md border-t border-white/10 flex justify-around items-center px-2 pb-[env(safe-area-inset-bottom,0px)] h-[calc(4rem+env(safe-area-inset-bottom,0px))] z-50 shadow-2xl">
           <NavItem href="/driver" label="Missions" icon={ListTodo} active={pathname === "/driver"} />
           <NavItem href="/driver/history" label="Historique" icon={History} active={pathname === "/driver/history"} />
           <NavItem href="/driver/profile" label="Profil" icon={User} active={pathname === "/driver/profile"} />

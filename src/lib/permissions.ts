@@ -1,11 +1,22 @@
+const superAdminEmailsEnv = (
+  typeof process !== "undefined"
+    ? process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || process.env.SUPER_ADMIN_EMAILS || "danielkiboko218@gmail.com,admin@rayons.net"
+    : "danielkiboko218@gmail.com,admin@rayons.net"
+)
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
+export const SUPER_ADMIN_EMAILS: string[] = superAdminEmailsEnv;
+
 /**
  * Checks if the user is the Super Admin.
  * Super Admin has full control over the platform.
  */
 export const isSuperAdmin = (user: any, userData: any): boolean => {
-  const email = (user?.email || "").toLowerCase().trim();
+  const email = (user?.email || userData?.email || "").toLowerCase().trim();
   const role = (userData?.role || "").toUpperCase();
-  return email === "danielkiboko218@gmail.com" || role === "SUPER_ADMIN" || role === "SUPERADMIN";
+  return SUPER_ADMIN_EMAILS.includes(email) || role === "SUPER_ADMIN" || role === "SUPERADMIN";
 };
 
 /**

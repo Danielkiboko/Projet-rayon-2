@@ -5,10 +5,10 @@ import { useAuth } from "@/context/AuthContext";
 import { Plus, X, Search, Truck, Clock, UserX, Smartphone, Copy, Check, Download } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { collection, query, where, getDocs, doc, deleteDoc } from "firebase/firestore";
-import { sendPasswordResetEmail } from "firebase/auth";
 import { motion, AnimatePresence } from "framer-motion";
 
-const DRIVER_APP_APK_URL = "https://expo.dev/artifacts/eas/CuY-nZ0kk1GwVdTmiAimwLjc34w2wMJ924j3pcK7JpM.apk";
+import { PERMANENT_DRIVER_APK_PATH, getPermanentDriverApkUrl } from "@/lib/constants";
+import DriverFormModal from "@/modules/shared/components/drivers/DriverFormModal";
 
 type Driver = {
   id: string;
@@ -26,12 +26,6 @@ export default function SupplierDriversPage() {
   
   // Add Driver State
   const [isAddingDriver, setIsAddingDriver] = useState(false);
-  const [newDriverName, setNewDriverName] = useState("");
-  const [newDriverEmail, setNewDriverEmail] = useState("");
-  const [notificationMethod, setNotificationMethod] = useState<'email' | 'sms'>("email");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [isProcessingDriver, setIsProcessingDriver] = useState(false);
-  const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const fetchDrivers = async () => {
@@ -97,64 +91,6 @@ export default function SupplierDriversPage() {
     fetchDrivers();
   }, [user]);
 
-  const handleAddDriver = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newDriverName || !newDriverEmail || !user) return;
-
-    setIsProcessingDriver(true);
-    setError("");
-    setSuccess("");
-
-    try {
-      const token = await user.getIdToken();
-      // Generate a temporary random password
-      const tempPassword = Math.random().toString(36).slice(-10) + "A1@";
-
-      const response = await fetch("/api/users/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          email: newDriverEmail,
-          password: tempPassword,
-          displayName: newDriverName,
-          roleToCreate: "driver",
-          notificationMethod,
-          phoneNumber: notificationMethod === 'sms' ? phoneNumber : undefined,
-          extraData: {
-            parentSupplierId: activeSupplierId,
-            supplierId: activeSupplierId,
-          }
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || "Erreur lors de la création.");
-      }
-
-      if (notificationMethod === 'email') {
-        // Send password reset email
-        await sendPasswordResetEmail(auth, newDriverEmail);
-      }
-
-      setSuccess(`Livreur ajouté avec succès ! ${notificationMethod === 'email' ? 'Un e-mail contenant le lien de téléchargement de l\'application et les accès a été envoyé à ' + newDriverEmail : 'Un SMS contenant le mot de passe et le lien de l\'application a été envoyé au ' + phoneNumber}. Vous pouvez également lui partager l'application directement via WhatsApp.`);
-      setNewDriverName("");
-      setNewDriverEmail("");
-      setPhoneNumber("");
-      setIsAddingDriver(false);
-      fetchDrivers();
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Une erreur s'est produite.");
-    } finally {
-      setIsProcessingDriver(false);
-    }
-  };
-
   const handleRequestDeleteDriver = async (driverId: string) => {
     if (!confirm("Voulez-vous vraiment supprimer ce livreur ?")) return;
     try {
@@ -179,7 +115,6 @@ export default function SupplierDriversPage() {
           onClick={() => {
             setIsAddingDriver(true);
             setSuccess("");
-            setError("");
           }}
           className="flex items-center space-x-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold px-4 py-2 rounded-xl transition-all shadow-md shadow-[#C7D300]/15 active:scale-95"
         >
@@ -214,7 +149,7 @@ export default function SupplierDriversPage() {
         <div className="flex items-center space-x-2 w-full md:w-auto">
           <button
             onClick={() => {
-              navigator.clipboard.writeText(DRIVER_APP_APK_URL);
+              navigator.clipboard.writeText(getPermanentDriverApkUrl());
               setCopiedAppUrl(true);
               setTimeout(() => setCopiedAppUrl(false), 2500);
             }}
@@ -225,7 +160,7 @@ export default function SupplierDriversPage() {
           </button>
 
           <a
-            href={DRIVER_APP_APK_URL}
+            href={PERMANENT_DRIVER_APK_PATH}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 md:flex-initial flex items-center justify-center space-x-2 px-3 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] rounded-lg text-xs font-bold shadow-md shadow-[#C7D300]/20 transition-all active:scale-95"
@@ -298,7 +233,7 @@ export default function SupplierDriversPage() {
                         <button 
                           onClick={() => {
                             const firstName = (driver.displayName || "").split(' ')[0] || "Livreur";
-                            const shareText = `Bonjour ${firstName} !\n\nVotre compte livreur Rayons a été créé.\n\n📲 Téléchargez votre application mobile Android officielle ici :\n${DRIVER_APP_APK_URL}\n\nIdentifiant : ${driver.email}`;
+                            const shareText = `Bonjour ${firstName} !\n\nVotre compte livreur Rayons a été créé.\n\n📲 Téléchargez votre application mobile Android officielle ici :\n${getPermanentDriverApkUrl()}\n\nIdentifiant : ${driver.email}`;
                             window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
                           }}
                           className="px-3 py-1.5 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-lg text-xs font-medium transition-colors inline-flex items-center"
@@ -357,7 +292,7 @@ export default function SupplierDriversPage() {
                     <button 
                       onClick={() => {
                         const firstName = (driver.displayName || "").split(' ')[0] || "Livreur";
-                        const shareText = `Bonjour ${firstName} !\n\nVotre compte livreur Rayons a été créé.\n\n📲 Téléchargez votre application mobile Android officielle ici :\n${DRIVER_APP_APK_URL}\n\nIdentifiant : ${driver.email}`;
+                        const shareText = `Bonjour ${firstName} !\n\nVotre compte livreur Rayons a été créé.\n\n📲 Téléchargez votre application mobile Android officielle ici :\n${getPermanentDriverApkUrl()}\n\nIdentifiant : ${driver.email}`;
                         window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
                       }}
                       className="px-3 py-1.5 bg-green-500/10 text-green-400 hover:bg-green-500/20 rounded-xl text-xs font-semibold transition-colors inline-flex items-center"
@@ -381,122 +316,15 @@ export default function SupplierDriversPage() {
       )}
 
       {/* Add Driver Modal */}
-      <AnimatePresence>
-        {isAddingDriver && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md bg-[#0F1D27] border border-white/10 rounded-3xl shadow-2xl overflow-hidden"
-            >
-              <div className="flex items-center justify-between p-6 border-b border-white/10">
-                <h2 className="text-xl font-semibold text-white">Ajouter un livreur</h2>
-                <button onClick={() => setIsAddingDriver(false)} className="text-gray-400 hover:text-white transition-colors">
-                  <X size={24} />
-                </button>
-              </div>
-
-              <form onSubmit={handleAddDriver} className="p-6 space-y-4">
-                {error && (
-                  <div className="p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-400 text-sm">
-                    {error}
-                  </div>
-                )}
-                
-                <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-300 text-sm mb-2">
-                  Choisissez comment notifier le livreur de son nouveau mot de passe.
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-300">Méthode de notification</label>
-                  <div className="flex space-x-4">
-                    <label className="flex items-center space-x-2 text-white cursor-pointer">
-                      <input 
-                        type="radio" 
-                        name="notificationMethod" 
-                        value="email" 
-                        checked={notificationMethod === 'email'} 
-                        onChange={() => setNotificationMethod('email')}
-                        className="text-primary focus:ring-primary bg-black/20 border-white/10"
-                      />
-                      <span>Email</span>
-                    </label>
-                    <label className="flex items-center space-x-2 text-white cursor-pointer">
-                      <input 
-                        type="radio" 
-                        name="notificationMethod" 
-                        value="sms" 
-                        checked={notificationMethod === 'sms'} 
-                        onChange={() => setNotificationMethod('sms')}
-                        className="text-primary focus:ring-primary bg-black/20 border-white/10"
-                      />
-                      <span>SMS</span>
-                    </label>
-                  </div>
-                </div>
-
-                {notificationMethod === 'sms' && (
-                  <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-300">Numéro de téléphone</label>
-                    <input
-                      type="tel"
-                      required
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="+243..."
-                      className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-white"
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-300">Nom du livreur</label>
-                  <input 
-                    type="text" 
-                    required 
-                    value={newDriverName} 
-                    onChange={(e) => setNewDriverName(e.target.value)} 
-                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white" 
-                    placeholder="Ex: Jean Dupont" 
-                  />
-                </div>
-                
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-300">Email</label>
-                  <input 
-                    type="email" 
-                    required 
-                    value={newDriverEmail} 
-                    onChange={(e) => setNewDriverEmail(e.target.value)} 
-                    className="w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white" 
-                    placeholder="jean.dupont@email.com" 
-                  />
-                </div>
-
-                <div className="pt-4 flex justify-end space-x-3 border-t border-white/10 mt-6">
-                  <button 
-                    type="button" 
-                    onClick={() => setIsAddingDriver(false)} 
-                    className="px-4 py-2 text-gray-400 hover:text-white font-medium transition-colors"
-                  >
-                    Annuler
-                  </button>
-                  <button 
-                    type="submit" 
-                    disabled={isProcessingDriver} 
-                    className="px-6 py-2 bg-[#C7D300] text-[#0F1D27] font-bold rounded-xl hover:bg-[#b5c000] transition-all disabled:opacity-50 flex items-center shadow-md shadow-[#C7D300]/20 active:scale-95"
-                  >
-                    {isProcessingDriver ? (
-                      <><div className="w-4 h-4 border-2 border-[#0F1D27]/30 border-t-[#0F1D27] rounded-full animate-spin mr-2" /> Création...</>
-                    ) : "Ajouter"}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <DriverFormModal
+        isOpen={isAddingDriver}
+        onClose={() => setIsAddingDriver(false)}
+        onDriverCreated={() => {
+          setSuccess("Livreur ajouté avec succès !");
+          fetchDrivers();
+        }}
+        targetSupplierId={activeSupplierId}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, u
 import { db } from "@/lib/firebase";
 import { Send, Loader2, FileText, Smile, Image as ImageIcon, Paperclip, Phone, Globe, CheckCheck, Sparkles, ClipboardList } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useCurrency } from "@/context/CurrencyContext";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -49,6 +50,7 @@ export function ChatBox({
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const { user } = useAuth();
+  const { formatPrice } = useCurrency();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -261,17 +263,17 @@ export function ChatBox({
                           <div className="flex justify-between">
                             <span className="text-gray-500">Prix unitaire :</span>
                             <span className="font-semibold text-gray-900">
-                              ${Number(msg.proforma.unitPrice || (msg.proforma.price / (msg.proforma.quantity || 1))).toFixed(2)}
+                              {formatPrice(msg.proforma.unitPrice || (msg.proforma.price / (msg.proforma.quantity || 1)))}
                             </span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-gray-500">Livraison :</span>
-                            <span className="font-semibold text-gray-900">${Number(msg.proforma.deliveryFee ?? 3).toFixed(2)}</span>
+                            <span className="font-semibold text-gray-900">{formatPrice(msg.proforma.deliveryFee ?? 3)}</span>
                           </div>
                           <div className="flex justify-between font-bold border-t border-gray-200 pt-1 text-xs">
                             <span className="text-gray-900">Total à régler :</span>
                             <span className="text-[#FF6600] font-black text-sm">
-                              ${(Number(msg.proforma.totalPrice || msg.proforma.price) + Number(msg.proforma.deliveryFee ?? 3)).toFixed(2)}
+                              {formatPrice(Number(msg.proforma.totalPrice || msg.proforma.price) + Number(msg.proforma.deliveryFee ?? 3))}
                             </span>
                           </div>
                         </div>

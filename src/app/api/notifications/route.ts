@@ -9,6 +9,7 @@ import {
 } from "@/lib/notifications";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
 
 export async function POST(req: Request) {
   try {
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
         supplierPhone = supplierDoc.data().phone || "";
       }
     } else if (supplierId === "admin") {
-      supplierEmail = "danielkiboko218@gmail.com";
+      supplierEmail = SUPER_ADMIN_EMAILS[0] || process.env.SMTP_USER || "admin@rayons.net";
     }
 
     // Fetch Client Details

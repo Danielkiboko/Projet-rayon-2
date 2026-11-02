@@ -2,13 +2,11 @@
 
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { useChat } from "@/context/ChatContext";
-import { TrendingUp, MessageCircle, User, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
 
 export function Footer() {
   const { user } = useAuth();
-  const { toggleChat } = useChat();
 
   return (
     <>
@@ -82,24 +80,6 @@ export function Footer() {
           </div>
         </div>
       </footer>
-
-      {/* Mobile Bottom Navigation */}
-      <nav className="fixed bottom-0 w-full bg-white border-t border-gray-200 pb-safe sm:hidden z-50">
-        <div className="flex justify-around p-3">
-          <Link href="/" className="flex flex-col items-center gap-1 text-gray-900">
-            <div className="p-1"><TrendingUp size={24} /></div>
-            <span className="text-[10px] font-bold">Explorer</span>
-          </Link>
-          <button onClick={toggleChat} className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-900 transition-colors relative">
-            <div className="p-1"><MessageCircle size={24} /></div>
-            <span className="text-[10px] font-bold">Chat</span>
-          </button>
-          <Link href="/login" className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-900 transition-colors">
-            <div className="p-1"><User size={24} /></div>
-            <span className="text-[10px] font-bold">Menu</span>
-          </Link>
-        </div>
-      </nav>
     </>
   );
 }

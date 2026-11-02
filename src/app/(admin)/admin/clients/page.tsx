@@ -20,7 +20,8 @@ import {
 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { collection, query, limit, onSnapshot, addDoc, serverTimestamp } from "firebase/firestore";
-import { isSupplier, isTeamMember, hasAdminAccess } from "@/lib/permissions";
+import { isSupplier, isTeamMember, hasAdminAccess, SUPER_ADMIN_EMAILS } from "@/lib/permissions";
+import ResponsiveModal from "@/modules/shared/components/ui/ResponsiveModal";
 
 interface ClientData {
   id: string;
@@ -45,7 +46,7 @@ function isExcludedFromClients(data: any): boolean {
   const email = (data.email || "").toLowerCase().trim();
 
   // 1. Super Admin
-  if (email === "danielkiboko218@gmail.com" || role === "SUPER_ADMIN" || role === "SUPERADMIN") {
+  if (SUPER_ADMIN_EMAILS.includes(email) || role === "SUPER_ADMIN" || role === "SUPERADMIN") {
     return true;
   }
 
@@ -672,114 +673,100 @@ export default function ClientsPage() {
       </div>
 
       {/* MODAL : Enregistrer un Client Manuellement */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#0F1D27] border border-white/10 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-            {/* Header */}
-            <div className="p-6 border-b border-white/10 flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-bold text-white">Enregistrer un Nouveau Client</h3>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Ajout manuel de coordonnées dans la base de données Rayon
-                </p>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-              >
-                <X size={18} />
-              </button>
+      <ResponsiveModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Enregistrer un Nouveau Client"
+        subtitle="Ajout manuel de coordonnées dans la base de données Rayon"
+        icon={<UsersIcon size={20} />}
+        maxWidth="lg"
+      >
+        <form onSubmit={handleCreateClient} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Prénom</label>
+              <input
+                type="text"
+                required
+                placeholder="Ex: Jean"
+                value={formData.firstName}
+                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
+              />
             </div>
-
-            {/* Form */}
-            <form onSubmit={handleCreateClient} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-300 mb-1.5">Prénom</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: Jean"
-                    value={formData.firstName}
-                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-300 mb-1.5">Nom</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ex: Mukendi"
-                    value={formData.lastName}
-                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                  Numéro de Téléphone (Mobile Money / Contact)
-                </label>
-                <input
-                  type="tel"
-                  placeholder="+243 82 000 00 00"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-300 mb-1.5">Adresse Email</label>
-                <input
-                  type="email"
-                  placeholder="client@gmail.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-300 mb-1.5">Adresse / Ville (Facultatif)</label>
-                <input
-                  type="text"
-                  placeholder="Gombe, Kinshasa"
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
-                />
-              </div>
-
-              <div className="pt-4 flex items-center justify-end gap-3 border-t border-white/10">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] transition-all shadow-md flex items-center gap-2"
-                >
-                  {isSubmitting ? (
-                    <span>Enregistrement...</span>
-                  ) : (
-                    <>
-                      <UserCheck size={15} />
-                      <span>Ajouter à la base de données</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">Nom</label>
+              <input
+                type="text"
+                required
+                placeholder="Ex: Mukendi"
+                value={formData.lastName}
+                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
+              />
+            </div>
           </div>
-        </div>
-      )}
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              Numéro de Téléphone (Mobile Money / Contact)
+            </label>
+            <input
+              type="tel"
+              placeholder="+243 82 000 00 00"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">Adresse Email</label>
+            <input
+              type="email"
+              placeholder="client@gmail.com"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">Adresse / Ville (Facultatif)</label>
+            <input
+              type="text"
+              placeholder="Gombe, Kinshasa"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
+            />
+          </div>
+
+          <div className="pt-4 flex items-center justify-end gap-3 border-t border-white/10">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="px-4 py-2.5 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+            >
+              {isSubmitting ? (
+                <span>Enregistrement...</span>
+              ) : (
+                <>
+                  <UserCheck size={15} />
+                  <span>Ajouter à la base de données</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </ResponsiveModal>
     </div>
   );
 }

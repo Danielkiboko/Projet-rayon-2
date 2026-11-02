@@ -11,6 +11,7 @@ import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, orderBy, limit, doc, updateDoc } from "firebase/firestore";
 import { generateOrderInvoicePDF } from "@/lib/invoiceGenerator";
 import { getSupplierType } from "@/lib/permissions";
+import { useCurrency } from "@/context/CurrencyContext";
 
 interface Order {
   id: string;
@@ -73,6 +74,7 @@ const NEXT_STATUS: Record<string, string | null> = {
 
 export default function SupplierOrdersPage() {
   const { user, userData } = useAuth();
+  const { currency, formatPrice } = useCurrency();
   const activeSupplierId = userData?.parentSupplierId || user?.uid;
   const rayon = getSupplierType(userData);
   const isSaveurs = rayon === "saveurs";
@@ -330,11 +332,11 @@ export default function SupplierOrdersPage() {
                             ))}
                           </div>
                         </td>
-                        <td className="px-6 py-4 font-bold text-white">{(order.totalAmount || 0).toLocaleString("fr-FR")} $</td>
+                        <td className="px-6 py-4 font-bold text-white">{formatPrice(order.totalAmount)}</td>
                         <td className="px-6 py-4">{getStatusBadge(order.status)}</td>
                         <td className="px-6 py-4 text-right">
                           <button
-                            onClick={() => generateOrderInvoicePDF(order, userData, "$")}
+                            onClick={() => generateOrderInvoicePDF(order, userData, currency)}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#C7D300]/20 hover:bg-[#C7D300]/30 text-[#C7D300] border border-[#C7D300]/30 rounded-lg text-xs font-bold transition-all active:scale-95"
                           >
                             <Download size={12} />Facture
@@ -401,7 +403,7 @@ export default function SupplierOrdersPage() {
                       <div>
                         <span className="text-[10px] uppercase tracking-wider text-gray-400 block">Total</span>
                         <span className="text-base font-extrabold text-white">
-                          {(order.totalAmount || 0).toLocaleString("fr-FR")} $
+                          {formatPrice(order.totalAmount)}
                         </span>
                       </div>
 
@@ -467,7 +469,7 @@ export default function SupplierOrdersPage() {
                           ))}
                         </div>
                         <div className="flex items-center justify-between mt-1">
-                          <span className="text-sm font-bold text-white">{(order.totalAmount || 0).toLocaleString("fr-FR")} $</span>
+                          <span className="text-sm font-bold text-white">{formatPrice(order.totalAmount)}</span>
                           {canAdvance && (
                             <button
                               onClick={() => advanceOrder(order)}
@@ -478,7 +480,7 @@ export default function SupplierOrdersPage() {
                           )}
                         </div>
                         <button
-                          onClick={() => generateOrderInvoicePDF(order, userData, "$")}
+                          onClick={() => generateOrderInvoicePDF(order, userData, currency)}
                           className="mt-1 flex items-center justify-center gap-1 w-full py-1 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-lg text-[10px] font-medium transition-all"
                         >
                           <Download size={10} /> Facture

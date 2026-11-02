@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { adminAuth, adminDb, adminInitError } from '@/lib/firebase-admin';
 import { sendMobiShastraSMS } from '@/lib/sms';
 import nodemailer from 'nodemailer';
+import { SUPER_ADMIN_EMAILS } from '@/lib/serverAuth';
+import { getPermanentDriverApkUrl } from '@/lib/constants';
 
 export async function POST(req: Request) {
   try {
@@ -38,7 +40,7 @@ export async function POST(req: Request) {
     }
 
     const rawRole = (firestoreRole || decodedToken.role || '').toString().toUpperCase();
-    const isSuperAdminEmail = callerEmail === 'danielkiboko218@gmail.com';
+    const isSuperAdminEmail = SUPER_ADMIN_EMAILS.includes((callerEmail || '').toLowerCase().trim());
     const isSuperAdminCaller = isSuperAdminEmail || rawRole === 'SUPER_ADMIN' || rawRole === 'SUPERADMIN';
     const isSubAdminCaller = ['SUB_ADMIN', 'SUBADMIN', 'ADMIN'].includes(rawRole);
     const isAdminCaller = isSuperAdminCaller || isSubAdminCaller;
@@ -148,8 +150,6 @@ export async function POST(req: Request) {
       ...additionalData
     }, { merge: true });
 
-const DRIVER_APP_APK_URL = "https://expo.dev/artifacts/eas/CuY-nZ0kk1GwVdTmiAimwLjc34w2wMJ924j3pcK7JpM.apk";
-
     // 7. Route to specific collections (drivers, suppliers) if needed
     if (['supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS'].includes(roleToCreate)) {
       await adminDb.collection('suppliers').doc(userRecord.uid).set({
@@ -167,7 +167,7 @@ const DRIVER_APP_APK_URL = "https://expo.dev/artifacts/eas/CuY-nZ0kk1GwVdTmiAimw
         createdBy: claims.createdBy,
         email,
         displayName,
-        appDownloadUrl: DRIVER_APP_APK_URL,
+        appDownloadUrl: getPermanentDriverApkUrl(),
         createdAt: new Date(),
         status: 'active'
       }, { merge: true });
@@ -215,6 +215,7 @@ const DRIVER_APP_APK_URL = "https://expo.dev/artifacts/eas/CuY-nZ0kk1GwVdTmiAimw
         const displayRole = roleLabels[roleToCreate] || roleToCreate;
 
         const loginUrl = resetLink || 'https://rayons.net/login';
+        const driverApkUrl = getPermanentDriverApkUrl();
 
         const mailOptions = {
           from: '"Rayons.net" <admin@rayons.net>',
@@ -268,11 +269,11 @@ const DRIVER_APP_APK_URL = "https://expo.dev/artifacts/eas/CuY-nZ0kk1GwVdTmiAimw
                 <p style="margin:0 0 16px;font-size:14px;color:#a0b4c0;line-height:1.5;">
                   Téléchargez l'application officielle sur votre smartphone Android pour recevoir vos livraisons en temps réel, naviguer via le GPS et valider vos encaissements.
                 </p>
-                <a href="${DRIVER_APP_APK_URL}" style="display:inline-block;background-color:#C7D300;color:#0F1D27;padding:14px 28px;text-decoration:none;font-weight:800;font-size:14px;border-radius:8px;letter-spacing:0.5px;">
+                <a href="${driverApkUrl}" style="display:inline-block;background-color:#C7D300;color:#0F1D27;padding:14px 28px;text-decoration:none;font-weight:800;font-size:14px;border-radius:8px;letter-spacing:0.5px;">
                   📥 Télécharger l'Application (.APK)
                 </a>
                 <p style="margin:12px 0 0;font-size:12px;color:#8fa3b0;">
-                  Lien de téléchargement : <br><a href="${DRIVER_APP_APK_URL}" style="color:#C7D300;word-break:break-all;">${DRIVER_APP_APK_URL}</a>
+                  Lien permanent : <br><a href="${driverApkUrl}" style="color:#C7D300;word-break:break-all;">${driverApkUrl}</a>
                 </p>
               </div>
             </td>
@@ -357,7 +358,8 @@ const DRIVER_APP_APK_URL = "https://expo.dev/artifacts/eas/CuY-nZ0kk1GwVdTmiAimw
           }
         }
 
-        const appLinkSms = roleToCreate === 'driver' ? `\nApp mobile Livreur: ${DRIVER_APP_APK_URL}` : '';
+        const driverApkUrl = getPermanentDriverApkUrl();
+        const appLinkSms = roleToCreate === 'driver' ? `\nApp mobile Livreur: ${driverApkUrl}` : '';
         const message = `Bonjour ${displayName || ''}, votre compte Rayons a été créé.\nEmail: ${email}\n${resetLink ? `Activez votre compte: ${resetLink}` : `Mot de passe temporaire: ${finalPassword}`}${appLinkSms}\nLien: https://rayons.net`;
         await sendMobiShastraSMS({ mobileNo: phoneNumber, message, customSenderId });
         console.log(`SMS sent successfully to ${phoneNumber} with senderId ${customSenderId || 'default'}`);
@@ -370,7 +372,7 @@ const DRIVER_APP_APK_URL = "https://expo.dev/artifacts/eas/CuY-nZ0kk1GwVdTmiAimw
       message: 'User created successfully', 
       uid: userRecord.uid,
       resetLink,
-      appDownloadUrl: roleToCreate === 'driver' ? DRIVER_APP_APK_URL : undefined
+      appDownloadUrl: roleToCreate === 'driver' ? getPermanentDriverApkUrl() : undefined
     }, { status: 201 });
 
   } catch (error: any) {

@@ -34,10 +34,10 @@ export default function AdSense() {
         strategy="afterInteractive"
       />
       {isDev && (
-        <div className="fixed bottom-0 left-0 right-0 w-full bg-slate-200 dark:bg-slate-800 border-t border-slate-300 dark:border-slate-700 h-[90px] flex items-center justify-center z-50 opacity-95 shadow-lg">
-          <div className="text-center">
-            <span className="text-xs text-slate-500 uppercase tracking-widest block mb-1">Espace Publicitaire (Simulation Localhost)</span>
-            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">Votre publicité Google AdSense s'affichera ici en production</span>
+        <div className="fixed bottom-[64px] sm:bottom-0 left-0 right-0 w-full bg-slate-200 dark:bg-slate-800 border-t border-slate-300 dark:border-slate-700 h-[60px] sm:h-[90px] flex items-center justify-center z-40 opacity-95 shadow-lg">
+          <div className="text-center px-4">
+            <span className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-widest block mb-0.5">Espace Publicitaire (Simulation Localhost)</span>
+            <span className="text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300">Votre publicité Google AdSense s'affichera ici en production</span>
           </div>
         </div>
       )}

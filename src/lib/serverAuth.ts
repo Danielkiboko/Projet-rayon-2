@@ -5,7 +5,13 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
  * Vérifie le token Firebase envoyé dans l'en-tête `Authorization: Bearer <idToken>`.
  */
 
-export const SUPER_ADMIN_EMAILS = ["danielkiboko218@gmail.com", "admin@rayons.net"];
+export const SUPER_ADMIN_EMAILS: string[] = (
+  process.env.SUPER_ADMIN_EMAILS || "danielkiboko218@gmail.com,admin@rayons.net"
+)
+  .split(",")
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
 export const ADMIN_ROLES = [
   "SUPER_ADMIN", "SUPERADMIN", "SUB_ADMIN", "ADMIN", "ADMIN_FINANCE",
   "ADMIN_OPS", "ADMIN_DB", "ADMIN_TECH", "SOUS_ADMIN_GENERAL",

@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Wallet, ArrowDownRight, ArrowUpRight, Plus, Download, X, Search, Home, Hotel, Sparkles, Sliders, ShieldAlert, CheckCircle, Clock, Phone, Loader2, Calendar, TrendingUp, Landmark } from "lucide-react";
+import { Wallet, ArrowDownRight, ArrowUpRight, Plus, Download, X, Search, Home, Hotel, Sparkles, Sliders, ShieldAlert, CheckCircle, Clock, Phone, Loader2, TrendingUp, Landmark } from "lucide-react";
+import { useDatePeriodFilter } from "@/hooks/useDatePeriodFilter";
+import DateRangeFilterPills from "@/modules/shared/components/finance/DateRangeFilterPills";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, where, doc, updateDoc, limit } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
@@ -42,11 +44,8 @@ export default function SupplierFinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState("ALL");
-  const [periodFilter, setPeriodFilter] = useState<"today" | "yesterday" | "last7days" | "this_month" | "all" | "custom">("today");
-  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string>("");
-  const [calendarStartDate, setCalendarStartDate] = useState<string>("");
-  const [calendarEndDate, setCalendarEndDate] = useState<string>("");
-  const [showRangePicker, setShowRangePicker] = useState<boolean>(false);
+  const dateFilter = useDatePeriodFilter("today");
+  const { periodFilter, isItemInPeriod: isTxInPeriod, getPeriodLabel } = dateFilter;
   const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -591,91 +590,6 @@ export default function SupplierFinancePage() {
     document.body.removeChild(link);
   };
 
-  const getTxTimestamp = (t: any): number => {
-    if (!t.createdAt) return 0;
-    if (t.createdAt.toMillis) return t.createdAt.toMillis();
-    if (t.createdAt.toDate) return t.createdAt.toDate().getTime();
-    if (t.createdAt.seconds) return t.createdAt.seconds * 1000;
-    if (typeof t.createdAt === "number") return t.createdAt;
-    const parsed = new Date(t.createdAt).getTime();
-    return isNaN(parsed) ? 0 : parsed;
-  };
-
-  const isTxInPeriod = (t: any, period: "today" | "yesterday" | "last7days" | "this_month" | "all" | "custom"): boolean => {
-    if (period === "all") return true;
-    const time = getTxTimestamp(t);
-    if (!time) return true;
-
-    const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const startOfYesterday = startOfToday - 24 * 60 * 60 * 1000;
-
-    if (period === "today") {
-      return time >= startOfToday;
-    }
-    if (period === "yesterday") {
-      return time >= startOfYesterday && time < startOfToday;
-    }
-    if (period === "last7days") {
-      const sevenDaysAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000;
-      return time >= sevenDaysAgo;
-    }
-    if (period === "this_month") {
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-      return time >= startOfMonth;
-    }
-    if (period === "custom") {
-      if (selectedCalendarDate && !calendarStartDate && !calendarEndDate) {
-        const [y, m, d] = selectedCalendarDate.split("-").map(Number);
-        const dayStart = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
-        const dayEnd = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
-        return time >= dayStart && time <= dayEnd;
-      }
-      let match = true;
-      if (calendarStartDate) {
-        const [y, m, d] = calendarStartDate.split("-").map(Number);
-        const start = new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
-        if (time < start) match = false;
-      }
-      if (calendarEndDate) {
-        const [y, m, d] = calendarEndDate.split("-").map(Number);
-        const end = new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
-        if (time > end) match = false;
-      }
-      return match;
-    }
-    return true;
-  };
-
-  const getPeriodLabel = () => {
-    switch (periodFilter) {
-      case "today": return "Aujourd'hui (24h)";
-      case "yesterday": return "Hier";
-      case "last7days": return "7 derniers jours";
-      case "this_month": return "Ce mois";
-      case "all": return "Tout l'historique";
-      case "custom":
-        if (selectedCalendarDate && !calendarStartDate && !calendarEndDate) {
-          const [y, m, d] = selectedCalendarDate.split("-");
-          return `Journée du ${d}/${m}/${y}`;
-        }
-        if (calendarStartDate && calendarEndDate) {
-          const [y1, m1, d1] = calendarStartDate.split("-");
-          const [y2, m2, d2] = calendarEndDate.split("-");
-          return `Du ${d1}/${m1}/${y1} au ${d2}/${m2}/${y2}`;
-        }
-        if (calendarStartDate) {
-          const [y, m, d] = calendarStartDate.split("-");
-          return `Depuis le ${d}/${m}/${y}`;
-        }
-        if (calendarEndDate) {
-          const [y, m, d] = calendarEndDate.split("-");
-          return `Jusqu'au ${d}/${m}/${y}`;
-        }
-        return "Date du calendrier";
-    }
-  };
-
   const filteredTransactions = transactions.filter(t => {
     // 1. Filtrer par période temporelle
     if (!isTxInPeriod(t, periodFilter)) return false;
@@ -807,107 +721,7 @@ export default function SupplierFinancePage() {
       )}
 
       {/* Sélecteur de Période Comptable */}
-      <div className="bg-white/3 border border-white/8 rounded-xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-white/5 text-gray-400 rounded-lg shrink-0">
-            <Calendar size={16} />
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-semibold">Période comptable</p>
-            <h3 className="text-sm font-bold text-white mt-0.5">
-              {getPeriodLabel()}
-              {periodFilter === "today" && (
-                <span className="ml-2 text-[10px] text-[#C7D300] font-bold">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#C7D300] animate-pulse mr-1 align-middle"></span>
-                  En direct
-                </span>
-              )}
-            </h3>
-          </div>
-        </div>
-
-        {/* Contrôles Calendrier */}
-        <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
-          <input
-            type="date"
-            value={selectedCalendarDate}
-            onChange={(e) => {
-              setSelectedCalendarDate(e.target.value);
-              setCalendarStartDate("");
-              setCalendarEndDate("");
-              setPeriodFilter("custom");
-            }}
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300] cursor-pointer"
-          />
-
-          {periodFilter === "custom" ? (
-            <button
-              type="button"
-              onClick={() => {
-                setPeriodFilter("today");
-                setSelectedCalendarDate("");
-                setCalendarStartDate("");
-                setCalendarEndDate("");
-                setShowRangePicker(false);
-              }}
-              className="text-xs bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold px-3 py-1.5 rounded-lg transition-all"
-            >
-              Aujourd&apos;hui
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setPeriodFilter("today");
-                setSelectedCalendarDate("");
-              }}
-              className="text-xs border border-white/10 text-gray-400 font-semibold px-3 py-1.5 rounded-lg hover:text-white transition-all"
-            >
-              Aujourd&apos;hui
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={() => setShowRangePicker(!showRangePicker)}
-            className="text-xs text-gray-500 hover:text-gray-300 px-2 py-1.5 transition-colors"
-          >
-            {showRangePicker ? "▾ Plage" : "▸ Plage"}
-          </button>
-        </div>
-
-        {showRangePicker && (
-          <div className="w-full pt-3 border-t border-white/8 flex flex-wrap items-center gap-3 text-xs">
-            <span className="text-gray-500 font-semibold">Plage :</span>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500">Du</span>
-              <input
-                type="date"
-                value={calendarStartDate}
-                onChange={(e) => {
-                  setCalendarStartDate(e.target.value);
-                  setSelectedCalendarDate("");
-                  setPeriodFilter("custom");
-                }}
-                className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-500">Au</span>
-              <input
-                type="date"
-                value={calendarEndDate}
-                onChange={(e) => {
-                  setCalendarEndDate(e.target.value);
-                  setSelectedCalendarDate("");
-                  setPeriodFilter("custom");
-                }}
-                className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]"
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      <DateRangeFilterPills filter={dateFilter} />
 
       {/* KPI Cards — Palette Monochromatique Épurée Responsive */}
       {isImmo ? (

@@ -27,7 +27,7 @@ import {
 import { db, auth } from "@/lib/firebase";
 import { collection, query, where, getDocs, doc, updateDoc, onSnapshot, serverTimestamp, limit } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
-import { isSuperAdmin, hasAdminAccess } from "@/lib/permissions";
+import { isSuperAdmin, hasAdminAccess, SUPER_ADMIN_EMAILS } from "@/lib/permissions";
 
 interface TeamMember {
   id: string;
@@ -259,7 +259,8 @@ export default function AdminTeamPage() {
       return;
     }
     const targetMember = teamMembers.find(m => m.id === userId);
-    if (targetMember && (targetMember.email?.toLowerCase() === "danielkiboko218@gmail.com" || targetMember.role?.toUpperCase().includes("SUPER"))) {
+    const targetEmail = (targetMember?.email || "").toLowerCase().trim();
+    if (targetMember && (SUPER_ADMIN_EMAILS.includes(targetEmail) || targetMember.role?.toUpperCase().includes("SUPER"))) {
       alert("Action interdite : Le Super Administrateur (Directeur Général) ne peut pas être modifié.");
       return;
     }
@@ -289,7 +290,8 @@ export default function AdminTeamPage() {
       return;
     }
     const targetMember = teamMembers.find(m => m.id === userId);
-    if (targetMember && (targetMember.email?.toLowerCase() === "danielkiboko218@gmail.com" || targetMember.role?.toUpperCase().includes("SUPER"))) {
+    const targetEmail = (targetMember?.email || "").toLowerCase().trim();
+    if (targetMember && (SUPER_ADMIN_EMAILS.includes(targetEmail) || targetMember.role?.toUpperCase().includes("SUPER"))) {
       alert("Action interdite : Le Super Administrateur (Directeur Général) ne peut pas être révoqué.");
       return;
     }

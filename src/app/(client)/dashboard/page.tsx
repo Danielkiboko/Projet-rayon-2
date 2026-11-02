@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { motion } from "framer-motion"
-import { isSupplier, isTeamMember, hasAdminAccess } from "@/lib/permissions"
+import { isSupplier, isTeamMember, hasAdminAccess, SUPER_ADMIN_EMAILS } from "@/lib/permissions"
 
 export default function DashboardRedirect() {
   const router = useRouter()
@@ -21,9 +21,10 @@ export default function DashboardRedirect() {
     if (userData === null) return;
 
     let role = (userData?.role || '').toUpperCase();
+    const userEmail = (user?.email || '').toLowerCase().trim();
     
-    // Hardcode super admin email for redirect if no role is explicitly set in Firestore
-    if (!role && user?.email === "danielkiboko218@gmail.com") {
+    // Check super admin email for redirect if no role is explicitly set in Firestore
+    if (!role && SUPER_ADMIN_EMAILS.includes(userEmail)) {
       role = "SUPER_ADMIN";
     }
 

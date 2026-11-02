@@ -23,6 +23,7 @@ import {
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
+import { useClientProformas } from "@/hooks/useClientProformas";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, limit } from "firebase/firestore";
@@ -38,108 +39,20 @@ export function CartDrawer() {
   // 2 main sections: Proformas Produits (Alibaba style) & Immo / Hôtels
   const [activeSection, setActiveSection] = useState<"proformas" | "immo">("proformas");
 
-  // Pending Proformas & Orders
-  const [pendingProformas, setPendingProformas] = useState<any[]>([]);
+  // Pending Proformas via unified hook
+  const { pendingProformas, isLoading: isLoadingProformas } = useClientProformas();
   const [payingProformaId, setPayingProformaId] = useState<string | null>(null);
   const [proformaError, setProformaError] = useState("");
-  const [isLoadingProformas, setIsLoadingProformas] = useState(true);
 
   // Pending Immo & Hotels
   const [pendingHotels, setPendingHotels] = useState<any[]>([]);
   const [pendingVisits, setPendingVisits] = useState<any[]>([]);
 
-  // Listen to user's pending proformas and pending immo bookings
+  // Listen to user's pending immo bookings
   useEffect(() => {
-    if (!user || !isCartOpen) {
-      setIsLoadingProformas(false);
-      return;
-    }
+    if (!user || !isCartOpen) return;
 
-    setIsLoadingProformas(true);
-
-    // 1. Fetch user's chats to listen to pending proforma messages sent by suppliers (Alibaba Trade Assurance proformas)
-    const qChats = query(
-      collection(db, "chats"),
-      where("clientId", "==", user.uid),
-      limit(40)
-    );
-
-    const messageUnsubs: (() => void)[] = [];
-
-    const unsubChats = onSnapshot(qChats, (snapshot) => {
-      messageUnsubs.forEach(unsub => unsub());
-      messageUnsubs.length = 0;
-
-      if (snapshot.empty) {
-        setPendingProformas([]);
-        setIsLoadingProformas(false);
-        return;
-      }
-
-      const proformasMap = new Map<string, any>();
-
-      snapshot.docs.forEach((chatDoc) => {
-        const chatData = chatDoc.data();
-        const chatId = chatDoc.id;
-        const supplierName = chatData.supplierName || chatData.productName || chatData.propertyTitle || "Fournisseur Partenaire";
-        const supplierId = chatData.supplierId;
-
-        const qMsg = query(
-          collection(db, "chats", chatId, "messages"),
-          where("type", "==", "proforma")
-        );
-
-        const unsubMsg = onSnapshot(qMsg, (msgSnap) => {
-          msgSnap.docs.forEach((msgDoc) => {
-            const m = msgDoc.data();
-            if (m.proforma && m.proforma.status === "pending") {
-              const pfKey = `${chatId}_${msgDoc.id}`;
-              const unitP = Number(m.proforma.unitPrice || (m.proforma.price / (m.proforma.quantity || 1))) || 0;
-              const totalP = Number(m.proforma.totalPrice || m.proforma.price) || 0;
-              const deliveryF = Number(m.proforma.deliveryFee ?? 3);
-
-              proformasMap.set(pfKey, {
-                chatId,
-                messageId: msgDoc.id,
-                supplierId: m.proforma.supplierId || supplierId,
-                supplierName: supplierName,
-                productName: m.proforma.productName || "Produit sous Facture Proforma",
-                productId: m.proforma.productId || null,
-                quantity: Number(m.proforma.quantity) || 1,
-                unitPrice: unitP,
-                totalPrice: totalP,
-                deliveryFee: deliveryF,
-                grandTotal: totalP + deliveryF,
-                status: m.proforma.status,
-                createdAt: m.createdAt,
-                type: m.proforma.type || "product"
-              });
-            } else if (m.proforma && m.proforma.status !== "pending") {
-              proformasMap.delete(`${chatId}_${msgDoc.id}`);
-            }
-          });
-
-          const list = Array.from(proformasMap.values());
-          list.sort((a, b) => {
-            const tA = a.createdAt?.toMillis?.() || 0;
-            const tB = b.createdAt?.toMillis?.() || 0;
-            return tB - tA;
-          });
-          setPendingProformas(list);
-          setIsLoadingProformas(false);
-        }, (err) => {
-          console.warn("Cart proforma messages error:", err);
-          setIsLoadingProformas(false);
-        });
-
-        messageUnsubs.push(unsubMsg);
-      });
-    }, (err) => {
-      console.warn("Cart chats listener error:", err);
-      setIsLoadingProformas(false);
-    });
-
-    // 2. Fetch pending hotel bookings
+    // 1. Fetch pending hotel bookings
     const qHotels = query(
       collection(db, "hotel_bookings"),
       where("clientId", "==", user.uid),
@@ -154,7 +67,7 @@ export function CartDrawer() {
       console.warn("Cart hotels listener error:", err);
     });
 
-    // 3. Fetch pending property visits
+    // 2. Fetch pending property visits
     const qVisits = query(
       collection(db, "visits"),
       where("clientId", "==", user.uid),
@@ -170,8 +83,6 @@ export function CartDrawer() {
     });
 
     return () => {
-      unsubChats();
-      messageUnsubs.forEach(u => u());
       unsubHotels();
       unsubVisits();
     };

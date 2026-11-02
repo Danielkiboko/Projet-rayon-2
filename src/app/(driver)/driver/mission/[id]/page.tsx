@@ -8,6 +8,17 @@ import { auth, db } from "@/lib/firebase";
 import { doc, onSnapshot, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
+import dynamic from "next/dynamic";
+
+const TrackingMap = dynamic(() => import("@/modules/client/components/TrackingMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-full w-full bg-[#101e29] flex items-center justify-center text-xs text-gray-400">
+      <Loader2 size={18} className="animate-spin text-[#C7D300] mr-2" />
+      <span>Chargement de la carte de livraison...</span>
+    </div>
+  ),
+});
 
 export default function MissionDetails({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -22,6 +33,22 @@ export default function MissionDetails({ params }: { params: Promise<{ id: strin
   const [error, setError] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
   const [driverLocation, setDriverLocation] = useState<{lat: number, lng: number} | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && "geolocation" in navigator) {
+      const watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          setDriverLocation({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+          });
+        },
+        (err) => console.warn("Driver geolocation info:", err),
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      );
+      return () => navigator.geolocation.clearWatch(watchId);
+    }
+  }, []);
 
   useEffect(() => {
     if (!missionId) return;
@@ -187,31 +214,19 @@ export default function MissionDetails({ params }: { params: Promise<{ id: strin
         <div className="w-10" />
       </div>
 
-      {/* Map Placeholder */}
-      <div className="h-[45vh] bg-[#1a1f35] relative overflow-hidden flex items-center justify-center">
-        {/* Fake Map Grid */}
-        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "linear-gradient(#ffffff 1px, transparent 1px), linear-gradient(90deg, #ffffff 1px, transparent 1px)", backgroundSize: "20px 20px" }}></div>
-        
-        {/* Route Line */}
-        <svg className="absolute inset-0 w-full h-full" style={{ strokeDasharray: "5,5" }}>
-          <path d="M 100 150 Q 200 50 300 200" fill="none" stroke="#a78bfa" strokeWidth="4" className={status === "ACCEPTED" ? "animate-pulse" : ""} />
-        </svg>
-
-        {/* Driver Marker */}
-        <div className="absolute left-[80px] top-[130px] flex flex-col items-center">
-          <div className="bg-primary text-white p-2 rounded-full shadow-lg shadow-primary/50 border-2 border-white mb-1">
-            <Navigation size={16} className="transform rotate-45" />
-          </div>
-          <span className="bg-black/60 text-white text-[10px] px-2 py-0.5 rounded backdrop-blur-md">Vous</span>
-        </div>
-
-        {/* Client Marker */}
-        <div className="absolute left-[290px] top-[190px] flex flex-col items-center">
-          <div className="bg-green-500 text-white p-2 rounded-full shadow-lg shadow-green-500/50 border-2 border-white mb-1">
-            <MapPin size={16} />
-          </div>
-          <span className="bg-black/60 text-white text-[10px] px-2 py-0.5 rounded backdrop-blur-md">Client</span>
-        </div>
+      {/* Real Dynamic Leaflet Tracking Map */}
+      <div className="h-[45vh] bg-[#101e29] relative overflow-hidden z-0">
+        <TrackingMap
+          clientLocation={
+            order?.clientLocation ||
+            order?.deliveryLocation ||
+            order?.deliveryDetails?.location || { lat: -4.322447, lng: 15.307045 }
+          }
+          driverLocation={
+            driverLocation ||
+            order?.driverLocation || { lat: -4.332, lng: 15.312 }
+          }
+        />
       </div>
 
       {/* Mission Info Sheet */}

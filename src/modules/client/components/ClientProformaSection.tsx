@@ -20,22 +20,9 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useCurrency } from "@/context/CurrencyContext";
+import { useClientProformas, ClientProforma as ProformaItem } from "@/hooks/useClientProformas";
 
-export interface ProformaItem {
-  chatId: string;
-  messageId: string;
-  supplierId?: string;
-  supplierName?: string;
-  productName: string;
-  quantity: number;
-  unitPrice: number;
-  totalPrice: number;
-  deliveryFee: number;
-  status: "pending" | "paid" | string;
-  orderId?: string;
-  createdAt?: any;
-  type?: "product" | "hotel" | string;
-}
+export type { ProformaItem };
 
 interface ClientProformaSectionProps {
   onProformaCountChange?: (count: number) => void;
@@ -48,104 +35,12 @@ export default function ClientProformaSection({
 }: ClientProformaSectionProps) {
   const { user, userData } = useAuth();
   const { formatPrice } = useCurrency();
-  const [proformas, setProformas] = useState<ProformaItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { proformas, pendingCount, isLoading } = useClientProformas();
   const [payingId, setPayingId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) return;
-
-    // 1. Fetch user's chats
-    const qChats = query(
-      collection(db, "chats"),
-      where("clientId", "==", user.uid),
-      limit(40)
-    );
-
-    const messageUnsubs: (() => void)[] = [];
-
-    const unsubChats = onSnapshot(qChats, (snapshot) => {
-      // Clear previous message listeners
-      messageUnsubs.forEach(unsub => unsub());
-      messageUnsubs.length = 0;
-
-      if (snapshot.empty) {
-        setProformas([]);
-        setIsLoading(false);
-        onProformaCountChange?.(0);
-        return;
-      }
-
-      const allProformasMap = new Map<string, ProformaItem>();
-
-      snapshot.docs.forEach((chatDoc) => {
-        const chatData = chatDoc.data();
-        const chatId = chatDoc.id;
-        const supplierName = chatData.productName || chatData.propertyTitle || "Fournisseur Partenaire";
-        const supplierId = chatData.supplierId;
-
-        // Query proforma messages in this chat
-        const qMsg = query(
-          collection(db, "chats", chatId, "messages"),
-          where("type", "==", "proforma")
-        );
-
-        const unsubMsg = onSnapshot(qMsg, (msgSnap) => {
-          msgSnap.docs.forEach((msgDoc) => {
-            const m = msgDoc.data();
-            if (m.proforma) {
-              const pfKey = `${chatId}_${msgDoc.id}`;
-              const unitP = Number(m.proforma.unitPrice || (m.proforma.price / (m.proforma.quantity || 1))) || 0;
-              const totalP = Number(m.proforma.totalPrice || m.proforma.price) || 0;
-              const deliveryF = Number(m.proforma.deliveryFee ?? 3);
-
-              allProformasMap.set(pfKey, {
-                chatId,
-                messageId: msgDoc.id,
-                supplierId: m.proforma.supplierId || supplierId,
-                supplierName: supplierName,
-                productName: m.proforma.productName || "Devis / Facture Proforma",
-                quantity: Number(m.proforma.quantity) || 1,
-                unitPrice: unitP,
-                totalPrice: totalP,
-                deliveryFee: deliveryF,
-                status: m.proforma.status || "pending",
-                orderId: m.proforma.orderId,
-                createdAt: m.createdAt,
-                type: m.proforma.type || "product"
-              });
-            }
-          });
-
-          // Convert map to sorted array
-          const list = Array.from(allProformasMap.values());
-          list.sort((a, b) => {
-            const timeA = a.createdAt?.toMillis?.() || 0;
-            const timeB = b.createdAt?.toMillis?.() || 0;
-            return timeB - timeA;
-          });
-
-          setProformas(list);
-          setIsLoading(false);
-          const pendingCount = list.filter(p => p.status === "pending").length;
-          onProformaCountChange?.(pendingCount);
-        }, (err) => {
-          console.warn("Proforma messages listener warning:", err);
-          setIsLoading(false);
-        });
-
-        messageUnsubs.push(unsubMsg);
-      });
-    }, (err) => {
-      console.warn("Chats listener warning:", err);
-      setIsLoading(false);
-    });
-
-    return () => {
-      unsubChats();
-      messageUnsubs.forEach(unsub => unsub());
-    };
-  }, [user, onProformaCountChange]);
+    onProformaCountChange?.(pendingCount);
+  }, [pendingCount, onProformaCountChange]);
 
   const handlePayProforma = async (pf: ProformaItem) => {
     if (!user) return;

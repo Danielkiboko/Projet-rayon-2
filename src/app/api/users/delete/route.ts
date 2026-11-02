@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
+import { SUPER_ADMIN_EMAILS } from '@/lib/serverAuth';
 
 export async function POST(req: Request) {
   try {
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
     }
 
     const rawRole = (firestoreRole || decodedToken.role || '').toString().toUpperCase();
-    const isSuperAdminCaller = callerEmail === "danielkiboko218@gmail.com" || rawRole === 'SUPER_ADMIN' || rawRole === 'SUPERADMIN';
+    const isSuperAdminCaller = SUPER_ADMIN_EMAILS.includes((callerEmail || '').toLowerCase().trim()) || rawRole === 'SUPER_ADMIN' || rawRole === 'SUPERADMIN';
     const isSubAdminCaller = ['SUB_ADMIN', 'SUBADMIN', 'ADMIN'].includes(rawRole);
     const isAuthorizedAdmin = isSuperAdminCaller || isSubAdminCaller;
     const isSupplierCaller = ['SUPPLIER', 'SUPPLIER_IMMO', 'SUB_SUPPLIER'].includes(rawRole);
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
         const targetData = targetDocSnap.data();
         const targetEmail = (targetData?.email || '').toLowerCase().trim();
         const targetRole = (targetData?.role || '').toString().toUpperCase();
-        if (targetEmail === 'danielkiboko218@gmail.com' || targetRole === 'SUPER_ADMIN' || targetRole === 'SUPERADMIN') {
+        if (SUPER_ADMIN_EMAILS.includes(targetEmail) || targetRole === 'SUPER_ADMIN' || targetRole === 'SUPERADMIN') {
           return NextResponse.json({ 
             error: 'Action interdite : Le compte Super Administrateur (Directeur Général) ne peut jamais être révoqué ni supprimé.' 
           }, { status: 403 });

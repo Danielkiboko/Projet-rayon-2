@@ -96,7 +96,7 @@ export default function AlibabaClientBottomNav({
   const isProfileActive = pathname === "/dashboard/client" && activeTab === "profile";
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[#0F1D27]/95 backdrop-blur-md border-t border-gray-200 dark:border-white/10 px-3 py-1.5 flex items-center justify-around sm:hidden shadow-lg safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 dark:bg-[#0F1D27]/95 backdrop-blur-md border-t border-gray-200 dark:border-white/10 px-3 py-1.5 pb-[calc(0.375rem+env(safe-area-inset-bottom,0px))] flex items-center justify-around sm:hidden shadow-lg">
       {/* 1. Accueil */}
       <Link
         href="/"
