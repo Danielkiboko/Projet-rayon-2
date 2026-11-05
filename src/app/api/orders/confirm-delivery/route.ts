@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendSMS, sendEmail, getOrderStatusEmail, getOrderStatusSMS } from "@/lib/notifications";
+import { getServerCaller } from "@/lib/serverAuth";
 
 export async function POST(req: NextRequest) {
   try {
+    const caller = await getServerCaller(req);
+    if (!caller) {
+      return NextResponse.json(
+        { success: false, error: "Authentification requise pour confirmer la livraison." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const { orderId, driverId, driverName, driverPhone, amountCollected } = body;
 

@@ -175,9 +175,13 @@ export default function DriverDashboard() {
       const driverPhone = driverInfo?.phone || userData?.phone || "";
       const driverVehicle = driverInfo?.vehicle || "";
 
+      const token = await user.getIdToken();
       const response = await fetch("/api/driver/accept-mission", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({ orderId, driverId: user.uid, driverName, driverPhone, driverVehicle }),
       });
 

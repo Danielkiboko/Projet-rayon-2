@@ -2,11 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendSMS, sendEmail, getOrderStatusEmail, getOrderStatusSMS } from "@/lib/notifications";
+import { getServerCaller } from "@/lib/serverAuth";
 
 export async function POST(req: NextRequest) {
   try {
+    const caller = await getServerCaller(req);
+    if (!caller) {
+      return NextResponse.json(
+        { success: false, error: "Authentification requise pour accepter cette mission." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
-    const { orderId, driverId, driverName, driverPhone, driverVehicle } = body;
+    const { orderId, driverName, driverPhone, driverVehicle } = body;
+    const driverId = caller.isAdmin ? (body.driverId || caller.uid) : caller.uid;
 
     if (!orderId || !driverId) {
       return NextResponse.json(

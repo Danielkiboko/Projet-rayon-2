@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { getServerCaller } from "@/lib/serverAuth";
 
 export async function POST(req: NextRequest) {
   try {
+    const caller = await getServerCaller(req);
     const body = await req.json();
     const { chatId, messageId, clientId, clientName, clientPhone, clientAddress } = body;
 
@@ -11,6 +13,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "chatId, messageId et clientId sont requis" },
         { status: 400 }
+      );
+    }
+
+    if (caller && !caller.isAdmin && caller.uid !== clientId) {
+      return NextResponse.json(
+        { error: "Non autorisé à régler une proforma pour un autre compte client." },
+        { status: 403 }
       );
     }
 

@@ -329,9 +329,13 @@ export default function SupplierFinancePage() {
 
     setClearingOrderId(orderId);
     try {
+      const token = user ? await user.getIdToken() : null;
       const res = await fetch("/api/orders/clear-cash", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           orderId,
           supplierId: activeSupplierId,

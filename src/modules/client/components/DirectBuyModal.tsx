@@ -18,23 +18,23 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { useRouter } from "next/navigation";
-import { db } from "@/lib/firebase";
-import { collection, doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { sendClientInAppNotification } from "@/lib/inAppNotification";
 
 interface DirectBuyModalProps {
   isOpen: boolean;
   onClose: () => void;
-  product: any;
+  product?: any;
+  items?: any[];
+  onOrderSuccess?: (order: any) => void;
 }
 
 import { KINSHASA_COMMUNES } from "@/lib/kinshasaDelivery";
 
-export function DirectBuyModal({ isOpen, onClose, product }: DirectBuyModalProps) {
+export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess }: DirectBuyModalProps) {
   const { user, userData } = useAuth();
   const { formatPrice } = useCurrency();
   const router = useRouter();
 
+  const isMultiple = Array.isArray(items) && items.length > 0;
   const [quantity, setQuantity] = useState(1);
   const [selectedCommune, setSelectedCommune] = useState("Gombe");
   const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -57,16 +57,22 @@ export function DirectBuyModal({ isOpen, onClose, product }: DirectBuyModalProps
     }
   }, [user, userData]);
 
-  if (!isOpen || !product) return null;
+  if (!isOpen || (!product && !isMultiple)) return null;
 
   const activeCommuneObj = KINSHASA_COMMUNES.find(c => c.name === selectedCommune) || KINSHASA_COMMUNES[0];
-  const unitPrice = Number(product.price) || 0;
-  const subtotal = unitPrice * quantity;
+  const unitPrice = isMultiple ? 0 : (Number(product?.price) || 0);
+  const subtotal = isMultiple
+    ? items.reduce((acc, it) => acc + ((Number(it.price) || 0) * (Number(it.quantity) || 1)), 0)
+    : unitPrice * quantity;
   const deliveryFee = activeCommuneObj.fee;
   const totalAmount = subtotal + deliveryFee;
 
-  const productTitle = product.title?.fr || product.title?.en || product.title || "Produit Rayons";
-  const productImage = product.imageUrl || product.image || "/images/placeholder.png";
+  const productTitle = isMultiple
+    ? (items.length === 1 ? items[0].title : `${items[0].title} (+${items.length - 1} autre(s))`)
+    : (product?.title?.fr || product?.title?.en || product?.title || "Produit Rayons");
+  const productImage = isMultiple
+    ? (items[0]?.image || "/images/placeholder.png")
+    : (product?.imageUrl || product?.image || "/images/placeholder.png");
 
   const handleOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,80 +94,47 @@ export function DirectBuyModal({ isOpen, onClose, product }: DirectBuyModalProps
     setIsSubmitting(true);
 
     try {
-      const orderId = `CMD-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 900 + 100)}`;
-      
-      const targetSupplierId = product.supplierId || "admin";
-      const fullAddress = `${deliveryAddress.trim()}, ${selectedCommune}, Kinshasa`;
+      const token = user ? await user.getIdToken().catch(() => null) : null;
 
-      const orderData = {
-        id: orderId,
-        clientId: user ? user.uid : "GUEST",
+      const payload: any = {
         clientName: clientName.trim(),
         clientPhone: clientPhone.trim(),
-        clientAddress: fullAddress,
-        supplierId: targetSupplierId,
-        supplierIds: [targetSupplierId],
-        rayon: product.rayon || product.category || "connect",
-        items: [{
-          productId: product.id,
-          productName: productTitle,
-          quantity: quantity,
-          price: unitPrice,
-          image: productImage,
-          supplierId: targetSupplierId
-        }],
-        subtotal: subtotal,
-        deliveryFee: deliveryFee,
-        totalAmount: totalAmount,
-        remainingBalance: totalAmount,
-        currency: "$",
+        clientEmail: user?.email || null,
         deliveryDetails: {
           city: "Kinshasa",
           commune: selectedCommune,
           address: deliveryAddress.trim(),
-          recipientName: clientName.trim(),
-          recipientPhone: clientPhone.trim()
+          deliveryFee
         },
-        paymentMethod: paymentMethod,
-        paymentStatus: paymentMethod === "CASH_ON_DELIVERY" ? "PAYMENT_ON_DELIVERY" : "AWAITING_PAYMENT",
-        status: "CONFIRMED_AWAITING_DRIVER",
-        createdAt: serverTimestamp(),
-        clientLocation: {
-          city: "Kinshasa",
-          commune: selectedCommune
-        }
+        paymentMethod,
+        mobileMoneyOperator: paymentMethod === "MOBILE_MONEY" ? mobileMoneyOperator : null,
+        currency: "USD"
       };
 
-      // 1. Save order to Firestore
-      await setDoc(doc(db, "orders", orderId), orderData);
-
-      // 2. Decrement stock if api is available
-      try {
-        await fetch("/api/orders/update-stock", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            productId: product.id,
-            quantity: quantity,
-            action: "decrement"
-          })
-        });
-      } catch (stockErr) {
-        console.warn("Stock update warn:", stockErr);
+      if (isMultiple) {
+        payload.items = items;
+      } else {
+        payload.product = product;
+        payload.quantity = quantity;
       }
 
-      setSuccessOrder(orderData);
+      const response = await fetch("/api/orders/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify(payload)
+      });
 
-      if (user) {
-        await sendClientInAppNotification({
-          userId: user.uid,
-          clientId: user.uid,
-          type: "order",
-          title: "Commande Express validée 🎉",
-          message: `Votre commande #${orderId.slice(-6)} (${productTitle} x${quantity} - $${totalAmount.toFixed(2)}) a été enregistrée avec succès. Livraison à ${selectedCommune}.`,
-          link: "/dashboard/client",
-        });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Impossible d'enregistrer la commande. Réessayez.");
       }
+
+      setSuccessOrder(data.order);
+      if (onOrderSuccess) onOrderSuccess(data.order);
     } catch (err: any) {
       console.error("Order creation error:", err);
       setError(err.message || "Impossible d'enregistrer la commande. Réessayez.");
@@ -258,32 +231,54 @@ export function DirectBuyModal({ isOpen, onClose, product }: DirectBuyModalProps
             )}
 
             {/* Product Summary */}
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-2xl border border-gray-100">
-              <div className="w-14 h-14 rounded-xl bg-white overflow-hidden border border-gray-200 shrink-0">
-                <img src={productImage} alt={productTitle} className="w-full h-full object-cover" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="font-bold text-gray-900 text-sm truncate">{productTitle}</h4>
-                <div className="text-gray-500 text-xs mt-0.5">{formatPrice(unitPrice)} / unité</div>
-              </div>
-              {/* Quantity selector */}
-              <div className="flex items-center gap-2 border border-gray-200 bg-white rounded-xl p-1">
-                <button
-                  type="button"
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-6 h-6 flex items-center justify-center font-bold text-gray-600 hover:bg-gray-100 rounded-lg"
-                >
-                  -
-                </button>
-                <span className="font-bold text-gray-800 text-sm px-1">{quantity}</span>
-                <button
-                  type="button"
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="w-6 h-6 flex items-center justify-center font-bold text-gray-600 hover:bg-gray-100 rounded-lg"
-                >
-                  +
-                </button>
-              </div>
+            <div className="p-3 bg-gray-50 rounded-2xl border border-gray-100">
+              {isMultiple ? (
+                <div>
+                  <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200/60">
+                    <span className="font-bold text-gray-900 text-xs">{items.length} article(s) dans la commande</span>
+                    <span className="font-bold text-gray-900 text-xs">{formatPrice(subtotal)}</span>
+                  </div>
+                  <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                    {items.map((it, idx) => (
+                      <div key={idx} className="flex items-center justify-between text-xs text-gray-700">
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="text-[10px] font-bold bg-gray-200 text-gray-800 px-1.5 py-0.5 rounded">x{it.quantity}</span>
+                          <span className="truncate">{it.title}</span>
+                        </div>
+                        <span className="font-semibold shrink-0 ml-2">{formatPrice(it.price * it.quantity)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <div className="w-14 h-14 rounded-xl bg-white overflow-hidden border border-gray-200 shrink-0">
+                    <img src={productImage} alt={productTitle} className="w-full h-full object-cover" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-bold text-gray-900 text-sm truncate">{productTitle}</h4>
+                    <div className="text-gray-500 text-xs mt-0.5">{formatPrice(unitPrice)} / unité</div>
+                  </div>
+                  {/* Quantity selector */}
+                  <div className="flex items-center gap-2 border border-gray-200 bg-white rounded-xl p-1">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="w-6 h-6 flex items-center justify-center font-bold text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <span className="font-bold text-gray-800 text-sm px-1">{quantity}</span>
+                    <button
+                      type="button"
+                      onClick={() => setQuantity(quantity + 1)}
+                      className="w-6 h-6 flex items-center justify-center font-bold text-gray-600 hover:bg-gray-100 rounded-lg cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Contact Details */}

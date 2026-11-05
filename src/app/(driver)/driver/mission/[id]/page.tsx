@@ -79,9 +79,13 @@ export default function MissionDetails({ params }: { params: Promise<{ id: strin
     setIsUpdating(true);
 
     try {
+      const token = await user.getIdToken();
       const response = await fetch("/api/driver/accept-mission", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
         body: JSON.stringify({
           orderId: order.id,
           driverId: user.uid,
@@ -134,10 +138,14 @@ export default function MissionDetails({ params }: { params: Promise<{ id: strin
       } else if (status === "ARRIVED_AWAITING_PAYMENT") {
         newStatus = "COMPLETED";
         const remainingAmount = Number(order.remainingBalance ?? order.totalAmount ?? 0);
+        const token = await currentUser.getIdToken();
         
         const response = await fetch("/api/orders/confirm-delivery", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
           body: JSON.stringify({
             orderId: order.id,
             driverId: currentUser.uid,

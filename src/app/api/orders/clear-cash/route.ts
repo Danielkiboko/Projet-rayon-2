@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { getServerCaller, canActForSupplier } from "@/lib/serverAuth";
 
 export async function POST(req: NextRequest) {
   try {
+    const caller = await getServerCaller(req);
     const body = await req.json();
     const { orderId, supplierId } = body;
 
@@ -11,6 +13,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: "orderId et supplierId sont requis." },
         { status: 400 }
+      );
+    }
+
+    if (!caller || !canActForSupplier(caller, supplierId)) {
+      return NextResponse.json(
+        { success: false, error: "Non autorisé à encaisser les fonds de ce fournisseur." },
+        { status: 403 }
       );
     }
 

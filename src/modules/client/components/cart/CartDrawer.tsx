@@ -4,6 +4,10 @@ import { useState, useEffect } from "react";
 import { 
   X, 
   ShoppingBag, 
+  ShoppingCart,
+  Trash2,
+  Plus,
+  Minus,
   ArrowRight, 
   CreditCard, 
   FileText, 
@@ -29,15 +33,17 @@ import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, limit } from "firebase/firestore";
 import Link from "next/link";
 import { generateHotelBookingReceiptPDF } from "@/lib/invoiceGenerator";
+import { DirectBuyModal } from "@/modules/client/components/DirectBuyModal";
 
 export function CartDrawer() {
-  const { isCartOpen, closeCart } = useCart();
+  const { isCartOpen, closeCart, items, removeFromCart, updateQuantity, clearCart, subtotal, totalItems } = useCart();
   const { user, userData } = useAuth();
   const { formatPrice } = useCurrency();
   const router = useRouter();
 
-  // 2 main sections: Proformas Produits (Alibaba style) & Immo / Hôtels
-  const [activeSection, setActiveSection] = useState<"proformas" | "immo">("proformas");
+  // 3 sections : Panier direct, Proformas Produits (style Alibaba), Immo & Hôtels
+  const [activeSection, setActiveSection] = useState<"cart" | "proformas" | "immo">("cart");
+  const [isDirectCheckoutOpen, setIsDirectCheckoutOpen] = useState(false);
 
   // Pending Proformas via unified hook
   const { pendingProformas, isLoading: isLoadingProformas } = useClientProformas();
@@ -93,8 +99,14 @@ export function CartDrawer() {
     if (!isCartOpen) {
       setProformaError("");
       setPayingProformaId(null);
+    } else {
+      if (items.length > 0) {
+        setActiveSection("cart");
+      } else if (pendingProformas.length > 0) {
+        setActiveSection("proformas");
+      }
     }
-  }, [isCartOpen]);
+  }, [isCartOpen, items.length, pendingProformas.length]);
 
   if (!isCartOpen) return null;
 
@@ -174,8 +186,26 @@ export function CartDrawer() {
             </button>
           </div>
 
-          {/* Segmented Top Selector: Produits Proforma | Immo & Hôtels */}
+          {/* Segmented Top Selector: Panier Direct | Devis Proforma | Immo & Hôtels */}
           <div className="flex border-b border-gray-200 bg-gray-50/90 px-3 pt-2 gap-2 overflow-x-auto scrollbar-none shrink-0">
+            <button
+              type="button"
+              onClick={() => setActiveSection("cart")}
+              className={`flex-1 py-2.5 px-3 text-xs font-bold rounded-t-xl transition-all border-b-2 flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                activeSection === "cart"
+                  ? "bg-white text-gray-900 border-[#C7D300] shadow-2xs"
+                  : "text-gray-500 hover:text-gray-800 border-transparent"
+              }`}
+            >
+              <ShoppingCart size={14} className={activeSection === "cart" || items.length > 0 ? "text-[#0F1D27]" : "text-gray-400"} />
+              <span>Mon Panier</span>
+              {items.length > 0 && (
+                <span className="px-1.5 py-0.2 bg-[#C7D300] text-[#0F1D27] text-[10px] rounded-full font-black">
+                  {items.length}
+                </span>
+              )}
+            </button>
+
             <button
               type="button"
               onClick={() => setActiveSection("proformas")}
@@ -186,7 +216,7 @@ export function CartDrawer() {
               }`}
             >
               <FileText size={14} className={activeSection === "proformas" || pendingProformas.length > 0 ? "text-[#FF6B35]" : "text-gray-400"} />
-              <span>Produits & Proformas</span>
+              <span>Devis &amp; Proformas</span>
               {pendingProformas.length > 0 && (
                 <span className="px-1.5 py-0.2 bg-[#FF6B35] text-white text-[10px] rounded-full font-black animate-pulse">
                   {pendingProformas.length}
@@ -204,7 +234,7 @@ export function CartDrawer() {
               }`}
             >
               <Hotel size={14} className={activeSection === "immo" || pendingImmoTotal > 0 ? "text-blue-600" : "text-gray-400"} />
-              <span>Immo & Hôtels</span>
+              <span>Immo &amp; Hôtels</span>
               {pendingImmoTotal > 0 && (
                 <span className="px-1.5 py-0.2 bg-blue-600 text-white text-[10px] rounded-full font-black">
                   {pendingImmoTotal}
@@ -212,6 +242,145 @@ export function CartDrawer() {
               )}
             </button>
           </div>
+
+          {/* SECTION 0: ARTICLES DU PANIER DIRECT */}
+          {activeSection === "cart" && (
+            <div className="flex-1 flex flex-col justify-between overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-4 space-y-3 pb-8">
+                {/* Banner Réassurance */}
+                <div className="bg-[#0F1D27]/5 border border-[#C7D300]/40 rounded-2xl p-3 text-xs text-gray-800 bg-linear-to-br from-[#0F1D27]/5 to-[#C7D300]/10">
+                  <div className="flex items-center gap-1.5 font-bold text-[#0F1D27] mb-1">
+                    <ShieldCheck size={16} className="text-emerald-600" />
+                    <span>Livraison Express &amp; Paiement Garanti</span>
+                  </div>
+                  <p className="text-[11px] text-gray-600 leading-relaxed">
+                    Réglez en espèces à la livraison (Cash on Delivery) ou par Mobile Money après réception et inspection de vos articles.
+                  </p>
+                </div>
+
+                {items.length === 0 ? (
+                  <div className="p-8 text-center flex flex-col items-center justify-center py-12">
+                    <div className="w-16 h-16 rounded-3xl bg-gray-100 text-gray-500 flex items-center justify-center mb-3">
+                      <ShoppingCart size={32} />
+                    </div>
+                    <h4 className="text-sm font-bold text-gray-800 mb-1">Votre panier est vide</h4>
+                    <p className="text-xs text-gray-500 max-w-xs mb-5">
+                      Explorez nos rayons Connect, Mode et Saveurs et ajoutez des articles pour une livraison rapide à Kinshasa et Lubumbashi.
+                    </p>
+                    <Link
+                      href="/"
+                      onClick={closeCart}
+                      className="px-5 py-2.5 bg-[#C7D300] text-[#0F1D27] text-xs font-bold rounded-xl hover:bg-[#b5c000] transition-colors"
+                    >
+                      Découvrir les Rayons
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-xs text-gray-500 px-1">
+                      <span>{items.length} article(s) dans le panier</span>
+                      <button
+                        type="button"
+                        onClick={clearCart}
+                        className="text-red-500 hover:underline text-[11px] font-semibold cursor-pointer"
+                      >
+                        Vider le panier
+                      </button>
+                    </div>
+
+                    {items.map((it) => (
+                      <div
+                        key={it.id}
+                        className="bg-white rounded-2xl border border-gray-200/90 p-3 shadow-2xs flex items-center gap-3"
+                      >
+                        <div className="w-16 h-16 rounded-xl bg-gray-50 overflow-hidden border border-gray-100 shrink-0">
+                          <img
+                            src={it.image || "/images/placeholder.png"}
+                            alt={it.title}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-bold text-gray-900 text-xs truncate leading-snug">
+                            {it.title}
+                          </h4>
+                          <span className="text-[10px] font-semibold uppercase text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded mt-0.5 inline-block">
+                            {it.rayon || it.category || "Rayon"}
+                          </span>
+                          <div className="font-extrabold text-sm text-[#0F1D27] mt-1">
+                            {formatPrice(it.price * it.quantity)}
+                          </div>
+                        </div>
+
+                        {/* Stepper + Remove */}
+                        <div className="flex flex-col items-end gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => removeFromCart(it.id)}
+                            className="text-gray-400 hover:text-red-500 p-1 rounded-lg transition-colors cursor-pointer"
+                            title="Supprimer"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+
+                          <div className="flex items-center gap-1.5 bg-gray-100 rounded-xl p-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (it.quantity <= 1) {
+                                  removeFromCart(it.id);
+                                } else {
+                                  updateQuantity(it.id, it.quantity - 1);
+                                }
+                              }}
+                              className="w-6 h-6 flex items-center justify-center font-bold text-gray-700 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                            >
+                              <Minus size={12} />
+                            </button>
+                            <span className="text-xs font-bold text-gray-900 w-5 text-center">
+                              {it.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateQuantity(it.id, it.quantity + 1)}
+                              className="w-6 h-6 flex items-center justify-center font-bold text-gray-700 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                            >
+                              <Plus size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Panier Footer Checkout Bar */}
+              {items.length > 0 && (
+                <div className="p-4 bg-gray-50 border-t border-gray-200 shrink-0 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs text-gray-500 block">Total estimé :</span>
+                      <span className="text-lg font-black text-gray-900">{formatPrice(subtotal)}</span>
+                    </div>
+                    <span className="text-[11px] text-gray-500 text-right">
+                      Livraison Kinshasa calculée<br />à l'étape suivante
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsDirectCheckoutOpen(true)}
+                    className="w-full py-3.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-black rounded-xl text-sm transition-all shadow-md shadow-[#C7D300]/20 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <ShoppingBag size={17} />
+                    <span>Commander ({items.length} article{items.length > 1 ? "s" : ""}) — {formatPrice(subtotal)}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* SECTION 1: PRODUITS & FACTURES PROFORMA EN ATTENTE DE PAIEMENT */}
           {activeSection === "proformas" && (
@@ -550,6 +719,17 @@ export function CartDrawer() {
 
         </div>
       </div>
+
+      {/* Modal Achat Express pour les articles du panier */}
+      <DirectBuyModal
+        isOpen={isDirectCheckoutOpen}
+        onClose={() => setIsDirectCheckoutOpen(false)}
+        items={items}
+        onOrderSuccess={() => {
+          clearCart();
+          closeCart();
+        }}
+      />
     </div>
   );
 }

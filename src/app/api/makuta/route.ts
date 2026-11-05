@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { initFirebaseAdmin, adminDb } from "@/lib/firebase-admin";
 import { creditReferralCommission } from "@/lib/referrals";
+import { getServerCaller, canActForSupplier } from "@/lib/serverAuth";
 
 export async function POST(req: Request) {
   try {
@@ -11,12 +12,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Missing supplierId" }, { status: 400 });
     }
 
-    // TODO: Intégration API Makuta Réelle
-    // const response = await fetch("MAKUTA_URL/mgep_Payment", { ... });
-    // const result = await response.json();
+    const caller = await getServerCaller(req);
+    if (!caller || !canActForSupplier(caller, supplierId)) {
+      return NextResponse.json({ success: false, error: "Non autorisé à modifier cet abonnement." }, { status: 403 });
+    }
+
+    const isProd = process.env.NODE_ENV === "production";
+    const allowSim = process.env.ALLOW_PAYMENT_SIMULATION === "true";
+
+    if (isProd && !allowSim && !process.env.MAKUTA_API_KEY) {
+      return NextResponse.json({
+        success: false,
+        error: "Le service de paiement en ligne Makuta est en cours de déploiement technique. Veuillez contacter l'assistance pour votre abonnement."
+      }, { status: 503 });
+    }
     
-    // Pour l'instant, on simule un succès immédiat après 2 secondes
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    // Mode simulation dev
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     await initFirebaseAdmin();
     const db = adminDb;
