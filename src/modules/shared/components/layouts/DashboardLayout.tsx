@@ -23,6 +23,7 @@ import {
   LifeBuoy
 } from "lucide-react";
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
+import { RayonsMark } from "@/modules/shared/components/brand/RayonsMark";
 import AnnouncementReaderModal from "@/modules/shared/components/notifications/AnnouncementReaderModal";
 import NotificationCenter, { isAnnouncementNotif } from "@/modules/shared/components/notifications/NotificationCenter";
 import ProfileManagerModal from "@/modules/shared/components/profile/ProfileManagerModal";
@@ -300,9 +301,12 @@ export function DashboardLayout({
         {/* Topbar */}
         <header className="h-13 sm:h-16 flex items-center justify-between px-3 sm:px-6 border-b border-white/10 bg-[#0F1D27]/90 backdrop-blur-md z-30 relative gap-2 shrink-0">
           <div className="flex items-center min-w-0 flex-1 mr-2">
-            <button onClick={() => setIsSidebarOpen(true)} className="mr-2 sm:mr-4 text-gray-400 hover:text-white lg:hidden shrink-0 p-1.5 rounded-lg hover:bg-white/5 active:scale-95 transition-all">
+            <button onClick={() => setIsSidebarOpen(true)} className="mr-2 sm:mr-3 text-gray-400 hover:text-white lg:hidden shrink-0 p-1.5 rounded-lg hover:bg-white/5 active:scale-95 transition-all">
               <Menu size={20} />
             </button>
+            <Link href="/" className="lg:hidden mr-2 shrink-0 flex items-center">
+              <RayonsMark size={22} color="#C7D300" />
+            </Link>
             <h1 className="text-xs sm:text-base md:text-lg font-bold text-white truncate">{topbarTitle}</h1>
           </div>
           

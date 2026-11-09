@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, Suspense } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
+import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
 import { motion, AnimatePresence } from "framer-motion";
 import { collection, query, where, onSnapshot, orderBy, limit } from "firebase/firestore";
 import { 
@@ -283,9 +284,7 @@ export default function ClientDashboard() {
         {/* Top Utility Bar (Alibaba Style - Desktop & Mobile compact) */}
         <div className="flex items-center justify-between mb-3.5 py-1.5 px-3 bg-white/80 backdrop-blur-xs rounded-xl border border-gray-200/60 text-xs text-gray-500">
           <div className="flex items-center gap-2 sm:gap-4 truncate">
-            <Link href="/" className="font-extrabold text-[#FF6600] hover:text-[#e65c00] transition-colors flex items-center gap-1 text-xs sm:text-sm shrink-0">
-              <span>Rayons.net</span>
-            </Link>
+            <RayonsLogo size="sm" variant="light" href="/" className="shrink-0" />
             <span className="text-gray-300">|</span>
             <span className="font-medium text-gray-700 hidden sm:inline">Mon Espace Acheteur</span>
             <span className="text-gray-300 hidden sm:inline">|</span>

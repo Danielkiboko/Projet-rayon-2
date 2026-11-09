@@ -73,8 +73,15 @@ export function RayonsLogo({
         
         {withDomain && !currentUniverse && (
           <span 
-            className={`font-heading font-medium ${config.domainSize} ml-0.5 opacity-80`}
-            style={{ color: variant === "dark" ? "#C7D300" : textColor }}
+            className={`font-heading font-bold ${config.domainSize} ml-0.5`}
+            style={{
+              color:
+                variant === "dark"
+                  ? "#C7D300"
+                  : variant === "light"
+                  ? "#9EAC00"
+                  : textColor,
+            }}
           >
             .net
           </span>

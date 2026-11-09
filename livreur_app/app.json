@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0b061c",
+    "backgroundColor": "#0F1D27",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.rayon.livreur",
@@ -18,7 +18,7 @@
       "package": "com.rayon.livreur",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#0b061c",
+        "backgroundColor": "#0F1D27",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -50,7 +50,7 @@
           "image": "./assets/splash-icon.png",
           "imageWidth": 160,
           "resizeMode": "contain",
-          "backgroundColor": "#0b061c"
+          "backgroundColor": "#0F1D27"
         }
       ]
     ],

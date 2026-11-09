@@ -21,18 +21,25 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://rayons.net"),
   title: "Rayons.net | Tout ce dont vous avez besoin, en un seul endroit",
   description: "Rayons est la marketplace de référence : Technologies & Objets connectés (Rayons Connect), Immobilier & Hôtels (Rayons Immo), Prêt-à-porter & Accessoires (Rayons Mode).",
+  openGraph: {
+    type: "website",
+    siteName: "Rayons.net",
+    locale: "fr_FR",
+    images: [{ url: "/supermarket-hero.jpg", width: 1200, height: 630, alt: "Rayons.net" }],
+  },
   icons: {
     icon: [
-      { url: "/favicon.ico?v=2", sizes: "48x48" },
-      { url: "/icon.png?v=2", sizes: "192x192", type: "image/png" },
-      { url: "/brand/rayons-mark.png?v=2", sizes: "512x512", type: "image/png" },
+      { url: "/icon.png?v=3", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png?v=3", sizes: "512x512", type: "image/png" },
+      { url: "/favicon.ico?v=3", sizes: "48x48" },
     ],
     apple: [
-      { url: "/apple-touch-icon.png?v=2", sizes: "180x180", type: "image/png" },
+      { url: "/apple-touch-icon.png?v=3", sizes: "180x180", type: "image/png" },
     ],
-    shortcut: "/favicon.ico?v=2",
+    shortcut: "/icon.png?v=3",
   },
 };
 

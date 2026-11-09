@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -59,7 +60,7 @@ export default function App() {
           <View style={styles.errorContainer}>
             <View style={styles.errorCard}>
               <View style={styles.logoBadge}>
-                <Text style={styles.logoText}>R<Text style={styles.logoDot}>.</Text></Text>
+                <Image source={require('./assets/icon.png')} style={{ width: 56, height: 56, borderRadius: 14 }} resizeMode="contain" />
               </View>
               <Text style={styles.errorTitle}>Connexion interrompue</Text>
               <Text style={styles.errorSubtitle}>

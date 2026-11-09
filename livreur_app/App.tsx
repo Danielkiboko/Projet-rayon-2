@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Animated,
-  ActivityIndicator, Alert, BackHandler,
+  ActivityIndicator, Alert, BackHandler, Image,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -278,9 +278,11 @@ function LoginScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.inner}>
         <Animated.View style={[styles.header, { opacity: fadeAnimHeader, transform: [{ translateY: translateYHeader }] }]}>
           <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>R<Text style={styles.logoHighlight}>.</Text></Text>
+            <Image source={require('./assets/icon.png')} style={styles.logoImage} resizeMode="contain" />
           </View>
-          <Text style={styles.title}>Livreur</Text>
+          <Text style={styles.title}>
+            Rayons<Text style={styles.logoHighlight}>.net</Text> — Livreur
+          </Text>
           <Text style={styles.subtitle}>Connectez-vous pour commencer votre tournée.</Text>
         </Animated.View>
 
@@ -338,7 +340,7 @@ function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0b061c',
+    backgroundColor: '#0F1D27',
   },
   inner: {
     flex: 1,
@@ -350,15 +352,21 @@ const styles = StyleSheet.create({
     marginBottom: 48,
   },
   logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+    width: 84,
+    height: 84,
+    borderRadius: 24,
+    backgroundColor: '#152836',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(56, 189, 248, 0.3)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(199, 211, 0, 0.45)',
     marginBottom: 16,
+    overflow: 'hidden',
+  },
+  logoImage: {
+    width: 76,
+    height: 76,
+    borderRadius: 20,
   },
   logoText: {
     fontSize: 40,
@@ -366,7 +374,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   logoHighlight: {
-    color: '#38bdf8',
+    color: '#C7D300',
   },
   title: {
     fontSize: 28,

@@ -357,13 +357,13 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
       {/* Header */}
       <header className="sticky top-0 z-50 bg-[#0F1D27]/95 backdrop-blur-md border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4">
             <Link href="/" className="flex items-center text-gray-300 hover:text-white transition-colors">
-              <ChevronLeft size={20} className="mr-1" />
-              <span className="text-sm font-semibold">{lang === "fr" ? "Retour" : "Back"}</span>
+              <ChevronLeft size={20} className="mr-0.5 sm:mr-1" />
+              <span className="text-xs sm:text-sm font-semibold">{lang === "fr" ? "Retour" : "Back"}</span>
             </Link>
-            <div className="hidden sm:block h-5 w-[1px] bg-white/15" />
-            <RayonsLogo size="sm" variant="dark" href="/" className="hidden sm:inline-flex" />
+            <div className="h-4 sm:h-5 w-[1px] bg-white/15" />
+            <RayonsLogo size="sm" variant="dark" href="/" />
           </div>
 
           <div className="flex items-center space-x-2.5">
@@ -392,16 +392,16 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
       <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-10">
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-12">
           {/* Colonne Image + Galerie Multi-Photos */}
-          <div className="lg:w-1/2">
-            <div className="lg:sticky lg:top-24 space-y-3.5">
-              <div className="relative aspect-square bg-[#152836] rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10 shadow-xl">
+          <div className="lg:w-5/12">
+            <div className="lg:sticky lg:top-24 space-y-3.5 max-w-[420px] mx-auto lg:mx-0">
+              <div className="relative w-full h-[260px] sm:h-[340px] lg:h-[380px] bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10 shadow-xl">
                 <OptimizedImage
                   src={displayImage}
                   alt={productTitle}
                   fill
                   priority
-                  sizes="(max-width: 1024px) 100vw, 50vw"
-                  className="w-full h-full object-cover transition-all duration-300"
+                  sizes="(max-width: 640px) 100vw, 420px"
+                  className="w-full h-full object-contain p-2 transition-all duration-300"
                 />
                 <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex items-center gap-2">
                   <span className="px-2.5 py-1 sm:px-3 sm:py-1.5 bg-black/65 backdrop-blur-md text-[#C7D300] text-[10px] sm:text-xs font-bold tracking-wider rounded-lg sm:rounded-xl border border-white/10 uppercase">
@@ -432,7 +432,7 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
                             setActiveImage(item.url);
                             if (item.color) setSelectedColor(item.color);
                           }}
-                          className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer ${
+                          className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all cursor-pointer bg-white ${
                             isSelected
                               ? "border-[#C7D300] ring-2 ring-[#C7D300]/30 scale-105"
                               : "border-white/15 opacity-75 hover:opacity-100"
@@ -480,7 +480,7 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
           </div>
 
           {/* Colonne Infos & Achat */}
-          <div className="lg:w-1/2 flex flex-col">
+          <div className="lg:w-7/12 flex flex-col">
             <div className="flex flex-wrap items-center gap-3 mb-2">
               <span className="text-[#C7D300] text-sm font-bold tracking-wider uppercase">
                 {productData.brand || productData.supplierName || "Rayons"}

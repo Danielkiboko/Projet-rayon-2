@@ -23,7 +23,9 @@ export async function generateMetadata({
           : data.description || "Commandez en toute sécurité sur Rayons.net avec garantie séquestre.";
 
       const priceLabel = data.price ? ` — $${Number(data.price).toFixed(2)}` : "";
-      const ogImageUrl = `/api/og/product/${encodeURIComponent(id)}`;
+      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://rayons.net").replace(/\/$/, "");
+      const ogImageUrl = `${siteUrl}/api/og/product/${encodeURIComponent(id)}`;
+      const pageUrl = `${siteUrl}/product/${encodeURIComponent(id)}`;
 
       return {
         title: `${title}${priceLabel} | Rayons.net`,
@@ -32,6 +34,8 @@ export async function generateMetadata({
           title: `${title}${priceLabel} | Rayons.net`,
           description: String(description).slice(0, 180),
           type: "website",
+          url: pageUrl,
+          siteName: "Rayons.net",
           images: [
             {
               url: ogImageUrl,
