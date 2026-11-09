@@ -407,13 +407,14 @@ function ImmoContent() {
                   transition={{ delay: Math.min(idx * 0.05, 0.4), duration: 0.35 }}
                   className="bg-white rounded-xl sm:rounded-2xl border border-gray-200/75 shadow-2xs hover:shadow-md transition-all duration-300 group flex flex-col overflow-hidden"
                 >
-                  {/* Image with click to open detail - Aspect 4/3 */}
+                  {/* Image with click to open detail - Compact height */}
                   <div 
                     onClick={() => {
                       setSelectedDetailProperty(property);
                       setIsDetailModalOpen(true);
                     }}
-                    className="relative aspect-[4/3] w-full overflow-hidden cursor-pointer bg-gray-100"
+                    className="relative h-32 sm:h-36 max-h-36 w-full overflow-hidden cursor-pointer bg-gray-100 shrink-0"
+                    style={{ height: "136px", maxHeight: "144px" }}
                   >
                     <img 
                       src={property.image} 

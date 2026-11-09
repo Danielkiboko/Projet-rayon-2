@@ -18,13 +18,19 @@ import {
   ArrowRight,
   ShieldAlert,
   Eye,
-  Check
+  Check,
+  Lock,
+  Upload,
+  Trash2,
+  IdCard,
+  CreditCard
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { doc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import LogoUploadArea from "@/modules/shared/components/shared/LogoUploadArea";
+import { optimizeImageToWebP } from "@/lib/imageOptimizer";
 
 const SUBMIT_STEPS = [
   "Optimisation du logo WebP transparent...",
@@ -37,10 +43,21 @@ export default function SupplierSettingsPage() {
   
   // Coordonnées & Visuel
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [whatsappPhone, setWhatsappPhone] = useState("");
+  const [payoutPhone, setPayoutPhone] = useState("");
+  const [payoutProvider, setPayoutProvider] = useState("MPESA");
   const [address, setAddress] = useState("");
   const [primaryColor, setPrimaryColor] = useState("#8b5cf6");
   const [logoUrl, setLogoUrl] = useState("");
   
+  // Identité du Gérant & Pièces d'Identité (KYC Base de données)
+  const [idDocumentType, setIdDocumentType] = useState("CARTE_ELECTEUR");
+  const [idDocumentNumber, setIdDocumentNumber] = useState("");
+  const [nationality, setNationality] = useState("Congolaise (RDC)");
+  const [idDocumentFrontUrl, setIdDocumentFrontUrl] = useState("");
+  const [idDocumentBackUrl, setIdDocumentBackUrl] = useState("");
+  const [uploadingIdSide, setUploadingIdSide] = useState<"front" | "back" | null>(null);
+
   // Identité Légale & Facturation (Devis, Factures & Reçus)
   const [companyName, setCompanyName] = useState("");
   const [rccm, setRccm] = useState("");
@@ -62,6 +79,9 @@ export default function SupplierSettingsPage() {
   useEffect(() => {
     if (userData) {
       if (userData.phone || userData.phoneNumber) setPhoneNumber(userData.phone || userData.phoneNumber);
+      if (userData.whatsappPhone) setWhatsappPhone(userData.whatsappPhone);
+      if (userData.payoutPhone) setPayoutPhone(userData.payoutPhone);
+      if (userData.payoutProvider) setPayoutProvider(userData.payoutProvider);
       if (userData.address) setAddress(userData.address);
       if (userData.primaryColor) setPrimaryColor(userData.primaryColor);
       if (userData.logoUrl || userData.logo) setLogoUrl(userData.logoUrl || userData.logo);
@@ -69,6 +89,11 @@ export default function SupplierSettingsPage() {
       if (userData.rccm) setRccm(userData.rccm);
       if (userData.idNat) setIdNat(userData.idNat);
       if (userData.nif) setNif(userData.nif);
+      if (userData.idDocumentType) setIdDocumentType(userData.idDocumentType);
+      if (userData.idDocumentNumber) setIdDocumentNumber(userData.idDocumentNumber);
+      if (userData.nationality) setNationality(userData.nationality);
+      if (userData.idDocumentFrontUrl) setIdDocumentFrontUrl(userData.idDocumentFrontUrl);
+      if (userData.idDocumentBackUrl) setIdDocumentBackUrl(userData.idDocumentBackUrl);
 
       // Si des modifications étaient en attente, pré-remplir avec les valeurs soumises
       if (userData.pendingProfile) {
@@ -78,7 +103,15 @@ export default function SupplierSettingsPage() {
         if (userData.pendingProfile.idNat) setIdNat(userData.pendingProfile.idNat);
         if (userData.pendingProfile.nif) setNif(userData.pendingProfile.nif);
         if (userData.pendingProfile.phone) setPhoneNumber(userData.pendingProfile.phone);
+        if (userData.pendingProfile.whatsappPhone) setWhatsappPhone(userData.pendingProfile.whatsappPhone);
+        if (userData.pendingProfile.payoutPhone) setPayoutPhone(userData.pendingProfile.payoutPhone);
+        if (userData.pendingProfile.payoutProvider) setPayoutProvider(userData.pendingProfile.payoutProvider);
         if (userData.pendingProfile.primaryColor) setPrimaryColor(userData.pendingProfile.primaryColor);
+        if (userData.pendingProfile.idDocumentType) setIdDocumentType(userData.pendingProfile.idDocumentType);
+        if (userData.pendingProfile.idDocumentNumber) setIdDocumentNumber(userData.pendingProfile.idDocumentNumber);
+        if (userData.pendingProfile.nationality) setNationality(userData.pendingProfile.nationality);
+        if (userData.pendingProfile.idDocumentFrontUrl) setIdDocumentFrontUrl(userData.pendingProfile.idDocumentFrontUrl);
+        if (userData.pendingProfile.idDocumentBackUrl) setIdDocumentBackUrl(userData.pendingProfile.idDocumentBackUrl);
       }
 
       // Si le profil est déjà en attente d'approbation et que l'utilisateur n'a pas expressément cliqué pour éditer,
@@ -90,6 +123,28 @@ export default function SupplierSettingsPage() {
       }
     }
   }, [userData]);
+
+  const handleUploadIdPhoto = async (file: File, side: "front" | "back") => {
+    setUploadingIdSide(side);
+    setError("");
+    try {
+      const optimized = await optimizeImageToWebP(file, {
+        maxWidth: 1024,
+        maxHeight: 1024,
+        quality: 0.82,
+      });
+      if (side === "front") {
+        setIdDocumentFrontUrl(optimized.dataUrl);
+      } else {
+        setIdDocumentBackUrl(optimized.dataUrl);
+      }
+    } catch (err) {
+      console.error("ID photo optimization error:", err);
+      setError("Impossible de compresser l'image de la pièce d'identité.");
+    } finally {
+      setUploadingIdSide(null);
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,44 +170,85 @@ export default function SupplierSettingsPage() {
       const currentApprovedRccm = (userData?.rccm || "").trim();
       const currentApprovedIdNat = (userData?.idNat || "").trim();
       const currentApprovedNif = (userData?.nif || "").trim();
+      const currentIdNumber = (userData?.idDocumentNumber || "").trim();
 
       const newCompany = companyName.trim();
       const newRccm = rccm.trim();
       const newIdNat = idNat.trim();
       const newNif = nif.trim();
+      const newIdNumber = idDocumentNumber.trim();
 
-      // Détecter si des champs légaux et fiscaux sensibles ont changé
+      // Détecter si des champs légaux, fiscaux ou d'identité sensibles ont changé
       const legalFieldsChanged = 
         (newCompany !== currentApprovedCompany) ||
         (newRccm !== currentApprovedRccm) ||
         (newIdNat !== currentApprovedIdNat) ||
-        (newNif !== currentApprovedNif);
+        (newNif !== currentApprovedNif) ||
+        (newIdNumber !== currentIdNumber) ||
+        (idDocumentFrontUrl !== (userData?.idDocumentFrontUrl || "")) ||
+        (idDocumentBackUrl !== (userData?.idDocumentBackUrl || ""));
 
-      // 1. Mises à jour directes immédiates (visuel, contact, marque blanche)
+      // 1. Mises à jour directes immédiates en base de données (numéros, pièces d'identité, visuel, contact)
       const immediateUpdateData: any = {
         phone: phoneNumber.trim(),
         phoneNumber: phoneNumber.trim(),
+        whatsappPhone: whatsappPhone.trim(),
+        payoutPhone: payoutPhone.trim(),
+        payoutProvider,
         address: address.trim(),
         logoUrl: logoUrl,
         logo: logoUrl,
         primaryColor: primaryColor,
+        idDocumentType,
+        idDocumentNumber: newIdNumber,
+        nationality: nationality.trim(),
+        idDocumentFrontUrl,
+        idDocumentBackUrl,
         updatedAt: new Date().toISOString()
       };
 
-      if (legalFieldsChanged || !userData?.profileUpdateStatus) {
-        // Enregistrement sécurisé : les identifiants fiscaux/légaux sont soumis à vérification
-        const pendingProfile: any = {
-          phone: phoneNumber.trim(),
-          primaryColor: primaryColor,
-          logoUrl: logoUrl,
-          companyName: newCompany,
-          rccm: newRccm,
-          idNat: newIdNat,
-          nif: newNif,
-          address: address.trim(),
-          submittedAt: new Date().toISOString()
-        };
+      const pendingProfile: any = {
+        phone: phoneNumber.trim(),
+        whatsappPhone: whatsappPhone.trim(),
+        payoutPhone: payoutPhone.trim(),
+        payoutProvider,
+        primaryColor: primaryColor,
+        logoUrl: logoUrl,
+        companyName: newCompany,
+        rccm: newRccm,
+        idNat: newIdNat,
+        nif: newNif,
+        address: address.trim(),
+        idDocumentType,
+        idDocumentNumber: newIdNumber,
+        nationality: nationality.trim(),
+        idDocumentFrontUrl,
+        idDocumentBackUrl,
+        submittedAt: new Date().toISOString()
+      };
 
+      // Enregistrer via l'API sécurisée (avec fallback Firestore direct)
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        await fetch("/api/users/profile", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            ...immediateUpdateData,
+            companyName: newCompany,
+            rccm: newRccm,
+            idNat: newIdNat,
+            nif: newNif,
+          }),
+        });
+      } catch (apiErr) {
+        console.warn("API profile fallback to updateDoc:", apiErr);
+      }
+
+      if (legalFieldsChanged || !userData?.profileUpdateStatus) {
         await updateDoc(userRef, {
           ...immediateUpdateData,
           pendingProfile,
@@ -160,7 +256,7 @@ export default function SupplierSettingsPage() {
         });
 
         setSuccess(
-          "Vos paramètres ont été mis à jour avec succès ! Votre logo WebP et vos coordonnées sont actifs. Vos identifiants légaux sont en cours de validation."
+          "Vos numéros, coordonnées et pièces d'identité ont été enregistrés dans la base de données ! Vos identifiants légaux sont en cours de validation."
         );
       } else {
         if (!userData?.companyName && newCompany) {
@@ -168,7 +264,7 @@ export default function SupplierSettingsPage() {
         }
 
         await updateDoc(userRef, immediateUpdateData);
-        setSuccess("Vos paramètres de profil et votre logo WebP ont été enregistrés avec succès.");
+        setSuccess("Vos coordonnées, numéros et pièces d'identité ont été enregistrés avec succès.");
       }
 
       await new Promise(r => setTimeout(r, 400));
@@ -452,22 +548,62 @@ export default function SupplierSettingsPage() {
                 />
               </div>
 
-              {/* SECTION 2: Coordonnées & Contact */}
+              {/* SECTION 2: Coordonnées & Contact (Nom verrouillé + Numéros modifiables) */}
               <div className="bg-[#0B151C]/90 border border-white/10 rounded-3xl p-6 sm:p-7 shadow-xl space-y-6">
-                <div className="border-b border-white/10 pb-4">
-                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    <Phone className="text-[#C7D300]" size={20} />
-                    <span>Coordonnées Commerciales & Contact</span>
-                  </h2>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Informations utilisées pour vous joindre et imprimées sur vos documents de commande.
-                  </p>
+                <div className="border-b border-white/10 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                      <Phone className="text-[#C7D300]" size={20} />
+                      <span>Titulaire & Coordonnées de Contact</span>
+                    </h2>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Vous pouvez modifier vos numéros et votre adresse à tout moment. Le nom du titulaire est verrouillé.
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[11px] font-bold text-amber-300 self-start">
+                    <Lock size={12} /> Nom verrouillé
+                  </span>
+                </div>
+
+                {/* Nom complet verrouillé */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                      Nom du titulaire (Non modifiable)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        disabled
+                        readOnly
+                        value={userData?.displayName || userData?.name || user?.displayName || "Partenaire Rayons"}
+                        className="w-full pl-4 pr-10 py-2.5 bg-white/5 border border-white/10 rounded-xl text-gray-300 font-bold text-sm cursor-not-allowed opacity-80"
+                      />
+                      <Lock size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                      Email du compte (Identifiant)
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        disabled
+                        readOnly
+                        value={userData?.email || user?.email || ""}
+                        className="w-full pl-4 pr-10 py-2.5 bg-white/5 border border-white/10 rounded-xl text-gray-400 font-mono text-sm cursor-not-allowed opacity-80"
+                      />
+                      <Lock size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                    </div>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
                     <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">
-                      Numéro de téléphone <span className="text-rose-400">*</span>
+                      Numéro de téléphone principal <span className="text-rose-400">*</span>
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
@@ -486,6 +622,60 @@ export default function SupplierSettingsPage() {
 
                   <div>
                     <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">
+                      Numéro WhatsApp Commercial
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-emerald-400">
+                        <Phone size={18} />
+                      </div>
+                      <input 
+                        type="text" 
+                        value={whatsappPhone}
+                        onChange={(e) => setWhatsappPhone(e.target.value)}
+                        placeholder="Ex: +243 85 234 5678" 
+                        className="w-full pl-10 pr-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white text-sm" 
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">
+                      Opérateur Mobile Money
+                    </label>
+                    <select
+                      value={payoutProvider}
+                      onChange={(e) => setPayoutProvider(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white text-sm"
+                    >
+                      <option value="MPESA">Vodacom M-Pesa</option>
+                      <option value="ORANGE">Orange Money</option>
+                      <option value="AIRTEL">Airtel Money</option>
+                      <option value="AFRIMONEY">AfriMoney</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">
+                      Numéro Mobile Money (Paiements)
+                    </label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#C7D300]">
+                        <CreditCard size={18} />
+                      </div>
+                      <input
+                        type="text"
+                        value={payoutPhone}
+                        onChange={(e) => setPayoutPhone(e.target.value)}
+                        placeholder="+243 81/84/89/99..."
+                        className="w-full pl-10 pr-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">
                       Adresse physique du siège / magasin
                     </label>
                     <div className="relative">
@@ -496,10 +686,168 @@ export default function SupplierSettingsPage() {
                         type="text" 
                         value={address}
                         onChange={(e) => setAddress(e.target.value)}
-                        placeholder="Ex: 12 Boulevard du 30 Juin, Gombe, Kinshasa" 
+                        placeholder="Ex: 12 Bd du 30 Juin, Gombe" 
                         className="w-full pl-10 pr-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white text-sm" 
                       />
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 2B: Identité du Gérant & Pièce d'Identité (Gérée en Base de Données) */}
+              <div className="bg-[#0B151C]/90 border border-white/10 rounded-3xl p-6 sm:p-7 shadow-xl space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-4">
+                  <div>
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                      <IdCard className="text-[#C7D300]" size={22} />
+                      <span>Pièce d&apos;Identité & Identification du Fournisseur</span>
+                    </h2>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Ajoutez votre pièce d&apos;identité officielle et son numéro. Ces éléments sont enregistrés et gérés dans la base de données Rayons.net.
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#C7D300]/10 border border-[#C7D300]/25 text-[11px] font-bold text-[#C7D300] self-start">
+                    <ShieldCheck size={14} /> Dossier KYC Base de données
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">
+                      Type de pièce d&apos;identité
+                    </label>
+                    <select
+                      value={idDocumentType}
+                      onChange={(e) => setIdDocumentType(e.target.value)}
+                      className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white text-sm"
+                    >
+                      <option value="CARTE_ELECTEUR">Carte d&apos;Électeur (RDC)</option>
+                      <option value="PASSEPORT">Passeport Biométrique</option>
+                      <option value="PERMIS_CONDUIRE">Permis de Conduire</option>
+                      <option value="CARTE_IDENTITE">Carte d&apos;Identité Nationale</option>
+                      <option value="AUTRE">Autre Document Officiel</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">
+                      Numéro de la pièce d&apos;identité
+                    </label>
+                    <input
+                      type="text"
+                      value={idDocumentNumber}
+                      onChange={(e) => setIdDocumentNumber(e.target.value)}
+                      placeholder="Ex: NN 30192837465"
+                      className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white text-sm font-mono uppercase"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-2">
+                      Nationalité
+                    </label>
+                    <input
+                      type="text"
+                      value={nationality}
+                      onChange={(e) => setNationality(e.target.value)}
+                      placeholder="Congolaise (RDC)"
+                      className="w-full px-4 py-2.5 bg-black/40 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white text-sm"
+                    />
+                  </div>
+                </div>
+
+                {/* Upload Recto & Verso */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">
+                        Photo / Scan Pièce — RECTO
+                      </span>
+                      {idDocumentFrontUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setIdDocumentFrontUrl("")}
+                          className="text-xs text-rose-400 hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Trash2 size={13} /> Supprimer
+                        </button>
+                      )}
+                    </div>
+
+                    {idDocumentFrontUrl ? (
+                      <div className="relative h-36 w-full rounded-xl overflow-hidden bg-black/60 border border-white/15">
+                        <img
+                          src={idDocumentFrontUrl}
+                          alt="Pièce d'identité Recto"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center h-36 rounded-xl border-2 border-dashed border-white/15 hover:border-[#C7D300]/50 bg-white/[0.02] hover:bg-white/[0.05] cursor-pointer transition-all p-4 text-center">
+                        <Upload size={22} className="text-[#C7D300] mb-2" />
+                        <span className="text-xs font-bold text-gray-200">
+                          {uploadingIdSide === "front" ? "Compression WebP..." : "Cliquez pour ajouter le Recto"}
+                        </span>
+                        <span className="text-[11px] text-gray-400 mt-0.5">
+                          Image compressée et stockée en base de données
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleUploadIdPhoto(f, "front");
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">
+                        Photo / Scan Pièce — VERSO
+                      </span>
+                      {idDocumentBackUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setIdDocumentBackUrl("")}
+                          className="text-xs text-rose-400 hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <Trash2 size={13} /> Supprimer
+                        </button>
+                      )}
+                    </div>
+
+                    {idDocumentBackUrl ? (
+                      <div className="relative h-36 w-full rounded-xl overflow-hidden bg-black/60 border border-white/15">
+                        <img
+                          src={idDocumentBackUrl}
+                          alt="Pièce d'identité Verso"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center h-36 rounded-xl border-2 border-dashed border-white/15 hover:border-[#C7D300]/50 bg-white/[0.02] hover:bg-white/[0.05] cursor-pointer transition-all p-4 text-center">
+                        <Upload size={22} className="text-[#C7D300] mb-2" />
+                        <span className="text-xs font-bold text-gray-200">
+                          {uploadingIdSide === "back" ? "Compression WebP..." : "Cliquez pour ajouter le Verso"}
+                        </span>
+                        <span className="text-[11px] text-gray-400 mt-0.5">
+                          Optionnel pour un passeport
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) handleUploadIdPhoto(f, "back");
+                          }}
+                        />
+                      </label>
+                    )}
                   </div>
                 </div>
               </div>

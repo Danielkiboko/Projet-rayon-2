@@ -22,6 +22,8 @@ import { CurrencySelector } from "@/modules/shared/components/CurrencySelector";
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
 import { UniversalSearchBar } from "@/modules/client/components/home/UniversalSearchBar";
 import NotificationBell from "@/modules/shared/components/notifications/NotificationBell";
+import { ProductCard } from "@/modules/client/components/rayon/ProductCard";
+import { DirectBuyModal } from "@/modules/client/components/DirectBuyModal";
 
 // --- Animated Counter Hook ---
 function useCounter(target: number, duration = 2000, start = false) {
@@ -167,6 +169,7 @@ export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeTestimonial, setActiveTestimonial] = useState(0);
   const [selectedQuickRayon, setSelectedQuickRayon] = useState<string>("all");
+  const [selectedBuyProduct, setSelectedBuyProduct] = useState<any | null>(null);
 
   const statsRef = useRef<HTMLDivElement>(null);
   const [statsInView, setStatsInView] = useState(false);
@@ -645,7 +648,7 @@ export default function Home() {
             const isSaveursSection = categoryFilter.toLowerCase() === "saveurs";
 
             const items = isImmoSection
-              ? dbProperties.slice(0, 4)
+              ? dbProperties.slice(0, 6)
               : dbProducts.filter((p) => {
                   const cat = (p.category || "").toLowerCase();
                   if (isSaveursSection) {
@@ -658,11 +661,11 @@ export default function Home() {
                     );
                   }
                   return cat.includes(categoryFilter.toLowerCase());
-                }).slice(0, 4);
+                }).slice(0, 6);
 
             return (
               <section key={categoryFilter} className="mt-4">
-                <div className="flex flex-col mb-6 px-1 gap-1">
+                <div className="flex flex-col mb-5 px-1 gap-1">
                   <div>
                     <span
                       className="text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wider border inline-block"
@@ -691,74 +694,134 @@ export default function Home() {
                 </div>
 
                 {loading ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className="animate-pulse bg-white rounded-2xl h-60 border border-gray-100 p-4" />
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                      <div key={i} className="animate-pulse bg-white rounded-xl sm:rounded-2xl h-56 border border-gray-100 p-2.5" />
                     ))}
                   </div>
                 ) : items.length === 0 ? (
-                  <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-gray-200">
+                  <div className="text-center py-10 bg-white rounded-2xl border border-dashed border-gray-200">
                     <p className="text-gray-400 text-xs font-medium">Bientôt de nouvelles offres dans ce rayon.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                    {items.map((item) => {
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
+                    {items.map((item, idx) => {
                       const itemName = item.title?.fr || item.title || item.name || "Article";
                       const itemImage =
                         item.image ||
+                        item.imageUrl ||
                         item.images?.[0] ||
                         "https://images.unsplash.com/photo-1522071820081-009f0129c71c";
-                      const itemCategory = isImmoSection
-                        ? item.immoBranch === "hotel"
+
+                      if (!isImmoSection) {
+                        const normalizedCardCat: "mode" | "connect" | "saveurs" = isSaveursSection
+                          ? "saveurs"
+                          : categoryFilter.toLowerCase() === "mode"
+                          ? "mode"
+                          : "connect";
+
+                        return (
+                          <ProductCard
+                            key={item.id}
+                            product={item}
+                            lang="fr"
+                            t={{ details: "Détails" }}
+                            category={normalizedCardCat}
+                            index={idx}
+                            handleChat={(prod) =>
+                              openChatForProduct({
+                                id: prod.id,
+                                supplierId: prod.supplierId || "admin",
+                                name: prod.title?.fr || prod.title || prod.name || "Produit",
+                                price: prod.price,
+                                image: prod.image || prod.imageUrl || prod.images?.[0] || "",
+                              })
+                            }
+                            onBuy={(prod) => setSelectedBuyProduct(prod)}
+                          />
+                        );
+                      }
+
+                      const itemCategory =
+                        item.immoBranch === "hotel"
                           ? "Hôtel / Nuitée"
-                          : item.typeTransaction || "Immobilier"
-                        : item.category || "Produit";
+                          : item.typeTransaction || "Immobilier";
+                      const detailHref = `/rayon/immo`;
 
                       return (
                         <div
                           key={item.id}
-                          className="group bg-white rounded-2xl overflow-hidden shadow-xs hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-200/80 flex flex-col justify-between"
+                          className="group bg-white rounded-xl sm:rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 border border-gray-100 flex flex-col justify-between h-full"
                         >
-                          <div className="relative aspect-4/3 overflow-hidden bg-gray-100">
-                            <OptimizedImage
-                              src={itemImage}
-                              alt={itemName}
-                              fill
-                              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                              className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
-                            />
-                            <div className="absolute top-2 left-2 flex items-center gap-1 bg-white/90 backdrop-blur-md px-2 py-0.5 rounded-md border border-gray-100 shadow-xs text-[10px] font-bold text-gray-700">
-                              <ShieldCheck size={11} className="text-emerald-600" />
-                              <span>Vérifié</span>
+                          <div
+                            className="relative h-32 sm:h-36 w-full max-h-36 overflow-hidden bg-slate-100 flex items-center justify-center shrink-0"
+                            style={{ height: "132px", maxHeight: "144px" }}
+                          >
+                            <Link href={detailHref} className="block w-full h-full relative">
+                              <OptimizedImage
+                                src={itemImage}
+                                alt={itemName}
+                                fill
+                                sizes="(max-width: 640px) 45vw, (max-width: 1024px) 25vw, 180px"
+                                className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
+                              />
+                            </Link>
+                            <div className="absolute top-2 left-2 pointer-events-none flex items-center gap-1 bg-white/95 backdrop-blur-md px-1.5 sm:px-2 py-0.5 rounded border border-gray-200/80 shadow-xs text-[8px] sm:text-[9px] font-bold text-[#4C6EF5] uppercase tracking-wider">
+                              <span>{itemCategory}</span>
                             </div>
                             <button
-                              className="absolute top-2 right-2 w-7 h-7 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 shadow-xs transition-all active:scale-90"
-                              title="Favoris"
+                              type="button"
+                              onClick={() =>
+                                openChatForProduct({
+                                  id: item.id,
+                                  supplierId: item.supplierId || "admin",
+                                  name: itemName,
+                                  price: item.price,
+                                  image: item.images?.[0] || item.imageUrl || "",
+                                })
+                              }
+                              className="absolute top-2 right-2 w-7 h-7 bg-white/95 hover:bg-[#0F1D27] text-gray-700 hover:text-[#C7D300] rounded-full flex items-center justify-center shadow-sm transition-all active:scale-90 cursor-pointer"
+                              title="Discuter / Négocier le devis"
                             >
-                              <Heart size={13} />
+                              <MessageCircle size={13} />
                             </button>
                           </div>
 
-                          <div className="p-3.5 flex flex-col flex-1">
-                            <p className="text-[10px] font-semibold text-gray-400 mb-0.5 truncate uppercase">
-                              {itemCategory}
-                            </p>
-                            <h3 className="font-bold text-gray-900 text-xs sm:text-sm leading-snug mb-2 line-clamp-2 group-hover:text-[#0F1D27] transition-colors">
-                              {itemName}
-                            </h3>
-
-                            <div className="mt-auto flex items-center justify-between pt-2.5 border-t border-gray-100">
-                              <span className="font-heading font-black text-sm sm:text-base text-[#0F1D27]">
+                          <div className="p-2.5 sm:p-3 flex flex-col flex-1 justify-between">
+                            <div>
+                              <div className="flex items-center justify-between gap-1 mb-1">
+                                <span className="text-[9px] sm:text-[10px] font-bold text-gray-400 truncate max-w-[55%]">
+                                  {item.commune || item.city || "Kinshasa"}
+                                </span>
+                                <span className="flex items-center bg-[#0F1D27]/10 text-[#0F1D27] px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold border border-[#0F1D27]/20 shrink-0">
+                                  <ShieldCheck size={10} className="mr-0.5 text-[#C7D300]" /> Vérifié
+                                </span>
+                              </div>
+                              <Link href={detailHref} className="block">
+                                <h3 className="font-semibold text-gray-900 text-xs leading-snug mb-1 line-clamp-2 min-h-[2rem] group-hover:text-[#0F1D27] transition-colors">
+                                  {itemName}
+                                </h3>
+                              </Link>
+                              <div className="font-heading font-extrabold text-xs sm:text-sm text-gray-900 mb-2">
                                 {formatPrice(item.price)}
-                                {isImmoSection && item.immoBranch === "hotel" && (
-                                  <span className="text-[10px] text-gray-400 font-normal"> / nuit</span>
+                                {item.immoBranch === "hotel" && (
+                                  <span className="text-[9px] text-gray-400 font-normal"> / nuit</span>
                                 )}
-                                {isImmoSection && item.typeTransaction?.toLowerCase().includes("locat") && (
-                                  <span className="text-[10px] text-gray-400 font-normal"> / mois</span>
+                                {item.typeTransaction?.toLowerCase().includes("locat") && (
+                                  <span className="text-[9px] text-gray-400 font-normal"> / mois</span>
                                 )}
-                              </span>
+                              </div>
+                            </div>
 
+                            <div className="mt-auto flex items-center gap-1 sm:gap-1.5 pt-1.5 border-t border-gray-50">
+                              <Link
+                                href={detailHref}
+                                className="flex-1 min-w-0 py-1.5 sm:py-2 bg-[#0F1D27] hover:bg-[#1a2e3b] text-[#C7D300] text-[10px] sm:text-[11px] font-bold rounded-lg transition-all flex items-center justify-center gap-1 active:scale-95 cursor-pointer shadow-2xs"
+                              >
+                                <span className="truncate">Voir le bien</span>
+                              </Link>
                               <button
+                                type="button"
                                 onClick={() =>
                                   openChatForProduct({
                                     id: item.id,
@@ -768,10 +831,10 @@ export default function Home() {
                                     image: item.images?.[0] || item.imageUrl || "",
                                   })
                                 }
-                                className="w-8 h-8 rounded-xl bg-gray-100 text-[#0F1D27] hover:bg-[#C7D300] flex items-center justify-center transition-all active:scale-90 cursor-pointer shadow-xs"
+                                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center justify-center transition-all active:scale-95 cursor-pointer shrink-0"
                                 title="Discuter / Négocier le devis"
                               >
-                                <MessageCircle size={15} />
+                                <MessageCircle size={12} className="text-emerald-600" />
                               </button>
                             </div>
                           </div>
@@ -882,6 +945,12 @@ export default function Home() {
         </section>
 
       </main>
+
+      <DirectBuyModal
+        isOpen={!!selectedBuyProduct}
+        onClose={() => setSelectedBuyProduct(null)}
+        product={selectedBuyProduct}
+      />
 
       <Footer />
     </div>

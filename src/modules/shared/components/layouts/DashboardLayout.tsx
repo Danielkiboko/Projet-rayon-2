@@ -25,6 +25,7 @@ import {
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
 import AnnouncementReaderModal from "@/modules/shared/components/notifications/AnnouncementReaderModal";
 import NotificationCenter, { isAnnouncementNotif } from "@/modules/shared/components/notifications/NotificationCenter";
+import ProfileManagerModal from "@/modules/shared/components/profile/ProfileManagerModal";
 
 type MenuItem = {
   title: string;
@@ -96,8 +97,9 @@ export function DashboardLayout({
   customProfileModal
 }: DashboardLayoutProps) {
   const pathname = usePathname();
-  const { user, signOut } = useAuth();
+  const { user, userData, signOut } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<any | null>(null);
   const [lockedModalItem, setLockedModalItem] = useState<MenuItem | null>(null);
 
@@ -134,6 +136,11 @@ export function DashboardLayout({
   return (
     <div className="flex h-screen bg-[#0B151C] overflow-hidden font-sans">
       {customProfileModal}
+      <ProfileManagerModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        userRoleLabel={userRole}
+      />
 
       {/* Subscription Locked Feature Modal */}
       <AnimatePresence>
@@ -256,20 +263,31 @@ export function DashboardLayout({
           })}
         </nav>
 
-        <div className="p-4 border-t border-white/5">
-          <div className={`px-4 py-3 mb-4 rounded-xl border text-center ${themeColors.activeMenuBg} border-white/5`}>
+        <div className="p-4 border-t border-white/5 space-y-2">
+          <div className={`px-4 py-3 mb-2 rounded-xl border text-center ${themeColors.activeMenuBg} border-white/5`}>
             {roleBadgeTitle === "Privilèges" && <ShieldAlert size={20} className={`mx-auto mb-1 ${themeColors.accentText}`} />}
             <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">{roleBadgeTitle}</p>
             <p className={`text-sm font-semibold truncate ${themeColors.accentText}`}>
               {roleBadgeValue}
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              setIsSidebarOpen(false);
+              setIsProfileModalOpen(true);
+            }}
+            className="flex items-center justify-center space-x-2 px-4 py-2.5 w-full rounded-xl text-gray-200 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer"
+          >
+            <UserCircle size={18} className="text-[#C7D300]" />
+            <span className="text-xs font-bold">Mon Profil & Identité</span>
+          </button>
           <button 
             onClick={() => {
               setIsSidebarOpen(false);
               signOut();
             }}
-            className="flex items-center justify-center space-x-2 px-4 py-3 w-full rounded-xl text-red-400 hover:bg-red-400/10 transition-colors"
+            className="flex items-center justify-center space-x-2 px-4 py-2.5 w-full rounded-xl text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer"
           >
             <LogOut size={18} />
             <span className="text-sm font-medium">Déconnexion</span>
@@ -305,9 +323,14 @@ export function DashboardLayout({
               onOpenAnnouncement={(n) => setSelectedAnnouncement(n)}
             />
 
-            <div className="flex items-center space-x-2 pl-2 sm:pl-4 border-l border-white/10">
+            <button
+              type="button"
+              onClick={() => setIsProfileModalOpen(true)}
+              title="Gérer mon profil, mes numéros et ma pièce d'identité"
+              className="flex items-center space-x-2.5 pl-2 sm:pl-4 border-l border-white/10 group cursor-pointer text-left rounded-xl py-1 pr-1.5 hover:bg-white/5 transition-all"
+            >
               <div className="hidden md:block text-right">
-                <span className="text-sm font-medium text-gray-300 block leading-tight">
+                <span className="text-sm font-medium text-gray-200 group-hover:text-white block leading-tight transition-colors">
                   {(() => {
                     const currentHour = new Date().getHours();
                     const greeting = currentHour >= 5 && currentHour < 18 ? "Bonjour" : "Bonsoir";
@@ -316,12 +339,23 @@ export function DashboardLayout({
                       : userName;
                   })()}
                 </span>
-                <span className="text-[10px] text-gray-500 block leading-tight">{userRole}</span>
+                <span className="text-[10px] text-[#C7D300] font-semibold block leading-tight">
+                  {userRole} • Gérer profil
+                </span>
               </div>
-              <button className="p-1 rounded-full bg-white/5 text-gray-400 hover:text-white border border-white/5">
-                <UserCircle size={26} />
-              </button>
-            </div>
+              <div className="relative w-9 h-9 rounded-full bg-white/10 text-gray-300 group-hover:text-white group-hover:border-[#C7D300]/50 border border-white/15 flex items-center justify-center overflow-hidden transition-all shrink-0 shadow-sm">
+                {userData?.logoUrl || userData?.logo || userData?.photoURL ? (
+                  <img
+                    src={userData.logoUrl || userData.logo || userData.photoURL}
+                    alt={userName}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <UserCircle size={24} />
+                )}
+                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#C7D300] ring-2 ring-[#0F1D27]" />
+              </div>
+            </button>
           </div>
         </header>
         

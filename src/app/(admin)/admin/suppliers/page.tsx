@@ -33,6 +33,22 @@ interface Supplier {
   referralCode?: string;
   referralCodeUsed?: string;
   createdAt?: any;
+  phone?: string;
+  whatsappPhone?: string;
+  payoutPhone?: string;
+  payoutProvider?: string;
+  address?: string;
+  companyName?: string;
+  rccm?: string;
+  idNat?: string;
+  nif?: string;
+  idDocumentType?: string;
+  idDocumentNumber?: string;
+  idDocumentFrontUrl?: string;
+  idDocumentBackUrl?: string;
+  nationality?: string;
+  kycStatus?: string;
+  logoUrl?: string;
 }
 
 export default function SuppliersPage() {
@@ -129,6 +145,22 @@ export default function SuppliersPage() {
           referralCode: data.referralCode,
           referralCodeUsed: data.referralCodeUsed,
           createdAt: data.createdAt, // Store createdAt to sort later
+          phone: data.phone || data.phoneNumber || data.pendingProfile?.phone || "",
+          whatsappPhone: data.whatsappPhone || data.pendingProfile?.whatsappPhone || "",
+          payoutPhone: data.payoutPhone || data.pendingProfile?.payoutPhone || "",
+          payoutProvider: data.payoutProvider || data.pendingProfile?.payoutProvider || "MPESA",
+          address: data.address || data.pendingProfile?.address || "",
+          companyName: data.companyName || data.company || data.pendingProfile?.companyName || "",
+          rccm: data.rccm || data.pendingProfile?.rccm || "",
+          idNat: data.idNat || data.pendingProfile?.idNat || "",
+          nif: data.nif || data.pendingProfile?.nif || "",
+          idDocumentType: data.idDocumentType || data.pendingProfile?.idDocumentType || "",
+          idDocumentNumber: data.idDocumentNumber || data.pendingProfile?.idDocumentNumber || "",
+          idDocumentFrontUrl: data.idDocumentFrontUrl || data.pendingProfile?.idDocumentFrontUrl || "",
+          idDocumentBackUrl: data.idDocumentBackUrl || data.pendingProfile?.idDocumentBackUrl || "",
+          nationality: data.nationality || data.pendingProfile?.nationality || "Congolaise (RDC)",
+          kycStatus: data.kycStatus || "",
+          logoUrl: data.logoUrl || data.logo || data.pendingProfile?.logoUrl || "",
         });
       };
 
@@ -180,16 +212,19 @@ export default function SuppliersPage() {
   };
 
   const confirmApproveProfile = async () => {
-    if (!selectedSupplierToApprove || !selectedSupplierToApprove.pendingProfile) return;
+    if (!selectedSupplierToApprove) return;
     setIsLoading(true);
     try {
       const ref = doc(db, "users", selectedSupplierToApprove.id);
+      const pending = selectedSupplierToApprove.pendingProfile || {};
       await updateDoc(ref, {
-        ...selectedSupplierToApprove.pendingProfile,
+        ...pending,
         pendingProfile: null,
-        profileUpdateStatus: "APPROVED"
+        profileUpdateStatus: "APPROVED",
+        kycStatus: "VERIFIED",
+        kycVerifiedAt: new Date().toISOString(),
       });
-      setSuccessMessage("Profil approuvé avec succès.");
+      setSuccessMessage("Profil et dossier d'identité approuvés en base de données.");
       setIsReviewModalOpen(false);
       setSelectedSupplierToApprove(null);
       fetchSuppliers();
@@ -994,19 +1029,24 @@ export default function SuppliersPage() {
                         )}
                       </td>
                       <td className="px-6 py-4">
-                        {supplier.profileUpdateStatus === "PENDING_APPROVAL" || supplier.status === "PENDING_APPROVAL" ? (
-                          <div className="flex flex-col space-y-2">
-                            <span className="text-yellow-400 text-xs font-semibold">En attente</span>
-                            <button 
-                              onClick={() => openReviewModal(supplier)}
-                              className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded hover:bg-blue-500/30 transition-colors"
-                            >
-                              Examiner
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-gray-500 text-xs">À jour</span>
-                        )}
+                        <div className="flex flex-col space-y-1.5">
+                          {supplier.profileUpdateStatus === "PENDING_APPROVAL" || supplier.status === "PENDING_APPROVAL" ? (
+                            <span className="text-yellow-400 text-[11px] font-bold">⏳ Validation en attente</span>
+                          ) : supplier.idDocumentNumber || supplier.idDocumentFrontUrl ? (
+                            <span className="text-emerald-400 text-[11px] font-bold">✅ Identité renseignée</span>
+                          ) : (
+                            <span className="text-gray-500 text-[11px]">Aucune pièce jointe</span>
+                          )}
+                          {supplier.phone && (
+                            <span className="text-[11px] text-gray-300 font-mono">{supplier.phone}</span>
+                          )}
+                          <button 
+                            onClick={() => openReviewModal(supplier)}
+                            className="text-xs bg-blue-500/15 text-blue-300 border border-blue-500/25 px-2.5 py-1 rounded-lg hover:bg-blue-500/25 transition-colors w-max font-semibold cursor-pointer"
+                          >
+                            🪪 Dossier Identité / KYC
+                          </button>
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <button 
@@ -1659,68 +1699,169 @@ export default function SuppliersPage() {
         )}
       </AnimatePresence>
 
-      {/* Review Profile Modal */}
+      {/* Review Profile & KYC Identity Modal */}
       <AnimatePresence>
         {isReviewModalOpen && selectedSupplierToApprove && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-2xl bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+              className="w-full max-w-2xl bg-[#0F1D27] border border-white/15 rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
             >
-              <div className="flex items-center justify-between p-6 border-b border-white/10 shrink-0">
-                <h2 className="text-xl font-semibold text-white">Examiner les modifications</h2>
-                <button onClick={() => setIsReviewModalOpen(false)} className="text-gray-400 hover:text-white">
+              <div className="flex items-center justify-between p-5 sm:p-6 border-b border-white/10 shrink-0">
+                <div>
+                  <h2 className="text-lg sm:text-xl font-bold text-white">
+                    Dossier Identité, Pièces & Coordonnées (Base de données)
+                  </h2>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Fournisseur : <strong className="text-white">{selectedSupplierToApprove.name}</strong> ({selectedSupplierToApprove.email})
+                  </p>
+                </div>
+                <button onClick={() => setIsReviewModalOpen(false)} className="text-gray-400 hover:text-white cursor-pointer">
                   <X size={24} />
                 </button>
               </div>
 
-              <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              <div className="p-5 sm:p-6 overflow-y-auto space-y-6 flex-1">
+                {/* Coordonnées & Numéros */}
                 <div>
-                  <h3 className="text-lg font-medium text-white mb-4">Informations Soumises</h3>
-                  <div className="bg-white/5 rounded-lg border border-white/10 p-4 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#C7D300] mb-3">
+                    1. Numéros de Téléphone & Adresse
+                  </h3>
+                  <div className="bg-white/5 rounded-xl border border-white/10 p-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <span className="block text-[10px] text-gray-400 uppercase font-bold">Téléphone Principal</span>
+                      <span className="text-sm text-white font-mono font-bold">
+                        {selectedSupplierToApprove.pendingProfile?.phone || selectedSupplierToApprove.phone || "Non renseigné"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-gray-400 uppercase font-bold">WhatsApp</span>
+                      <span className="text-sm text-emerald-300 font-mono">
+                        {selectedSupplierToApprove.pendingProfile?.whatsappPhone || selectedSupplierToApprove.whatsappPhone || "Non renseigné"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-gray-400 uppercase font-bold">Mobile Money ({selectedSupplierToApprove.payoutProvider || "MPESA"})</span>
+                      <span className="text-sm text-[#C7D300] font-mono font-bold">
+                        {selectedSupplierToApprove.pendingProfile?.payoutPhone || selectedSupplierToApprove.payoutPhone || "Non renseigné"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-gray-400 uppercase font-bold">Adresse physique</span>
+                      <span className="text-sm text-gray-200">
+                        {selectedSupplierToApprove.pendingProfile?.address || selectedSupplierToApprove.address || "Non renseignée"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Pièce d'Identité & KYC */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#C7D300] mb-3">
+                    2. Pièce d&apos;Identité Officielle (KYC)
+                  </h3>
+                  <div className="bg-white/5 rounded-xl border border-white/10 p-4 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
                       <div>
-                        <span className="block text-xs text-gray-500 uppercase">Téléphone</span>
-                        <span className="text-sm text-gray-200">{selectedSupplierToApprove.pendingProfile?.phone || "Non renseigné"}</span>
+                        <span className="block text-[10px] text-gray-400 uppercase font-bold">Type de Pièce</span>
+                        <span className="text-sm text-white font-semibold">
+                          {selectedSupplierToApprove.pendingProfile?.idDocumentType || selectedSupplierToApprove.idDocumentType || "Non renseigné"}
+                        </span>
                       </div>
                       <div>
-                        <span className="block text-xs text-gray-500 uppercase">Entreprise</span>
-                        <span className="text-sm text-gray-200">{selectedSupplierToApprove.pendingProfile?.companyName || "Non renseigné"}</span>
+                        <span className="block text-[10px] text-gray-400 uppercase font-bold">Numéro de la Pièce</span>
+                        <span className="text-sm text-[#C7D300] font-mono font-bold">
+                          {selectedSupplierToApprove.pendingProfile?.idDocumentNumber || selectedSupplierToApprove.idDocumentNumber || "Non renseigné"}
+                        </span>
                       </div>
                       <div>
-                        <span className="block text-xs text-gray-500 uppercase">RCCM</span>
-                        <span className="text-sm text-gray-200">{selectedSupplierToApprove.pendingProfile?.rccm || "Non renseigné"}</span>
+                        <span className="block text-[10px] text-gray-400 uppercase font-bold">Nationalité</span>
+                        <span className="text-sm text-gray-200">
+                          {selectedSupplierToApprove.pendingProfile?.nationality || selectedSupplierToApprove.nationality || "Congolaise (RDC)"}
+                        </span>
                       </div>
-                      <div>
-                        <span className="block text-xs text-gray-500 uppercase">ID Nat</span>
-                        <span className="text-sm text-gray-200">{selectedSupplierToApprove.pendingProfile?.idNat || "Non renseigné"}</span>
-                      </div>
-                      <div>
-                        <span className="block text-xs text-gray-500 uppercase">NIF</span>
-                        <span className="text-sm text-gray-200">{selectedSupplierToApprove.pendingProfile?.nif || "Non renseigné"}</span>
-                      </div>
-                      <div>
-                        <span className="block text-xs text-gray-500 uppercase">Couleur</span>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <div 
-                            className="w-4 h-4 rounded-full" 
-                            style={{ backgroundColor: selectedSupplierToApprove.pendingProfile?.primaryColor || "#000" }} 
+                    </div>
+
+                    {/* Photos Recto / Verso */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                      <div className="bg-black/40 border border-white/10 rounded-xl p-3">
+                        <span className="block text-[10px] text-gray-400 uppercase font-bold mb-2">
+                          Pièce d&apos;identité — RECTO
+                        </span>
+                        {(selectedSupplierToApprove.pendingProfile?.idDocumentFrontUrl || selectedSupplierToApprove.idDocumentFrontUrl) ? (
+                          <img
+                            src={selectedSupplierToApprove.pendingProfile?.idDocumentFrontUrl || selectedSupplierToApprove.idDocumentFrontUrl}
+                            alt="Pièce Recto"
+                            className="w-full h-40 object-contain rounded-lg bg-black/50"
                           />
-                          <span className="text-sm text-gray-200">{selectedSupplierToApprove.pendingProfile?.primaryColor || "Non renseigné"}</span>
-                        </div>
+                        ) : (
+                          <div className="h-28 flex items-center justify-center text-xs text-gray-500 border border-dashed border-white/10 rounded-lg">
+                            Aucune photo Recto fournie
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="bg-black/40 border border-white/10 rounded-xl p-3">
+                        <span className="block text-[10px] text-gray-400 uppercase font-bold mb-2">
+                          Pièce d&apos;identité — VERSO
+                        </span>
+                        {(selectedSupplierToApprove.pendingProfile?.idDocumentBackUrl || selectedSupplierToApprove.idDocumentBackUrl) ? (
+                          <img
+                            src={selectedSupplierToApprove.pendingProfile?.idDocumentBackUrl || selectedSupplierToApprove.idDocumentBackUrl}
+                            alt="Pièce Verso"
+                            className="w-full h-40 object-contain rounded-lg bg-black/50"
+                          />
+                        ) : (
+                          <div className="h-28 flex items-center justify-center text-xs text-gray-500 border border-dashed border-white/10 rounded-lg">
+                            Aucune photo Verso fournie
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {selectedSupplierToApprove.pendingProfile?.logoUrl && (
+                {/* Références Légales & Entreprise */}
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[#C7D300] mb-3">
+                    3. Mentions Légales & Entreprise
+                  </h3>
+                  <div className="bg-white/5 rounded-xl border border-white/10 p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
+                    <div>
+                      <span className="block text-[10px] text-gray-400 uppercase font-bold">Entreprise</span>
+                      <span className="text-sm text-white">
+                        {selectedSupplierToApprove.pendingProfile?.companyName || selectedSupplierToApprove.companyName || "Non renseigné"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-gray-400 uppercase font-bold">RCCM</span>
+                      <span className="text-sm text-gray-200 font-mono">
+                        {selectedSupplierToApprove.pendingProfile?.rccm || selectedSupplierToApprove.rccm || "Non renseigné"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-gray-400 uppercase font-bold">ID. NAT</span>
+                      <span className="text-sm text-gray-200 font-mono">
+                        {selectedSupplierToApprove.pendingProfile?.idNat || selectedSupplierToApprove.idNat || "Non renseigné"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="block text-[10px] text-gray-400 uppercase font-bold">NIF</span>
+                      <span className="text-sm text-gray-200 font-mono">
+                        {selectedSupplierToApprove.pendingProfile?.nif || selectedSupplierToApprove.nif || "Non renseigné"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {(selectedSupplierToApprove.pendingProfile?.logoUrl || selectedSupplierToApprove.logoUrl) && (
                   <div>
-                    <h3 className="text-lg font-medium text-white mb-2">Logo</h3>
-                    <div className="bg-white/5 rounded-lg border border-white/10 p-4 flex justify-center items-center h-32">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#C7D300] mb-2">Logo de l&apos;enseigne</h3>
+                    <div className="bg-white/5 rounded-xl border border-white/10 p-4 flex justify-center items-center h-28">
                       <img 
-                        src={selectedSupplierToApprove.pendingProfile.logoUrl} 
+                        src={selectedSupplierToApprove.pendingProfile?.logoUrl || selectedSupplierToApprove.logoUrl} 
                         alt="Logo" 
                         className="max-h-full max-w-full object-contain"
                         onError={(e) => (e.currentTarget.style.display = 'none')}
@@ -1730,19 +1871,19 @@ export default function SuppliersPage() {
                 )}
               </div>
 
-              <div className="p-6 border-t border-white/10 shrink-0 flex justify-end space-x-3">
+              <div className="p-5 sm:p-6 border-t border-white/10 shrink-0 flex justify-end space-x-3">
                 <button 
                   onClick={() => setIsReviewModalOpen(false)}
-                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors text-xs sm:text-sm font-semibold cursor-pointer"
                 >
-                  Annuler
+                  Fermer
                 </button>
                 <button 
                   onClick={confirmApproveProfile}
                   disabled={isLoading}
-                  className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-lg"
                 >
-                  {isLoading ? "Approbation..." : "Approuver le profil"}
+                  {isLoading ? "Validation..." : "✅ Valider & Certifier l'Identité en BDD"}
                 </button>
               </div>
             </motion.div>

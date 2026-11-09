@@ -20,6 +20,7 @@ import { useCurrency, CurrencyCode } from "@/context/CurrencyContext";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
 import { Lock } from "lucide-react";
 import PricingCurrencySelector from "@/modules/shared/components/pricing/PricingCurrencySelector";
+import { optimizeImageToWebP } from "@/lib/imageOptimizer";
 
 interface ProductManagerProps {
   isAdmin: boolean;
@@ -40,6 +41,9 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const galleryFileInputRef = useRef<HTMLInputElement>(null);
+  const [galleryItems, setGalleryItems] = useState<Array<{ url: string; color: string }>>([]);
+  const [isGalleryUploading, setIsGalleryUploading] = useState(false);
 
   const [inputCurrency, setInputCurrency] = useState<CurrencyCode>("USD");
   const [productTitle, setProductTitle] = useState("");
@@ -148,6 +152,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
     setOptionInput("");
     setImagePreview(null);
     setImageFile(null);
+    setGalleryItems([]);
     resetChat();
   };
 
@@ -195,8 +200,49 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
     setProductSizes(Array.isArray(product.sizes) ? product.sizes : []);
     setProductColors(Array.isArray(product.colors) ? product.colors : []);
     setProductOptions(Array.isArray(product.options) ? product.options : []);
-    setImagePreview(product.image || "");
+    setImagePreview(product.image || product.imageUrl || (Array.isArray(product.images) ? product.images[0] : "") || "");
+    if (Array.isArray(product.gallery) && product.gallery.length > 0) {
+      setGalleryItems(product.gallery);
+    } else if (Array.isArray(product.images) && product.images.length > 1) {
+      setGalleryItems(product.images.map((url: string) => ({ url, color: "" })));
+    } else {
+      setGalleryItems([]);
+    }
     setIsModalOpen(true);
+  };
+
+  const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    setIsGalleryUploading(true);
+    try {
+      const processed: Array<{ url: string; color: string }> = [];
+      for (const file of files.slice(0, 8)) {
+        const res = await optimizeImageToWebP(file, {
+          maxWidth: 960,
+          maxHeight: 960,
+          quality: 0.8,
+        });
+        if (res?.dataUrl) {
+          processed.push({ url: res.dataUrl, color: "" });
+        }
+      }
+      setGalleryItems((prev) => {
+        const combined = [...prev, ...processed].slice(0, 8);
+        if (!imagePreview && combined.length > 0) {
+          setImagePreview(combined[0].url);
+        }
+        return combined;
+      });
+    } catch (err) {
+      console.error("Erreur compression galerie:", err);
+    } finally {
+      setIsGalleryUploading(false);
+      if (galleryFileInputRef.current) {
+        galleryFileInputRef.current.value = "";
+      }
+    }
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -259,6 +305,26 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
       }
     }
 
+    const cleanedGallery = galleryItems
+      .filter((g) => g && typeof g.url === "string" && g.url.trim().length > 0)
+      .map((g) => ({ url: g.url.trim(), color: (g.color || "").trim() }));
+
+    const mainImg =
+      imagePreview ||
+      cleanedGallery[0]?.url ||
+      "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400";
+
+    const allImages = Array.from(
+      new Set([mainImg, ...cleanedGallery.map((g) => g.url)].filter(Boolean))
+    );
+
+    const galleryColorNames = cleanedGallery
+      .map((g) => g.color)
+      .filter((c) => c.length > 0);
+    const mergedColors = Array.from(
+      new Set([...productColors.filter(Boolean), ...galleryColorNames])
+    );
+
     const productData: any = {
       title: { fr: productTitle.trim(), en: productTitle.trim() },
       category: normalizedCategory,
@@ -271,9 +337,12 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
       appliedExchangeRate: rates?.[inputCurrency] || 1,
       stock: isNaN(parsedStock) ? 0 : parsedStock,
       description: productDesc.trim(),
-      image: imagePreview || "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400",
+      image: mainImg,
+      imageUrl: mainImg,
+      images: allImages,
+      gallery: cleanedGallery,
       sizes: productSizes.filter(Boolean),
-      colors: productColors.filter(Boolean),
+      colors: mergedColors,
       options: productOptions.filter(Boolean),
     };
 
@@ -1025,6 +1094,100 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                   }}
                   onUrlChange={(url) => setImagePreview(url)}
                 />
+
+                {/* ── Galerie Multi-Photos & Variantes de Couleur ── */}
+                <div className="p-4 bg-white/5 border border-white/10 rounded-xl space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        <ImageIcon size={16} className="text-[#C7D300]" />
+                        <span>Photos supplémentaires & Couleurs ({galleryItems.length}/8)</span>
+                      </h3>
+                      <p className="text-[11px] text-gray-400">
+                        Ajoutez plusieurs photos du produit (angles différents ou couleurs : Noir, Blanc, Bleu, Or...)
+                      </p>
+                    </div>
+
+                    <input
+                      ref={galleryFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleGalleryUpload}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      disabled={isGalleryUploading || galleryItems.length >= 8}
+                      onClick={() => galleryFileInputRef.current?.click()}
+                      className="px-3.5 py-2 bg-[#C7D300]/15 hover:bg-[#C7D300]/25 text-[#C7D300] border border-[#C7D300]/30 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <Plus size={14} />
+                      <span>{isGalleryUploading ? "Compression WebP..." : "Ajouter des photos"}</span>
+                    </button>
+                  </div>
+
+                  {galleryItems.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                      {galleryItems.map((item, idx) => {
+                        const isMain = imagePreview === item.url;
+                        return (
+                          <div
+                            key={idx}
+                            className={`flex items-center gap-2.5 p-2 rounded-xl border transition-all ${
+                              isMain
+                                ? "bg-[#C7D300]/10 border-[#C7D300]/40"
+                                : "bg-black/25 border-white/10"
+                            }`}
+                          >
+                            <img
+                              src={item.url}
+                              alt={`Variante ${idx + 1}`}
+                              className="w-14 h-14 rounded-lg object-cover border border-white/10 shrink-0 bg-black/40"
+                            />
+                            <div className="flex-1 min-w-0 space-y-1.5">
+                              <input
+                                type="text"
+                                value={item.color}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setGalleryItems((prev) =>
+                                    prev.map((g, i) => (i === idx ? { ...g, color: val } : g))
+                                  );
+                                }}
+                                placeholder="Couleur / Modèle (ex: Noir, Bleu...)"
+                                className="w-full px-2.5 py-1 bg-black/40 border border-white/15 rounded-md text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#C7D300]"
+                              />
+                              <div className="flex items-center justify-between gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setImagePreview(item.url)}
+                                  className={`text-[10px] font-bold px-2 py-0.5 rounded transition-colors ${
+                                    isMain
+                                      ? "bg-[#C7D300] text-[#0F1D27]"
+                                      : "bg-white/10 text-gray-300 hover:bg-white/20"
+                                  }`}
+                                >
+                                  {isMain ? "★ Photo principale" : "Définir principale"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setGalleryItems((prev) => prev.filter((_, i) => i !== idx))
+                                  }
+                                  className="text-gray-400 hover:text-red-400 text-xs font-bold px-1.5 py-0.5"
+                                  title="Supprimer cette photo"
+                                >
+                                  Supprimer
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
 
                 {/* AI Chat Assistant */}
                 {imageFile && (

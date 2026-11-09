@@ -21,8 +21,9 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
   ...rest
 }) => {
   const isDataUrl = src.startsWith("data:");
-  
-  if (isDataUrl) {
+  const isRemoteUrl = src.startsWith("http://") || src.startsWith("https://");
+
+  if (isDataUrl || isRemoteUrl) {
     return (
       <Image
         src={src}
@@ -34,12 +35,7 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
     );
   }
 
-  const isUnsplash = src.includes("unsplash.com");
-  const blurUrl = generateBlur
-    ? generateBlur(src)
-    : isUnsplash
-    ? (src.includes("?") ? `${src}&q=10` : `${src}?q=10`)
-    : undefined;
+  const blurUrl = generateBlur ? generateBlur(src) : undefined;
 
   return (
     <Image

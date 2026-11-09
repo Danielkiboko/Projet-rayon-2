@@ -184,65 +184,81 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user, userData?.role, showWarning]);
 
-  // ── Auth state listener ──
+  // ── Auth state listener (with real-time Firestore user profile sync) ──
   useEffect(() => {
+    let unsubscribeUserDoc: (() => void) | null = null;
+
     const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
 
+      if (unsubscribeUserDoc) {
+        unsubscribeUserDoc();
+        unsubscribeUserDoc = null;
+      }
+
       if (currentUser) {
-        import("firebase/firestore").then(async ({ doc, getDoc }) => {
-          try {
-            const docSnap = await getDoc(doc(db, "users", currentUser.uid));
-            if (docSnap.exists()) {
-              const data = docSnap.data();
-              let role = data.role;
-              const userEmail = (currentUser.email || "").toLowerCase().trim();
-              if (SUPER_ADMIN_EMAILS.includes(userEmail)) {
-                role = role || "SUPER_ADMIN";
-                currentUser.getIdToken(true).catch(() => {});
+        import("firebase/firestore").then(({ doc, onSnapshot }) => {
+          unsubscribeUserDoc = onSnapshot(
+            doc(db, "users", currentUser.uid),
+            async (docSnap) => {
+              try {
+                if (docSnap.exists()) {
+                  const data = docSnap.data();
+                  let role = data.role;
+                  const userEmail = (currentUser.email || "").toLowerCase().trim();
+                  if (SUPER_ADMIN_EMAILS.includes(userEmail)) {
+                    role = role || "SUPER_ADMIN";
+                    currentUser.getIdToken(true).catch(() => {});
+                  }
+                  if (!role) {
+                    const tokenResult = await getIdTokenResult(currentUser, true);
+                    role = tokenResult.claims.role as string | undefined;
+                  }
+                  setUserData({ ...data, role });
+                } else {
+                  let role: string | undefined = undefined;
+                  const userEmail = (currentUser.email || "").toLowerCase().trim();
+                  if (SUPER_ADMIN_EMAILS.includes(userEmail)) {
+                    role = "SUPER_ADMIN";
+                    currentUser.getIdToken(true).catch(() => {});
+                  } else {
+                    const tokenResult = await getIdTokenResult(currentUser, true);
+                    role = tokenResult.claims.role as string | undefined;
+                  }
+                  setUserData(role ? { role } : null);
+                }
+              } catch (err) {
+                console.error("Error processing user snapshot:", err);
+              } finally {
+                setLoading(false);
               }
-              if (!role) {
-                const tokenResult = await getIdTokenResult(currentUser, true);
-                role = tokenResult.claims.role as string | undefined;
+            },
+            async (error) => {
+              console.error("Error listening to user data:", error);
+              try {
+                const tokenResult = await getIdTokenResult(currentUser);
+                let role = tokenResult.claims.role as string | undefined;
+                const userEmail = (currentUser.email || "").toLowerCase().trim();
+                if (!role && SUPER_ADMIN_EMAILS.includes(userEmail)) role = "SUPER_ADMIN";
+                const emailName = currentUser.email ? currentUser.email.split("@")[0].replace(/[._\-+]/g, " ").trim().split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : "";
+                setUserData({
+                  role: role || (SUPER_ADMIN_EMAILS.includes(userEmail) ? "SUPER_ADMIN" : "CLIENT"),
+                  email: currentUser.email,
+                  displayName: currentUser.displayName || emailName || "Acheteur",
+                });
+              } catch {
+                const userEmail = (currentUser.email || "").toLowerCase().trim();
+                const emailName = currentUser.email ? currentUser.email.split("@")[0].replace(/[._\-+]/g, " ").trim().split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : "";
+                if (SUPER_ADMIN_EMAILS.includes(userEmail)) {
+                  setUserData({ role: "SUPER_ADMIN", email: currentUser.email, displayName: currentUser.displayName || "Super Admin" });
+                } else {
+                  setUserData({ role: "CLIENT", email: currentUser.email, displayName: currentUser.displayName || emailName || "Acheteur" });
+                }
+              } finally {
+                setLoading(false);
               }
-              setUserData({ ...data, role });
-            } else {
-              let role: string | undefined = undefined;
-              const userEmail = (currentUser.email || "").toLowerCase().trim();
-              if (SUPER_ADMIN_EMAILS.includes(userEmail)) {
-                role = "SUPER_ADMIN";
-                currentUser.getIdToken(true).catch(() => {});
-              } else {
-                const tokenResult = await getIdTokenResult(currentUser, true);
-                role = tokenResult.claims.role as string | undefined;
-              }
-              setUserData(role ? { role } : null);
             }
-          } catch (error) {
-            console.error("Error fetching user data:", error);
-            try {
-              const tokenResult = await getIdTokenResult(currentUser);
-              let role = tokenResult.claims.role as string | undefined;
-              const userEmail = (currentUser.email || "").toLowerCase().trim();
-              if (!role && SUPER_ADMIN_EMAILS.includes(userEmail)) role = "SUPER_ADMIN";
-              const emailName = currentUser.email ? currentUser.email.split("@")[0].replace(/[._\-+]/g, " ").trim().split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : "";
-              setUserData({
-                role: role || (SUPER_ADMIN_EMAILS.includes(userEmail) ? "SUPER_ADMIN" : "CLIENT"),
-                email: currentUser.email,
-                displayName: currentUser.displayName || emailName || "Acheteur",
-              });
-            } catch {
-              const userEmail = (currentUser.email || "").toLowerCase().trim();
-              const emailName = currentUser.email ? currentUser.email.split("@")[0].replace(/[._\-+]/g, " ").trim().split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : "";
-              if (SUPER_ADMIN_EMAILS.includes(userEmail)) {
-                setUserData({ role: "SUPER_ADMIN", email: currentUser.email, displayName: currentUser.displayName || "Super Admin" });
-              } else {
-                setUserData({ role: "CLIENT", email: currentUser.email, displayName: currentUser.displayName || emailName || "Acheteur" });
-              }
-            }
-          } finally {
-            setLoading(false);
-          }
+          );
         });
       } else {
         setUserData(null);
@@ -250,7 +266,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => unsubscribeAuth();
+    return () => {
+      if (unsubscribeUserDoc) unsubscribeUserDoc();
+      unsubscribeAuth();
+    };
   }, []);
 
   const signOut = useCallback(() => performSignOut("manual"), [performSignOut]);

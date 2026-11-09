@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { ShieldCheck, Star, ShoppingBag, ShoppingCart, MessageCircle } from "lucide-react";
+import { ShieldCheck, Star, ShoppingBag, ShoppingCart, MessageCircle, Images } from "lucide-react";
 import { motion } from "framer-motion";
 import { evaluateProductVerification } from "@/lib/productVerification";
 import { useCart } from "@/context/CartContext";
@@ -19,7 +19,20 @@ interface ProductCardProps {
 export function ProductCard({ product, lang, t, category, index, handleChat, onBuy }: ProductCardProps) {
   const { addToCart } = useCart();
   const { formatPrice } = useCurrency();
-  const [imgSrc, setImgSrc] = useState(product.image || "");
+  const resolvedImage =
+    product.image ||
+    product.imageUrl ||
+    (Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : "") ||
+    (Array.isArray(product.gallery) && product.gallery.length > 0 ? product.gallery[0]?.url : "") ||
+    "";
+  const [imgSrc, setImgSrc] = useState(resolvedImage);
+
+  useEffect(() => {
+    setImgSrc(resolvedImage);
+  }, [resolvedImage]);
+
+  const photoCount = Array.isArray(product.images) ? product.images.length : Array.isArray(product.gallery) ? product.gallery.length : 1;
+  const colorCount = Array.isArray(product.colors) ? product.colors.length : 0;
   const isMode = category === "mode";
   const isSaveurs = category === "saveurs";
   const verification = evaluateProductVerification(product);
@@ -46,7 +59,10 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
       className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-xs overflow-hidden hover:shadow-md transition-all group flex flex-col h-full"
     >
       {/* Product Image */}
-      <div className="relative h-32 sm:h-36 overflow-hidden bg-slate-100 flex items-center justify-center">
+      <div
+        className="relative h-32 sm:h-36 w-full max-h-36 overflow-hidden bg-slate-100 flex items-center justify-center shrink-0"
+        style={{ height: "132px", maxHeight: "144px" }}
+      >
         <Link href={`/product/${product.id}`} className="block w-full h-full">
           <img 
             src={imgSrc || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300' fill='%23F1F5F9'%3E%3Crect width='400' height='300' fill='%23F1F5F9'/%3E%3Ctext x='50%25' y='52%25' dominant-baseline='middle' text-anchor='middle' fill='%2394A3B8' font-family='sans-serif' font-size='14' font-weight='700'%3ERayons%3C/text%3E%3C/svg%3E"} 
@@ -80,6 +96,23 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
         >
           <MessageCircle size={13} />
         </button>
+
+        {/* Multi-Photo / Colors Indicator Badge */}
+        {(photoCount > 1 || colorCount > 0) && (
+          <div className="absolute bottom-1.5 left-1.5 pointer-events-none flex items-center gap-1">
+            {photoCount > 1 && (
+              <span className="px-1.5 py-0.5 bg-[#0F1D27]/85 backdrop-blur-md text-white text-[8px] sm:text-[9px] font-bold rounded flex items-center gap-0.5 shadow-xs">
+                <Images size={9} className="text-[#C7D300]" />
+                {photoCount}
+              </span>
+            )}
+            {colorCount > 0 && (
+              <span className="px-1.5 py-0.5 bg-white/90 backdrop-blur-md text-[#0F1D27] text-[8px] sm:text-[9px] font-bold rounded border border-gray-200/80 shadow-xs">
+                🎨 {colorCount} coul.
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Product Info */}
