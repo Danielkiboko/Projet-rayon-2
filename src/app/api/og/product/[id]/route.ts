@@ -61,3 +61,4 @@ export async function GET(
     return NextResponse.redirect(new URL("/supermarket-hero.jpg", _req.url));
   }
 }
+
