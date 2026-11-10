@@ -220,8 +220,8 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
       const processed: Array<{ url: string; color: string }> = [];
       for (const file of files.slice(0, 8)) {
         const res = await optimizeImageToWebP(file, {
-          maxWidth: 960,
-          maxHeight: 960,
+          maxWidth: 720,
+          maxHeight: 720,
           quality: 0.8,
         });
         if (res?.dataUrl) {
@@ -822,8 +822,8 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                     >
                       <td className="p-4">
                         <div className="w-12 h-12 bg-white/5 rounded-lg overflow-hidden border border-white/10 flex items-center justify-center shrink-0">
-                          {product.image ? (
-                            <img src={product.image} alt="produit" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                          {(product.image || product.imageUrl || product.images?.[0]) ? (
+                            <img src={product.image || product.imageUrl || product.images?.[0]} alt="produit" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                           ) : (
                             <Package size={16} className="text-primary-light" />
                           )}
@@ -967,8 +967,8 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                 >
                   <div className="flex items-start gap-3">
                     <div className="w-14 h-14 bg-white/5 rounded-xl overflow-hidden border border-white/10 shrink-0 flex items-center justify-center">
-                      {product.image ? (
-                        <img src={product.image} alt="produit" className="w-full h-full object-cover" />
+                      {(product.image || product.imageUrl || product.images?.[0]) ? (
+                        <img src={product.image || product.imageUrl || product.images?.[0]} alt="produit" className="w-full h-full object-cover" />
                       ) : (
                         <Package size={20} className="text-primary-light" />
                       )}

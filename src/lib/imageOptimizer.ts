@@ -44,10 +44,10 @@ export async function optimizeImageToWebP(
   options: ImageOptimizationOptions = {}
 ): Promise<OptimizedImageResult> {
   const {
-    maxWidth = 960,
-    maxHeight = 960,
+    maxWidth = 720,
+    maxHeight = 720,
     quality = 0.8,
-    maxSizeMB = 0.15 // Target ~150KB max, usually lands around 30KB-60KB
+    maxSizeMB = 0.12 // Standardized ~120KB max (typically 25KB-55KB WebP)
   } = options;
 
   const originalSize = file.size;

@@ -91,8 +91,11 @@ export default function ImageUploadArea({
 
   return (
     <div className="space-y-3">
-      <div className="relative rounded-xl overflow-hidden h-44 bg-black/40 flex items-center justify-center border border-white/10 group">
-        <img src={imagePreview} alt="Aperçu photo" className="max-h-full max-w-full object-contain" />
+      <div
+        className="relative rounded-xl overflow-hidden h-36 max-h-36 bg-black/40 flex items-center justify-center border border-white/10 group"
+        style={{ height: "136px", maxHeight: "144px" }}
+      >
+        <img src={imagePreview} alt="Aperçu photo" className="max-h-full max-w-full object-contain p-1.5" />
         
         {/* Status indicator badge */}
         <div className="absolute top-2 right-2 flex items-center gap-1 bg-black/75 backdrop-blur-md px-2.5 py-1 rounded-lg border border-white/15 text-[11px] font-medium text-emerald-400">

@@ -120,8 +120,8 @@ export const handleImageUploadShared = async (
 
   try {
     const result = await optimizeImageToWebP(file, {
-      maxWidth: 960,
-      maxHeight: 960,
+      maxWidth: 720,
+      maxHeight: 720,
       quality: 0.8
     });
 

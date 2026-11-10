@@ -95,7 +95,10 @@ export default function PropertyDetailModal({
           <div className="overflow-y-auto p-6 space-y-6 flex-1">
             {/* Photo Gallery & Carousel */}
             <div className="space-y-3">
-              <div className="relative h-80 sm:h-96 rounded-2xl overflow-hidden bg-gray-900 shadow-inner group">
+              <div
+                className="relative h-52 sm:h-64 max-h-64 rounded-2xl overflow-hidden bg-gray-900 shadow-inner group"
+                style={{ height: "220px", maxHeight: "256px" }}
+              >
                 <img
                   src={photos[activePhotoIndex] || property.image}
                   alt={title}
@@ -143,7 +146,7 @@ export default function PropertyDetailModal({
                     <button
                       key={idx}
                       onClick={() => setActivePhotoIndex(idx)}
-                      className={`relative w-20 h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
+                      className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
                         activePhotoIndex === idx
                           ? "border-amber-500 scale-95 shadow-md"
                           : "border-transparent opacity-60 hover:opacity-100"

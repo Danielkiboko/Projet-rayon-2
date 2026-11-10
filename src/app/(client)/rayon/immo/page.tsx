@@ -414,7 +414,7 @@ function ImmoContent() {
                       setIsDetailModalOpen(true);
                     }}
                     className="relative h-32 sm:h-36 max-h-36 w-full overflow-hidden cursor-pointer bg-gray-100 shrink-0"
-                    style={{ height: "136px", maxHeight: "144px" }}
+                    style={{ height: "132px", maxHeight: "144px" }}
                   >
                     <img 
                       src={property.image} 

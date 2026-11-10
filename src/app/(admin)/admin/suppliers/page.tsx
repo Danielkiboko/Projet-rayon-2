@@ -1794,7 +1794,7 @@ export default function SuppliersPage() {
                           <img
                             src={selectedSupplierToApprove.pendingProfile?.idDocumentFrontUrl || selectedSupplierToApprove.idDocumentFrontUrl}
                             alt="Pièce Recto"
-                            className="w-full h-40 object-contain rounded-lg bg-black/50"
+                            className="w-full h-36 max-h-36 object-contain rounded-lg bg-black/50"
                           />
                         ) : (
                           <div className="h-28 flex items-center justify-center text-xs text-gray-500 border border-dashed border-white/10 rounded-lg">
@@ -1811,7 +1811,7 @@ export default function SuppliersPage() {
                           <img
                             src={selectedSupplierToApprove.pendingProfile?.idDocumentBackUrl || selectedSupplierToApprove.idDocumentBackUrl}
                             alt="Pièce Verso"
-                            className="w-full h-40 object-contain rounded-lg bg-black/50"
+                            className="w-full h-36 max-h-36 object-contain rounded-lg bg-black/50"
                           />
                         ) : (
                           <div className="h-28 flex items-center justify-center text-xs text-gray-500 border border-dashed border-white/10 rounded-lg">

@@ -393,14 +393,17 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-12">
           {/* Colonne Image + Galerie Multi-Photos */}
           <div className="lg:w-5/12">
-            <div className="lg:sticky lg:top-24 space-y-3.5 max-w-[420px] mx-auto lg:mx-0">
-              <div className="relative w-full h-[260px] sm:h-[340px] lg:h-[380px] bg-white rounded-2xl sm:rounded-3xl overflow-hidden border border-white/10 shadow-xl">
+            <div className="lg:sticky lg:top-24 space-y-3.5 max-w-[360px] mx-auto lg:mx-0">
+              <div
+                className="relative w-full h-52 sm:h-64 max-h-64 bg-white rounded-2xl overflow-hidden border border-white/10 shadow-xl"
+                style={{ height: "220px", maxHeight: "256px" }}
+              >
                 <OptimizedImage
                   src={displayImage}
                   alt={productTitle}
                   fill
                   priority
-                  sizes="(max-width: 640px) 100vw, 420px"
+                  sizes="(max-width: 640px) 100vw, 360px"
                   className="w-full h-full object-contain p-2 transition-all duration-300"
                 />
                 <div className="absolute top-3 left-3 sm:top-4 sm:left-4 flex items-center gap-2">

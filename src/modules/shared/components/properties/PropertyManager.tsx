@@ -905,7 +905,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
             return (
               <div key={property.id} className="p-4 space-y-3">
                 <div className="flex items-start gap-3">
-                  <div className="w-16 h-16 bg-white/5 rounded-xl overflow-hidden border border-white/10 shrink-0 flex items-center justify-center">
+                  <div className="w-14 h-14 bg-white/5 rounded-xl overflow-hidden border border-white/10 shrink-0 flex items-center justify-center">
                     {property.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={property.image} alt="bien immo" className="w-full h-full object-cover" />
@@ -1692,7 +1692,10 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
                 {/* Header Info */}
                 <div className="flex flex-col md:flex-row gap-6">
                   {/* Image */}
-                  <div className="w-full md:w-1/3 aspect-square rounded-xl overflow-hidden bg-white/5 border border-white/10 shrink-0">
+                  <div
+                    className="w-full md:w-52 h-44 sm:h-48 max-h-48 rounded-xl overflow-hidden bg-white/5 border border-white/10 shrink-0"
+                    style={{ height: "180px", maxHeight: "192px" }}
+                  >
                     {previewProperty.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={previewProperty.image} alt={getTitle(previewProperty.title)} className="w-full h-full object-cover" />
