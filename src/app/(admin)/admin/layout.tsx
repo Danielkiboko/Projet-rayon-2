@@ -3,13 +3,15 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { ShieldAlert, LayoutDashboard, Package, Users, Settings, UserCheck, Store, Truck, ShoppingCart, Building, Wallet, LifeBuoy, Gift } from "lucide-react";
+import { ShieldAlert, LayoutDashboard, Package, Users, Settings, UserCheck, Store, Truck, ShoppingCart, Building, Wallet, LifeBuoy, Gift, Briefcase } from "lucide-react";
 import DashboardLayout from "@/modules/shared/components/layouts/DashboardLayout";
 import { hasAdminAccess, isSuperAdmin } from "@/lib/permissions";
 
 const ADMIN_MENU = [
   { title: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { title: "Clients", href: "/admin/clients", icon: UserCheck, colorClass: { bg: "bg-blue-600/10", text: "text-blue-500" } },
+  { title: "Partenaires", href: "/admin/partners", icon: Briefcase, colorClass: { bg: "bg-[#C7D300]/10", text: "text-[#C7D300]" } },
+  { title: "Fournisseurs", href: "/admin/suppliers", icon: Store, colorClass: { bg: "bg-blue-600/10", text: "text-blue-500" } },
   { title: "Mes Ventes", href: "/admin/orders", icon: ShoppingCart, colorClass: { bg: "bg-purple-600/10", text: "text-purple-500" } },
   { title: "Produits", href: "/admin/products", icon: Package, colorClass: { bg: "bg-purple-600/10", text: "text-purple-500" } },
   { title: "Immobilier", href: "/admin/properties", icon: Building, colorClass: { bg: "bg-green-600/10", text: "text-green-500" } },

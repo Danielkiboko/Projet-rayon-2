@@ -46,6 +46,10 @@ interface Supplier {
   idDocumentNumber?: string;
   idDocumentFrontUrl?: string;
   idDocumentBackUrl?: string;
+  referredByPartnerId?: string;
+  partnerReferral?: boolean;
+  partnerName?: string;
+  partnerCode?: string;
   nationality?: string;
   kycStatus?: string;
   logoUrl?: string;
@@ -66,8 +70,9 @@ export default function SuppliersPage() {
   const [selectedSubStatus, setSelectedSubStatus] = useState<"TRIAL" | "ACTIVE" | "SUSPENDED_PAYMENT">("TRIAL");
   const [customExpiryDate, setCustomExpiryDate] = useState<string>("");
   
-  // Rayon tab filter state: 'all' | 'immo' | 'mode' | 'connect' | 'saveurs'
-  const [selectedRayonFilter, setSelectedRayonFilter] = useState<"all" | "immo" | "mode" | "connect" | "saveurs">("all");
+  // Rayon tab filter state: 'all' | 'immo' | 'mode' | 'connect' | 'saveurs' | 'pending'
+  const [selectedRayonFilter, setSelectedRayonFilter] = useState<"all" | "immo" | "mode" | "connect" | "saveurs" | "pending">("all");
+  const [selectedSourceFilter, setSelectedSourceFilter] = useState<"all" | "direct" | "partner">("all");
 
   // Rayon selection state for access modal
   const [selectedRayons, setSelectedRayons] = useState<string[]>([]);
@@ -109,8 +114,25 @@ export default function SuppliersPage() {
 
       const q1 = query(collection(db, "users"), where("role", "in", supplierRoles1));
       const q2 = query(collection(db, "users"), where("role", "in", supplierRoles2));
+      const q3 = query(collection(db, "users"), where("isSupplier", "==", true));
+      const qPartners = query(collection(db, "users"), where("isPartner", "==", true));
 
-      const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+      const [snap1, snap2, snap3, snapPartners] = await Promise.all([
+        getDocs(q1), 
+        getDocs(q2),
+        getDocs(q3),
+        getDocs(qPartners)
+      ]);
+
+      const partnersMap: Record<string, { name: string; code: string }> = {};
+      snapPartners.forEach((pDoc) => {
+        const pd = pDoc.data();
+        partnersMap[pDoc.id] = {
+          name: pd.displayName || pd.name || pd.company || pd.email || "Partenaire",
+          code: pd.partnerCode || pd.referralCode || "---",
+        };
+      });
+
       const fetchedSuppliers: Supplier[] = [];
       const seenIds = new Set<string>();
 
@@ -124,13 +146,16 @@ export default function SuppliersPage() {
           return;
         }
 
+        const partnerId = data.referredByPartnerId || data.referredBy || (data.creatorRole === "PARTNER" ? data.createdBy : null);
+        const partnerInfo = partnerId ? partnersMap[partnerId] : null;
+
         fetchedSuppliers.push({
           id: docSnap.id,
-          name: data.displayName || "Sans nom",
+          name: data.companyName || data.company || data.displayName || data.name || "Sans nom",
           email: data.email || "",
-          rayon: data.rayon || "Non assigné",
+          rayon: data.rayon || (Array.isArray(data.assignedRayons) && data.assignedRayons[0]) || "Non assigné",
           assignedRayons: data.assignedRayons || (data.rayon ? [data.rayon] : []),
-          status: data.status === "active" ? "Actif" : "Inactif",
+          status: data.status === "active" || data.status === "Disponible" ? "Actif" : (data.status === "PENDING_APPROVAL" ? "En attente" : "Inactif"),
           profileUpdateStatus: data.profileUpdateStatus,
           pendingProfile: data.pendingProfile,
           subscriptionStatus: data.subscriptionStatus,
@@ -138,6 +163,10 @@ export default function SuppliersPage() {
           role: data.role,
           createdBy: data.createdBy,
           parentSupplierId: data.parentSupplierId || data.createdBy,
+          referredByPartnerId: partnerId || undefined,
+          partnerReferral: Boolean(data.partnerReferral || partnerId),
+          partnerName: partnerInfo?.name,
+          partnerCode: partnerInfo?.code,
           businessType: data.businessType,
           serviceAttached: data.serviceAttached,
           isOfficialAdminStore: Boolean(data.isOfficialAdminStore || data.isAdminSupplier),
@@ -166,6 +195,7 @@ export default function SuppliersPage() {
 
       snap1.forEach(processSnap);
       snap2.forEach(processSnap);
+      snap3.forEach(processSnap);
 
       // Sort locally by createdAt desc
       fetchedSuppliers.sort((a: any, b: any) => {
@@ -346,7 +376,7 @@ export default function SuppliersPage() {
   };
 
   const handleOpenCreateModal = (preselectedCategory?: "immo" | "mode" | "connect" | "saveurs") => {
-    const cat = preselectedCategory || (selectedRayonFilter !== "all" ? selectedRayonFilter : "immo");
+    const cat = preselectedCategory || (selectedRayonFilter !== "all" && selectedRayonFilter !== "pending" ? selectedRayonFilter : "immo");
     setSupplierCategory(cat);
     if (cat === "immo") {
       setRole("SUPPLIER_IMMO");
@@ -498,8 +528,18 @@ export default function SuppliersPage() {
   const connectSuppliersCount = suppliers.filter((s) => getSupplierRayons(s).includes("connect")).length;
   const saveursSuppliersCount = suppliers.filter((s) => getSupplierRayons(s).includes("saveurs")).length;
 
+  const pendingProfilesCount = suppliers.filter(
+    (s) => s.profileUpdateStatus === "PENDING_APPROVAL" || s.status === "PENDING_APPROVAL"
+  ).length;
+
+  const partnerSuppliersCount = suppliers.filter((s) => s.partnerReferral || !!s.referredByPartnerId).length;
+  const directSuppliersCount = suppliers.length - partnerSuppliersCount;
+
   const filteredSuppliers = suppliers.filter((s) => {
-    if (selectedRayonFilter === "immo") {
+    // 1. Pending approval filter
+    if (selectedRayonFilter === "pending") {
+      if (s.profileUpdateStatus !== "PENDING_APPROVAL" && s.status !== "PENDING_APPROVAL") return false;
+    } else if (selectedRayonFilter === "immo") {
       if (!getSupplierRayons(s).includes("immo")) return false;
     } else if (selectedRayonFilter === "mode") {
       if (!getSupplierRayons(s).includes("mode")) return false;
@@ -509,12 +549,21 @@ export default function SuppliersPage() {
       if (!getSupplierRayons(s).includes("saveurs")) return false;
     }
 
+    // 2. Source filter: Direct vs Partner
+    if (selectedSourceFilter === "partner") {
+      if (!s.partnerReferral && !s.referredByPartnerId) return false;
+    } else if (selectedSourceFilter === "direct") {
+      if (s.partnerReferral || !!s.referredByPartnerId) return false;
+    }
+
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
       s.name.toLowerCase().includes(q) ||
       s.email.toLowerCase().includes(q) ||
       s.rayon.toLowerCase().includes(q) ||
+      (s.partnerName && s.partnerName.toLowerCase().includes(q)) ||
+      (s.partnerCode && s.partnerCode.toLowerCase().includes(q)) ||
       (s.role && s.role.toLowerCase().includes(q))
     );
   });
@@ -572,6 +621,32 @@ export default function SuppliersPage() {
           </button>
         </div>
       </div>
+
+      {/* Alerte Profils Fournisseur en attente de validation */}
+      {pendingProfilesCount > 0 && (
+        <div className="p-4 bg-amber-500/15 border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center shrink-0">
+              <Shield size={20} />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                <span>{pendingProfilesCount} profil{pendingProfilesCount > 1 ? "s" : ""} fournisseur en attente de validation</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold uppercase animate-pulse">Action requise</span>
+              </h4>
+              <p className="text-xs text-amber-200/80 mt-0.5">
+                Des commerçants ont mis à jour leurs identifiants légaux (RCCM, NIF, ID Nat) ou pièces d'identité. Cliquez pour vérifier et valider leur profil.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setSelectedRayonFilter("pending")}
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold text-xs rounded-xl transition-all shadow-md cursor-pointer shrink-0"
+          >
+            Examiner les dossiers ({pendingProfilesCount})
+          </button>
+        </div>
+      )}
       
       {successMessage && (
         <div className="p-4 bg-green-500/20 border border-green-500/50 rounded-xl text-green-300 flex items-center justify-between">
@@ -590,7 +665,7 @@ export default function SuppliersPage() {
         <button
           type="button"
           onClick={() => setSelectedRayonFilter("all")}
-          className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+          className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
             selectedRayonFilter === "all"
               ? "bg-white/15 text-white shadow-lg border border-white/20"
               : "text-gray-400 hover:text-white hover:bg-white/5"
@@ -605,10 +680,28 @@ export default function SuppliersPage() {
           </span>
         </button>
 
+        {pendingProfilesCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setSelectedRayonFilter("pending")}
+            className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+              selectedRayonFilter === "pending"
+                ? "bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-lg shadow-amber-500/10"
+                : "text-amber-400 hover:bg-amber-500/10"
+            }`}
+          >
+            <span className="text-base animate-pulse">⏳</span>
+            <span>À Valider (KYC & Profil)</span>
+            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/40 text-amber-200">
+              {pendingProfilesCount}
+            </span>
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => setSelectedRayonFilter("immo")}
-          className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+          className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
             selectedRayonFilter === "immo"
               ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-lg shadow-emerald-500/10"
               : "text-gray-400 hover:text-emerald-300 hover:bg-emerald-500/10"
@@ -626,7 +719,7 @@ export default function SuppliersPage() {
         <button
           type="button"
           onClick={() => setSelectedRayonFilter("mode")}
-          className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+          className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
             selectedRayonFilter === "mode"
               ? "bg-pink-500/20 text-pink-300 border border-pink-500/40 shadow-lg shadow-pink-500/10"
               : "text-gray-400 hover:text-pink-300 hover:bg-pink-500/10"
@@ -644,7 +737,7 @@ export default function SuppliersPage() {
         <button
           type="button"
           onClick={() => setSelectedRayonFilter("connect")}
-          className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+          className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
             selectedRayonFilter === "connect"
               ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-lg shadow-cyan-500/10"
               : "text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/10"
@@ -662,7 +755,7 @@ export default function SuppliersPage() {
         <button
           type="button"
           onClick={() => setSelectedRayonFilter("saveurs")}
-          className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+          className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
             selectedRayonFilter === "saveurs"
               ? "bg-[#FF6B35]/20 text-[#FF6B35] border border-[#FF6B35]/40 shadow-lg shadow-[#FF6B35]/10"
               : "text-gray-400 hover:text-[#FF6B35] hover:bg-[#FF6B35]/10"
@@ -675,6 +768,44 @@ export default function SuppliersPage() {
           }`}>
             {saveursSuppliersCount}
           </span>
+        </button>
+      </div>
+
+      {/* Source Filter: Direct vs Partenaire */}
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <span className="text-gray-400 font-semibold text-[11px] uppercase tracking-wider mr-1">Origine :</span>
+        <button
+          type="button"
+          onClick={() => setSelectedSourceFilter("all")}
+          className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+            selectedSourceFilter === "all"
+              ? "bg-white/20 text-white border border-white/25 shadow-sm"
+              : "text-gray-400 hover:text-white bg-black/30 border border-white/5"
+          }`}
+        >
+          Toutes origines ({suppliers.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedSourceFilter("partner")}
+          className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+            selectedSourceFilter === "partner"
+              ? "bg-purple-500/25 text-purple-300 border border-purple-500/40 shadow-sm"
+              : "text-gray-400 hover:text-purple-300 bg-black/30 border border-white/5"
+          }`}
+        >
+          <span>🤝 Créés par Partenaires ({partnerSuppliersCount})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedSourceFilter("direct")}
+          className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
+            selectedSourceFilter === "direct"
+              ? "bg-blue-500/25 text-blue-300 border border-blue-500/40 shadow-sm"
+              : "text-gray-400 hover:text-blue-300 bg-black/30 border border-white/5"
+          }`}
+        >
+          Direction Centrale ({directSuppliersCount})
         </button>
       </div>
 
@@ -765,7 +896,7 @@ export default function SuppliersPage() {
                           : "Il n'y a actuellement aucun fournisseur configuré dans cette catégorie."}
                       </p>
                       <button
-                        onClick={() => handleOpenCreateModal(selectedRayonFilter !== "all" ? selectedRayonFilter : "immo")}
+                        onClick={() => handleOpenCreateModal(selectedRayonFilter !== "all" && selectedRayonFilter !== "pending" ? selectedRayonFilter : "immo")}
                         className="flex items-center space-x-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs px-4 py-2 rounded-lg font-bold transition-colors shadow-sm"
                       >
                         <Plus size={16} />
@@ -887,6 +1018,17 @@ export default function SuppliersPage() {
                                 </span>
                               ) : null;
                             })()}
+
+                            {/* Partner Badge if created by a partner */}
+                            {supplier.partnerName && (
+                              <div className="mt-1 flex items-center gap-1.5">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-purple-500/15 text-purple-300 px-2 py-0.5 rounded border border-purple-500/30">
+                                  <span>🤝 Partenaire :</span>
+                                  <strong className="text-white">{supplier.partnerName}</strong>
+                                  {supplier.partnerCode && <span className="text-[#C7D300] font-mono">({supplier.partnerCode})</span>}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -1031,21 +1173,36 @@ export default function SuppliersPage() {
                       <td className="px-6 py-4">
                         <div className="flex flex-col space-y-1.5">
                           {supplier.profileUpdateStatus === "PENDING_APPROVAL" || supplier.status === "PENDING_APPROVAL" ? (
-                            <span className="text-yellow-400 text-[11px] font-bold">⏳ Validation en attente</span>
-                          ) : supplier.idDocumentNumber || supplier.idDocumentFrontUrl ? (
-                            <span className="text-emerald-400 text-[11px] font-bold">✅ Identité renseignée</span>
+                            <div className="space-y-1">
+                              <span className="text-amber-400 text-[11px] font-bold flex items-center gap-1.5">
+                                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                                ⏳ Modifications en attente
+                              </span>
+                              <button 
+                                onClick={() => openReviewModal(supplier)}
+                                className="text-xs bg-amber-500 hover:bg-amber-400 text-gray-950 font-extrabold px-3 py-1.5 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer w-max animate-pulse"
+                              >
+                                ⚡ Valider Profil & Pièces
+                              </button>
+                            </div>
                           ) : (
-                            <span className="text-gray-500 text-[11px]">Aucune pièce jointe</span>
+                            <>
+                              {supplier.idDocumentNumber || supplier.idDocumentFrontUrl ? (
+                                <span className="text-emerald-400 text-[11px] font-bold">✅ Identité renseignée</span>
+                              ) : (
+                                <span className="text-gray-500 text-[11px]">Aucune pièce jointe</span>
+                              )}
+                              <button 
+                                onClick={() => openReviewModal(supplier)}
+                                className="text-xs bg-blue-500/15 text-blue-300 border border-blue-500/25 px-2.5 py-1 rounded-lg hover:bg-blue-500/25 transition-colors w-max font-semibold cursor-pointer"
+                              >
+                                🪪 Dossier Identité / KYC
+                              </button>
+                            </>
                           )}
                           {supplier.phone && (
                             <span className="text-[11px] text-gray-300 font-mono">{supplier.phone}</span>
                           )}
-                          <button 
-                            onClick={() => openReviewModal(supplier)}
-                            className="text-xs bg-blue-500/15 text-blue-300 border border-blue-500/25 px-2.5 py-1 rounded-lg hover:bg-blue-500/25 transition-colors w-max font-semibold cursor-pointer"
-                          >
-                            🪪 Dossier Identité / KYC
-                          </button>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -1101,7 +1258,14 @@ export default function SuppliersPage() {
                         {isImmo ? <Home size={15} /> : isMode ? <ShoppingBag size={15} /> : isConnect ? <Zap size={15} /> : <Store size={15} />}
                       </div>
                       <div className="min-w-0">
-                        <h4 className="font-bold text-xs text-white truncate">{supplier.name}</h4>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="font-bold text-xs text-white truncate">{supplier.name}</h4>
+                          {supplier.partnerName && (
+                            <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/25 px-1.5 py-0.5 rounded font-semibold inline-flex items-center gap-1 shrink-0">
+                              <span>🤝 {supplier.partnerName}</span>
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-gray-400 truncate">{supplier.email}</p>
                       </div>
                     </div>
@@ -1143,21 +1307,37 @@ export default function SuppliersPage() {
                     )}
                   </div>
 
+                  {/* Pending profile action on mobile */}
+                  {(supplier.profileUpdateStatus === "PENDING_APPROVAL" || supplier.status === "PENDING_APPROVAL") && (
+                    <button
+                      onClick={() => openReviewModal(supplier)}
+                      className="w-full text-xs font-extrabold bg-amber-500 hover:bg-amber-400 text-gray-950 py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 shadow-md animate-pulse cursor-pointer"
+                    >
+                      <span>⚡ Valider Profil & Pièces KYC</span>
+                    </button>
+                  )}
+
                   {/* Footer actions */}
                   <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5">
                       <button
                         onClick={() => openAccessModal(supplier)}
-                        className="text-[10px] bg-white/5 hover:bg-white/10 text-gray-300 px-2.5 py-1 rounded-md border border-white/8 font-medium transition-colors cursor-pointer"
+                        className="text-[10px] bg-white/5 hover:bg-white/10 text-gray-300 px-2 py-1 rounded-md border border-white/8 font-medium transition-colors cursor-pointer"
                       >
-                        Rayons d&apos;accès
+                        Accès
+                      </button>
+                      <button
+                        onClick={() => openReviewModal(supplier)}
+                        className="text-[10px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/20 px-2 py-1 rounded-md font-medium transition-colors cursor-pointer"
+                      >
+                        🪪 KYC
                       </button>
                       {!(supplier.isOfficialAdminStore || supplier.isAdminSupplier) && (
                         <button
                           onClick={() => openSubModal(supplier)}
                           className="text-[10px] text-[#C7D300] font-medium hover:underline px-1 py-1 cursor-pointer"
                         >
-                          Abonnement
+                          Abo
                         </button>
                       )}
                     </div>

@@ -119,6 +119,8 @@ export default function ClientsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [clientToPromote, setClientToPromote] = useState<ClientData | null>(null);
   const [targetRole, setTargetRole] = useState<string>("SUB_ADMIN");
+  const [promoteRayon, setPromoteRayon] = useState<string>("connect");
+  const [promoteStoreName, setPromoteStoreName] = useState<string>("");
   const [isPromoting, setIsPromoting] = useState(false);
 
   // Modal création manuelle
@@ -245,6 +247,11 @@ export default function ClientsPage() {
         body: JSON.stringify({
           uid: clientToPromote.id,
           newRole: targetRole,
+          extraData: targetRole === "SUPPLIER" ? {
+            rayon: promoteRayon,
+            company: promoteStoreName || clientToPromote.name,
+            companyName: promoteStoreName || clientToPromote.name,
+          } : {},
         }),
       });
 
@@ -647,7 +654,7 @@ export default function ClientsPage() {
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
-                            onClick={() => setClientToPromote(client)}
+                            onClick={() => { setClientToPromote(client); setPromoteStoreName(client.name || ""); }}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 rounded-lg text-xs font-semibold transition-colors border border-blue-500/20 cursor-pointer"
                             title="Convertir ce compte en Admin ou Fournisseur"
                           >
@@ -770,7 +777,7 @@ export default function ClientsPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       <button
-                        onClick={() => setClientToPromote(client)}
+                        onClick={() => { setClientToPromote(client); setPromoteStoreName(client.name || ""); }}
                         className="flex items-center justify-center gap-1.5 py-2 px-3 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl text-xs font-semibold border border-blue-500/20 cursor-pointer"
                       >
                         <ArrowRightCircle size={13} />
@@ -989,6 +996,38 @@ export default function ClientsPage() {
                 </optgroup>
               </select>
             </div>
+
+            {targetRole === "SUPPLIER" && (
+              <div className="p-3.5 rounded-xl bg-black/40 border border-white/10 space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 mb-1">
+                    Nom commercial de la Boutique
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Kin Boutique Store"
+                    value={promoteStoreName}
+                    onChange={(e) => setPromoteStoreName(e.target.value)}
+                    className="w-full px-3 py-2 bg-black/50 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-blue-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 mb-1">
+                    Rayon d'Activité
+                  </label>
+                  <select
+                    value={promoteRayon}
+                    onChange={(e) => setPromoteRayon(e.target.value)}
+                    className="w-full px-3 py-2 bg-black/50 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-blue-400 cursor-pointer"
+                  >
+                    <option value="connect">Rayon Connect (High-Tech, Matériel, Télécoms)</option>
+                    <option value="immo">Rayon Immo (Immobilier, Bailleurs, Agences)</option>
+                    <option value="mode">Rayon Mode (Vêtements, Chaussures, Accessoires)</option>
+                    <option value="saveurs">Rayon Saveurs (Restaurants, Traiteurs, Épicerie)</option>
+                  </select>
+                </div>
+              </div>
+            )}
 
             <div className="text-[11px] text-gray-400 bg-white/5 p-3 rounded-xl border border-white/5 space-y-1">
               <p className="font-semibold text-white">Conséquences de la conversion :</p>

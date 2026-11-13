@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { SUPER_ADMIN_EMAILS } from '@/lib/serverAuth';
+import { ensureReferralCode } from '@/lib/referrals';
 
 export async function POST(req: Request) {
   try {
@@ -89,20 +90,59 @@ export async function POST(req: Request) {
 
     if (newRole === 'PARTNER') {
       updatePayload.isPartner = true;
-      if (!targetData.partnerCode) {
-        const baseCode = (targetData.displayName || targetData.name || 'PARTNER')
-          .toUpperCase()
-          .replace(/[^A-Z0-9]/g, '')
-          .slice(0, 6);
-        updatePayload.partnerCode = `${baseCode || 'RAY'}${Math.floor(100 + Math.random() * 900)}`;
+      updatePayload.role = 'PARTNER';
+      updatePayload.status = 'active';
+      
+      let pCode = targetData.partnerCode || targetData.referralCode;
+      if (!pCode) {
+        try {
+          pCode = await ensureReferralCode(uid);
+        } catch {
+          const baseCode = (targetData.displayName || targetData.name || 'PARTNER')
+            .toUpperCase()
+            .replace(/[^A-Z0-9]/g, '')
+            .slice(0, 6);
+          pCode = `RAY-${baseCode || 'PART'}${Math.floor(100 + Math.random() * 900)}`;
+        }
       }
+      updatePayload.partnerCode = pCode;
+      updatePayload.referralCode = pCode;
       updatePayload.partnerBalance = targetData.partnerBalance || 0;
       updatePayload.partnerTotalEarned = targetData.partnerTotalEarned || 0;
     }
 
     if (newRole.toString().startsWith('SUPPLIER')) {
+      const selectedRayon = extraData.rayon || targetData.rayon || 'connect';
+      const company = extraData.company || extraData.companyName || targetData.company || targetData.companyName || targetData.displayName || targetData.name || 'Boutique Fournisseur';
+      
+      const trialDays = 15;
+      const trialEnd = new Date();
+      trialEnd.setDate(trialEnd.getDate() + trialDays);
+
       updatePayload.isSupplier = true;
-      updatePayload.status = targetData.status || 'Disponible';
+      updatePayload.role = 'SUPPLIER';
+      updatePayload.status = 'active';
+      updatePayload.rayon = selectedRayon;
+      updatePayload.assignedRayons = extraData.assignedRayons || [selectedRayon];
+      updatePayload.serviceAttached = selectedRayon;
+      updatePayload.company = company;
+      updatePayload.companyName = company;
+      updatePayload.displayName = company;
+      updatePayload.subscriptionStatus = targetData.subscriptionStatus || 'TRIAL';
+      updatePayload.subscriptionEndDate = targetData.subscriptionEndDate || trialEnd;
+      updatePayload.trialPeriodDays = trialDays;
+
+      // Also guarantee creation/merge in suppliers/{uid}
+      await adminDb.collection('suppliers').doc(uid).set({
+        email: targetEmail,
+        displayName: company,
+        company: company,
+        companyName: company,
+        rayon: selectedRayon,
+        status: 'active',
+        createdAt: targetData.createdAt || new Date(),
+        updatedAt: new Date(),
+      }, { merge: true });
     }
 
     await adminDb.collection('users').doc(uid).set(updatePayload, { merge: true });
@@ -117,3 +157,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message || 'Erreur serveur' }, { status: 500 });
   }
 }
+
