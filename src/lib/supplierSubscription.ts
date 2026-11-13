@@ -53,8 +53,8 @@ export function evaluateSupplierSubscription(userData: any): SupplierSubscriptio
     };
   }
 
-  // Si le compte a été expressément bloqué manuellement ou suspendu pour paiement
-  if (userData.isBlocked === true || userData.subscriptionStatus === "SUSPENDED_PAYMENT") {
+  // Si le compte a été suspendu pour défaut de paiement ou expressément banni
+  if (userData.subscriptionStatus === "SUSPENDED_PAYMENT" || userData.isSuspended === true || userData.manuallyBlockedByAdmin === true) {
     return {
       isBlocked: true,
       isTrial: false,
@@ -63,6 +63,20 @@ export function evaluateSupplierSubscription(userData: any): SupplierSubscriptio
       formattedDueDate: "Échue - Paiement requis",
       depositAmount: userData.depositAmount || DEFAULT_MONTHLY_DEPOSIT,
       reason: "Dépôt attendu mensuel impayé. Les publications et la messagerie sont suspendues."
+    };
+  }
+
+  // Si isBlocked est à true mais que le statut a été remis à TRIAL ou ACTIVE avec une date valide
+  // on ne bloque que si l'échéance est déjà dépassée
+  if (userData.isBlocked === true && userData.subscriptionStatus !== "TRIAL" && userData.subscriptionStatus !== "ACTIVE") {
+    return {
+      isBlocked: true,
+      isTrial: false,
+      status: "SUSPENDED_PAYMENT",
+      daysLeft: 0,
+      formattedDueDate: "Compte bloqué",
+      depositAmount: userData.depositAmount || DEFAULT_MONTHLY_DEPOSIT,
+      reason: "Compte bloqué. Veuillez contacter l'administration."
     };
   }
 
@@ -106,13 +120,15 @@ export function evaluateSupplierSubscription(userData: any): SupplierSubscriptio
     ? userData.subscriptionEndDate.toDate() 
     : new Date(userData.subscriptionEndDate);
 
-  // Règle d'entreprise stricte : Le trial est de 15 jours maximum à la création, non 30 jours.
+  // Règle d'entreprise : Le trial initial est de 15 jours à la création.
   // Si le compte a été initialisé avec 30 jours par erreur et sans personnalisation admin explicite,
-  // on recadre l'échéance à 15 jours à compter de la création.
+  // on recadre l'échéance à 15 jours à compter de la création (uniquement pour les comptes nouvellement créés).
   if (isTrial && !userData.adminCustomTrial && created) {
     const maxOfficialTrialEnd = new Date(created);
     maxOfficialTrialEnd.setDate(maxOfficialTrialEnd.getDate() + TRIAL_DURATION_DAYS);
-    if (endDate.getTime() > maxOfficialTrialEnd.getTime()) {
+    const nowTime = Date.now();
+    // Ne recadrer que si le compte vient d'être créé (< 15j) et que l'échéance dépassait
+    if (nowTime - created.getTime() < TRIAL_DURATION_DAYS * 86400000 && endDate.getTime() > maxOfficialTrialEnd.getTime()) {
       endDate = maxOfficialTrialEnd;
     }
   }

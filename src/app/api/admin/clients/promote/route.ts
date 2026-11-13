@@ -122,15 +122,17 @@ export async function POST(req: Request) {
       updatePayload.isSupplier = true;
       updatePayload.role = 'SUPPLIER';
       updatePayload.status = 'active';
+      updatePayload.isBlocked = false;
       updatePayload.rayon = selectedRayon;
       updatePayload.assignedRayons = extraData.assignedRayons || [selectedRayon];
       updatePayload.serviceAttached = selectedRayon;
       updatePayload.company = company;
       updatePayload.companyName = company;
       updatePayload.displayName = company;
-      updatePayload.subscriptionStatus = targetData.subscriptionStatus || 'TRIAL';
-      updatePayload.subscriptionEndDate = targetData.subscriptionEndDate || trialEnd;
+      updatePayload.subscriptionStatus = 'TRIAL';
+      updatePayload.subscriptionEndDate = trialEnd;
       updatePayload.trialPeriodDays = trialDays;
+      updatePayload.adminCustomTrial = true;
 
       // Also guarantee creation/merge in suppliers/{uid}
       await adminDb.collection('suppliers').doc(uid).set({
@@ -140,6 +142,11 @@ export async function POST(req: Request) {
         companyName: company,
         rayon: selectedRayon,
         status: 'active',
+        isBlocked: false,
+        subscriptionStatus: 'TRIAL',
+        subscriptionEndDate: trialEnd,
+        trialPeriodDays: trialDays,
+        adminCustomTrial: true,
         createdAt: targetData.createdAt || new Date(),
         updatedAt: new Date(),
       }, { merge: true });

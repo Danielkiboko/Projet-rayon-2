@@ -7,7 +7,7 @@ import {
   CheckCircle2, Users, ArrowRight, Building, Filter, Sparkles 
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
-import { collection, getDocs, query, where, doc, updateDoc, onSnapshot, orderBy, limit } from "firebase/firestore";
+import { collection, getDocs, query, where, doc, updateDoc, setDoc, onSnapshot, orderBy, limit } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 import { hasAdminAccess, isTeamMember, SUPER_ADMIN_EMAILS } from "@/lib/permissions";
 import AdminBroadcastModal from "@/modules/admin/components/AdminBroadcastModal";
@@ -252,15 +252,32 @@ export default function SuppliersPage() {
         pendingProfile: null,
         profileUpdateStatus: "APPROVED",
         kycStatus: "VERIFIED",
+        status: "active",
+        isBlocked: false,
+        isSuspended: false,
         kycVerifiedAt: new Date().toISOString(),
       });
-      setSuccessMessage("Profil et dossier d'identité approuvés en base de données.");
+
+      // Synchroniser avec la collection suppliers
+      try {
+        const supRef = doc(db, "suppliers", selectedSupplierToApprove.id);
+        await setDoc(supRef, {
+          status: "active",
+          isBlocked: false,
+          kycStatus: "VERIFIED",
+          updatedAt: new Date(),
+        }, { merge: true });
+      } catch (e) {
+        console.warn("Sync suppliers non bloquant:", e);
+      }
+
+      setSuccessMessage("Profil et dossier d'identité approuvés en base de données. Fournisseur actif !");
       setIsReviewModalOpen(false);
       setSelectedSupplierToApprove(null);
       fetchSuppliers();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Erreur lors de l'approbation.");
+      setError(err.message || "Erreur lors de l'approbation.");
       setIsLoading(false);
     }
   };
@@ -280,39 +297,73 @@ export default function SuppliersPage() {
     if (!selectedSupplierId) return;
     setIsLoading(true);
     try {
-      const ref = doc(db, "users", selectedSupplierId);
-      
-      let newEndDate: Date;
-      if (customExpiryDate) {
-        newEndDate = new Date(customExpiryDate);
-        newEndDate.setHours(23, 59, 59, 999);
-      } else {
-        let baseDate = new Date();
-        if (selectedSupplierSub?.subscriptionEndDate) {
-          const existing = selectedSupplierSub.subscriptionEndDate.toDate
-            ? selectedSupplierSub.subscriptionEndDate.toDate()
-            : new Date(selectedSupplierSub.subscriptionEndDate);
-          if (existing > baseDate) {
-            baseDate = existing;
-          }
-        }
-        newEndDate = new Date(baseDate);
-        newEndDate.setDate(newEndDate.getDate() + Number(daysToAdd));
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("Vous devez être connecté.");
+      const token = await currentUser.getIdToken();
+
+      const res = await fetch("/api/admin/suppliers/subscription", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          supplierId: selectedSupplierId,
+          subscriptionStatus: selectedSubStatus,
+          daysToAdd: Number(daysToAdd),
+          customExpiryDate: customExpiryDate || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Erreur lors de la mise à jour de l'abonnement.");
       }
 
-      await updateDoc(ref, {
-        subscriptionEndDate: newEndDate,
-        subscriptionStatus: selectedSubStatus,
-        adminCustomTrial: true,
-        trialPeriodDays: 15
-      });
-      setSuccessMessage(`Statut et échéance mis à jour (${selectedSubStatus === "TRIAL" ? "Période d'essai" : selectedSubStatus === "ACTIVE" ? "Abonnement Actif" : "Suspendu"}). Nouvelle échéance : ${newEndDate.toLocaleDateString("fr-FR")}`);
+      setSuccessMessage(data.message || `Statut et échéance mis à jour (${selectedSubStatus === "TRIAL" ? "Période d'essai" : selectedSubStatus === "ACTIVE" ? "Abonnement Actif" : "Suspendu"}).`);
       setIsSubModalOpen(false);
       setSelectedSupplierSub(null);
       fetchSuppliers();
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Erreur lors de la mise à jour de l'abonnement.");
+      setError(err.message || "Erreur lors de la mise à jour de l'abonnement.");
+      setIsLoading(false);
+    }
+  };
+
+  const handleQuickReactivate = async (supplier: Supplier) => {
+    if (!confirm(`Réactiver immédiatement le compte fournisseur de "${supplier.name}" avec 15 jours d'essai ?`)) {
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("Vous devez être connecté.");
+      const token = await currentUser.getIdToken();
+
+      const res = await fetch("/api/admin/suppliers/subscription", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          supplierId: supplier.id,
+          action: "REACTIVATE",
+          daysToAdd: 15,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Erreur lors de la réactivation.");
+      }
+
+      setSuccessMessage(data.message || `Compte fournisseur de "${supplier.name}" réactivé avec succès !`);
+      fetchSuppliers();
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Erreur lors de la réactivation.");
       setIsLoading(false);
     }
   };
@@ -1136,9 +1187,19 @@ export default function SuppliersPage() {
 
                               if (isExpired) {
                                 return (
-                                  <span className="inline-flex items-center gap-1 text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-md w-max">
-                                    ⛔ Expiré ({daysLeft <= 0 ? `${Math.abs(daysLeft)}j de retard` : ""})
-                                  </span>
+                                  <div className="flex flex-col gap-1">
+                                    <span className="inline-flex items-center gap-1 text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-md w-max">
+                                      ⛔ Expiré ({daysLeft <= 0 ? `${Math.abs(daysLeft)}j de retard` : ""})
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleQuickReactivate(supplier)}
+                                      className="inline-flex items-center gap-1 text-[11px] font-bold bg-amber-500 hover:bg-amber-400 text-gray-950 px-2.5 py-1 rounded-lg shadow-md transition-all cursor-pointer w-max"
+                                      title="Réactiver immédiatement ce fournisseur avec 15 jours d'essai gratuit"
+                                    >
+                                      <span>⚡ Réactiver (15j)</span>
+                                    </button>
+                                  </div>
                                 );
                               }
 
@@ -1338,6 +1399,14 @@ export default function SuppliersPage() {
                           className="text-[10px] text-[#C7D300] font-medium hover:underline px-1 py-1 cursor-pointer"
                         >
                           Abo
+                        </button>
+                      )}
+                      {isExpired && !(supplier.isOfficialAdminStore || supplier.isAdminSupplier) && (
+                        <button
+                          onClick={() => handleQuickReactivate(supplier)}
+                          className="text-[10px] bg-amber-500 hover:bg-amber-400 text-gray-950 font-extrabold px-2 py-1 rounded-md shadow transition-colors cursor-pointer"
+                        >
+                          ⚡ Réactiver
                         </button>
                       )}
                     </div>
@@ -1856,6 +1925,14 @@ export default function SuppliersPage() {
                     </div>
                   );
                 })()}
+
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-xl text-xs text-emerald-300 flex items-start gap-2">
+                  <span className="text-base shrink-0">⚡</span>
+                  <div>
+                    <strong className="block font-bold">Déblocage & Réactivation immédiate :</strong>
+                    En validant un statut <em>Essai</em> ou <em>Actif</em>, le fournisseur est instantanément débloqué, réactivé en base et autorisé à publier immédiatement.
+                  </div>
+                </div>
                 
                 <div className="pt-2 flex justify-end space-x-3">
                   <button 
