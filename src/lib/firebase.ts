@@ -6,9 +6,19 @@ import {
   memoryLocalCache 
 } from "firebase/firestore";
 
+function resolveAuthDomain(): string {
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host === "rayons.net" || host === "www.rayons.net") {
+      return "rayons.net";
+    }
+  }
+  return process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "projets-rayons2.firebaseapp.com";
+}
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyDummyKeyForBuildVerification12345",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "projets-rayons2.firebaseapp.com",
+  authDomain: resolveAuthDomain(),
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "projets-rayons2",
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "projets-rayons2.firebasestorage.app",
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "123456789",

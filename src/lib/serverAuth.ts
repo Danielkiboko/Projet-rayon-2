@@ -5,16 +5,29 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
  * Vérifie le token Firebase envoyé dans l'en-tête `Authorization: Bearer <idToken>`.
  */
 
-export const SUPER_ADMIN_EMAILS: string[] = (
-  process.env.SUPER_ADMIN_EMAILS || "danielkiboko218@gmail.com,admin@rayons.net"
+const DEFAULT_SUPER_ADMIN_EMAILS = [
+  "danielkiboko218@gmail.com",
+  "admin@rayons.net",
+];
+
+const envSuperAdmins = (
+  process.env.SUPER_ADMIN_EMAILS || 
+  process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || 
+  ""
 )
+  .replace(/["']/g, "")
   .split(",")
   .map((e) => e.trim().toLowerCase())
   .filter(Boolean);
 
+export const SUPER_ADMIN_EMAILS: string[] = Array.from(
+  new Set([...DEFAULT_SUPER_ADMIN_EMAILS, ...envSuperAdmins])
+);
+
 export const ADMIN_ROLES = [
-  "SUPER_ADMIN", "SUPERADMIN", "SUB_ADMIN", "ADMIN", "ADMIN_FINANCE",
-  "ADMIN_OPS", "ADMIN_DB", "ADMIN_TECH", "SOUS_ADMIN_GENERAL",
+  "SUPER_ADMIN", "SUPERADMIN", "SUB_ADMIN", "SUBADMIN", "SOUS_ADMIN", "SOUSADMIN",
+  "ADMIN", "ADMIN_FINANCE", "ADMIN_OPS", "ADMIN_DB", "ADMIN_TECH",
+  "SOUS_ADMIN_GENERAL", "FONCTIONNAIRE", "STAFF"
 ];
 
 export interface ServerCaller {
@@ -28,23 +41,58 @@ export interface ServerCaller {
 
 export async function getServerCaller(req: Request): Promise<ServerCaller | null> {
   const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
-  if (!authHeader?.startsWith("Bearer ")) return null;
+  if (!authHeader?.startsWith("Bearer ")) {
+    console.warn("[getServerCaller] No Bearer token found in Authorization header");
+    return null;
+  }
+
+  const token = authHeader.slice(7).trim();
+  if (!token) {
+    console.warn("[getServerCaller] Empty token in Authorization header");
+    return null;
+  }
 
   try {
-    const decoded = await adminAuth.verifyIdToken(authHeader.slice(7));
-    const snap = await adminDb.collection("users").doc(decoded.uid).get();
-    const data = snap.exists ? snap.data() || {} : {};
+    const decoded = await adminAuth.verifyIdToken(token);
+    let data: Record<string, any> = {};
+    try {
+      const snap = await adminDb.collection("users").doc(decoded.uid).get();
+      if (snap.exists) {
+        data = snap.data() || {};
+      }
+    } catch (dbErr) {
+      console.warn("[getServerCaller] Could not fetch users document:", dbErr);
+    }
+
     const email = (decoded.email || data.email || "").toLowerCase().trim();
-    const role = String(data.role || decoded.role || "").toUpperCase();
+    const role = String(data.role || decoded.role || "").toUpperCase().trim();
+
+    const isSuperAdminEmail = SUPER_ADMIN_EMAILS.some((e) => e === email);
+    const hasAdminRole = 
+      ADMIN_ROLES.includes(role) || 
+      role.includes("ADMIN") || 
+      role.includes("FONCTIONNAIRE") ||
+      data.isAdmin === true || 
+      data.isSuperAdmin === true ||
+      decoded.admin === true ||
+      decoded.isSuperAdmin === true;
+
+    const isAdmin = isSuperAdminEmail || hasAdminRole;
+
+    if (!isAdmin) {
+      console.warn(`[getServerCaller] Access denied: uid=${decoded.uid}, email=${email}, role=${role}`);
+    }
+
     return {
       uid: decoded.uid,
       email,
       role,
-      isAdmin: SUPER_ADMIN_EMAILS.includes(email) || ADMIN_ROLES.includes(role),
+      isAdmin,
       parentSupplierId: data.parentSupplierId || null,
       data,
     };
-  } catch {
+  } catch (err: any) {
+    console.error("[getServerCaller ERROR verifying token]:", err?.message || err);
     return null;
   }
 }

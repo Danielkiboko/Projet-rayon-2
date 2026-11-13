@@ -291,6 +291,22 @@ export default function Home() {
               <span className="w-2 h-2 rounded-full bg-[#FF6B35] group-hover:scale-125 transition-transform" />
               <span>Saveurs</span>
             </Link>
+
+            <span className="w-px h-4 bg-white/15 mx-1" />
+
+            <Link
+              href="/about"
+              className="text-xs font-semibold text-gray-300 hover:text-white hover:bg-white/10 px-3 py-1.5 rounded-full transition-all"
+            >
+              À propos
+            </Link>
+
+            <Link
+              href="/contact"
+              className="text-xs font-semibold text-gray-300 hover:text-white hover:bg-white/10 px-3 py-1.5 rounded-full transition-all"
+            >
+              Contact
+            </Link>
           </nav>
 
           {/* Right Utilities */}
@@ -370,7 +386,23 @@ export default function Home() {
                 <span>{item.label}</span>
               </Link>
             ))}
-            <div className="border-t border-white/10 mt-2 pt-3 flex gap-2">
+            <div className="grid grid-cols-2 gap-2 border-t border-white/10 mt-2 pt-3">
+              <Link
+                href="/about"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2 px-3 text-center text-xs font-semibold bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10"
+              >
+                À propos
+              </Link>
+              <Link
+                href="/contact"
+                onClick={() => setMobileMenuOpen(false)}
+                className="py-2 px-3 text-center text-xs font-semibold bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10"
+              >
+                Contact
+              </Link>
+            </div>
+            <div className="flex gap-2 pt-1">
               <Link
                 href="/supplier/register"
                 onClick={() => setMobileMenuOpen(false)}

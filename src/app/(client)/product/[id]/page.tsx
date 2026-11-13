@@ -906,6 +906,33 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
         onClose={() => setBuyModalProduct(null)}
         product={buyModalProduct}
       />
+
+      {productData && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org/",
+              "@type": "Product",
+              name: productData.title?.fr || productData.title || productData.name || "Produit Rayons",
+              image: productData.images || [productData.image || productData.imageUrl || "https://rayons.net/supermarket-hero.jpg"],
+              description: productData.description?.fr || productData.description || "Article disponible sur la marketplace unifiée Rayons.net",
+              sku: productData.id,
+              offers: {
+                "@type": "Offer",
+                url: `https://rayons.net/product/${productId}`,
+                priceCurrency: "USD",
+                price: Number(productData.price) || 0,
+                availability: (productData.stock === undefined || productData.stock > 0) ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+                seller: {
+                  "@type": "Organization",
+                  name: productData.supplierName || "Rayons Marketplace",
+                },
+              },
+            }),
+          }}
+        />
+      )}
     </div>
   );
 }

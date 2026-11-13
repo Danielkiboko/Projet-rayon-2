@@ -50,6 +50,7 @@ import { CartProvider } from "@/context/CartContext";
 import { ThemeProvider } from "@/modules/shared/components/ThemeProvider";
 import AdSense from "@/modules/shared/components/shared/AdSense";
 import { CartDrawer } from "@/modules/client/components/cart/CartDrawer";
+import { StructuredData } from "@/modules/shared/components/StructuredData";
 
 import { Toaster } from "react-hot-toast";
 
@@ -73,6 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </CurrencyProvider>
           </AuthProvider>
         </ThemeProvider>
+        <StructuredData />
         <AdSense />
         <Toaster position="top-center" />
         
