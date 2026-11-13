@@ -223,7 +223,7 @@ export function DashboardLayout({
             if (item.locked) {
               return (
                 <div 
-                  key={item.title} 
+                  key={item.href ? `${item.href}-${item.title}` : item.title} 
                   onClick={() => {
                     setIsSidebarOpen(false);
                     setLockedModalItem(item);
@@ -243,7 +243,7 @@ export function DashboardLayout({
             }
             
             return (
-              <Link key={item.title} href={item.href} onClick={() => setIsSidebarOpen(false)}>
+              <Link key={item.href ? `${item.href}-${item.title}` : item.title} href={item.href} onClick={() => setIsSidebarOpen(false)}>
                 <div className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
                   isActive 
                     ? `${activeBg} ${activeText} shadow-sm` 

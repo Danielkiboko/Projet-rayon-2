@@ -15,7 +15,6 @@ const ADMIN_MENU = [
   { title: "Mes Ventes", href: "/admin/orders", icon: ShoppingCart, colorClass: { bg: "bg-purple-600/10", text: "text-purple-500" } },
   { title: "Produits", href: "/admin/products", icon: Package, colorClass: { bg: "bg-purple-600/10", text: "text-purple-500" } },
   { title: "Immobilier", href: "/admin/properties", icon: Building, colorClass: { bg: "bg-green-600/10", text: "text-green-500" } },
-  { title: "Fournisseurs", href: "/admin/suppliers", icon: Store, colorClass: { bg: "bg-blue-600/10", text: "text-blue-500" } },
   { title: "Livreurs", href: "/admin/drivers", icon: Truck, colorClass: { bg: "bg-blue-600/10", text: "text-blue-500" } },
   { title: "Finances", href: "/admin/finance", icon: Wallet },
   { title: "Parrainages", href: "/admin/referrals", icon: Gift, colorClass: { bg: "bg-amber-600/10", text: "text-amber-500" } },
