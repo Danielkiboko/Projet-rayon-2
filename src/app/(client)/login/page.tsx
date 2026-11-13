@@ -46,6 +46,8 @@ function LoginContent() {
         router.replace("/supplier");
       } else if (role === "DRIVER" || role === "LIVREUR") {
         router.replace("/driver");
+      } else if (role === "PARTNER" || userData.isPartner === true) {
+        router.replace("/partner");
       } else {
         router.replace("/dashboard");
       }

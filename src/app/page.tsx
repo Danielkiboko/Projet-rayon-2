@@ -247,8 +247,7 @@ export default function Home() {
             >
               {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
-            <RayonsLogo size="sm" variant="dark" className="sm:hidden" href="/" />
-            <RayonsLogo size="md" variant="dark" className="hidden sm:inline-flex" href="/" />
+            <RayonsLogo size="md" variant="dark" href="/" />
           </div>
 
           {/* Desktop Categories Hub */}

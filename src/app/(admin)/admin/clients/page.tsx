@@ -16,12 +16,18 @@ import {
   Calendar, 
   MessageCircle, 
   X,
-  Sparkles
+  Sparkles,
+  Trash2,
+  ShieldAlert,
+  ArrowRightCircle,
+  AlertTriangle,
+  UserPlus
 } from "lucide-react";
-import { db } from "@/lib/firebase";
+import { db, auth } from "@/lib/firebase";
 import { collection, query, limit, onSnapshot, addDoc, serverTimestamp } from "firebase/firestore";
 import { isSupplier, isTeamMember, hasAdminAccess, SUPER_ADMIN_EMAILS } from "@/lib/permissions";
 import ResponsiveModal from "@/modules/shared/components/ui/ResponsiveModal";
+import toast, { Toaster } from "react-hot-toast";
 
 interface ClientData {
   id: string;
@@ -108,6 +114,13 @@ export default function ClientsPage() {
   // Copied feedback
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Suppression & Promotion
+  const [clientToDelete, setClientToDelete] = useState<ClientData | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [clientToPromote, setClientToPromote] = useState<ClientData | null>(null);
+  const [targetRole, setTargetRole] = useState<string>("SUB_ADMIN");
+  const [isPromoting, setIsPromoting] = useState(false);
+
   // Modal création manuelle
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -181,6 +194,71 @@ export default function ClientsPage() {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  // Action : Supprimer définitivement un client (Auth + DB)
+  const handleDeleteClient = async () => {
+    if (!clientToDelete) return;
+    setIsDeleting(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("Vous devez être connecté.");
+      const token = await currentUser.getIdToken();
+
+      const res = await fetch("/api/users/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ uid: clientToDelete.id }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur lors de la suppression");
+
+      toast.success(`Le compte client (${clientToDelete.email || clientToDelete.name}) a été définitivement supprimé. Son adresse email est désormais libre.`);
+      setClientToDelete(null);
+    } catch (err: any) {
+      console.error("Erreur suppression:", err);
+      toast.error(err.message || "Erreur lors de la suppression.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  // Action : Promouvoir/Convertir directement un client en Admin ou Fournisseur
+  const handlePromoteClient = async () => {
+    if (!clientToPromote) return;
+    setIsPromoting(true);
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("Vous devez être connecté.");
+      const token = await currentUser.getIdToken();
+
+      const res = await fetch("/api/admin/clients/promote", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          uid: clientToPromote.id,
+          newRole: targetRole,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erreur lors de la conversion");
+
+      toast.success(data.message || `Client converti avec succès en ${targetRole} !`);
+      setClientToPromote(null);
+    } catch (err: any) {
+      console.error("Erreur conversion:", err);
+      toast.error(err.message || "Erreur lors de la conversion.");
+    } finally {
+      setIsPromoting(false);
+    }
   };
 
   const handleCreateClient = async (e: React.FormEvent) => {
@@ -310,6 +388,7 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-6">
+      <Toaster position="top-right" />
       {/* En-tête */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
@@ -566,10 +645,31 @@ export default function ClientsPage() {
                         )}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => { const d = `Client : ${client.name}\nTél : ${client.phone || "—"}\nEmail : ${client.email || "—"}\nInscrit le : ${formatDate(client.createdAt)}`; navigator.clipboard.writeText(d); alert("📋 Fiche copiée !"); }}
-                          className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-lg text-xs font-medium transition-colors border border-white/5"
-                        >Copier fiche</button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setClientToPromote(client)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 rounded-lg text-xs font-semibold transition-colors border border-blue-500/20 cursor-pointer"
+                            title="Convertir ce compte en Admin ou Fournisseur"
+                          >
+                            <ArrowRightCircle size={13} />
+                            <span>Convertir</span>
+                          </button>
+                          <button
+                            onClick={() => setClientToDelete(client)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-lg text-xs font-semibold transition-colors border border-red-500/20 cursor-pointer"
+                            title="Supprimer définitivement ce compte client pour libérer son email"
+                          >
+                            <Trash2 size={13} />
+                            <span>Supprimer</span>
+                          </button>
+                          <button
+                            onClick={() => { const d = `Client : ${client.name}\nTél : ${client.phone || "—"}\nEmail : ${client.email || "—"}\nInscrit le : ${formatDate(client.createdAt)}`; navigator.clipboard.writeText(d); toast.success("📋 Fiche copiée !"); }}
+                            className="p-1.5 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-lg text-xs font-medium transition-colors border border-white/5 cursor-pointer"
+                            title="Copier la fiche complète"
+                          >
+                            <Copy size={13} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -654,16 +754,36 @@ export default function ClientsPage() {
                     )}
                   </div>
 
-                  {/* Footer: date + action */}
-                  <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                    <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
-                      <Calendar size={11} />
-                      <span>{formatDate(client.createdAt)}</span>
+                  {/* Footer: date + actions */}
+                  <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
+                    <div className="flex items-center justify-between text-[11px] text-gray-500">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar size={11} />
+                        <span>{formatDate(client.createdAt)}</span>
+                      </div>
+                      <button
+                        onClick={() => { const d = `Client : ${client.name}\nTél : ${client.phone || "—"}\nEmail : ${client.email || "—"}\nInscrit le : ${formatDate(client.createdAt)}`; navigator.clipboard.writeText(d); toast.success("📋 Fiche copiée !"); }}
+                        className="text-gray-400 hover:text-white underline text-[11px] cursor-pointer"
+                      >
+                        Copier fiche
+                      </button>
                     </div>
-                    <button
-                      onClick={() => { const d = `Client : ${client.name}\nTél : ${client.phone || "—"}\nEmail : ${client.email || "—"}\nInscrit le : ${formatDate(client.createdAt)}`; navigator.clipboard.writeText(d); alert("📋 Fiche copiée !"); }}
-                      className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-xl text-[11px] font-medium transition-colors border border-white/5"
-                    >Copier fiche</button>
+                    <div className="grid grid-cols-2 gap-2 pt-1">
+                      <button
+                        onClick={() => setClientToPromote(client)}
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl text-xs font-semibold border border-blue-500/20 cursor-pointer"
+                      >
+                        <ArrowRightCircle size={13} />
+                        <span>Convertir</span>
+                      </button>
+                      <button
+                        onClick={() => setClientToDelete(client)}
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-xs font-semibold border border-red-500/20 cursor-pointer"
+                      >
+                        <Trash2 size={13} />
+                        <span>Supprimer</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -766,6 +886,146 @@ export default function ClientsPage() {
             </button>
           </div>
         </form>
+      </ResponsiveModal>
+
+      {/* MODAL : Confirmation de Suppression Définitive d'un Client */}
+      <ResponsiveModal
+        isOpen={!!clientToDelete}
+        onClose={() => !isDeleting && setClientToDelete(null)}
+        title="Supprimer Définitivement ce Client ?"
+        subtitle="Libération d'adresse email et suppression des accès"
+        icon={<AlertTriangle size={20} className="text-red-400" />}
+        maxWidth="md"
+      >
+        {clientToDelete && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-200 text-xs leading-relaxed space-y-2">
+              <p className="font-bold flex items-center gap-1.5 text-red-400">
+                <ShieldAlert size={16} />
+                Action irréversible sur le compte
+              </p>
+              <p>
+                Vous êtes sur le point de supprimer le compte de{" "}
+                <span className="font-bold text-white">{clientToDelete.name}</span>{" "}
+                ({clientToDelete.email || clientToDelete.phone || "Sans email"}).
+              </p>
+              <ul className="list-disc list-inside space-y-1 text-gray-300 pt-1">
+                <li>Le compte sera supprimé de <strong>Firebase Authentication</strong>.</li>
+                <li>Son profil sera retiré de la collection Firestore <code>users</code>.</li>
+                <li><strong>L'adresse email sera immédiatement libérée</strong> pour créer un compte administrateur ou boutique sans erreur de doublon.</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setClientToDelete(null)}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleDeleteClient}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-red-500 hover:bg-red-600 text-white transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Suppression en cours...</span>
+                  </div>
+                ) : (
+                  <>
+                    <Trash2 size={15} />
+                    <span>Supprimer et Libérer l'Email</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </ResponsiveModal>
+
+      {/* MODAL : Conversion / Promotion de Rôle d'un Client */}
+      <ResponsiveModal
+        isOpen={!!clientToPromote}
+        onClose={() => !isPromoting && setClientToPromote(null)}
+        title="Convertir le Rôle du Client"
+        subtitle="Transformer ce compte sans le supprimer ni réinitialiser ses données"
+        icon={<UserPlus size={20} className="text-blue-400" />}
+        maxWidth="md"
+      >
+        {clientToPromote && (
+          <div className="space-y-4">
+            <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-200">
+              <p className="font-semibold text-white mb-1">
+                Compte sélectionné : {clientToPromote.name} ({clientToPromote.email || "Sans email"})
+              </p>
+              <p className="text-gray-300 text-[11px]">
+                Plutôt que de supprimer le client pour recréer son compte, vous pouvez directement lui attribuer les droits d'administration, de boutique ou de partenaire d'affaires.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-semibold text-gray-300">
+                Sélectionnez le nouveau statut / rôle à lui attribuer :
+              </label>
+              <select
+                value={targetRole}
+                onChange={(e) => setTargetRole(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-black/50 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-blue-400 cursor-pointer"
+              >
+                <optgroup label="Équipe Administrative Centrale">
+                  <option value="SUB_ADMIN">Sous-Administrateur (Gestion générale)</option>
+                  <option value="ADMIN_FINANCE">Admin Finances & Trésorerie (Comptabilité, Payouts)</option>
+                  <option value="ADMIN_DB">Admin Base de Données (Clients & Fournisseurs)</option>
+                  <option value="ADMIN_OPS">Admin Opérations & Logistique (Commandes, Livraisons)</option>
+                </optgroup>
+                <optgroup label="Partenariat & Vente">
+                  <option value="SUPPLIER">Fournisseur / Boutique marchande</option>
+                  <option value="PARTNER">Partenaire Apporteur d'Affaires (Recruteur Fournisseurs)</option>
+                </optgroup>
+              </select>
+            </div>
+
+            <div className="text-[11px] text-gray-400 bg-white/5 p-3 rounded-xl border border-white/5 space-y-1">
+              <p className="font-semibold text-white">Conséquences de la conversion :</p>
+              <p>• Les claims de sécurité Firebase Auth sont synchronisés instantanément.</p>
+              <p>• À sa prochaine connexion (ou rafraîchissement), l&apos;utilisateur sera automatiquement redirigé vers son espace dédié.</p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/10">
+              <button
+                type="button"
+                disabled={isPromoting}
+                onClick={() => setClientToPromote(null)}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+              >
+                Annuler
+              </button>
+              <button
+                type="button"
+                disabled={isPromoting}
+                onClick={handlePromoteClient}
+                className="px-5 py-2.5 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+              >
+                {isPromoting ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Conversion en cours...</span>
+                  </div>
+                ) : (
+                  <>
+                    <ArrowRightCircle size={15} />
+                    <span>Appliquer la conversion</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
       </ResponsiveModal>
     </div>
   );

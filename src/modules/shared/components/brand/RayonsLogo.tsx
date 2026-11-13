@@ -54,9 +54,6 @@ export function RayonsLogo({
 
   const currentUniverse = rayon ? universeConfig[rayon] : null;
 
-  const hasHiddenClass = className.split(/\s+/).includes("hidden");
-  const displayClass = hasHiddenClass ? "" : "inline-flex";
-
   const innerContent = (
     <div className="inline-flex items-center gap-2 select-none">
       {/* Emblème ailé officiel */}
@@ -98,9 +95,12 @@ export function RayonsLogo({
     </div>
   );
 
+  const baseClasses = "items-center group transition-opacity hover:opacity-95";
+  const displayClass = className.includes("hidden") ? "" : "inline-flex";
+
   if (href) {
     return (
-      <Link href={href} className={`${displayClass} items-center group transition-opacity hover:opacity-95 ${className}`}>
+      <Link href={href} className={`${displayClass} ${baseClasses} ${className}`}>
         {innerContent}
       </Link>
     );

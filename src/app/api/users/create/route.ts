@@ -4,6 +4,7 @@ import { sendMobiShastraSMS } from '@/lib/sms';
 import nodemailer from 'nodemailer';
 import { SUPER_ADMIN_EMAILS } from '@/lib/serverAuth';
 import { getPermanentDriverApkUrl } from '@/lib/constants';
+import { ensureReferralCode, attachReferral } from '@/lib/referrals';
 
 export async function POST(req: Request) {
   try {
@@ -30,10 +31,12 @@ export async function POST(req: Request) {
 
     // Check latest role from Firestore first (source of truth), then fallback to token claim
     let firestoreRole: string | null = null;
+    let callerDocData: any = null;
     try {
       const userDoc = await adminDb.collection('users').doc(callerUid).get();
       if (userDoc.exists) {
-        firestoreRole = userDoc.data()?.role;
+        callerDocData = userDoc.data();
+        firestoreRole = callerDocData?.role;
       }
     } catch (dbErr) {
       console.warn('Could not fetch caller doc from Firestore:', dbErr);
@@ -45,8 +48,9 @@ export async function POST(req: Request) {
     const isSubAdminCaller = ['SUB_ADMIN', 'SUBADMIN', 'ADMIN'].includes(rawRole);
     const isAdminCaller = isSuperAdminCaller || isSubAdminCaller;
     const isSupplierCaller = ['SUPPLIER', 'SUPPLIER_IMMO', 'SUB_SUPPLIER', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT', 'SUPPLIER_SAVEURS', 'FOURNISSEUR'].includes(rawRole);
+    const isPartnerCaller = rawRole === 'PARTNER' || callerDocData?.isPartner === true;
 
-    if (!isAdminCaller && !isSupplierCaller) {
+    if (!isAdminCaller && !isSupplierCaller && !isPartnerCaller) {
       return NextResponse.json({ error: 'Forbidden: Insufficient privileges to create users' }, { status: 403 });
     }
 
@@ -59,6 +63,13 @@ export async function POST(req: Request) {
     }
 
     // 3. Enforce Creation Rules
+    if (isPartnerCaller) {
+      const allowedSupplierRoles = ['supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT'];
+      if (!allowedSupplierRoles.includes(roleToCreate)) {
+        return NextResponse.json({ error: 'Action interdite : Les partenaires peuvent uniquement enregistrer des boutiques et fournisseurs.' }, { status: 403 });
+      }
+    }
+
     if (isSupplierCaller && !['driver', 'SUB_SUPPLIER'].includes(roleToCreate)) {
       return NextResponse.json({ error: 'Forbidden: Suppliers can only create drivers and sub-suppliers' }, { status: 403 });
     }
@@ -93,14 +104,38 @@ export async function POST(req: Request) {
     // 5. Set Custom Claims (Role & Creation lineage)
     const claims: any = {
       role: roleToCreate,
-      createdBy: isSupplierCaller ? callerUid : (rawRole || 'superAdmin'),
+      createdBy: isPartnerCaller ? callerUid : (isSupplierCaller ? callerUid : (rawRole || 'superAdmin')),
     };
+    if (isPartnerCaller) {
+      claims.referredByPartnerId = callerUid;
+    }
     if (extraData?.parentSupplierId || (isSupplierCaller && roleToCreate === 'driver')) {
       claims.parentSupplierId = extraData?.parentSupplierId || callerUid;
     }
     await adminAuth.setCustomUserClaims(userRecord.uid, claims);
 
     const additionalData = { ...extraData };
+    let partnerRefCode: string | null = null;
+
+    if (isPartnerCaller) {
+      partnerRefCode = callerDocData?.referralCode || callerDocData?.partnerCode || null;
+      if (!partnerRefCode) {
+        try {
+          partnerRefCode = await ensureReferralCode(callerUid);
+        } catch (e) {
+          console.warn('Could not ensure partner referral code:', e);
+        }
+      }
+      additionalData.referredByPartnerId = callerUid;
+      additionalData.referredBy = callerUid;
+      additionalData.partnerReferral = true;
+      additionalData.referralCodeUsed = partnerRefCode;
+      additionalData.supplierId = 'admin'; // Managed directly by Central Administration
+      additionalData.isCentralCatalog = true;
+      additionalData.createdBy = callerUid;
+      additionalData.creatorRole = 'PARTNER';
+    }
+
     if (roleToCreate === 'driver') {
       const assignedSupplierId = isSupplierCaller ? callerUid : (extraData?.supplierId || 'admin');
       additionalData.supplierId = assignedSupplierId;
@@ -144,20 +179,35 @@ export async function POST(req: Request) {
       displayName,
       role: roleToCreate,
       createdBy: claims.createdBy,
-      creatorRole: rawRole || 'superAdmin',
+      creatorRole: isPartnerCaller ? 'PARTNER' : (rawRole || 'superAdmin'),
       createdAt: new Date(),
       status: 'active',
       ...additionalData
     }, { merge: true });
 
     // 7. Route to specific collections (drivers, suppliers) if needed
-    if (['supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS'].includes(roleToCreate)) {
+    if (['supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT'].includes(roleToCreate)) {
       await adminDb.collection('suppliers').doc(userRecord.uid).set({
         email,
         displayName,
         createdAt: new Date(),
-        status: 'active'
+        status: 'active',
+        referredByPartnerId: isPartnerCaller ? callerUid : (additionalData.referredByPartnerId || null),
       }, { merge: true });
+
+      // If created by partner, attach referral relation immediately
+      if (isPartnerCaller && partnerRefCode) {
+        try {
+          await attachReferral({
+            filleulId: userRecord.uid,
+            code: partnerRefCode,
+            filleulName: displayName || email,
+            filleulEmail: email,
+          });
+        } catch (attachErr) {
+          console.warn('Partner auto-referral attach error:', attachErr);
+        }
+      }
     } else if (roleToCreate === 'driver') {
       const assignedSupplierId = isSupplierCaller ? callerUid : (extraData?.supplierId || 'admin');
       await adminDb.collection('drivers').doc(userRecord.uid).set({

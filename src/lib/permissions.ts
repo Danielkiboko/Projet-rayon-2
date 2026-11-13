@@ -73,6 +73,15 @@ export const getRoleTitle = (role?: string): string => {
 };
 
 /**
+ * Checks if the user is a partner (Apporteur d'affaires / affilié).
+ * A partner can recruit suppliers, earning monthly recurring commissions.
+ */
+export const isPartner = (userData: any): boolean => {
+  const role = (userData?.role || "").toUpperCase();
+  return role === "PARTNER" || userData?.isPartner === true;
+};
+
+/**
  * Checks if the user is a supplier (Fournisseur) of any type.
  */
 export const isSupplier = (userData: any): boolean => {
