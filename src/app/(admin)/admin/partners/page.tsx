@@ -82,84 +82,23 @@ export default function AdminPartnersPage() {
     if (!user) return;
     setIsLoading(true);
     try {
-      // 1. Fetch all partners (users with role == 'PARTNER' or isPartner == true)
-      const qPartners1 = query(collection(db, "users"), where("role", "==", "PARTNER"));
-      const qPartners2 = query(collection(db, "users"), where("isPartner", "==", true));
-      const [snapP1, snapP2] = await Promise.all([getDocs(qPartners1), getDocs(qPartners2)]);
-
-      const partnersMap: Record<string, PartnerUser> = {};
-
-      const processPartner = (docSnap: any) => {
-        if (partnersMap[docSnap.id]) return;
-        const d = docSnap.data();
-        const code = d.partnerCode || d.referralCode || "---";
-        partnersMap[docSnap.id] = {
-          id: docSnap.id,
-          name: d.displayName || d.name || d.company || d.email || "Partenaire",
-          email: d.email || "",
-          phone: d.phone || d.phoneNumber || "",
-          partnerCode: code,
-          referralCode: code,
-          balance: Number(d.partnerBalance || d.referralBalance) || 0,
-          totalEarned: Number(d.partnerTotalEarned || d.referralTotalEarned) || 0,
-          createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : null,
-          suppliersCount: 0,
-          suppliers: [],
-        };
-      };
-
-      snapP1.forEach(processPartner);
-      snapP2.forEach(processPartner);
-
-      // 2. Fetch referrals relationships
-      const referralsSnap = await getDocs(collection(db, "referrals"));
-      const relationsMap: Record<string, any> = {};
-      referralsSnap.forEach((docSnap) => {
-        relationsMap[docSnap.id] = docSnap.data();
+      const token = await user.getIdToken();
+      const res = await fetch("/api/admin/partners", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       });
 
-      // 3. Fetch all suppliers created by partners
-      const qSuppliers = query(
-        collection(db, "users"),
-        where("role", "in", ["SUPPLIER", "supplier", "SUPPLIER_IMMO", "SUPPLIER_MODE", "SUPPLIER_CONNECT", "SUPPLIER_SAVEURS"])
-      );
-      const suppliersSnap = await getDocs(qSuppliers);
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Impossible de charger la liste des partenaires.");
+      }
 
-      const partnerSuppliersList: PartnerSupplier[] = [];
-
-      suppliersSnap.forEach((docSnap) => {
-        const d = docSnap.data();
-        const partnerId = d.referredByPartnerId || d.referredBy || (d.creatorRole === "PARTNER" ? d.createdBy : null);
-
-        if (partnerId && partnersMap[partnerId]) {
-          const relation = relationsMap[docSnap.id] || {};
-          const supplierItem: PartnerSupplier = {
-            id: docSnap.id,
-            name: d.company || d.companyName || d.displayName || d.name || "Boutique",
-            email: d.email || "",
-            phone: d.phone || d.phoneNumber || "",
-            rayon: d.rayon || (Array.isArray(d.assignedRayons) && d.assignedRayons[0]) || "Non assigné",
-            subscriptionStatus: d.subscriptionStatus || "TRIAL",
-            subscriptionEndDate: d.subscriptionEndDate,
-            createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : null,
-            totalCommissions: Number(relation.totalCommissions || 0),
-            paymentsCount: Number(relation.paymentsCount || 0),
-            partnerId,
-            partnerName: partnersMap[partnerId].name,
-            partnerCode: partnersMap[partnerId].partnerCode,
-          };
-
-          partnerSuppliersList.push(supplierItem);
-          partnersMap[partnerId].suppliers.push(supplierItem);
-          partnersMap[partnerId].suppliersCount += 1;
-        }
-      });
-
-      setPartners(Object.values(partnersMap));
-      setAllPartnerSuppliers(partnerSuppliersList);
+      setPartners(data.partners || []);
+      setAllPartnerSuppliers(data.partnerSuppliers || []);
     } catch (err: any) {
       console.error("Error fetching partners:", err);
-      toast.error("Impossible de charger la liste des partenaires.");
+      toast.error(err.message || "Impossible de charger la liste des partenaires.");
     } finally {
       setIsLoading(false);
     }
