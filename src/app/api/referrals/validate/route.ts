@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       code: resolved.code,
       ownerName: resolved.ownerName,
       discount: REFERRAL_DISCOUNT_USD,
-      message: `Code valide ! Parrainé par ${resolved.ownerName}. Vous bénéficierez de $${REFERRAL_DISCOUNT_USD} de réduction sur votre prochain abonnement.`,
+      message: `Code promo officiel valide ! Parrainé par ${resolved.ownerName}. Réduction immédiate de $${REFERRAL_DISCOUNT_USD} USD appliquée : vous ne payez que $40 USD au lieu de $50 USD.`,
     });
   } catch (error: any) {
     console.error("[REFERRAL VALIDATE ERROR]:", error);

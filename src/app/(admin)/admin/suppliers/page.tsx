@@ -907,8 +907,8 @@ export default function SuppliersPage() {
               <tr>
                 <th className="px-6 py-4 font-semibold">Prestataire / Entreprise</th>
                 <th className="px-6 py-4 font-semibold">Email</th>
-                <th className="px-6 py-4 font-semibold">Rayons d'Accès</th>
-                <th className="px-6 py-4 font-semibold">Abonnement</th>
+                <th className="px-6 py-4 font-semibold">Rayon Commercial</th>
+                <th className="px-6 py-4 font-semibold">Abonnement & Cotisation</th>
                 <th className="px-6 py-4 font-semibold">Statut Profil</th>
                 <th className="px-6 py-4 font-semibold text-right">Actions</th>
               </tr>
@@ -1001,8 +1001,8 @@ export default function SuppliersPage() {
                               <span className="font-semibold text-white">{supplier.name}</span>
                               {(supplier.isOfficialAdminStore || supplier.isAdminSupplier) && (
                                 <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider flex items-center gap-1">
-                                  <span>👑</span>
-                                  <span>Boutique Admin</span>
+                                  <span>🏷️</span>
+                                  <span>Boutique Officielle Rayons</span>
                                 </span>
                               )}
                               {supplier.role === 'SUB_ADMIN' && (
@@ -1163,7 +1163,7 @@ export default function SuppliersPage() {
                               className="text-xs text-[#C7D300] hover:text-white flex items-center transition-colors font-medium"
                             >
                               <Shield size={12} className="mr-1" />
-                              Gérer les accès
+                              Changer de rayon
                             </button>
                           </>
                         )}
@@ -1172,10 +1172,10 @@ export default function SuppliersPage() {
                         {(supplier.isOfficialAdminStore || supplier.isAdminSupplier) ? (
                           <div className="flex flex-col">
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 w-max">
-                              <span>👑</span>
-                              <span>Boutique Officielle Admin</span>
+                              <span>🏷️</span>
+                              <span>Boutique Officielle Rayons</span>
                             </span>
-                            <span className="text-[11px] text-gray-400 mt-1">Exempté de frais & de tenue de compte</span>
+                            <span className="text-[11px] text-gray-400 mt-1">Magasin de la plateforme (Exempté d'abonnement)</span>
                           </div>
                         ) : (
                           <div className="flex flex-col">
@@ -1334,7 +1334,7 @@ export default function SuppliersPage() {
                     {/* Subscription Status Chip */}
                     {(supplier.isOfficialAdminStore || supplier.isAdminSupplier) ? (
                       <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full uppercase font-bold shrink-0">
-                        Admin
+                        Boutique Officielle
                       </span>
                     ) : isExpired ? (
                       <span className="text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-md shrink-0">
@@ -1717,7 +1717,7 @@ export default function SuppliersPage() {
                   </p>
                 </div>
 
-                {/* Option: Boutique Officielle de l'Administration */}
+                {/* Option: Boutique Officielle Rayons (Magasin interne de la plateforme) */}
                 <div 
                   onClick={() => setIsOfficialAdminStore(!isOfficialAdminStore)}
                   className={`p-4 rounded-xl border cursor-pointer transition-all ${
@@ -1728,16 +1728,16 @@ export default function SuppliersPage() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
-                      <span className="text-2xl mt-0.5">👑</span>
+                      <span className="text-2xl mt-0.5">🏷️</span>
                       <div>
                         <p className="font-bold text-sm text-white flex items-center gap-1.5">
-                          <span>Boutique Officielle de l'Administration</span>
+                          <span>Boutique Officielle Rayons (Magasin Plateforme)</span>
                           <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold uppercase">
-                            Admin Only
+                            Exempté d'abonnement
                           </span>
                         </p>
                         <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-                          Ce compte est la vitrine marchande officielle de Rayons.net. <strong>Aucun frais de tenue de compte ni d'abonnement</strong>. Tous ses produits sont certifiés d'office et ses recettes de ventes vont directement dans la comptabilité de l'Administration.
+                          Ce compte est une vitrine marchande officielle appartenant à Rayons.net pour vendre des produits ou biens propres. <strong>Il est exempté d'abonnement mensuel</strong>. Il s'agit d'une boutique commerciale et non d'un administrateur système.
                         </p>
                       </div>
                     </div>

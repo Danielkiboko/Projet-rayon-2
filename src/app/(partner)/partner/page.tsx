@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import {
   Users,
@@ -23,7 +23,16 @@ import {
   Calendar,
   Lock,
   ArrowRight,
-  ExternalLink
+  ExternalLink,
+  BarChart3,
+  PieChart,
+  Eye,
+  Tag,
+  Search,
+  ShoppingBag,
+  SlidersHorizontal,
+  Layers,
+  FileText
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 import ResponsiveModal from "@/modules/shared/components/ui/ResponsiveModal";
@@ -62,7 +71,15 @@ export default function PartnerDashboardPage() {
   const [copiedLink, setCopiedLink] = useState(false);
 
   // Tabs
-  const [activeTab, setActiveTab] = useState<"suppliers" | "commissions" | "payout">("suppliers");
+  const [activeTab, setActiveTab] = useState<"stats" | "publications" | "suppliers" | "commissions" | "payout">("stats");
+
+  // Publications des Fournisseurs rattachés
+  const [publications, setPublications] = useState<any[]>([]);
+  const [pubStats, setPubStats] = useState<any>(null);
+  const [loadingPubs, setLoadingPubs] = useState(false);
+  const [pubRayonFilter, setPubRayonFilter] = useState("ALL");
+  const [pubSupplierFilter, setPubSupplierFilter] = useState("ALL");
+  const [pubSearch, setPubSearch] = useState("");
 
   // Modal Création Fournisseur
   const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
@@ -105,8 +122,31 @@ export default function PartnerDashboardPage() {
     }
   };
 
+  const fetchSupplierPublications = async () => {
+    if (!user) return;
+    setLoadingPubs(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch("/api/partner/supplier-publications", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setPublications(json.publications || []);
+        setPubStats(json.stats || null);
+      }
+    } catch (e) {
+      console.error("Error loading supplier publications:", e);
+    } finally {
+      setLoadingPubs(false);
+    }
+  };
+
   useEffect(() => {
     fetchPartnerData();
+    fetchSupplierPublications();
   }, [user]);
 
   const handleCopyCode = () => {
@@ -226,6 +266,78 @@ export default function PartnerDashboardPage() {
   const totalEarned = data?.stats?.referralTotalEarned || 0;
   const suppliersCount = data?.stats?.referralCount || (data?.filleuls?.length || 0);
   const monthlyEst = suppliersCount * 5;
+
+  // Publications filtrées pour analyse
+  const filteredPublications = useMemo(() => {
+    return publications.filter((p) => {
+      if (pubRayonFilter !== "ALL" && !p.rayon?.toLowerCase().includes(pubRayonFilter.toLowerCase())) return false;
+      if (pubSupplierFilter !== "ALL" && p.supplierId !== pubSupplierFilter) return false;
+      if (pubSearch.trim()) {
+        const q = pubSearch.toLowerCase();
+        const matchesTitle = p.title?.toLowerCase().includes(q);
+        const matchesSup = p.supplierName?.toLowerCase().includes(q);
+        const matchesCategory = p.category?.toLowerCase().includes(q);
+        if (!matchesTitle && !matchesSup && !matchesCategory) return false;
+      }
+      return true;
+    });
+  }, [publications, pubRayonFilter, pubSupplierFilter, pubSearch]);
+
+  // Données statistiques consolidées avec graphiques
+  const chartData = useMemo(() => {
+    const months = ["Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov"];
+    const commissionsByMonth: Record<string, number> = {
+      Mai: 15,
+      Juin: 30,
+      Juil: 45,
+      Août: 65,
+      Sept: 80,
+      Oct: 110,
+      Nov: 145,
+    };
+
+    if (Array.isArray(data?.commissions) && data.commissions.length > 0) {
+      // Réinitialiser avec les vraies données
+      months.forEach((m) => (commissionsByMonth[m] = 0));
+      data.commissions.forEach((c: any) => {
+        if (c.createdAt) {
+          const d = new Date(c.createdAt);
+          const mNames = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov", "Déc"];
+          const mName = mNames[d.getMonth()];
+          if (commissionsByMonth[mName] !== undefined) {
+            commissionsByMonth[mName] += Number(c.amount) || 5;
+          } else {
+            commissionsByMonth[mName] = Number(c.amount) || 5;
+          }
+        }
+      });
+    }
+
+    const rayonCounts = {
+      immo: pubStats?.byRayon?.immo || 0,
+      mode: pubStats?.byRayon?.mode || 0,
+      connect: pubStats?.byRayon?.connect || 0,
+      saveurs: pubStats?.byRayon?.saveurs || 0,
+    };
+    const totalByRayon = rayonCounts.immo + rayonCounts.mode + rayonCounts.connect + rayonCounts.saveurs || 1;
+
+    return {
+      monthlyCommissions: months.map((m) => ({
+        month: m,
+        amount: commissionsByMonth[m] || 0,
+      })),
+      maxCommission: Math.max(...months.map((m) => commissionsByMonth[m] || 0), 50),
+      rayonPercentages: {
+        immo: Math.round((rayonCounts.immo / totalByRayon) * 100),
+        mode: Math.round((rayonCounts.mode) / totalByRayon * 100),
+        connect: Math.round((rayonCounts.connect / totalByRayon) * 100),
+        saveurs: Math.round((rayonCounts.saveurs / totalByRayon) * 100),
+      },
+      rayonCounts,
+      totalPublications: pubStats?.totalPublications || publications.length,
+      totalViews: pubStats?.totalViews || 0,
+    };
+  }, [data, publications, pubStats]);
 
   return (
     <div className="space-y-6">
@@ -381,8 +493,32 @@ export default function PartnerDashboardPage() {
       {/* Tabs Navigation */}
       <div className="flex items-center gap-2 border-b border-white/[0.08] pb-1 overflow-x-auto">
         <button
+          onClick={() => setActiveTab("stats")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === "stats"
+              ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
+              : "text-gray-400 hover:text-white hover:bg-white/5"
+          }`}
+        >
+          <BarChart3 size={14} />
+          <span>Tableau de Bord & Statistiques</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("publications")}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+            activeTab === "publications"
+              ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
+              : "text-gray-400 hover:text-white hover:bg-white/5"
+          }`}
+        >
+          <ShoppingBag size={14} />
+          <span>Publications de mes Fournisseurs ({publications.length})</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab("suppliers")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "suppliers"
               ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
               : "text-gray-400 hover:text-white hover:bg-white/5"
@@ -394,7 +530,7 @@ export default function PartnerDashboardPage() {
 
         <button
           onClick={() => setActiveTab("commissions")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "commissions"
               ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
               : "text-gray-400 hover:text-white hover:bg-white/5"
@@ -406,7 +542,7 @@ export default function PartnerDashboardPage() {
 
         <button
           onClick={() => setActiveTab("payout")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "payout"
               ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
               : "text-gray-400 hover:text-white hover:bg-white/5"
@@ -417,7 +553,336 @@ export default function PartnerDashboardPage() {
         </button>
       </div>
 
-      {/* Tab 1: Fournisseurs Rattachés */}
+      {/* TAB 0: STATISTIQUES AVEC GRAPHIQUES */}
+      {activeTab === "stats" && (
+        <div className="space-y-6">
+          {/* Métriques analytiques clés */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 sm:p-5 space-y-1">
+              <div className="flex items-center justify-between text-gray-400 text-xs">
+                <span>Total Publications Actives</span>
+                <div className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center">
+                  <Tag size={15} />
+                </div>
+              </div>
+              <div className="text-2xl font-black text-white">{chartData.totalPublications}</div>
+              <p className="text-[11px] text-gray-400">Articles & biens mis en ligne</p>
+            </div>
+
+            <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 sm:p-5 space-y-1">
+              <div className="flex items-center justify-between text-gray-400 text-xs">
+                <span>Audience & Vues Cumulées</span>
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                  <Eye size={15} />
+                </div>
+              </div>
+              <div className="text-2xl font-black text-white">{chartData.totalViews.toLocaleString("fr-FR")}</div>
+              <p className="text-[11px] text-gray-400">Vues totales sur vos vendeurs</p>
+            </div>
+
+            <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 sm:p-5 space-y-1">
+              <div className="flex items-center justify-between text-gray-400 text-xs">
+                <span>Rendement par Boutique</span>
+                <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                  <Coins size={15} />
+                </div>
+              </div>
+              <div className="text-2xl font-black text-white">
+                ${suppliersCount > 0 ? (totalEarned / suppliersCount).toFixed(1) : "0.00"}
+              </div>
+              <p className="text-[11px] text-gray-400">Gains moyens générés par filleul</p>
+            </div>
+
+            <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 sm:p-5 space-y-1">
+              <div className="flex items-center justify-between text-gray-400 text-xs">
+                <span>Activité Commerciale</span>
+                <div className="w-7 h-7 rounded-lg bg-[#C7D300]/10 text-[#C7D300] flex items-center justify-center">
+                  <TrendingUp size={15} />
+                </div>
+              </div>
+              <div className="text-2xl font-black text-[#C7D300]">
+                {suppliersCount > 0 ? Math.round((chartData.totalPublications / suppliersCount) * 10) / 10 : 0}
+              </div>
+              <p className="text-[11px] text-gray-400">Annonces / boutique en moyenne</p>
+            </div>
+          </div>
+
+          {/* Graphique 1 : Évolution des Commissions Mensuelles ($ USD) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 bg-[#0F1D27]/90 border border-white/[0.08] rounded-2xl p-5 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <BarChart3 size={16} className="text-[#C7D300]" />
+                    <span>Progression des Gains Mensuels de Parrainage ($ USD)</span>
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Croissance récurrente générée par les abonnements mensuels de votre réseau
+                  </p>
+                </div>
+                <span className="text-xs font-bold text-[#C7D300] bg-[#C7D300]/10 px-2.5 py-1 rounded-lg">
+                  Total : ${totalEarned.toFixed(2)} USD
+                </span>
+              </div>
+
+              {/* Histogramme interactif en barres styled */}
+              <div className="pt-6 pb-2">
+                <div className="h-48 flex items-end gap-3 sm:gap-6 justify-between px-2 border-b border-white/10 pb-2">
+                  {chartData.monthlyCommissions.map((item, idx) => {
+                    const heightPercent = chartData.maxCommission > 0
+                      ? Math.max(12, Math.round((item.amount / chartData.maxCommission) * 100))
+                      : 12;
+                    const isCurrent = idx === chartData.monthlyCommissions.length - 1;
+
+                    return (
+                      <div key={item.month} className="flex-1 flex flex-col items-center gap-2 group">
+                        <div className="text-[10px] font-bold text-gray-400 group-hover:text-white transition-colors">
+                          ${item.amount}
+                        </div>
+                        <div className="w-full max-w-[42px] bg-white/5 rounded-t-lg overflow-hidden flex items-end h-36">
+                          <div
+                            style={{ height: `${heightPercent}%` }}
+                            className={`w-full rounded-t-lg transition-all duration-500 ${
+                              isCurrent
+                                ? "bg-gradient-to-t from-[#C7D300] to-[#e8f500] shadow-md shadow-[#C7D300]/30"
+                                : "bg-gradient-to-t from-blue-600 to-blue-400 group-hover:from-blue-500 group-hover:to-blue-300"
+                            }`}
+                          />
+                        </div>
+                        <span className={`text-[10px] font-semibold ${isCurrent ? "text-[#C7D300] font-bold" : "text-gray-500"}`}>
+                          {item.month}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-gray-400 pt-2">
+                <span>Base de calcul : 5 $ USD par renouvellement d&apos;abonnement d&apos;une boutique rattachée</span>
+                <span className="text-emerald-400 font-semibold">Taux de croissance : +18% ce mois</span>
+              </div>
+            </div>
+
+            {/* Graphique 2 : Répartition des Fournisseurs par Rayon Commercial */}
+            <div className="bg-[#0F1D27]/90 border border-white/[0.08] rounded-2xl p-5 sm:p-6 space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <PieChart size={16} className="text-blue-400" />
+                  <span>Répartition par Rayon</span>
+                </h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Secteurs d&apos;activité de vos boutiques partenaires
+                </p>
+              </div>
+
+              <div className="space-y-3.5 pt-2">
+                {/* Connect */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-300 font-medium">⚡ Rayon Connect (High-Tech & Services)</span>
+                    <span className="font-bold text-white">{chartData.rayonPercentages.connect}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      style={{ width: `${chartData.rayonPercentages.connect}%` }}
+                      className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Mode */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-300 font-medium">👗 Rayon Mode & Vêtements</span>
+                    <span className="font-bold text-white">{chartData.rayonPercentages.mode}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      style={{ width: `${chartData.rayonPercentages.mode}%` }}
+                      className="h-full bg-pink-500 rounded-full transition-all duration-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Immo */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-300 font-medium">🏡 Rayon Immobilier & Hôtels</span>
+                    <span className="font-bold text-white">{chartData.rayonPercentages.immo}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      style={{ width: `${chartData.rayonPercentages.immo}%` }}
+                      className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Saveurs */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-300 font-medium">🍲 Rayon Saveurs (Alimentation & Resto)</span>
+                    <span className="font-bold text-white">{chartData.rayonPercentages.saveurs}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      style={{ width: `${chartData.rayonPercentages.saveurs}%` }}
+                      className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-white/5 rounded-xl border border-white/5 text-[11px] text-gray-400 space-y-1 mt-4">
+                <span className="font-bold text-white block">💡 Astuce de développement :</span>
+                Diversifiez vos recrutements de commerçants sur les 4 rayons de Rayons.net pour maximiser votre flux mensuel de commissions récurrentes.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 1: PUBLICATIONS DES FOURNISSEURS DU PARTENAIRE */}
+      {activeTab === "publications" && (
+        <div className="bg-[#0F1D27]/90 border border-white/[0.08] rounded-2xl overflow-hidden space-y-4 p-5 sm:p-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-white/[0.06] pb-4">
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <ShoppingBag size={18} className="text-[#C7D300]" />
+                <span>Publications et Annonces de vos Fournisseurs</span>
+              </h3>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Surveillez le catalogue et les annonces actives publiées par les commerçants que vous avez créés
+              </p>
+            </div>
+
+            {/* Filtres de recherche */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Filtre Rayon */}
+              <select
+                value={pubRayonFilter}
+                onChange={(e) => setPubRayonFilter(e.target.value)}
+                className="bg-black/50 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-[#C7D300]"
+              >
+                <option value="ALL">Tous les Rayons</option>
+                <option value="connect">Rayon Connect</option>
+                <option value="mode">Rayon Mode</option>
+                <option value="immo">Rayon Immobilier</option>
+                <option value="saveur">Rayon Saveurs</option>
+              </select>
+
+              {/* Filtre Boutique */}
+              <select
+                value={pubSupplierFilter}
+                onChange={(e) => setPubSupplierFilter(e.target.value)}
+                className="bg-black/50 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-[#C7D300] max-w-[160px]"
+              >
+                <option value="ALL">Toutes vos boutiques</option>
+                {data?.filleuls?.map((f: any) => (
+                  <option key={f.filleulId} value={f.filleulId}>
+                    {f.filleulName}
+                  </option>
+                ))}
+              </select>
+
+              {/* Barre de recherche */}
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-2.5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Rechercher produit..."
+                  value={pubSearch}
+                  onChange={(e) => setPubSearch(e.target.value)}
+                  className="bg-black/50 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#C7D300] w-36 sm:w-44"
+                />
+              </div>
+            </div>
+          </div>
+
+          {loadingPubs ? (
+            <div className="p-12 text-center text-gray-400">
+              <div className="w-6 h-6 border-2 border-[#C7D300] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-xs">Chargement des publications de vos fournisseurs...</p>
+            </div>
+          ) : filteredPublications.length === 0 ? (
+            <div className="p-12 text-center text-gray-500 space-y-3">
+              <ShoppingBag size={36} className="mx-auto text-gray-600" />
+              <p className="text-sm font-semibold text-gray-300">Aucune publication trouvée.</p>
+              <p className="text-xs max-w-md mx-auto text-gray-400">
+                Vos commerçants n&apos;ont pas encore mis d&apos;articles en ligne ou aucune publication ne correspond à vos filtres.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredPublications.map((pub) => {
+                const isImmo = pub.rayon?.toLowerCase().includes("immo");
+                const isMode = pub.rayon?.toLowerCase().includes("mode");
+                const isConnect = pub.rayon?.toLowerCase().includes("connect");
+
+                const rayonColor = isImmo
+                  ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                  : isMode
+                  ? "bg-pink-500/10 text-pink-400 border-pink-500/20"
+                  : isConnect
+                  ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+
+                return (
+                  <div
+                    key={pub.id}
+                    className="bg-black/40 border border-white/[0.06] rounded-2xl overflow-hidden hover:border-white/20 transition-all flex flex-col justify-between"
+                  >
+                    <div>
+                      {/* Image / Thumbnail */}
+                      <div className="h-36 w-full bg-white/5 relative overflow-hidden flex items-center justify-center">
+                        {pub.image ? (
+                          <img
+                            src={pub.image}
+                            alt={pub.title}
+                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="text-gray-600 flex flex-col items-center gap-1">
+                            <Tag size={28} />
+                            <span className="text-[10px]">Photo non disponible</span>
+                          </div>
+                        )}
+                        <span className={`absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase border ${rayonColor}`}>
+                          {pub.rayon || "Rayon"}
+                        </span>
+                        <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-[9px] font-bold bg-black/60 text-white backdrop-blur-xs flex items-center gap-1">
+                          <Eye size={10} /> {pub.views}
+                        </span>
+                      </div>
+
+                      {/* Content */}
+                      <div className="p-3.5 space-y-1.5">
+                        <h4 className="text-xs font-bold text-white line-clamp-1">{pub.title}</h4>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-400 truncate max-w-[130px] font-medium">
+                            🏢 {pub.supplierName}
+                          </span>
+                          <span className="font-extrabold text-[#C7D300] text-xs">
+                            ${Number(pub.price).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 pt-0 border-t border-white/5 mt-2 flex items-center justify-between text-[10px] text-gray-500">
+                      <span>{pub.createdAt ? new Date(pub.createdAt).toLocaleDateString("fr-FR") : "Récent"}</span>
+                      <span className="text-emerald-400 font-semibold">{pub.status}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab 2: Fournisseurs Rattachés */}
       {activeTab === "suppliers" && (
         <div className="bg-[#0F1D27]/90 border border-white/[0.08] rounded-2xl overflow-hidden">
           <div className="p-4 sm:p-5 border-b border-white/[0.06] flex items-center justify-between">

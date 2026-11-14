@@ -92,6 +92,10 @@ export default function SupplierRegisterPage() {
     message?: string;
   } | null>(null);
 
+  const hasValidPromo = Boolean(promoValidation?.valid);
+  const promoDiscount = hasValidPromo ? 10 : 0;
+  const effectiveDeposit = Math.max(0, DEFAULT_MONTHLY_DEPOSIT - promoDiscount); // 40 USD si code promo, sinon 50 USD
+
   const handleValidatePromoCode = async (codeToTest: string) => {
     const clean = codeToTest.trim().toUpperCase();
     if (!clean) {
@@ -205,7 +209,7 @@ export default function SupplierRegisterPage() {
             supplierId: user.uid,
             supplierName: company.trim() || userData?.company || userData?.displayName || name.trim() || user.email || "Fournisseur",
             supplierEmail: email.trim() || user.email,
-            amount: DEFAULT_MONTHLY_DEPOSIT,
+            amount: effectiveDeposit,
             currency: "USD",
             paymentMethod: methodStr,
             referencePiece: ref,
@@ -253,7 +257,7 @@ export default function SupplierRegisterPage() {
       return;
     }
 
-    const depositAmount = DEFAULT_MONTHLY_DEPOSIT; // $50 USD
+    const depositAmount = effectiveDeposit; // $40 si promo, sinon $50 USD
     const nextDueDate = new Date();
     nextDueDate.setDate(nextDueDate.getDate() + 30); // 30 jours renouvelables
 
@@ -433,7 +437,7 @@ export default function SupplierRegisterPage() {
           <h2 className="text-2xl font-black text-gray-900 mb-2">Boutique En Ligne Ouverte !</h2>
           
           <p className="text-gray-600 text-xs sm:text-sm mb-6 leading-relaxed">
-            Votre abonnement mensuel de <strong>$50 USD</strong> a été validé et enregistré dans le grand livre comptable. Votre vitrine <strong>{company}</strong> est immédiatement prête à accueillir vos produits et vos clients.
+            Votre abonnement mensuel de <strong>${effectiveDeposit} USD</strong> {hasValidPromo ? "(avec réduction immédiate de 10$ code promo partenaire)" : ""} a été validé et enregistré dans le grand livre comptable. Votre vitrine <strong>{company}</strong> est immédiatement prête à accueillir vos produits et vos clients.
           </p>
 
           <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 mb-6 text-left text-xs space-y-2.5">
@@ -447,7 +451,7 @@ export default function SupplierRegisterPage() {
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Abonnement Actif :</span>
-              <span className="text-emerald-700 font-bold">$50 USD (Valide 30 jours)</span>
+              <span className="text-emerald-700 font-bold">${effectiveDeposit} USD (Valide 30 jours)</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-500">Rôle attribué :</span>
@@ -575,13 +579,26 @@ export default function SupplierRegisterPage() {
                 </div>
 
                 <div className="mb-4 relative z-10">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-3xl sm:text-4xl font-black text-white">$50</span>
-                    <span className="text-sm font-semibold text-gray-300">USD / mois</span>
-                    <span className="text-xs text-gray-400 font-normal">(~140 000 CDF)</span>
+                  <div className="flex items-baseline gap-2 flex-wrap">
+                    {hasValidPromo ? (
+                      <>
+                        <span className="text-3xl sm:text-4xl font-black text-[#C7D300]">$40</span>
+                        <span className="text-xl line-through text-gray-500 font-bold">$50</span>
+                        <span className="text-sm font-semibold text-gray-300">USD / mois</span>
+                        <span className="text-xs text-emerald-400 font-bold bg-emerald-500/20 px-2 py-0.5 rounded-full">
+                          -10$ Promo Partenaire Appliquée
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-3xl sm:text-4xl font-black text-white">$50</span>
+                        <span className="text-sm font-semibold text-gray-300">USD / mois</span>
+                        <span className="text-xs text-gray-400 font-normal">(~140 000 CDF)</span>
+                      </>
+                    )}
                   </div>
                   <p className="text-xs text-gray-300 mt-1">
-                    Valide 30 jours renouvelables • Débloque la vitrine & la publication d'articles
+                    Valide 30 jours renouvelables • Débloque la vitrine & la publication d&apos;articles
                   </p>
                 </div>
 
@@ -642,7 +659,9 @@ export default function SupplierRegisterPage() {
 
               {/* SÉLECTEUR DE MOYEN DE PAIEMENT */}
               <div className="space-y-3">
-                <label className="text-xs font-bold text-gray-800 block">Moyen de règlement du dépôt ($50) :</label>
+                <label className="text-xs font-bold text-gray-800 block">
+                  Moyen de règlement du dépôt (${effectiveDeposit}) :
+                </label>
                 
                 <div className="grid grid-cols-2 gap-3">
                   <button
@@ -726,7 +745,7 @@ export default function SupplierRegisterPage() {
 
                     <div>
                       <label className="text-[11px] font-bold text-gray-700 block mb-1">
-                        Numéro Mobile Money pour le débit ($50) :
+                        Numéro Mobile Money pour le débit (${effectiveDeposit}) :
                       </label>
                       <input
                         type="tel"
@@ -836,7 +855,7 @@ export default function SupplierRegisterPage() {
                   </div>
                 )}
                 <p className="text-[10px] text-gray-400">
-                  Un code parrain vous fait bénéficier de <strong>10 USD de réduction</strong> sur votre prochain mois d'abonnement.
+                  Un code parrain officiel vous fait bénéficier immédiatement de <strong>10 USD de réduction</strong> sur votre abonnement (vous payez $40 au lieu de $50).
                 </p>
               </div>
 
@@ -849,12 +868,12 @@ export default function SupplierRegisterPage() {
                 {isProcessingPayment ? (
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Traitement du paiement de $50...</span>
+                    <span>Traitement du paiement de ${effectiveDeposit}...</span>
                   </div>
                 ) : (
                   <>
                     <Lock size={16} />
-                    <span>Valider le paiement ($50) & Continuer</span>
+                    <span>Valider le paiement (${effectiveDeposit}) & Continuer</span>
                     <ArrowRight size={16} />
                   </>
                 )}

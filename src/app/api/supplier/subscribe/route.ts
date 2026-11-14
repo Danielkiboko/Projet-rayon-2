@@ -74,13 +74,28 @@ export async function POST(req: NextRequest) {
     const userDocSnap = await userDocRef.get();
     const existingUserData = userDocSnap.exists ? userDocSnap.data() : {};
 
-    // ── Réduction parrainage (-10 USD sur le mois suivant l'inscription) ──
-    // La réduction est posée à l'inscription et consommée au paiement suivant.
-    const { discount: referralDiscount, total: finalAmount } = computeDiscountedDeposit(
-      baseAmount,
-      isDuplicatePayment ? 0 : existingUserData?.referralDiscountPending
-    );
-    const discountLabel = referralDiscount > 0 ? ` (réduction parrainage -$${referralDiscount})` : "";
+    // ── Réduction immédiate code promo / parrainage (-10 USD direct) ──
+    const hasPromo = Boolean(referralCode || existingUserData?.referralCodeUsed || existingUserData?.referralDiscountPending);
+    let referralDiscount = 0;
+    let finalAmount = baseAmount;
+
+    if (hasPromo && !isDuplicatePayment) {
+      referralDiscount = 10;
+      // Si le montant de base transmis était 50, on applique la réduction immédiate à 40
+      if (baseAmount >= 50) {
+        finalAmount = 40;
+      } else {
+        finalAmount = baseAmount;
+      }
+    } else {
+      const discounted = computeDiscountedDeposit(
+        baseAmount,
+        isDuplicatePayment ? 0 : existingUserData?.referralDiscountPending
+      );
+      referralDiscount = discounted.discount;
+      finalAmount = discounted.total;
+    }
+    const discountLabel = referralDiscount > 0 ? ` (réduction immédiate code promo -$${referralDiscount})` : "";
 
     // ─────────────────────────────────────────────────────────────
     // 1. ÉCRITURE DANS LE GRAND LIVRE COMPTABLE CENTRAL (accounting_ledger)
