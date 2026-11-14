@@ -78,7 +78,12 @@ export default function GoogleAuthButton({
         }).catch(() => {});
       }
 
-      router.replace(redirectUrl);
+      const userEmail = (googleUser.email || "").toLowerCase().trim();
+      if (["danielkiboko218@gmail.com", "admin@rayons.net"].includes(userEmail)) {
+        router.replace("/admin/dashboard");
+      } else {
+        router.replace(redirectUrl);
+      }
     } catch (err: any) {
       console.log("Erreur Google Auth :", err.code, err.message);
       if (err.code === "auth/popup-closed-by-user" || err.code === "auth/cancelled-popup-request") {

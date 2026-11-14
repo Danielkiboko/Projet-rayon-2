@@ -60,8 +60,22 @@ function LoginContent() {
     setError("");
     
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      router.replace(redirectUrl);
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const userEmail = (cred.user.email || "").toLowerCase().trim();
+      const explicitRedirect = searchParams.get("redirect");
+
+      if (explicitRedirect) {
+        router.replace(explicitRedirect);
+        return;
+      }
+
+      // Fast redirection for super admin to prevent flash
+      const superAdmins = ["danielkiboko218@gmail.com", "admin@rayons.net"];
+      if (superAdmins.includes(userEmail)) {
+        router.replace("/admin/dashboard");
+        return;
+      }
+      // Otherwise useEffect handles the precise role routing as soon as userData resolves
     } catch (err: any) {
       console.log("Erreur de connexion :", err.message);
       if (err.code === "auth/invalid-credential" || err.code === "auth/user-not-found" || err.code === "auth/wrong-password") {

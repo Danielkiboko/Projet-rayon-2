@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
 import { onAuthStateChanged, User, signOut as firebaseSignOut, getIdTokenResult } from "firebase/auth";
+import { doc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -115,12 +116,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const performSignOut = useCallback(async (reason: "inactivity" | "manual" = "manual") => {
     setShowWarning(false);
     if (user) {
-      import("firebase/firestore").then(({ setDoc, doc, serverTimestamp }) => {
-        setDoc(doc(db, "users", user.uid), {
-          isOnline: false,
-          lastConnection: serverTimestamp(),
-        }, { merge: true }).catch(console.error);
-      });
+      setDoc(doc(db, "users", user.uid), {
+        isOnline: false,
+        lastConnection: serverTimestamp(),
+      }, { merge: true }).catch(() => {});
     }
     await firebaseSignOut(auth);
     router.push(reason === "inactivity" ? "/login?reason=inactivity" : "/login");
@@ -184,11 +183,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user, userData?.role, showWarning]);
 
-  // ── Auth state listener (with real-time Firestore user profile sync) ──
+  // ── Auth state listener (Optimized ultra-fast sync) ──
   useEffect(() => {
     let unsubscribeUserDoc: (() => void) | null = null;
 
-    const unsubscribeAuth = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
 
       if (unsubscribeUserDoc) {
@@ -196,72 +195,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         unsubscribeUserDoc = null;
       }
 
-      if (currentUser) {
-        import("firebase/firestore").then(({ doc, onSnapshot }) => {
-          unsubscribeUserDoc = onSnapshot(
-            doc(db, "users", currentUser.uid),
-            async (docSnap) => {
-              try {
-                if (docSnap.exists()) {
-                  const data = docSnap.data();
-                  let role = data.role;
-                  const userEmail = (currentUser.email || "").toLowerCase().trim();
-                  if (SUPER_ADMIN_EMAILS.includes(userEmail)) {
-                    role = role || "SUPER_ADMIN";
-                    currentUser.getIdToken(true).catch(() => {});
-                  }
-                  if (!role) {
-                    const tokenResult = await getIdTokenResult(currentUser, true);
-                    role = tokenResult.claims.role as string | undefined;
-                  }
-                  setUserData({ ...data, role });
-                } else {
-                  let role: string | undefined = undefined;
-                  const userEmail = (currentUser.email || "").toLowerCase().trim();
-                  if (SUPER_ADMIN_EMAILS.includes(userEmail)) {
-                    role = "SUPER_ADMIN";
-                    currentUser.getIdToken(true).catch(() => {});
-                  } else {
-                    const tokenResult = await getIdTokenResult(currentUser, true);
-                    role = tokenResult.claims.role as string | undefined;
-                  }
-                  setUserData(role ? { role } : null);
-                }
-              } catch (err) {
-                console.error("Error processing user snapshot:", err);
-              } finally {
-                setLoading(false);
-              }
-            },
-            async (error) => {
-              console.error("Error listening to user data:", error);
-              try {
-                const tokenResult = await getIdTokenResult(currentUser);
-                let role = tokenResult.claims.role as string | undefined;
-                const userEmail = (currentUser.email || "").toLowerCase().trim();
-                if (!role && SUPER_ADMIN_EMAILS.includes(userEmail)) role = "SUPER_ADMIN";
-                const emailName = currentUser.email ? currentUser.email.split("@")[0].replace(/[._\-+]/g, " ").trim().split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : "";
-                setUserData({
-                  role: role || (SUPER_ADMIN_EMAILS.includes(userEmail) ? "SUPER_ADMIN" : "CLIENT"),
-                  email: currentUser.email,
-                  displayName: currentUser.displayName || emailName || "Acheteur",
-                });
-              } catch {
-                const userEmail = (currentUser.email || "").toLowerCase().trim();
-                const emailName = currentUser.email ? currentUser.email.split("@")[0].replace(/[._\-+]/g, " ").trim().split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : "";
-                if (SUPER_ADMIN_EMAILS.includes(userEmail)) {
-                  setUserData({ role: "SUPER_ADMIN", email: currentUser.email, displayName: currentUser.displayName || "Super Admin" });
-                } else {
-                  setUserData({ role: "CLIENT", email: currentUser.email, displayName: currentUser.displayName || emailName || "Acheteur" });
-                }
-              } finally {
-                setLoading(false);
-              }
-            }
-          );
-        });
-      } else {
+      if (!currentUser) {
         setUserData(null);
+        setLoading(false);
+        return;
+      }
+
+      const userEmail = (currentUser.email || "").toLowerCase().trim();
+      const isSuper = SUPER_ADMIN_EMAILS.includes(userEmail);
+
+      // Fast optimistic default so pages don't block
+      if (isSuper) {
+        setUserData((prev: any) => prev || { role: "SUPER_ADMIN", email: currentUser.email, displayName: currentUser.displayName || "Super Admin" });
+      }
+
+      try {
+        unsubscribeUserDoc = onSnapshot(
+          doc(db, "users", currentUser.uid),
+          (docSnap) => {
+            if (docSnap.exists()) {
+              const data = docSnap.data();
+              let role = data.role;
+              if (isSuper) {
+                role = role || "SUPER_ADMIN";
+              }
+              setUserData({ ...data, role: role || (isSuper ? "SUPER_ADMIN" : "CLIENT") });
+            } else {
+              setUserData({
+                role: isSuper ? "SUPER_ADMIN" : "CLIENT",
+                email: currentUser.email,
+                displayName: currentUser.displayName || currentUser.email?.split("@")[0] || "Client",
+              });
+            }
+            setLoading(false);
+          },
+          (error) => {
+            console.warn("User data listener notice:", error?.message);
+            setUserData({
+              role: isSuper ? "SUPER_ADMIN" : "CLIENT",
+              email: currentUser.email,
+              displayName: currentUser.displayName || currentUser.email?.split("@")[0] || "Client",
+            });
+            setLoading(false);
+          }
+        );
+      } catch (err) {
+        console.error("Auth snapshot error:", err);
         setLoading(false);
       }
     });

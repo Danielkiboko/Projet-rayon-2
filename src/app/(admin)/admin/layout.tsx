@@ -210,51 +210,77 @@ export default function AdminLayout({
 
   const userRole = (userData?.role || "").toUpperCase();
 
-  // Role-based menu customization
+  // Role & positions based menu customization
   const filteredMenuItems = ADMIN_MENU.filter((item) => {
     if (isSuper) return true;
 
+    const positions: string[] = Array.isArray(userData?.staffProfile?.positions) && userData.staffProfile.positions.length > 0
+      ? userData.staffProfile.positions
+      : [userRole];
+
     // Sub-Admin sees all modules exactly like the Super Admin
-    if (userRole === "SUB_ADMIN" || userRole === "SUBADMIN" || userRole === "ADMIN") {
+    if (
+      positions.includes("SUB_ADMIN") ||
+      positions.includes("SUBADMIN") ||
+      positions.includes("ADMIN") ||
+      userRole === "SUB_ADMIN" ||
+      userRole === "ADMIN"
+    ) {
       return true;
     }
 
-    if (userRole === "ADMIN_FINANCE") {
-      return ["/admin/dashboard", "/admin/finance", "/admin/referrals", "/admin/orders", "/admin/settings"].includes(item.href);
+    const allowedHrefs = new Set(["/admin/dashboard", "/admin/settings"]);
+
+    if (positions.includes("GESTIONNAIRE_ADMIN")) {
+      allowedHrefs.add("/admin/clients");
+      allowedHrefs.add("/admin/suppliers");
+      allowedHrefs.add("/admin/partners");
+      allowedHrefs.add("/admin/tickets");
     }
-    if (userRole === "ADMIN_DB" || userRole === "ADMIN_TECH") {
-      return ["/admin/dashboard", "/admin/products", "/admin/properties", "/admin/orders", "/admin/settings"].includes(item.href);
+    if (positions.includes("RESPONSABLE_FINANCIER") || positions.includes("ADMIN_FINANCE")) {
+      allowedHrefs.add("/admin/finance");
+      allowedHrefs.add("/admin/referrals");
+      allowedHrefs.add("/admin/orders");
+      allowedHrefs.add("/admin/partners");
     }
-    if (userRole === "ADMIN_OPS") {
-      return ["/admin/dashboard", "/admin/orders", "/admin/drivers", "/admin/clients", "/admin/settings"].includes(item.href);
+    if (positions.includes("RESPONSABLE_CATALOGUE") || positions.includes("ADMIN_DB") || positions.includes("ADMIN_TECH")) {
+      allowedHrefs.add("/admin/products");
+      allowedHrefs.add("/admin/properties");
+      allowedHrefs.add("/admin/orders");
     }
-    
-    return !["/admin/health"].includes(item.href);
+    if (positions.includes("RESPONSABLE_LOGISTIQUE") || positions.includes("ADMIN_OPS")) {
+      allowedHrefs.add("/admin/drivers");
+      allowedHrefs.add("/admin/orders");
+      allowedHrefs.add("/admin/delivery/create");
+    }
+    if (positions.includes("SUPPORT_CLIENT")) {
+      allowedHrefs.add("/admin/tickets");
+      allowedHrefs.add("/admin/clients");
+    }
+
+    return allowedHrefs.has(item.href);
   });
 
   const roleBadgeValue = isSuper 
     ? "SUPER ADMIN" 
     : userRole === "SUB_ADMIN" || userRole === "SUBADMIN" || userRole === "ADMIN"
     ? "SOUS-ADMINISTRATEUR"
-    : userRole === "ADMIN_FINANCE" 
-    ? "GESTIONNAIRE FINANCE"
-    : userRole === "ADMIN_DB" || userRole === "ADMIN_TECH"
-    ? "GESTIONNAIRE BDD & PRODUITS"
-    : userRole === "ADMIN_OPS"
-    ? "GESTIONNAIRE OPÉRATIONS"
+    : userData?.staffProfile?.positions?.length
+    ? "FONCTIONNAIRE DÉLÉGUÉ"
     : "ADMIN DÉLÉGUÉ";
 
   const userRoleTitle = isSuper 
     ? "Directeur Général (Super Admin)" 
-    : userRole === "SUB_ADMIN" || userRole === "SUBADMIN" || userRole === "ADMIN"
-    ? "Sous-Administrateur Général (Adjoint)"
-    : userRole === "ADMIN_FINANCE" 
-    ? "Responsable Finances & Caisse"
-    : userRole === "ADMIN_DB" || userRole === "ADMIN_TECH"
-    ? "Gestionnaire Catalogue & BDD"
-    : userRole === "ADMIN_OPS"
-    ? "Responsable Opérations & Logistique"
-    : "Collaborateur Administratif";
+    : userData?.roleTitle ||
+      (userRole === "SUB_ADMIN" || userRole === "SUBADMIN" || userRole === "ADMIN"
+        ? "Sous-Administrateur Général (Adjoint)"
+        : userRole === "ADMIN_FINANCE"
+        ? "Responsable Finances & Caisse"
+        : userRole === "ADMIN_DB" || userRole === "ADMIN_TECH"
+        ? "Gestionnaire Catalogue & BDD"
+        : userRole === "ADMIN_OPS"
+        ? "Responsable Opérations & Logistique"
+        : "Collaborateur Administratif");
 
   return (
     <DashboardLayout

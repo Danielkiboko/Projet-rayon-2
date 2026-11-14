@@ -213,7 +213,7 @@ export function DashboardLayout({
         </div>
 
         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1">
-          {menuItems.map((item) => {
+          {menuItems.map((item, index) => {
             const isActive = pathname.startsWith(item.href);
             const Icon = item.icon;
             
@@ -223,7 +223,7 @@ export function DashboardLayout({
             if (item.locked) {
               return (
                 <div 
-                  key={item.href ? `${item.href}-${item.title}` : item.title} 
+                  key={`${item.href || 'locked'}-${item.title}-${index}`} 
                   onClick={() => {
                     setIsSidebarOpen(false);
                     setLockedModalItem(item);
@@ -243,7 +243,7 @@ export function DashboardLayout({
             }
             
             return (
-              <Link key={item.href ? `${item.href}-${item.title}` : item.title} href={item.href} onClick={() => setIsSidebarOpen(false)}>
+              <Link key={`${item.href || 'menu'}-${item.title}-${index}`} href={item.href} onClick={() => setIsSidebarOpen(false)}>
                 <div className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
                   isActive 
                     ? `${activeBg} ${activeText} shadow-sm` 

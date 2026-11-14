@@ -24,12 +24,30 @@ export const isSuperAdmin = (user: any, userData: any): boolean => {
  */
 export const isTeamMember = (userData: any): boolean => {
   const role = (userData?.role || "").toUpperCase();
-  return ["SUB_ADMIN", "ADMIN_FINANCE", "ADMIN_DB", "ADMIN_TECH", "ADMIN_OPS", "SUPER_ADMIN", "ADMIN"].includes(role);
+  return (
+    [
+      "SUB_ADMIN", "ADMIN_FINANCE", "ADMIN_DB", "ADMIN_TECH", "ADMIN_OPS",
+      "SUPER_ADMIN", "ADMIN", "STAFF", "GESTIONNAIRE_ADMIN",
+      "RESPONSABLE_LOGISTIQUE", "RESPONSABLE_FINANCIER",
+      "RESPONSABLE_CATALOGUE", "SUPPORT_CLIENT"
+    ].includes(role) ||
+    userData?.accountType === "STAFF" ||
+    userData?.isInternalStaff === true
+  );
 };
 
 export const isSubAdmin = (userData: any): boolean => {
   const role = (userData?.role || "").toUpperCase();
-  return ["SUB_ADMIN", "ADMIN_FINANCE", "ADMIN_DB", "ADMIN_TECH", "ADMIN_OPS", "ADMIN"].includes(role);
+  return (
+    [
+      "SUB_ADMIN", "ADMIN_FINANCE", "ADMIN_DB", "ADMIN_TECH", "ADMIN_OPS",
+      "ADMIN", "STAFF", "GESTIONNAIRE_ADMIN",
+      "RESPONSABLE_LOGISTIQUE", "RESPONSABLE_FINANCIER",
+      "RESPONSABLE_CATALOGUE", "SUPPORT_CLIENT"
+    ].includes(role) ||
+    userData?.accountType === "STAFF" ||
+    userData?.isInternalStaff === true
+  );
 };
 
 export const isGeneralSubAdmin = (userData: any): boolean => {

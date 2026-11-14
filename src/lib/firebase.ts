@@ -7,12 +7,7 @@ import {
 } from "firebase/firestore";
 
 function resolveAuthDomain(): string {
-  if (typeof window !== "undefined") {
-    const host = window.location.hostname;
-    if (host === "rayons.net" || host === "www.rayons.net") {
-      return "rayons.net";
-    }
-  }
+  // Use direct Firebase CDN domain to eliminate Vercel serverless proxy hops and maximize auth speed
   return process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "projets-rayons2.firebaseapp.com";
 }
 
