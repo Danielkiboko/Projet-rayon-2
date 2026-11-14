@@ -28,6 +28,12 @@ import { db, auth } from "@/lib/firebase";
 import { collection, query, where, getDocs, doc, updateDoc, onSnapshot, serverTimestamp, limit } from "firebase/firestore";
 import { motion, AnimatePresence } from "framer-motion";
 import { isSuperAdmin, hasAdminAccess, SUPER_ADMIN_EMAILS } from "@/lib/permissions";
+import { 
+  StaffPosition, 
+  StaffPermission, 
+  ALL_STAFF_POSITIONS, 
+  resolveStaffPermissions 
+} from "@/domain/permissions";
 
 interface TeamMember {
   id: string;
@@ -35,8 +41,11 @@ interface TeamMember {
   displayName?: string;
   email: string;
   role: string;
+  accountType?: string;
   phoneNumber?: string;
   status?: string;
+  positions?: StaffPosition[];
+  permissions?: StaffPermission[];
   createdAt?: any;
 }
 
@@ -59,18 +68,36 @@ export default function AdminTeamPage() {
   const [newLastName, setNewLastName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
-  const [newRole, setNewRole] = useState<"SUB_ADMIN" | "ADMIN_FINANCE" | "ADMIN_DB" | "ADMIN_OPS">("SUB_ADMIN");
+  const [newPositions, setNewPositions] = useState<StaffPosition[]>(["GESTIONNAIRE_ADMIN"]);
   const [isCreating, setIsCreating] = useState(false);
+
+  // Modal edit positions states
+  const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
+  const [editPositions, setEditPositions] = useState<StaffPosition[]>([]);
 
   // Search & promote existing user
   const [searchEmail, setSearchEmail] = useState("");
   const [searchedUser, setSearchedUser] = useState<any>(null);
-  const [selectedPromoteRole, setSelectedPromoteRole] = useState<"SUB_ADMIN" | "ADMIN_FINANCE" | "ADMIN_DB" | "ADMIN_OPS">("SUB_ADMIN");
+  const [selectedPromotePositions, setSelectedPromotePositions] = useState<StaffPosition[]>(["GESTIONNAIRE_ADMIN"]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchError, setSearchError] = useState("");
 
   const isSuper = isSuperAdmin(user, userData);
   const isAuthorized = hasAdminAccess(user, userData);
+
+  function extractPositions(data: any): StaffPosition[] {
+    if (Array.isArray(data.staffProfile?.positions) && data.staffProfile.positions.length > 0) {
+      const valid = data.staffProfile.positions.filter((p: any) => p in ALL_STAFF_POSITIONS);
+      if (valid.length > 0) return valid;
+    }
+    const r = (data.role || "").toUpperCase();
+    if (r.includes("SUPER") || r === "SUB_ADMIN" || r === "ADMIN" || r === "SUBADMIN") return ["SUB_ADMIN"];
+    if (r.includes("FINANCE")) return ["RESPONSABLE_FINANCIER"];
+    if (r.includes("DB") || r.includes("TECH") || r.includes("CATALOGUE")) return ["RESPONSABLE_CATALOGUE"];
+    if (r.includes("OPS") || r.includes("LOGISTIQUE")) return ["RESPONSABLE_LOGISTIQUE"];
+    if (r.includes("SUPPORT")) return ["SUPPORT_CLIENT"];
+    return ["GESTIONNAIRE_ADMIN"];
+  }
 
   useEffect(() => {
     if (!loading) {
@@ -92,7 +119,10 @@ export default function AdminTeamPage() {
       "ADMIN_FINANCE", "admin_finance",
       "ADMIN_DB", "admin_db", "ADMIN_TECH",
       "SUB_ADMIN", "sub_admin", "ADMIN_OPS",
-      "ADMIN", "admin"
+      "ADMIN", "admin", "STAFF", "staff",
+      "GESTIONNAIRE_ADMIN", "RESPONSABLE_LOGISTIQUE",
+      "RESPONSABLE_FINANCIER", "RESPONSABLE_CATALOGUE",
+      "SUPPORT_CLIENT"
     ];
 
     const q = query(collection(db, "users"), where("role", "in", staffRoles), limit(100));
@@ -100,24 +130,29 @@ export default function AdminTeamPage() {
       const members: TeamMember[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
+        const extracted = extractPositions(data);
         members.push({
           id: docSnap.id,
           name: data.displayName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || "Collaborateur",
           email: data.email || "",
-          role: data.role || "SUB_ADMIN",
+          role: data.role || (extracted.includes("SUB_ADMIN") ? "SUB_ADMIN" : extracted[0]),
+          accountType: data.accountType || "STAFF",
           phoneNumber: data.phoneNumber,
           status: data.status || "active",
+          positions: extracted,
+          permissions: data.staffProfile?.permissions || resolveStaffPermissions(extracted),
           createdAt: data.createdAt,
         });
       });
-      // Sort: Super Admins first, then finance, then db, then sub_admins
+      // Sort: Super Admins first, then finance, then db, then others
       members.sort((a, b) => {
         const priority = (role: string) => {
           const r = role.toUpperCase();
           if (r.includes("SUPER")) return 1;
-          if (r.includes("FINANCE")) return 2;
-          if (r.includes("DB") || r.includes("TECH")) return 3;
-          return 4;
+          if (r.includes("SUB_ADMIN") || r === "ADMIN") return 2;
+          if (r.includes("FINANCE")) return 3;
+          if (r.includes("DB") || r.includes("CATALOGUE")) return 4;
+          return 5;
         };
         return priority(a.role) - priority(b.role);
       });
@@ -212,6 +247,11 @@ export default function AdminTeamPage() {
       const displayName = `${newFirstName} ${newLastName}`.trim() || newEmail.split("@")[0];
       const randomPassword = Math.random().toString(36).slice(-10) + "A1@";
 
+      const chosenPositions = newPositions.length > 0 ? newPositions : ["GESTIONNAIRE_ADMIN" as StaffPosition];
+      const perms = resolveStaffPermissions(chosenPositions);
+      const primaryRole = chosenPositions.includes("SUB_ADMIN") ? "SUB_ADMIN" : chosenPositions[0];
+      const roleTitles = chosenPositions.map(p => ALL_STAFF_POSITIONS[p]?.label || p).join(" & ");
+
       const res = await fetch("/api/users/create", {
         method: "POST",
         headers: {
@@ -222,11 +262,17 @@ export default function AdminTeamPage() {
           email: newEmail.trim().toLowerCase(),
           password: randomPassword,
           displayName,
-          roleToCreate: newRole,
+          roleToCreate: primaryRole,
           extraData: {
             isInternalStaff: true,
-            roleTitle: getRoleLabel(newRole),
-            department: newRole === "ADMIN_FINANCE" ? "Finance & Caisse" : newRole === "ADMIN_DB" ? "Technique & BDD" : newRole === "ADMIN_OPS" ? "Opérations & Livreurs" : "Direction Déléguée"
+            accountType: "STAFF",
+            staffProfile: {
+              positions: chosenPositions,
+              permissions: perms,
+              department: roleTitles,
+            },
+            roleTitle: roleTitles,
+            department: roleTitles,
           },
           notificationMethod: "email",
           phoneNumber: newPhone ? newPhone.trim() : undefined,
@@ -238,18 +284,57 @@ export default function AdminTeamPage() {
         throw new Error(data.error || "Erreur lors de la création du collaborateur.");
       }
 
-      setSuccessMessage(`Le compte fonctionnaire "${displayName}" a été créé avec le rôle ${getRoleLabel(newRole)}. Les identifiants lui ont été transmis.`);
+      setSuccessMessage(`Le compte fonctionnaire "${displayName}" a été créé avec les attributions : ${roleTitles}.`);
       setIsCreateModalOpen(false);
       setNewFirstName("");
       setNewLastName("");
       setNewEmail("");
       setNewPhone("");
-      setNewRole("SUB_ADMIN");
+      setNewPositions(["GESTIONNAIRE_ADMIN"]);
     } catch (err: any) {
       console.error(err);
       setErrorMessage(err.message || "Erreur lors de la création.");
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleSaveMemberPositions = async () => {
+    if (!editingMember) return;
+    if (editPositions.length === 0) {
+      alert("Veuillez assigner au moins un poste ou fonction.");
+      return;
+    }
+
+    setIsUpdating(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    try {
+      const perms = resolveStaffPermissions(editPositions);
+      const primaryRole = editPositions.includes("SUB_ADMIN") ? "SUB_ADMIN" : editPositions[0];
+      const dept = editPositions.map(p => ALL_STAFF_POSITIONS[p]?.label || p).join(" & ");
+
+      await updateDoc(doc(db, "users", editingMember.id), {
+        role: primaryRole,
+        accountType: "STAFF",
+        isInternalStaff: true,
+        staffProfile: {
+          positions: editPositions,
+          permissions: perms,
+          department: dept,
+        },
+        roleTitle: dept,
+        updatedAt: serverTimestamp(),
+      });
+
+      setSuccessMessage(`Fonctions mises à jour pour ${editingMember.name} : ${dept}.`);
+      setEditingMember(null);
+    } catch (err: any) {
+      console.error("Error updating member positions:", err);
+      setErrorMessage("Erreur lors de la mise à jour des attributions.");
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -320,8 +405,32 @@ export default function AdminTeamPage() {
 
   const handlePromoteSearchedUser = async () => {
     if (!searchedUser) return;
-    await handleChangeRole(searchedUser.id, selectedPromoteRole);
-    setSearchedUser({ ...searchedUser, role: selectedPromoteRole });
+    const perms = resolveStaffPermissions(selectedPromotePositions);
+    const primaryRole = selectedPromotePositions.includes("SUB_ADMIN") ? "SUB_ADMIN" : selectedPromotePositions[0];
+    const dept = selectedPromotePositions.map(p => ALL_STAFF_POSITIONS[p]?.label || p).join(" & ");
+
+    setIsUpdating(true);
+    try {
+      await updateDoc(doc(db, "users", searchedUser.id), {
+        role: primaryRole,
+        accountType: "STAFF",
+        isInternalStaff: true,
+        staffProfile: {
+          positions: selectedPromotePositions,
+          permissions: perms,
+          department: dept,
+        },
+        roleTitle: dept,
+        updatedAt: serverTimestamp(),
+      });
+      setSuccessMessage(`Utilisateur ${searchedUser.email} promu avec succès : ${dept}.`);
+      setSearchedUser({ ...searchedUser, role: primaryRole, accountType: "STAFF" });
+    } catch (err: any) {
+      console.error(err);
+      setErrorMessage("Erreur lors de la promotion.");
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const handleApproveDeletion = async (driverId: string) => {
@@ -362,6 +471,52 @@ export default function AdminTeamPage() {
     }
   };
 
+  const ALL_POSITIONS_LIST: StaffPosition[] = [
+    "SUB_ADMIN",
+    "GESTIONNAIRE_ADMIN",
+    "RESPONSABLE_LOGISTIQUE",
+    "RESPONSABLE_FINANCIER",
+    "RESPONSABLE_CATALOGUE",
+    "SUPPORT_CLIENT",
+  ];
+
+  const renderPositionBadges = (member: TeamMember) => {
+    const isMemberSuperAdmin = member.role?.toUpperCase().includes("SUPER");
+    if (isMemberSuperAdmin) {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 uppercase tracking-wider">
+          <Crown size={14} className="text-amber-400" />
+          <span>Directeur Général (Super Admin)</span>
+        </span>
+      );
+    }
+    const posList = member.positions && member.positions.length > 0 ? member.positions : extractPositions(member);
+    return (
+      <div className="flex flex-wrap gap-1.5">
+        {posList.map((pos) => {
+          const def = ALL_STAFF_POSITIONS[pos];
+          return (
+            <span
+              key={pos}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25"
+            >
+              <span>{def?.icon || "🛡️"}</span>
+              <span>{def?.label || pos}</span>
+            </span>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderScopeDescription = (member: TeamMember) => {
+    if (member.role?.toUpperCase().includes("SUPER")) {
+      return "Directeur Général : Tous les modules, paramètres & privilèges système complets";
+    }
+    const posList = member.positions && member.positions.length > 0 ? member.positions : extractPositions(member);
+    return posList.map((pos) => ALL_STAFF_POSITIONS[pos]?.description).filter(Boolean).join(" • ");
+  };
+
   const getRoleBadge = (role: string) => {
     const r = (role || "").toUpperCase();
     if (r.includes("SUPER")) {
@@ -372,42 +527,10 @@ export default function AdminTeamPage() {
         </span>
       );
     }
-    if (r === "SUB_ADMIN" || r === "ADMIN" || r === "SUBADMIN") {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 uppercase tracking-wider">
-          <ShieldCheck size={14} className="text-indigo-400" />
-          <span>Sous-Administrateur Général</span>
-        </span>
-      );
-    }
-    if (r.includes("FINANCE")) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider">
-          <Wallet size={14} className="text-emerald-400" />
-          <span>Gestionnaire Finance</span>
-        </span>
-      );
-    }
-    if (r.includes("DB") || r.includes("TECH")) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 uppercase tracking-wider">
-          <Database size={14} className="text-cyan-400" />
-          <span>Gestionnaire Données & Catalogue</span>
-        </span>
-      );
-    }
-    if (r.includes("OPS")) {
-      return (
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-blue-500/15 text-blue-300 border border-blue-500/30 uppercase tracking-wider">
-          <Truck size={14} className="text-blue-400" />
-          <span>Gestionnaire Opérations & Livreurs</span>
-        </span>
-      );
-    }
     return (
-      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30 uppercase tracking-wider">
-        <ShieldCheck size={14} className="text-purple-400" />
-        <span>Sous-Administrateur Délégué</span>
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 uppercase tracking-wider">
+        <ShieldCheck size={14} className="text-indigo-400" />
+        <span>Collaborateur / Fonctionnaire</span>
       </span>
     );
   };
@@ -415,11 +538,8 @@ export default function AdminTeamPage() {
   const getRoleLabel = (role: string) => {
     const r = (role || "").toUpperCase();
     if (r.includes("SUPER")) return "Super Administrateur";
-    if (r === "SUB_ADMIN" || r === "ADMIN" || r === "SUBADMIN") return "Sous-Administrateur Général (Adjoint)";
-    if (r.includes("FINANCE")) return "Gestionnaire Finance & Caisse";
-    if (r.includes("DB") || r.includes("TECH")) return "Gestionnaire Base de Données & Catalogue";
-    if (r.includes("OPS")) return "Gestionnaire Opérations & Livreurs";
-    return "Sous-Administrateur";
+    if (r in ALL_STAFF_POSITIONS) return ALL_STAFF_POSITIONS[r as StaffPosition]?.label;
+    return "Collaborateur Interne";
   };
 
   const superAdminCount = teamMembers.filter(m => m.role?.toUpperCase().includes("SUPER")).length;
@@ -542,7 +662,7 @@ export default function AdminTeamPage() {
           }`}
         >
           <ShieldCheck size={16} />
-          <span>Sous-Agents Partenaires & Immo ({subSuppliers.length})</span>
+          <span>Sous-Agents Fournisseurs & Délégués ({subSuppliers.length})</span>
         </button>
       </div>
 
@@ -551,12 +671,12 @@ export default function AdminTeamPage() {
         <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-white">
-              {activeTeamTab === "internal" ? "Fonctionnaires & Collaborateurs Internes" : "Sous-Agents & Délégués des Agences Partenaires"}
+              {activeTeamTab === "internal" ? "Fonctionnaires & Collaborateurs Internes" : "Sous-Agents & Délégués des Fournisseurs"}
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">
               {activeTeamTab === "internal" 
-                ? "Membres ayant accès aux modules du panneau d'administration selon leur fonction." 
-                : "Collaborateurs et agents créés par les fournisseurs immobiliers et partenaires pour gérer leurs opérations."}
+                ? "Membres ayant accès aux modules du panneau d'administration selon leurs fonctions assignées (cumulables)." 
+                : "Collaborateurs et agents créés par les fournisseurs pour gérer leurs opérations de boutique."}
             </p>
           </div>
           <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-white/10 text-gray-300">
@@ -570,14 +690,14 @@ export default function AdminTeamPage() {
               {activeTeamTab === "internal" ? (
                 <tr>
                   <th className="px-6 py-4 font-semibold">Collaborateur</th>
-                  <th className="px-6 py-4 font-semibold">Attribution Interne</th>
+                  <th className="px-6 py-4 font-semibold">Postes & Fonctions Attribués</th>
                   <th className="px-6 py-4 font-semibold">Périmètre d'Accès</th>
                   <th className="px-6 py-4 font-semibold">Statut</th>
                   <th className="px-6 py-4 font-semibold text-right">Actions</th>
                 </tr>
               ) : (
                 <tr>
-                  <th className="px-6 py-4 font-semibold">Sous-Agent</th>
+                  <th className="px-6 py-4 font-semibold">Sous-Agent Délégué</th>
                   <th className="px-6 py-4 font-semibold">Rayon & Type</th>
                   <th className="px-6 py-4 font-semibold">Modules Autorisés</th>
                   <th className="px-6 py-4 font-semibold">Statut</th>
@@ -630,14 +750,10 @@ export default function AdminTeamPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          {getRoleBadge(member.role)}
+                          {renderPositionBadges(member)}
                         </td>
-                        <td className="px-6 py-4 text-xs text-gray-300">
-                          {isMemberSuperAdmin && "Directeur Général : Tous les modules, paramètres & privilèges système complets"}
-                          {!isMemberSuperAdmin && (member.role === "SUB_ADMIN" || member.role === "ADMIN" || member.role === "SUBADMIN") && "Sous-Administrateur Général : Accès complet au dashboard, gestion des fournisseurs & validation"}
-                          {member.role?.toUpperCase().includes("FINANCE") && "Caisse, Écritures comptables, Trésorerie, Factures & Dépôts"}
-                          {member.role?.toUpperCase().includes("DB") && "Santé de l'app, Audits des collections, Erreurs système & Données"}
-                          {member.role?.toUpperCase().includes("OPS") && "Flotte de livreurs, Attribution des courses & Suivi des commandes"}
+                        <td className="px-6 py-4 text-xs text-gray-300 max-w-xs">
+                          {renderScopeDescription(member)}
                         </td>
                         <td className="px-6 py-4">
                           <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded-full">
@@ -648,24 +764,23 @@ export default function AdminTeamPage() {
                         <td className="px-6 py-4 text-right whitespace-nowrap">
                           {isSuper && !isMemberSuperAdmin ? (
                             <div className="inline-flex items-center gap-2">
-                              {/* Role Switcher */}
-                              <select
-                                value={member.role}
-                                onChange={(e) => handleChangeRole(member.id, e.target.value)}
+                              <button
+                                onClick={() => {
+                                  setEditingMember(member);
+                                  setEditPositions(member.positions && member.positions.length > 0 ? member.positions : extractPositions(member));
+                                }}
                                 disabled={isUpdating}
-                                className="text-xs bg-black/40 border border-white/10 rounded-lg px-2.5 py-1 text-gray-300 focus:outline-none focus:border-indigo-500 [&>option]:bg-[#0F1D27]"
+                                className="text-xs text-indigo-300 hover:text-white bg-indigo-500/20 hover:bg-indigo-500/30 px-3 py-1.5 rounded-lg border border-indigo-500/30 transition-all font-medium flex items-center gap-1.5 cursor-pointer"
                               >
-                                <option value="SUB_ADMIN">🛡️ Sous-Administrateur Général</option>
-                                <option value="ADMIN_FINANCE">💼 Finance & Caisse</option>
-                                <option value="ADMIN_DB">🗄️ Base de Données</option>
-                                <option value="ADMIN_OPS">🚚 Opérations & Livreurs</option>
-                              </select>
+                                <ShieldCheck size={13} />
+                                <span>Gérer les Postes ({member.positions?.length || 1})</span>
+                              </button>
 
                               <button
                                 onClick={() => handleRevokeRole(member.id, member.name)}
                                 disabled={isUpdating}
                                 title="Révoquer tous les droits internes"
-                                className="text-xs text-red-400 hover:text-white hover:bg-red-500/20 px-2.5 py-1 rounded-lg border border-red-500/30 transition-all font-medium"
+                                className="text-xs text-red-400 hover:text-white hover:bg-red-500/20 px-2.5 py-1.5 rounded-lg border border-red-500/30 transition-all font-medium cursor-pointer"
                               >
                                 Révoquer
                               </button>
@@ -849,37 +964,33 @@ export default function AdminTeamPage() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      {getRoleBadge(member.role)}
+                      {renderPositionBadges(member)}
                     </div>
 
                     <p className="text-[11px] text-gray-400 leading-relaxed bg-black/20 p-2.5 rounded-lg border border-white/5">
-                      {isMemberSuperAdmin && "Directeur Général : Tous les modules, paramètres & privilèges système complets"}
-                      {!isMemberSuperAdmin && (member.role === "SUB_ADMIN" || member.role === "ADMIN" || member.role === "SUBADMIN") && "Sous-Administrateur Général : Accès complet au dashboard, gestion des fournisseurs & validation"}
-                      {member.role?.toUpperCase().includes("FINANCE") && "Caisse, Écritures comptables, Trésorerie, Factures & Dépôts"}
-                      {member.role?.toUpperCase().includes("DB") && "Santé de l'app, Audits des collections, Erreurs système & Données"}
-                      {member.role?.toUpperCase().includes("OPS") && "Flotte de livreurs, Attribution des courses & Suivi des commandes"}
+                      {renderScopeDescription(member)}
                     </p>
 
                     {isSuper && (
                       <div className="pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
                         {!isMemberSuperAdmin ? (
                           <>
-                            <select
-                              value={member.role}
-                              onChange={(e) => handleChangeRole(member.id, e.target.value)}
+                            <button
+                              onClick={() => {
+                                setEditingMember(member);
+                                setEditPositions(member.positions && member.positions.length > 0 ? member.positions : extractPositions(member));
+                              }}
                               disabled={isUpdating}
-                              className="text-xs bg-black/40 border border-white/10 rounded-lg px-2.5 py-1.5 text-gray-300 focus:outline-none focus:border-indigo-500 [&>option]:bg-[#0F1D27] flex-1 min-w-[180px]"
+                              className="text-xs text-indigo-300 hover:text-white bg-indigo-500/20 hover:bg-indigo-500/30 px-3 py-1.5 rounded-lg border border-indigo-500/30 transition-all font-medium flex items-center gap-1.5 cursor-pointer flex-1 justify-center"
                             >
-                              <option value="SUB_ADMIN">🛡️ Sous-Administrateur Général</option>
-                              <option value="ADMIN_FINANCE">💼 Finance & Caisse</option>
-                              <option value="ADMIN_DB">🗄️ Base de Données</option>
-                              <option value="ADMIN_OPS">🚚 Opérations & Livreurs</option>
-                            </select>
+                              <ShieldCheck size={13} />
+                              <span>Gérer les Postes ({member.positions?.length || 1})</span>
+                            </button>
 
                             <button
                               onClick={() => handleRevokeRole(member.id, member.name)}
                               disabled={isUpdating}
-                              className="text-xs text-red-400 hover:text-white hover:bg-red-500/20 px-3 py-1.5 rounded-lg border border-red-500/30 transition-all font-medium"
+                              className="text-xs text-red-400 hover:text-white hover:bg-red-500/20 px-3 py-1.5 rounded-lg border border-red-500/30 transition-all font-medium cursor-pointer"
                             >
                               Révoquer
                             </button>
@@ -1058,21 +1169,23 @@ export default function AdminTeamPage() {
                 <p className="text-xs text-indigo-300 mt-1">Rôle actuel : <strong>{searchedUser.role || "CLIENT"}</strong></p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <select
-                  value={selectedPromoteRole}
-                  onChange={(e: any) => setSelectedPromoteRole(e.target.value)}
+                  value={selectedPromotePositions[0] || "GESTIONNAIRE_ADMIN"}
+                  onChange={(e: any) => setSelectedPromotePositions([e.target.value as StaffPosition])}
                   className="px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs text-white focus:outline-none focus:border-indigo-500 [&>option]:bg-[#0F1D27]"
                 >
-                  <option value="SUB_ADMIN">🛡️ Nommer Sous-Administrateur Général (Accès complet)</option>
-                  <option value="ADMIN_FINANCE">💼 Nommer Gestionnaire Finance</option>
-                  <option value="ADMIN_DB">🗄️ Nommer Gestionnaire Base de Données</option>
-                  <option value="ADMIN_OPS">🚚 Nommer Gestionnaire Opérations & Livreurs</option>
+                  <option value="SUB_ADMIN">👑 Sous-Administrateur Général (Accès complet)</option>
+                  <option value="GESTIONNAIRE_ADMIN">📋 Gestionnaire Administratif & KYC</option>
+                  <option value="RESPONSABLE_LOGISTIQUE">🚚 Responsable Logistique & Livraisons</option>
+                  <option value="RESPONSABLE_FINANCIER">💼 Responsable Financier & Caisse</option>
+                  <option value="RESPONSABLE_CATALOGUE">📦 Responsable Catalogue & Produits</option>
+                  <option value="SUPPORT_CLIENT">🎧 Support Client & Réclamations</option>
                 </select>
                 <button
                   onClick={handlePromoteSearchedUser}
                   disabled={isUpdating}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition-all shadow-md shrink-0"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl transition-all shadow-md shrink-0 cursor-pointer"
                 >
                   {isUpdating ? "Enregistrement..." : "Attribuer la fonction"}
                 </button>
@@ -1208,93 +1321,56 @@ export default function AdminTeamPage() {
 
                 {/* Role selection cards */}
                 <div className="space-y-2 pt-2">
-                  <label className="text-xs font-bold text-gray-300 uppercase tracking-wider block">
-                    Attribution / Fonction dans l'application <span className="text-red-400">*</span>
-                  </label>
-                  <div className="grid grid-cols-1 gap-2.5">
-                    {/* Sous-Admin Général */}
-                    <div
-                      onClick={() => setNewRole("SUB_ADMIN")}
-                      className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
-                        newRole === "SUB_ADMIN"
-                          ? "bg-indigo-500/20 border-indigo-500 text-white shadow-md shadow-indigo-500/10"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-lg bg-indigo-500/20 text-indigo-400">
-                          <ShieldCheck size={18} />
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-gray-300 uppercase tracking-wider block">
+                      Fonctions / Postes assignés (Cumulables) <span className="text-red-400">*</span>
+                    </label>
+                    <span className="text-[11px] text-indigo-400 font-medium">
+                      {newPositions.length} poste{newPositions.length > 1 ? "s" : ""} sélectionné{newPositions.length > 1 ? "s" : ""}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Vous pouvez cocher une ou plusieurs fonctions pour ce collaborateur. Ses permissions seront automatiquement cumulées.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                    {ALL_POSITIONS_LIST.map((pos) => {
+                      const def = ALL_STAFF_POSITIONS[pos];
+                      const isSelected = newPositions.includes(pos);
+                      return (
+                        <div
+                          key={pos}
+                          onClick={() => {
+                            if (isSelected) {
+                              if (newPositions.length > 1) {
+                                setNewPositions(newPositions.filter((p) => p !== pos));
+                              }
+                            } else {
+                              setNewPositions([...newPositions, pos]);
+                            }
+                          }}
+                          className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start justify-between gap-2.5 ${
+                            isSelected
+                              ? "bg-indigo-500/20 border-indigo-500 text-white shadow-md shadow-indigo-500/10"
+                              : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
+                          }`}
+                        >
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <span className="text-lg shrink-0 mt-0.5">{def.icon}</span>
+                            <div className="min-w-0">
+                              <p className="font-bold text-xs text-white truncate">{def.label}</p>
+                              <p className="text-[11px] text-gray-400 line-clamp-2 mt-0.5">{def.description}</p>
+                            </div>
+                          </div>
+                          <div className="shrink-0 mt-0.5">
+                            {isSelected ? (
+                              <CheckCircle2 size={16} className="text-indigo-400" />
+                            ) : (
+                              <div className="w-4 h-4 rounded-full border border-white/20" />
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-sm text-white">🛡️ Sous-Administrateur Général (Adjoint)</p>
-                          <p className="text-xs text-gray-400">Accès complet à tous les modules : Fournisseurs, Produits, Commandes, Finances & Opérations</p>
-                        </div>
-                      </div>
-                      {newRole === "SUB_ADMIN" && <CheckCircle2 size={18} className="text-indigo-400 shrink-0" />}
-                    </div>
-
-                    {/* Finance */}
-                    <div
-                      onClick={() => setNewRole("ADMIN_FINANCE")}
-                      className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
-                        newRole === "ADMIN_FINANCE"
-                          ? "bg-emerald-500/15 border-emerald-500 text-white shadow-md shadow-emerald-500/10"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-lg bg-emerald-500/20 text-emerald-400">
-                          <Wallet size={18} />
-                        </div>
-                        <div>
-                          <p className="font-bold text-sm text-white">💼 Gestionnaire de Finance</p>
-                          <p className="text-xs text-gray-400">Comptabilité, écritures de caisse, trésorerie & factures</p>
-                        </div>
-                      </div>
-                      {newRole === "ADMIN_FINANCE" && <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />}
-                    </div>
-
-                    {/* DB */}
-                    <div
-                      onClick={() => setNewRole("ADMIN_DB")}
-                      className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
-                        newRole === "ADMIN_DB"
-                          ? "bg-cyan-500/15 border-cyan-500 text-white shadow-md shadow-cyan-500/10"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-lg bg-cyan-500/20 text-cyan-400">
-                          <Database size={18} />
-                        </div>
-                        <div>
-                          <p className="font-bold text-sm text-white">🗄️ Gestionnaire de Base de Données</p>
-                          <p className="text-xs text-gray-400">Santé de l'application, données utilisateurs, logs & maintenance technique</p>
-                        </div>
-                      </div>
-                      {newRole === "ADMIN_DB" && <CheckCircle2 size={18} className="text-cyan-400 shrink-0" />}
-                    </div>
-
-                    {/* Ops / Livreurs */}
-                    <div
-                      onClick={() => setNewRole("ADMIN_OPS")}
-                      className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between ${
-                        newRole === "ADMIN_OPS"
-                          ? "bg-blue-500/15 border-blue-500 text-white shadow-md shadow-blue-500/10"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-lg bg-blue-500/20 text-blue-400">
-                          <Truck size={18} />
-                        </div>
-                        <div>
-                          <p className="font-bold text-sm text-white">🚚 Gestionnaire Opérations & Livreurs</p>
-                          <p className="text-xs text-gray-400">Attribution des courses, suivi flotte de livreurs & livraisons en temps réel</p>
-                        </div>
-                      </div>
-                      {newRole === "ADMIN_OPS" && <CheckCircle2 size={18} className="text-blue-400 shrink-0" />}
-                    </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -1310,12 +1386,110 @@ export default function AdminTeamPage() {
                   <button
                     type="submit"
                     disabled={isCreating}
-                    className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-xl transition-all shadow-md disabled:opacity-50 flex items-center gap-2"
+                    className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-xl transition-all shadow-md disabled:opacity-50 flex items-center gap-2 cursor-pointer"
                   >
                     {isCreating ? "Création en cours..." : "Créer le compte fonctionnaire"}
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Edition des Postes Cumulés d'un Membre */}
+      <AnimatePresence>
+        {editingMember && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-[#0B151E] border border-white/10 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl"
+            >
+              <div className="p-5 border-b border-white/10 flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <ShieldCheck className="text-indigo-400" />
+                    <span>Attributions & Cumul de Postes</span>
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Collaborateur : <strong className="text-white">{editingMember.name}</strong> ({editingMember.email})
+                  </p>
+                </div>
+                <button
+                  onClick={() => setEditingMember(null)}
+                  className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/10"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <p className="text-xs text-gray-300">
+                  Cochez ou décochez les fonctions de ce fonctionnaire. Une même personne peut cumuler plusieurs postes selon ses attributions au sein de la plateforme :
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {ALL_POSITIONS_LIST.map((pos) => {
+                    const def = ALL_STAFF_POSITIONS[pos];
+                    const isSelected = editPositions.includes(pos);
+                    return (
+                      <div
+                        key={pos}
+                        onClick={() => {
+                          if (isSelected) {
+                            if (editPositions.length > 1) {
+                              setEditPositions(editPositions.filter((p) => p !== pos));
+                            }
+                          } else {
+                            setEditPositions([...editPositions, pos]);
+                          }
+                        }}
+                        className={`p-3 rounded-xl border cursor-pointer transition-all flex items-start justify-between gap-2.5 ${
+                          isSelected
+                            ? "bg-indigo-500/20 border-indigo-500 text-white shadow-md shadow-indigo-500/10"
+                            : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
+                        }`}
+                      >
+                        <div className="flex items-start gap-2.5 min-w-0">
+                          <span className="text-lg shrink-0 mt-0.5">{def.icon}</span>
+                          <div className="min-w-0">
+                            <p className="font-bold text-xs text-white truncate">{def.label}</p>
+                            <p className="text-[11px] text-gray-400 line-clamp-2 mt-0.5">{def.description}</p>
+                          </div>
+                        </div>
+                        <div className="shrink-0 mt-0.5">
+                          {isSelected ? (
+                            <CheckCircle2 size={16} className="text-indigo-400" />
+                          ) : (
+                            <div className="w-4 h-4 rounded-full border border-white/20" />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-4 flex justify-end gap-3 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setEditingMember(null)}
+                    disabled={isUpdating}
+                    className="px-4 py-2 text-gray-400 hover:text-white transition-colors text-sm cursor-pointer"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveMemberPositions}
+                    disabled={isUpdating}
+                    className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-xl transition-all shadow-md disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                  >
+                    {isUpdating ? "Enregistrement..." : "Enregistrer les Attributions"}
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

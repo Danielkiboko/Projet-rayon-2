@@ -75,6 +75,13 @@ export default function AdminPartnersPage() {
   const [payoutMethod, setPayoutMethod] = useState("Vodacom M-Pesa");
   const [isProcessingPayout, setIsProcessingPayout] = useState(false);
 
+  // Modal Create Partner
+  const [isCreatePartnerOpen, setIsCreatePartnerOpen] = useState(false);
+  const [newPartnerName, setNewPartnerName] = useState("");
+  const [newPartnerEmail, setNewPartnerEmail] = useState("");
+  const [newPartnerPhone, setNewPartnerPhone] = useState("");
+  const [isCreatingPartner, setIsCreatingPartner] = useState(false);
+
   // Copied code feedback
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
@@ -151,6 +158,52 @@ export default function AdminPartnersPage() {
     }
   };
 
+  const handleCreatePartner = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPartnerEmail.trim() || !newPartnerName.trim()) {
+      toast.error("Veuillez renseigner au moins le nom et l'adresse email.");
+      return;
+    }
+
+    setIsCreatingPartner(true);
+    try {
+      const token = await user?.getIdToken();
+      if (!token) throw new Error("Vous devez être connecté.");
+
+      const res = await fetch("/api/users/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: newPartnerEmail.trim().toLowerCase(),
+          displayName: newPartnerName.trim(),
+          phoneNumber: newPartnerPhone.trim() || undefined,
+          roleToCreate: "PARTNER",
+          notificationMethod: "email",
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Erreur lors de la création du partenaire.");
+      }
+
+      toast.success(`Partenaire "${newPartnerName}" créé avec succès !`);
+      setIsCreatePartnerOpen(false);
+      setNewPartnerName("");
+      setNewPartnerEmail("");
+      setNewPartnerPhone("");
+      fetchPartnersAndSuppliers();
+    } catch (err: any) {
+      console.error("Partner creation error:", err);
+      toast.error(err.message || "Impossible de créer le partenaire.");
+    } finally {
+      setIsCreatingPartner(false);
+    }
+  };
+
   // KPIs
   const totalPartners = partners.length;
   const totalRecruitedSuppliers = allPartnerSuppliers.length;
@@ -200,13 +253,20 @@ export default function AdminPartnersPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admin/clients"
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => setIsCreatePartnerOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] transition-all shadow-md shadow-[#C7D300]/20 active:scale-95 cursor-pointer"
           >
+            <Briefcase size={15} />
+            <span>+ Créer un Partenaire</span>
+          </button>
+          <Link
+            href="/admin/clients"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-white transition-all border border-white/10 active:scale-95 cursor-pointer"
+          >
             <UserPlus size={15} />
-            <span>Nommer un Partenaire (via Clients)</span>
+            <span>Nommer via Clients</span>
           </Link>
         </div>
       </div>
@@ -662,6 +722,94 @@ export default function AdminPartnersPage() {
             </div>
           </div>
         )}
+      </ResponsiveModal>
+
+      {/* Modal Nouveau Partenaire (Sans Rayon, Strictement Apporteur d'Affaires) */}
+      <ResponsiveModal
+        isOpen={isCreatePartnerOpen}
+        onClose={() => !isCreatingPartner && setIsCreatePartnerOpen(false)}
+        title="Créer un Nouveau Partenaire"
+      >
+        <form onSubmit={handleCreatePartner} className="p-6 space-y-4">
+          <div className="bg-[#C7D300]/10 border border-[#C7D300]/20 rounded-xl p-3.5 flex items-start gap-3">
+            <Briefcase size={18} className="text-[#C7D300] shrink-0 mt-0.5" />
+            <div className="text-xs text-gray-300">
+              <p className="font-semibold text-white">Statut : Apporteur d'affaires & Développeur réseau</p>
+              <p className="text-gray-400 mt-0.5">
+                Un partenaire n'est rattaché à aucun rayon et ne possède pas de boutique. Il reçoit un code de parrainage unique pour inscrire des fournisseurs et gagne 5$/mois de commission récurrente.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-gray-300">
+              Nom complet du partenaire <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="text"
+              required
+              value={newPartnerName}
+              onChange={(e) => setNewPartnerName(e.target.value)}
+              placeholder="Ex: Jean Mukendi"
+              className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-gray-300">
+              Adresse e-mail <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="email"
+              required
+              value={newPartnerEmail}
+              onChange={(e) => setNewPartnerEmail(e.target.value)}
+              placeholder="Ex: partenaire@rayons.net ou jean@gmail.com"
+              className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-gray-300">
+              Numéro de téléphone (Mobile Money)
+            </label>
+            <input
+              type="tel"
+              value={newPartnerPhone}
+              onChange={(e) => setNewPartnerPhone(e.target.value)}
+              placeholder="Ex: +243 81 234 5678"
+              className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
+            />
+          </div>
+
+          <div className="pt-3 border-t border-white/10 flex items-center justify-end gap-3">
+            <button
+              type="button"
+              disabled={isCreatingPartner}
+              onClick={() => setIsCreatePartnerOpen(false)}
+              className="px-4 py-2.5 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              disabled={isCreatingPartner}
+              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+            >
+              {isCreatingPartner ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-[#0F1D27] border-t-transparent rounded-full animate-spin" />
+                  <span>Création en cours...</span>
+                </div>
+              ) : (
+                <>
+                  <CheckCircle2 size={15} />
+                  <span>Enregistrer le Partenaire</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       </ResponsiveModal>
     </div>
   );

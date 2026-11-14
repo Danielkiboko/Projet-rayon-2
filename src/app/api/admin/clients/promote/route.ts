@@ -90,9 +90,20 @@ export async function POST(req: Request) {
 
     if (newRole === 'PARTNER') {
       updatePayload.isPartner = true;
+      updatePayload.isSupplier = false;
+      updatePayload.isInternalStaff = false;
+      updatePayload.accountType = 'PARTNER';
       updatePayload.role = 'PARTNER';
       updatePayload.status = 'active';
       
+      // Un partenaire est un apporteur d'affaires : STRICTEMENT AUCUN RAYON NI BOUTIQUE
+      const { FieldValue } = await import('firebase-admin/firestore');
+      updatePayload.rayon = FieldValue.delete();
+      updatePayload.assignedRayons = FieldValue.delete();
+      updatePayload.serviceAttached = FieldValue.delete();
+      updatePayload.company = FieldValue.delete();
+      updatePayload.companyName = FieldValue.delete();
+
       let pCode = targetData.partnerCode || targetData.referralCode;
       if (!pCode) {
         try {
@@ -109,9 +120,35 @@ export async function POST(req: Request) {
       updatePayload.referralCode = pCode;
       updatePayload.partnerBalance = targetData.partnerBalance || 0;
       updatePayload.partnerTotalEarned = targetData.partnerTotalEarned || 0;
+      updatePayload.partnerProfile = {
+        partnerCode: pCode,
+        referralCode: pCode,
+        balance: Number(targetData.partnerBalance || 0),
+        totalEarned: Number(targetData.partnerTotalEarned || 0),
+        recruitedSuppliersCount: Number(targetData.recruitedSuppliersCount || 0)
+      };
+    }
+
+    if (['SUB_ADMIN', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_OPS', 'STAFF', 'ADMIN'].includes(newRole)) {
+      updatePayload.isInternalStaff = true;
+      updatePayload.isPartner = false;
+      updatePayload.isSupplier = false;
+      updatePayload.accountType = 'STAFF';
+
+      // L'équipe interne est assignée par tâches et postes : STRICTEMENT AUCUN RAYON
+      const { FieldValue } = await import('firebase-admin/firestore');
+      updatePayload.rayon = FieldValue.delete();
+      updatePayload.assignedRayons = FieldValue.delete();
+      updatePayload.serviceAttached = FieldValue.delete();
+      updatePayload.company = FieldValue.delete();
+      updatePayload.companyName = FieldValue.delete();
     }
 
     if (newRole.toString().startsWith('SUPPLIER')) {
+      updatePayload.accountType = 'SUPPLIER';
+      updatePayload.isSupplier = true;
+      updatePayload.isPartner = false;
+      updatePayload.isInternalStaff = false;
       const selectedRayon = extraData.rayon || targetData.rayon || 'connect';
       const company = extraData.company || extraData.companyName || targetData.company || targetData.companyName || targetData.displayName || targetData.name || 'Boutique Fournisseur';
       

@@ -26,6 +26,7 @@ import {
 import { db, auth } from "@/lib/firebase";
 import { collection, query, limit, onSnapshot, addDoc, serverTimestamp } from "firebase/firestore";
 import { isSupplier, isTeamMember, hasAdminAccess, SUPER_ADMIN_EMAILS } from "@/lib/permissions";
+import { getAccountType } from "@/domain/roles";
 import ResponsiveModal from "@/modules/shared/components/ui/ResponsiveModal";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -48,55 +49,25 @@ interface ClientData {
  */
 function isExcludedFromClients(data: any): boolean {
   if (!data) return false;
+
+  // 1. Détection canonique basée sur accountType
+  const type = getAccountType(data);
+  if (type !== "CLIENT") {
+    return true;
+  }
+
   const role = (data.role || "").toUpperCase();
   const email = (data.email || "").toLowerCase().trim();
 
-  // 1. Super Admin
+  // 2. Super Admin & Partenaires
   if (SUPER_ADMIN_EMAILS.includes(email) || role === "SUPER_ADMIN" || role === "SUPERADMIN") {
     return true;
   }
-
-  // 2. Fonctionnaires & Équipe interne
-  if (
-    isTeamMember(data) ||
-    hasAdminAccess(null, data) ||
-    role.includes("ADMIN") ||
-    role.includes("FONCTIONNAIRE") ||
-    role.includes("STAFF") ||
-    role.includes("COLLABORAT")
-  ) {
+  if (role === "PARTNER" || data.isPartner === true) {
     return true;
   }
 
-  // 3. Fournisseurs
-  if (
-    isSupplier(data) ||
-    role.includes("SUPPLIER") ||
-    role.includes("FOURNISSEUR") ||
-    !!data.parentSupplierId ||
-    !!data.companyName ||
-    !!data.rccm ||
-    !!data.nif ||
-    !!data.idNat ||
-    !!data.businessType ||
-    !!data.serviceAttached ||
-    (Array.isArray(data.assignedRayons) && data.assignedRayons.length > 0)
-  ) {
-    return true;
-  }
-
-  // 4. Livreurs & Chauffeurs
-  if (
-    role.includes("DRIVER") ||
-    role.includes("LIVREUR") ||
-    role.includes("CHAUFFEUR") ||
-    role.includes("DELIVERY") ||
-    role.includes("COURSIER")
-  ) {
-    return true;
-  }
-
-  // 5. Locataires (gérés dans la gestion immobilière)
+  // 3. Locataires (gérés dans la gestion immobilière)
   if (role.includes("TENANT") || role.includes("LOCATAIRE")) {
     return true;
   }
@@ -1026,6 +997,18 @@ export default function ClientsPage() {
                     <option value="saveurs">Rayon Saveurs (Restaurants, Traiteurs, Épicerie)</option>
                   </select>
                 </div>
+              </div>
+            )}
+
+            {targetRole === "PARTNER" && (
+              <div className="p-3.5 rounded-xl bg-purple-500/10 border border-purple-500/25 space-y-1 text-xs">
+                <span className="font-bold text-purple-300 flex items-center gap-1.5">
+                  <span>🤝</span>
+                  <span>Partenaire Apporteur d&apos;Affaires</span>
+                </span>
+                <p className="text-gray-300 text-[11px] leading-relaxed">
+                  Ce compte n&apos;a aucun rayon ni boutique propre. Il disposera d&apos;un code partenaire officiel pour inscrire des fournisseurs et percevra ses commissions récurrentes gérées par l&apos;administration centrale.
+                </p>
               </div>
             )}
 

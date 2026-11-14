@@ -171,6 +171,34 @@ export async function POST(req: Request) {
       }
     }
 
+    if (roleUpper === 'PARTNER') {
+      let partnerCode = null;
+      try {
+        partnerCode = await ensureReferralCode(userRecord.uid);
+      } catch (refErr) {
+        console.warn('Could not generate partner code:', refErr);
+      }
+      additionalData.accountType = 'PARTNER';
+      additionalData.isPartner = true;
+      additionalData.partnerCode = partnerCode;
+      additionalData.referralCode = partnerCode;
+      additionalData.partnerBalance = 0;
+      additionalData.partnerTotalEarned = 0;
+      delete additionalData.rayon;
+      delete additionalData.assignedRayons;
+      delete additionalData.serviceAttached;
+      delete additionalData.company;
+      delete additionalData.companyName;
+    } else if (['STAFF', 'SUB_ADMIN', 'GESTIONNAIRE_ADMIN', 'RESPONSABLE_LOGISTIQUE', 'RESPONSABLE_FINANCIER', 'RESPONSABLE_CATALOGUE', 'SUPPORT_CLIENT', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_OPS'].includes(roleUpper)) {
+      additionalData.accountType = 'STAFF';
+      additionalData.isInternalStaff = true;
+      delete additionalData.rayon;
+      delete additionalData.assignedRayons;
+      delete additionalData.serviceAttached;
+      delete additionalData.company;
+      delete additionalData.companyName;
+    }
+
     // 6. Save User Metadata in Firestore
     const userDocRef = adminDb.collection('users').doc(userRecord.uid);
     await userDocRef.set({
@@ -240,7 +268,7 @@ export async function POST(req: Request) {
           secure: true,
           auth: {
             user: process.env.SMTP_USER || 'admin@rayons.net',
-            pass: process.env.SMTP_PASS || 'Kinoko88@'
+            pass: process.env.SMTP_PASS || ''
           }
         });
 
