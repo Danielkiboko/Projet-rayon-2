@@ -12,8 +12,8 @@ function generateEntryNumber(): string {
 export async function GET(req: NextRequest) {
   try {
     const caller = await getServerCaller(req);
-    if (!caller || !caller.uid) {
-      return NextResponse.json({ success: false, error: "Non autorisé" }, { status: 401 });
+    if (!caller || !caller.isAdmin) {
+      return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
     }
 
     // Récupérer tous les partenaires enregistrés
@@ -47,8 +47,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const caller = await getServerCaller(req);
-    if (!caller || !caller.uid) {
-      return NextResponse.json({ success: false, error: "Non autorisé" }, { status: 401 });
+    if (!caller || !caller.isAdmin) {
+      return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
     }
 
     const callerDoc = await adminDb.collection("users").doc(caller.uid).get();

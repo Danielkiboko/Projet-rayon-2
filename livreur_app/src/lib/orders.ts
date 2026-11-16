@@ -1,5 +1,5 @@
 import { doc, updateDoc, serverTimestamp, deleteField } from "firebase/firestore";
-import { db } from "./firebase";
+import { auth, db } from "./firebase";
 
 /**
  * Statuts alignés sur l'espace livreur web (src/app/(driver)) et les API Next.js :
@@ -57,9 +57,13 @@ export const isOrderForDriver = (order: any, supplierId: string) => {
 async function postJson(path: string, body: Record<string, unknown>) {
   let res: Response;
   try {
+    const token = await auth.currentUser?.getIdToken().catch(() => null);
     res = await fetch(`${API_URL}${path}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(body),
     });
   } catch {

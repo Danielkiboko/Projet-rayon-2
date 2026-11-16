@@ -77,19 +77,40 @@ export async function GET(
       }
     }
 
-    // 2. URL externe HTTP/HTTPS -> récupérée et convertie en JPEG direct (sans redirection 307)
+    // 2. URL externe HTTP/HTTPS -> récupérée et convertie en JPEG direct (sans redirection 307), avec protection SSRF
     if (rawImg.startsWith("http://") || rawImg.startsWith("https://")) {
-      const res = await fetch(rawImg, { cache: "no-store" });
-      if (res.ok) {
-        const buf = Buffer.from(await res.arrayBuffer());
-        return toJpegResponse(buf);
+      try {
+        const parsedUrl = new URL(rawImg);
+        const host = parsedUrl.hostname.toLowerCase();
+        const isPrivateOrLocal =
+          host === "localhost" ||
+          host === "127.0.0.1" ||
+          host === "0.0.0.0" ||
+          host === "[::1]" ||
+          host.endsWith(".local") ||
+          host.endsWith(".internal") ||
+          /^10\./.test(host) ||
+          /^192\.168\./.test(host) ||
+          /^169\.254\./.test(host) ||
+          /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(host);
+
+        if (!isPrivateOrLocal && (parsedUrl.protocol === "https:" || parsedUrl.protocol === "http:")) {
+          const res = await fetch(parsedUrl.toString(), { cache: "no-store" });
+          if (res.ok) {
+            const buf = Buffer.from(await res.arrayBuffer());
+            return toJpegResponse(buf);
+          }
+        }
+      } catch {
+        // Invalid URL -> fall through to fallbackImage
       }
     }
 
-    // 3. Fichier local dans public/
+    // 3. Fichier local dans public/ (avec protection Path Traversal)
     if (rawImg.startsWith("/")) {
-      const localPath = path.join(process.cwd(), "public", rawImg.replace(/^\//, ""));
-      if (fs.existsSync(localPath)) {
+      const publicDir = path.resolve(process.cwd(), "public");
+      const localPath = path.resolve(publicDir, rawImg.replace(/^\/+/, ""));
+      if (localPath.startsWith(publicDir + path.sep) && fs.existsSync(localPath)) {
         const buf = fs.readFileSync(localPath);
         return toJpegResponse(buf);
       }

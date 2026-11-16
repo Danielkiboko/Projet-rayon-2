@@ -115,9 +115,13 @@ export default function ReviewsSection({
     setSuccessFeedback("");
 
     try {
+      const token = await user.getIdToken();
       const res = await fetch("/api/reviews/submit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           targetType,
           targetId,

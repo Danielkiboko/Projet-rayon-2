@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { initFirebaseAdmin, adminDb } from "@/lib/firebase-admin";
+import { getServerCaller } from "@/lib/serverAuth";
 
 export async function POST(req: NextRequest) {
   try {
+    const caller = await getServerCaller(req);
+    if (!caller || !caller.isAdmin) {
+      return NextResponse.json(
+        { error: "Accès réservé aux administrateurs." },
+        { status: 403 }
+      );
+    }
+
     const apiKey = process.env.GEMINI_API_KEY;
 
     // Clé absente ou au format Vercel chiffré (AQ.*) non déchiffré en local

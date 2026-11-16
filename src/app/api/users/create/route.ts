@@ -81,7 +81,13 @@ export async function POST(req: Request) {
     }
 
     // Only Super Admin can create internal staff members (Sub Admin, Admin Finance, Admin DB, etc.)
-    if (!isSuperAdminCaller && ['SUB_ADMIN', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS'].includes(roleUpper)) {
+    const staffAndAdminRoles = [
+      'ADMIN', 'SUB_ADMIN', 'SUBADMIN', 'SOUS_ADMIN', 'SOUS_ADMIN_GENERAL',
+      'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS', 'STAFF', 'FONCTIONNAIRE',
+      'GESTIONNAIRE_ADMIN', 'RESPONSABLE_LOGISTIQUE', 'RESPONSABLE_FINANCIER',
+      'RESPONSABLE_CATALOGUE', 'SUPPORT_CLIENT'
+    ];
+    if (!isSuperAdminCaller && staffAndAdminRoles.includes(roleUpper)) {
       return NextResponse.json({ error: 'Action interdite : Seul le Super Administrateur peut nommer des collaborateurs internes.' }, { status: 403 });
     }
 
@@ -109,12 +115,29 @@ export async function POST(req: Request) {
     if (isPartnerCaller) {
       claims.referredByPartnerId = callerUid;
     }
-    if (extraData?.parentSupplierId || (isSupplierCaller && roleToCreate === 'driver')) {
-      claims.parentSupplierId = extraData?.parentSupplierId || callerUid;
+    if (isSupplierCaller) {
+      claims.parentSupplierId = callerUid;
+    } else if (extraData?.parentSupplierId) {
+      claims.parentSupplierId = extraData.parentSupplierId;
     }
     await adminAuth.setCustomUserClaims(userRecord.uid, claims);
 
-    const additionalData = { ...extraData };
+    const additionalData: Record<string, any> = { ...(extraData || {}) };
+    // Prevent mass-assignment of privileged or financial fields via extraData
+    const forbiddenExtraFields = [
+      'uid', 'email', 'role', 'accountType', 'isSuperAdmin', 'isAdmin',
+      'isInternalStaff', 'isPartner', 'partnerBalance', 'partnerTotalEarned',
+      'referralBalance', 'referralTotalEarned', 'referralPaidTotal',
+      'createdBy', 'creatorRole', 'subscriptionStatus', 'subscriptionEndDate'
+    ];
+    for (const key of forbiddenExtraFields) {
+      delete additionalData[key];
+    }
+    if (!isSuperAdminCaller) {
+      delete additionalData.staffProfile;
+      delete additionalData.partnerProfile;
+    }
+
     let partnerRefCode: string | null = null;
 
     if (isPartnerCaller) {
@@ -141,8 +164,12 @@ export async function POST(req: Request) {
       additionalData.supplierId = assignedSupplierId;
       additionalData.parentSupplierId = isSupplierCaller ? callerUid : (extraData?.parentSupplierId || null);
       additionalData.createdBy = claims.createdBy;
+    } else if (roleToCreate === 'SUB_SUPPLIER' && isSupplierCaller) {
+      additionalData.parentSupplierId = callerUid;
+      additionalData.supplierId = callerUid;
+      additionalData.createdBy = callerUid;
     } else if (roleToCreate === 'supplier' || roleToCreate === 'SUPPLIER_IMMO' || roleToCreate === 'SUPPLIER_SAVEURS' || roleToCreate === 'SUPPLIER_MODE' || roleToCreate === 'SUPPLIER_CONNECT' || roleToCreate === 'SUPPLIER') {
-      if (extraData?.isOfficialAdminStore || extraData?.isAdminSupplier) {
+      if (isAdminCaller && (extraData?.isOfficialAdminStore || extraData?.isAdminSupplier)) {
         additionalData.subscriptionStatus = 'ACTIVE';
         additionalData.subscriptionEndDate = null;
         additionalData.depositAmount = 0;
@@ -150,6 +177,8 @@ export async function POST(req: Request) {
         additionalData.isAdminSupplier = true;
         additionalData.isBlocked = false;
       } else {
+        delete additionalData.isOfficialAdminStore;
+        delete additionalData.isAdminSupplier;
         // Read trial duration from platform settings (default: 15 days per policy)
         let trialDays = 15;
         try {
@@ -202,6 +231,7 @@ export async function POST(req: Request) {
     // 6. Save User Metadata in Firestore
     const userDocRef = adminDb.collection('users').doc(userRecord.uid);
     await userDocRef.set({
+      ...additionalData,
       uid: userRecord.uid,
       email,
       displayName,
@@ -210,7 +240,6 @@ export async function POST(req: Request) {
       creatorRole: isPartnerCaller ? 'PARTNER' : (rawRole || 'superAdmin'),
       createdAt: new Date(),
       status: 'active',
-      ...additionalData
     }, { merge: true });
 
     // 7. Route to specific collections (drivers, suppliers) if needed

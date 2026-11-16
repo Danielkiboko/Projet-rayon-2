@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { getServerCaller } from "@/lib/serverAuth";
+import { getServerCaller, SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
 
 export async function GET(req: NextRequest) {
   try {
     const caller = await getServerCaller(req);
-    if (!caller || !caller.uid) {
-      return NextResponse.json({ success: false, error: "Non autorisé" }, { status: 401 });
+    if (!caller || !caller.isAdmin) {
+      return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
     }
 
     const platformDoc = await adminDb.collection("settings").doc("platform").get();
@@ -54,8 +54,8 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const caller = await getServerCaller(req);
-    if (!caller || !caller.uid) {
-      return NextResponse.json({ success: false, error: "Non autorisé" }, { status: 401 });
+    if (!caller || !caller.isAdmin) {
+      return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
     }
 
     const body = await req.json();
@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
     const callerData = callerDoc.exists ? callerDoc.data() : {};
     const roleUpper = String(callerData?.role || "").toUpperCase();
     const isSuperAdmin =
+      SUPER_ADMIN_EMAILS.includes(caller.email) ||
       Boolean((caller as any).claims?.superAdmin) ||
       ["SUPER_ADMIN", "SUPERADMIN"].includes(roleUpper) ||
       (Array.isArray(callerData?.staffProfile?.positions) &&

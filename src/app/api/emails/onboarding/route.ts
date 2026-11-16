@@ -1,12 +1,23 @@
 import { NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
+import { getServerCaller } from "@/lib/serverAuth";
 
 export async function POST(req: Request) {
   try {
+    const caller = await getServerCaller(req);
+    if (!caller) {
+      return NextResponse.json({ error: "Authentification requise." }, { status: 401 });
+    }
+
     const { email, name, password, role, company } = await req.json();
 
     if (!email || !password) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    // Un utilisateur non-admin ne peut envoyer l'email d'onboarding qu'à sa propre adresse email
+    if (!caller.isAdmin && caller.email && email.trim().toLowerCase() !== caller.email) {
+      return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
     }
 
     // Differentiate label based on role

@@ -1,9 +1,18 @@
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { initFirebaseAdmin, adminDb } from "@/lib/firebase-admin";
+import { getServerCaller } from "@/lib/serverAuth";
 
 export async function POST(req: Request) {
   try {
+    const caller = await getServerCaller(req);
+    if (!caller) {
+      return NextResponse.json(
+        { success: false, error: "Vous devez être connecté pour publier un avis." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const {
       targetType = "property", // "property" | "product"
@@ -15,9 +24,11 @@ export async function POST(req: Request) {
       comment = "",
     } = body;
 
-    if (!targetId || !clientId || typeof rating !== "number") {
+    const effectiveClientId = caller.isAdmin && clientId ? clientId : caller.uid;
+
+    if (!targetId || typeof rating !== "number") {
       return NextResponse.json(
-        { success: false, error: "Champs requis manquants (targetId, clientId, rating)" },
+        { success: false, error: "Champs requis manquants (targetId, rating)" },
         { status: 400 }
       );
     }
@@ -45,12 +56,12 @@ export async function POST(req: Request) {
 
     const targetData = targetSnap.data() || {};
 
-    // 1. Ajouter l'avis dans la sous-collection "reviews"
+    // 1. Enregistrer l'avis (un seul avis par utilisateur et par produit/bien pour éviter le bourrage de notes)
     const reviewsRef = targetRef.collection("reviews");
-    await reviewsRef.add({
-      clientId,
+    await reviewsRef.doc(effectiveClientId).set({
+      clientId: effectiveClientId,
       clientName: clientName.trim(),
-      clientEmail: clientEmail || null,
+      clientEmail: clientEmail || caller.email || null,
       rating: Math.round(rating),
       comment: (comment || "").trim(),
       createdAt: FieldValue.serverTimestamp(),

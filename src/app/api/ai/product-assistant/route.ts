@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { getServerCaller } from '@/lib/serverAuth';
 
 export async function POST(req: Request) {
   try {
+    const caller = await getServerCaller(req);
+    if (!caller) {
+      return NextResponse.json({ error: 'Authentification requise pour utiliser l\'assistant IA.' }, { status: 401 });
+    }
+
     const { message, history, imageBase64, imageMimeType } = await req.json();
 
     if (!process.env.GEMINI_API_KEY) {

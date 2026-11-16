@@ -236,9 +236,13 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
 
     setIsSubmittingReview(true);
     try {
+      const token = await user.getIdToken();
       const res = await fetch("/api/reviews/submit", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           targetType: "product",
           targetId: productId,
@@ -389,7 +393,7 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-10">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-5 pb-28 sm:py-10">
         <div className="flex flex-col lg:flex-row gap-6 lg:gap-12">
           {/* Colonne Image + Galerie Multi-Photos */}
           <div className="lg:w-5/12">
@@ -899,6 +903,47 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
           </section>
         )}
       </main>
+
+      {/* Mobile Sticky Bottom Action Bar (< sm) */}
+      <div className="fixed bottom-0 inset-x-0 z-40 sm:hidden bg-[#0F1D27]/95 backdrop-blur-xl border-t border-white/15 px-3.5 pt-2.5 pb-[calc(0.6rem+env(safe-area-inset-bottom,0px))] flex items-center justify-between gap-2.5 shadow-[0_-8px_30px_rgba(0,0,0,0.45)]">
+        <div className="min-w-0 pr-1">
+          <span className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 leading-none mb-0.5">
+            {lang === "fr" ? "Prix" : "Price"}
+          </span>
+          <div className="text-base font-heading font-black text-[#C7D300] truncate leading-tight">
+            {formatPrice(currentUnitPrice)}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={handleOpenChat}
+            aria-label={lang === "fr" ? "Discuter avec le vendeur" : "Chat with seller"}
+            className="p-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/15 transition-colors cursor-pointer active:scale-95 flex items-center justify-center"
+          >
+            <MessageSquare size={18} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => addToCart(enrichedProductForOrder, 1)}
+            className="px-3 py-2.5 rounded-xl bg-white hover:bg-gray-100 text-[#0F1D27] font-heading font-bold text-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-sm"
+          >
+            <ShoppingCart size={15} className="text-[#0F1D27]" />
+            <span>{lang === "fr" ? "Panier" : "Cart"}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setBuyModalProduct(enrichedProductForOrder)}
+            className="px-4 py-2.5 rounded-xl bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-heading font-extrabold text-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 shadow-md shadow-[#C7D300]/20"
+          >
+            <ShoppingBag size={15} />
+            <span>{lang === "fr" ? "Acheter" : "Buy"}</span>
+          </button>
+        </div>
+      </div>
 
       {/* Direct Express Order Modal */}
       <DirectBuyModal

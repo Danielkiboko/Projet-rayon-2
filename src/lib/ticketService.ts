@@ -1,4 +1,4 @@
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { 
   collection, 
   doc, 
@@ -94,9 +94,13 @@ export async function createTicket(params: CreateTicketParams): Promise<string> 
 
   // Notify Admin or user via in-app notification & email
   try {
+    const token = await auth?.currentUser?.getIdToken().catch(() => null);
     fetch("/api/tickets/notify", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({
         ticketId: ticketRef.id,
         ticketNumber,
@@ -193,9 +197,13 @@ export async function sendTicketReply(params: SendMessageParams): Promise<void> 
 
   // 5. Trigger Email Notification
   try {
+    const token = await auth?.currentUser?.getIdToken().catch(() => null);
     fetch("/api/tickets/notify", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify({
         ticketId: params.ticketId,
         ticketNumber: params.ticketNumber,

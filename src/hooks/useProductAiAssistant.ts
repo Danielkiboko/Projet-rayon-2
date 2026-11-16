@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { auth } from "@/lib/firebase";
 
 interface AiAssistantOptions {
   onAiDataParsed: (parsedData: any) => void;
@@ -37,9 +38,13 @@ export function useProductAiAssistant({ onAiDataParsed, apiEndpoint = '/api/ai/p
     setIsAiLoading(true);
     setChatMessages([]);
     try {
+      const token = await auth?.currentUser?.getIdToken().catch(() => null);
       const res = await fetch(apiEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           message: prompt,
           imageBase64: base64data,
@@ -66,9 +71,13 @@ export function useProductAiAssistant({ onAiDataParsed, apiEndpoint = '/api/ai/p
     setIsAiLoading(true);
 
     try {
+      const token = await auth?.currentUser?.getIdToken().catch(() => null);
       const res = await fetch(apiEndpoint, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           message: chatInput,
           history: newMessages.slice(0, -1)

@@ -180,7 +180,7 @@ export default function NotificationCenter({ notifications, accentText = "text-[
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 mt-2 w-[22rem] max-w-[calc(100vw-2rem)] bg-[#141C23] border border-white/10 rounded-2xl shadow-2xl shadow-black/60 z-50 overflow-hidden">
+          <div className="fixed left-3 right-3 top-14 sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[22rem] max-w-[calc(100vw-1.5rem)] bg-[#141C23] border border-white/10 rounded-2xl shadow-2xl shadow-black/60 z-50 overflow-hidden">
             {/* Header */}
             <div className="px-4 pt-4 pb-3 border-b border-white/10 bg-[#18232C]">
               <div className="flex items-center justify-between">

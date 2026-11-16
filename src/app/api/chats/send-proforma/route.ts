@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { getServerCaller, canActForSupplier } from "@/lib/serverAuth";
 
 export async function POST(req: NextRequest) {
   try {
+    const caller = await getServerCaller(req);
+    if (!caller) {
+      return NextResponse.json({ error: "Authentification requise." }, { status: 401 });
+    }
+
     const body = await req.json();
     const {
       chatId,
@@ -24,6 +30,10 @@ export async function POST(req: NextRequest) {
 
     if (!senderId) {
       return NextResponse.json({ error: "senderId est requis." }, { status: 400 });
+    }
+
+    if (!canActForSupplier(caller, senderId)) {
+      return NextResponse.json({ error: "Non autorisé à émettre une facture proforma pour ce fournisseur." }, { status: 403 });
     }
 
     const isHotel = type === "hotel";

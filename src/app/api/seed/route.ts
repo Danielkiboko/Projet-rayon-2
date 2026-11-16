@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { collection, doc, setDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 
 // ─── Security ────────────────────────────────────────────────────────────────
 // Cet endpoint est réservé au Super Admin et ne doit JAMAIS être appelé
@@ -165,7 +164,7 @@ const PRODUCTS = [
 export async function GET(request: Request) {
   // ─── Vérification du secret ───────────────────────────────────────────────
   const secret = request.headers.get('x-cron-secret');
-  if (!CRON_SECRET || secret !== CRON_SECRET) {
+  if (!CRON_SECRET || CRON_SECRET === 'REMPLACEZ_PAR_VOTRE_SECRET' || secret !== CRON_SECRET) {
     return NextResponse.json(
       { error: 'Accès refusé. Ce endpoint est réservé au Super Admin.' },
       { status: 401 }
@@ -174,7 +173,7 @@ export async function GET(request: Request) {
 
   try {
     for (const product of PRODUCTS) {
-      await setDoc(doc(db, "products", product.id), product);
+      await adminDb.collection("products").doc(product.id).set(product);
     }
     return NextResponse.json({ message: "Seed successful!" }, { status: 200 });
   } catch (error: any) {

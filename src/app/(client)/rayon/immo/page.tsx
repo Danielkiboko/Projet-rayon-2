@@ -17,6 +17,7 @@ import { useChat } from "@/context/ChatContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { ImmoContactModal } from "@/modules/client/components/ImmoContactModal";
 import PropertyDetailModal from "@/modules/shared/components/properties/PropertyDetailModal";
+import AlibabaClientBottomNav from "@/modules/client/components/AlibabaClientBottomNav";
 
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
@@ -610,6 +611,8 @@ function ImmoContent() {
         onClose={() => setIsContactModalOpen(false)} 
         property={contactProperty} 
       />
+
+      <AlibabaClientBottomNav />
     </div>
   );
 }

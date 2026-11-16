@@ -20,7 +20,10 @@ import {
   ShoppingBag,
   Package,
   MessageSquare,
-  LifeBuoy
+  LifeBuoy,
+  BarChart3,
+  Building2,
+  Coins
 } from "lucide-react";
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
 import { RayonsMark } from "@/modules/shared/components/brand/RayonsMark";
@@ -35,6 +38,8 @@ type MenuItem = {
   badge?: number;
   requiresPremium?: boolean;
   locked?: boolean;
+  active?: boolean;
+  onClick?: () => void;
   colorClass?: {
     bg: string;
     text: string;
@@ -135,7 +140,7 @@ export function DashboardLayout({
     !pathname.startsWith("/admin/tickets");
 
   return (
-    <div className="flex h-screen bg-[#0B151C] overflow-hidden font-sans">
+    <div className="flex h-dvh bg-[#0B151C] overflow-hidden font-sans">
       {customProfileModal}
       <ProfileManagerModal
         isOpen={isProfileModalOpen}
@@ -214,7 +219,9 @@ export function DashboardLayout({
 
         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1">
           {menuItems.map((item, index) => {
-            const isActive = pathname.startsWith(item.href);
+            const isActive = item.active !== undefined 
+              ? item.active 
+              : (item.href === "/" ? pathname === "/" : pathname.startsWith(item.href));
             const Icon = item.icon;
             
             const activeBg = item.colorClass ? item.colorClass.bg : themeColors.activeMenuBg;
@@ -243,10 +250,19 @@ export function DashboardLayout({
             }
             
             return (
-              <Link key={`${item.href || 'menu'}-${item.title}-${index}`} href={item.href} onClick={() => setIsSidebarOpen(false)}>
+              <Link 
+                key={`${item.href || 'menu'}-${item.title}-${index}`} 
+                href={item.href} 
+                onClick={(e) => {
+                  setIsSidebarOpen(false);
+                  if (item.onClick) {
+                    item.onClick();
+                  }
+                }}
+              >
                 <div className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
                   isActive 
-                    ? `${activeBg} ${activeText} shadow-sm` 
+                    ? `${activeBg} ${activeText} shadow-sm font-bold` 
                     : "text-gray-400 hover:bg-white/5 hover:text-white"
                 }`}>
                   <div className="flex items-center space-x-3">
@@ -297,7 +313,7 @@ export function DashboardLayout({
       </motion.aside>
 
       {/* Main content wrapper */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
+      <main className="flex-1 flex flex-col h-dvh overflow-hidden relative">
         {/* Topbar */}
         <header className="h-13 sm:h-16 flex items-center justify-between px-3 sm:px-6 border-b border-white/10 bg-[#0F1D27]/90 backdrop-blur-md z-30 relative gap-2 shrink-0">
           <div className="flex items-center min-w-0 flex-1 mr-2">
@@ -468,6 +484,60 @@ export function DashboardLayout({
                     <span className="absolute -top-1 -right-1.5 w-2 h-2 rounded-full bg-[#C7D300] animate-pulse" />
                   )}
                 </div>
+                <span className="text-[10px] font-semibold mt-1">Menu</span>
+              </button>
+            </>
+          ) : pathname.startsWith("/partner") ? (
+            /* ── PARTENAIRE MOBILE QUICK BAR ── */
+            <>
+              <Link
+                href="/partner?tab=stats"
+                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+                  menuItems[0]?.active ? themeColors.accentText || "text-[#C7D300]" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <BarChart3 size={19} strokeWidth={menuItems[0]?.active ? 2.5 : 2} />
+                <span className="text-[10px] font-semibold mt-1">Stats</span>
+              </Link>
+
+              <Link
+                href="/partner?tab=publications"
+                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+                  menuItems[1]?.active ? themeColors.accentText || "text-[#C7D300]" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <ShoppingBag size={19} strokeWidth={menuItems[1]?.active ? 2.5 : 2} />
+                <span className="text-[10px] font-semibold mt-1">Publications</span>
+              </Link>
+
+              <Link
+                href="/partner?tab=suppliers"
+                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+                  menuItems[2]?.active ? themeColors.accentText || "text-[#C7D300]" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <Building2 size={19} strokeWidth={menuItems[2]?.active ? 2.5 : 2} />
+                <span className="text-[10px] font-semibold mt-1">Boutiques</span>
+              </Link>
+
+              <Link
+                href="/partner?tab=commissions"
+                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+                  menuItems[3]?.active ? themeColors.accentText || "text-[#C7D300]" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <Coins size={19} strokeWidth={menuItems[3]?.active ? 2.5 : 2} />
+                <span className="text-[10px] font-semibold mt-1">Gains</span>
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => setIsSidebarOpen(true)}
+                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors cursor-pointer relative ${
+                  menuItems[4]?.active ? themeColors.accentText || "text-[#C7D300]" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <Menu size={19} strokeWidth={menuItems[4]?.active ? 2.5 : 2} />
                 <span className="text-[10px] font-semibold mt-1">Menu</span>
               </button>
             </>

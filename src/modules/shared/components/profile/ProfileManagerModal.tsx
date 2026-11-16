@@ -290,7 +290,7 @@ export default function ProfileManagerModal({
             initial={{ opacity: 0, scale: 0.95, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 12 }}
-            className="w-full max-w-2xl bg-[#0F1D27] border border-white/15 rounded-3xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col text-white"
+            className="w-full max-w-2xl bg-[#0F1D27] border border-white/15 rounded-3xl shadow-2xl overflow-hidden max-h-[92dvh] flex flex-col text-white"
           >
             {/* Header */}
             <div className="px-5 py-4 sm:px-6 sm:py-5 border-b border-white/10 flex items-center justify-between bg-[#0B151C]/90 shrink-0">
@@ -331,11 +331,11 @@ export default function ProfileManagerModal({
             </div>
 
             {/* Navigation Tabs */}
-            <div className="px-5 sm:px-6 pt-3 bg-[#0B151C]/50 border-b border-white/10 flex gap-2 shrink-0">
+            <div className="px-4 sm:px-6 pt-3 bg-[#0B151C]/50 border-b border-white/10 flex gap-2 shrink-0 overflow-x-auto scrollbar-none">
               <button
                 type="button"
                 onClick={() => setActiveTab("contact")}
-                className={`px-4 py-2.5 text-xs sm:text-sm font-bold rounded-t-xl border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+                className={`px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-bold rounded-t-xl border-b-2 transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${
                   activeTab === "contact"
                     ? "border-[#C7D300] text-[#C7D300] bg-white/5"
                     : "border-transparent text-gray-400 hover:text-white"
@@ -348,7 +348,7 @@ export default function ProfileManagerModal({
               <button
                 type="button"
                 onClick={() => setActiveTab("identity")}
-                className={`px-4 py-2.5 text-xs sm:text-sm font-bold rounded-t-xl border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+                className={`px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-bold rounded-t-xl border-b-2 transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap shrink-0 ${
                   activeTab === "identity"
                     ? "border-[#C7D300] text-[#C7D300] bg-white/5"
                     : "border-transparent text-gray-400 hover:text-white"

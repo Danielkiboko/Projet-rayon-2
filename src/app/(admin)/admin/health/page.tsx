@@ -32,9 +32,14 @@ export default function HealthDashboard() {
   const analyzeBug = async (logId: string) => {
     setAnalyzing(logId);
     try {
+      const { auth } = await import("@/lib/firebase");
+      const token = await auth?.currentUser?.getIdToken().catch(() => null);
       const res = await fetch("/api/ai/analyze-bug", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ logId }),
       });
       if (!res.ok) {

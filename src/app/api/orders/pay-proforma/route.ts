@@ -16,7 +16,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (caller && !caller.isAdmin && caller.uid !== clientId) {
+    if (!caller) {
+      return NextResponse.json(
+        { error: "Authentification requise pour régler une facture proforma." },
+        { status: 401 }
+      );
+    }
+
+    if (!caller.isAdmin && caller.uid !== clientId) {
       return NextResponse.json(
         { error: "Non autorisé à régler une proforma pour un autre compte client." },
         { status: 403 }

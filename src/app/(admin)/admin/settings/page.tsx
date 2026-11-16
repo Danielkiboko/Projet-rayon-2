@@ -184,9 +184,13 @@ export default function AdminSettingsPage() {
       }
 
       // 2. Server API fallback (bypasses any client auth token latency)
+      const token = await user?.getIdToken();
       const res = await fetch("/api/admin/settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ settings: dataToSave, userId: user?.uid }),
       });
       const json = await res.json();

@@ -1,22 +1,35 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs, updateDoc, doc, Timestamp } from "firebase/firestore";
+import { adminDb } from "@/lib/firebase-admin";
+import { Timestamp } from "firebase-admin/firestore";
 import { sendEmail } from "@/lib/notifications";
+import { getServerCaller } from "@/lib/serverAuth";
+
+const CRON_SECRET = process.env.CRON_SECRET;
 
 // Automated Cron will hit this route (e.g. every 5-10 minutes)
 export async function GET(req: Request) {
   try {
+    const authHeader = req.headers.get("authorization");
+    const hasValidCronSecret =
+      Boolean(CRON_SECRET && CRON_SECRET !== "REMPLACEZ_PAR_VOTRE_SECRET") &&
+      authHeader === `Bearer ${CRON_SECRET}`;
+
+    if (!hasValidCronSecret) {
+      const caller = await getServerCaller(req);
+      if (!caller || !caller.isAdmin) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+    }
+
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
     const tsTenMinutesAgo = Timestamp.fromDate(tenMinutesAgo);
 
     // Get chats that have unread messages for more than 10 minutes and haven't been notified
-    const q = query(
-      collection(db, "chats"),
-      where("lastMessageTime", "<", tsTenMinutesAgo),
-      where("notified", "==", false)
-    );
-
-    const snap = await getDocs(q);
+    const snap = await adminDb
+      .collection("chats")
+      .where("lastMessageTime", "<", tsTenMinutesAgo)
+      .where("notified", "==", false)
+      .get();
     
     if (snap.empty) {
       return NextResponse.json({ success: true, message: "No pending notifications." });
@@ -29,22 +42,19 @@ export async function GET(req: Request) {
       const chatId = chatDoc.id;
       
       let targetUserId = "";
-      let isSupplier = false;
 
       if (data.unreadSupplier) {
         targetUserId = data.supplierId;
-        isSupplier = true;
       } else if (data.unreadClient) {
         targetUserId = data.clientId;
-        isSupplier = false;
       } else {
         continue; // Should not happen but just in case
       }
 
       // Fetch user email
-      const userDoc = await getDocs(query(collection(db, "users"), where("uid", "==", targetUserId)));
-      if (!userDoc.empty) {
-        const email = userDoc.docs[0].data().email;
+      const userSnap = await adminDb.collection("users").doc(targetUserId).get();
+      if (userSnap.exists) {
+        const email = userSnap.data()?.email;
         if (email) {
           const propertyName = data.propertyTitle || data.productName || "un produit";
           tasks.push(sendEmail(
@@ -56,7 +66,7 @@ export async function GET(req: Request) {
       }
 
       // Mark as notified
-      tasks.push(updateDoc(doc(db, "chats", chatId), { notified: true }));
+      tasks.push(adminDb.collection("chats").doc(chatId).update({ notified: true }));
     }
 
     await Promise.allSettled(tasks);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerCaller } from "@/lib/serverAuth";
 import { creditReferralCommission } from "@/lib/referrals";
+import { adminDb } from "@/lib/firebase-admin";
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,6 +24,27 @@ export async function POST(req: NextRequest) {
     const allowed = caller.isAdmin || caller.uid === filleulId || caller.parentSupplierId === filleulId;
     if (!allowed) {
       return NextResponse.json({ success: false, error: "Non autorisé." }, { status: 403 });
+    }
+
+    // Non-admins must reference a real recorded subscription payment in transactions or subscription_payments
+    if (!caller.isAdmin) {
+      const lockId = `${filleulId}_${paymentRef}`.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 140);
+      const [lockSnap, txSnap] = await Promise.all([
+        adminDb.collection("subscription_payments").doc(lockId).get(),
+        adminDb
+          .collection("transactions")
+          .where("supplierId", "==", filleulId)
+          .where("referenceId", "==", paymentRef)
+          .limit(1)
+          .get(),
+      ]);
+
+      if (!lockSnap.exists && txSnap.empty) {
+        return NextResponse.json(
+          { success: false, error: "Référence de paiement d'abonnement introuvable ou non vérifiée." },
+          { status: 400 }
+        );
+      }
     }
 
     const result = await creditReferralCommission({

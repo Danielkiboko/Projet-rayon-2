@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { getServerCaller } from "@/lib/serverAuth";
 
 export async function POST(req: Request) {
   try {
+    const caller = await getServerCaller(req);
+    if (!caller) {
+      return NextResponse.json(
+        { error: "Authentification requise pour envoyer un contrat de bail." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const {
       tenantEmail,
@@ -28,6 +37,13 @@ export async function POST(req: Request) {
     const cleanEmail = tenantEmail.trim().toLowerCase();
     const cleanAgency = (agencyName || "MUTAMULIS").trim();
 
+    if (!process.env.SMTP_PASS) {
+      return NextResponse.json(
+        { error: "Configuration SMTP manquante sur le serveur (SMTP_PASS)." },
+        { status: 500 }
+      );
+    }
+
     // Setup nodemailer with official SMTP
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || "smtp.hostinger.com",
@@ -35,7 +51,7 @@ export async function POST(req: Request) {
       secure: Number(process.env.SMTP_PORT || 465) === 465,
       auth: {
         user: process.env.SMTP_USER || "admin@rayons.net",
-        pass: process.env.SMTP_PASS || "Kinoko88@",
+        pass: process.env.SMTP_PASS,
       },
     });
 

@@ -168,6 +168,12 @@ export async function POST(req: Request) {
       if (!caller || !canActForSupplier(caller, supplierId)) {
         return NextResponse.json({ success: false, error: "Non autorisé à renouveler cet abonnement." }, { status: 403 });
       }
+      if (provider === "MANUAL" && !caller.isAdmin) {
+        return NextResponse.json(
+          { success: false, error: "Un paiement manuel d'abonnement doit être validé par un administrateur." },
+          { status: 403 }
+        );
+      }
     }
 
     const phone = clientPhone || "";
@@ -197,6 +203,22 @@ export async function POST(req: Request) {
         });
       }
 
+      // Si paiement MANUAL initié par un non-admin, enregistrer en attente de validation
+      if (provider === "MANUAL" && !caller?.isAdmin) {
+        await db.collection("orders").doc(orderId).update({
+          paymentProvider: provider,
+          paymentReference: refId,
+          paymentStatus: "PENDING_MANUAL_VALIDATION",
+          updatedAt: now,
+        });
+        return NextResponse.json({
+          success: true,
+          referenceId: refId,
+          pendingValidation: true,
+          message: "Demande de paiement manuel enregistrée. Elle sera validée à la réception des fonds.",
+        });
+      }
+
       // 1. Mettre à jour la commande
       await db.collection("orders").doc(orderId).update({
         status: "COMPLETED",
@@ -219,7 +241,7 @@ export async function POST(req: Request) {
         createdAt: now,
       });
 
-      // 3. SMS fidélité client (via /api/sms)
+      // 3. SMS fidélité client (via sendMobiShastraSMS ou /api/sms)
       if (clientPhone) {
         const smsMsg = `Merci pour votre achat chez Rayon ! Commande #${orderId.slice(0, 6).toUpperCase()} confirmée. Ref paiement : ${refId}`;
         await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "https://rayons.net"}/api/sms`, {
@@ -233,7 +255,7 @@ export async function POST(req: Request) {
     }
 
     if (type === "SUBSCRIPTION" && supplierId) {
-      const daysToAdd = planDays ?? 30;
+      const daysToAdd = caller?.isAdmin && planDays && planDays > 0 ? Math.min(planDays, 365) : 30;
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + daysToAdd);
 

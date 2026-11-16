@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendSMS, sendEmail, getOrderStatusEmail, getOrderStatusSMS } from "@/lib/notifications";
-import { getServerCaller } from "@/lib/serverAuth";
+import { getServerCaller, canActForSupplier } from "@/lib/serverAuth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
     let clientEmailToNotify = "";
     const orderNum = orderId.substring(0, 8).toUpperCase();
     let suppliersAffected: string[] = [];
+    let alreadyCompleted = false;
 
     // 1. Transaction atomique : Mise à jour de la commande et enregistrement en caisse
     await adminDb.runTransaction(async (transaction: any) => {
@@ -39,6 +40,21 @@ export async function POST(req: NextRequest) {
       }
 
       const orderData = orderDoc.data() || {};
+
+      // Vérification d'autorisation : seul le livreur assigné, le fournisseur de la commande ou un admin peut confirmer
+      const isAssignedDriver = orderData.driverId && orderData.driverId === caller.uid;
+      const isUnassignedButCallerIsDriver = !orderData.driverId && (caller.role.includes("DRIVER") || caller.role.includes("LIVREUR") || caller.role.includes("CHAUFFEUR"));
+      const isOrderSupplier = canActForSupplier(caller, orderData.supplierId || "");
+      if (!caller.isAdmin && !isAssignedDriver && !isUnassignedButCallerIsDriver && !isOrderSupplier) {
+        throw new Error("UNAUTHORIZED_DELIVERY_CONFIRMATION");
+      }
+
+      // Idempotence : si déjà livrée, ne pas dupliquer les écritures comptables
+      if (orderData.status === "COMPLETED" && orderData.cashCollectedByDriver) {
+        alreadyCompleted = true;
+        return;
+      }
+
       clientPhoneToNotify = orderData.clientPhone || orderData.customerInfo?.phone || orderData.deliveryDetails?.recipientPhone || "";
       clientEmailToNotify = orderData.clientEmail || orderData.customerInfo?.email || "";
 
@@ -144,6 +160,15 @@ export async function POST(req: NextRequest) {
       }
     });
 
+    if (alreadyCompleted) {
+      return NextResponse.json({
+        success: true,
+        orderId,
+        alreadyCompleted: true,
+        message: "Cette livraison a déjà été confirmée."
+      });
+    }
+
     // 3. Notification en arrière-plan au client
     Promise.resolve().then(async () => {
       try {
@@ -176,6 +201,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, code: "NOT_FOUND", message: "Commande introuvable." },
         { status: 404 }
+      );
+    }
+
+    if (error.message === "UNAUTHORIZED_DELIVERY_CONFIRMATION") {
+      return NextResponse.json(
+        { success: false, code: "FORBIDDEN", error: "Non autorisé à confirmer cette livraison." },
+        { status: 403 }
       );
     }
 

@@ -47,27 +47,29 @@ export async function POST(req: NextRequest) {
 
     const commune = deliveryDetails.commune || "Gombe";
     const city = deliveryDetails.city || "Kinshasa";
-    const deliveryFee = deliveryDetails.deliveryFee !== undefined 
-      ? Number(deliveryDetails.deliveryFee) 
-      : getDeliveryFeeForCommune(commune);
+    const officialCommuneFee = getDeliveryFeeForCommune(commune);
+    const deliveryFee =
+      deliveryDetails.deliveryFee !== undefined && Number(deliveryDetails.deliveryFee) >= officialCommuneFee
+        ? Number(deliveryDetails.deliveryFee)
+        : officialCommuneFee;
 
     // 3. Normalisation de la liste des articles
-    let orderItems: any[] = [];
+    let rawItems: any[] = [];
     if (Array.isArray(items) && items.length > 0) {
-      orderItems = items.map((it: any) => ({
+      rawItems = items.map((it: any) => ({
         id: it.id || it.productId,
         productId: it.productId || it.id,
         title: it.title || "Article",
-        price: Number(it.price) || 0,
-        quantity: Math.max(1, Number(it.quantity) || 1),
+        price: Math.max(0, Number(it.price) || 0),
+        quantity: Math.max(1, Math.floor(Number(it.quantity) || 1)),
         image: it.image || it.imageUrl || "/images/placeholder.png",
         supplierId: it.supplierId || "admin",
         rayon: it.rayon || it.category || "connect"
       }));
     } else if (product) {
-      const q = Math.max(1, Number(quantity) || 1);
-      const unitP = Number(product.price) || 0;
-      orderItems = [
+      const q = Math.max(1, Math.floor(Number(quantity) || 1));
+      const unitP = Math.max(0, Number(product.price) || 0);
+      rawItems = [
         {
           id: product.id,
           productId: product.id,
@@ -81,6 +83,39 @@ export async function POST(req: NextRequest) {
       ];
     } else {
       return NextResponse.json({ success: false, error: "Aucun article fourni dans la commande." }, { status: 400 });
+    }
+
+    // 3b. Vérification serveur des prix et fournisseurs réels depuis Firestore
+    const orderItems: any[] = [];
+    for (const it of rawItems) {
+      let verifiedPrice = it.price;
+      let verifiedSupplierId = it.supplierId;
+      let verifiedTitle = it.title;
+      if (it.productId) {
+        try {
+          const prodSnap = await adminDb.collection("products").doc(String(it.productId)).get();
+          if (prodSnap.exists) {
+            const pData = prodSnap.data() || {};
+            if (typeof pData.price === "number" && pData.price > 0) {
+              verifiedPrice = pData.price;
+            }
+            if (pData.supplierId) {
+              verifiedSupplierId = pData.supplierId;
+            }
+            if (pData.title) {
+              verifiedTitle = pData.title?.fr || pData.title?.en || pData.title || verifiedTitle;
+            }
+          }
+        } catch (err) {
+          console.warn(`[OrderCreate] Could not verify product ${it.productId}:`, err);
+        }
+      }
+      orderItems.push({
+        ...it,
+        title: verifiedTitle,
+        price: verifiedPrice,
+        supplierId: verifiedSupplierId,
+      });
     }
 
     // 4. Calculs des montants

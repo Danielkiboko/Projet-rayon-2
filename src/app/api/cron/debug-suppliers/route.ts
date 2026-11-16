@@ -1,14 +1,23 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { getServerCaller } from "@/lib/serverAuth";
 
-// Endpoint de diagnostic — accessible seulement en dev ou avec le secret
+// Endpoint de diagnostic — accessible seulement avec un CRON_SECRET valide ou un Admin authentifié
 // Usage: GET /api/cron/debug-suppliers?secret=VOTRE_SECRET
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const secret = searchParams.get("secret");
+  const cronSecret = process.env.CRON_SECRET;
 
-  if (secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const hasValidSecret =
+    Boolean(cronSecret && cronSecret !== "REMPLACEZ_PAR_VOTRE_SECRET") &&
+    secret === cronSecret;
+
+  if (!hasValidSecret) {
+    const caller = await getServerCaller(req);
+    if (!caller || !caller.isAdmin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   }
 
   const report: any = {

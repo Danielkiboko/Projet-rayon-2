@@ -123,9 +123,13 @@ export function CartDrawer() {
     setProformaError("");
 
     try {
+      const token = await user.getIdToken();
       const res = await fetch("/api/orders/pay-proforma", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           chatId: pf.chatId,
           messageId: pf.messageId,

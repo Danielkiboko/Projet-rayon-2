@@ -112,11 +112,11 @@ export function UniversalSearchBar({ products = [], properties = [] }: Universal
       {/* Main Search Input Form with Integrated Rayon Selector */}
       <form onSubmit={handleSearchSubmit} className="relative flex items-center shadow-2xl rounded-2xl bg-white p-1.5 border border-white/20 focus-within:ring-4 focus-within:ring-[#C7D300]/30 transition-all">
         {/* Integrated Rayon Filter */}
-        <div className="relative pl-3 pr-2 py-1 flex items-center border-r border-gray-200">
+        <div className="relative pl-2 pr-1.5 sm:pl-3 sm:pr-2 py-1 flex items-center border-r border-gray-200 shrink-0">
           <select
             value={selectedRayon}
             onChange={(e) => setSelectedRayon(e.target.value as any)}
-            className="appearance-none bg-transparent pr-6 text-xs sm:text-sm font-bold text-gray-800 cursor-pointer focus:outline-none"
+            className="appearance-none bg-transparent pr-4 sm:pr-6 max-w-[105px] sm:max-w-none truncate text-xs sm:text-sm font-bold text-gray-800 cursor-pointer focus:outline-none"
           >
             <option value="all">Tous les rayons</option>
             <option value="connect">📡 Connect</option>

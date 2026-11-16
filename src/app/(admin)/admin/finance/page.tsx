@@ -137,7 +137,10 @@ export default function AdminFinancePage() {
   const fetchFinancialSettings = async () => {
     try {
       setLoadingFinancialSettings(true);
-      const res = await fetch("/api/admin/financial-settings");
+      const token = await user?.getIdToken();
+      const res = await fetch("/api/admin/financial-settings", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const json = await res.json();
       if (json.success) {
         setFinancialSettings(json.settings);
@@ -159,7 +162,10 @@ export default function AdminFinancePage() {
 
   const fetchPartners = async () => {
     try {
-      const res = await fetch("/api/admin/commissions");
+      const token = await user?.getIdToken();
+      const res = await fetch("/api/admin/commissions", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const json = await res.json();
       if (json.success) {
         setPartners(json.partners || []);
@@ -178,9 +184,13 @@ export default function AdminFinancePage() {
 
     setIsSubmittingCommission(true);
     try {
+      const token = await user?.getIdToken();
       const res = await fetch("/api/admin/commissions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           action: "CREDIT_COMMISSION",
           partnerId: selectedPartnerId,
@@ -212,9 +222,13 @@ export default function AdminFinancePage() {
     e.preventDefault();
     setIsSubmittingProposal(true);
     try {
+      const token = await user?.getIdToken();
       const res = await fetch("/api/admin/financial-settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           action: "PROPOSE_CHANGE",
           proposalData: {
@@ -248,9 +262,13 @@ export default function AdminFinancePage() {
   const handleApproveProposal = async () => {
     if (!confirm("Confirmez-vous l'approbation et l'application immédiate de cette proposition financière ?")) return;
     try {
+      const token = await user?.getIdToken();
       const res = await fetch("/api/admin/financial-settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ action: "APPROVE_CHANGE" }),
       });
       const json = await res.json();
@@ -266,9 +284,13 @@ export default function AdminFinancePage() {
   const handleRejectProposalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const token = await user?.getIdToken();
       const res = await fetch("/api/admin/financial-settings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ action: "REJECT_CHANGE", rejectionReason }),
       });
       const json = await res.json();
@@ -1125,7 +1147,8 @@ export default function AdminFinancePage() {
             <p className="text-[11px] text-gray-600 mt-0.5">Historique brut des encaissements et décaissements.</p>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Desktop Table (>= md) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full min-w-[600px] text-left">
               <thead>
                 <tr className="border-b border-white/8">
@@ -1162,6 +1185,35 @@ export default function AdminFinancePage() {
                 )}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Stacked Cards (< md) */}
+          <div className="md:hidden divide-y divide-white/5">
+            {transactions.length === 0 ? (
+              <div className="p-8 text-center text-xs text-gray-600">Aucune transaction.</div>
+            ) : (
+              transactions.map((t) => (
+                <div key={t.id} className="p-3.5 space-y-2 hover:bg-white/3 transition-colors">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      t.type === "EXPENSE" ? "text-red-400 bg-red-400/8" : "text-[#C7D300] bg-[#C7D300]/8"
+                    }`}>
+                      {t.type === "SUBSCRIPTION" ? "Abonnement" : t.type === "OTHER_INCOME" ? "Recette" : "Dépense"}
+                    </span>
+                    <span className={`text-xs font-extrabold ${
+                      t.type === "EXPENSE" ? "text-red-400" : "text-[#C7D300]"
+                    }`}>
+                      {t.type === "EXPENSE" ? "-" : "+"}${t.amount.toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-200 leading-snug">{t.description}</p>
+                  <div className="flex items-center justify-between text-[10px] text-gray-500 pt-1">
+                    <span>{t.createdAt?.toDate ? t.createdAt.toDate().toLocaleDateString("fr-FR") : "—"}</span>
+                    <span className="font-mono text-gray-600">Réf: {t.referenceId || "—"}</span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
@@ -1217,7 +1269,8 @@ export default function AdminFinancePage() {
               </button>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Desktop Table (>= md) */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full min-w-[700px] text-left">
                 <thead>
                   <tr className="border-b border-white/8">
@@ -1265,6 +1318,53 @@ export default function AdminFinancePage() {
                   )}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile Stacked Cards (< md) */}
+            <div className="md:hidden divide-y divide-white/5">
+              {partners.length === 0 ? (
+                <div className="p-8 text-center text-xs text-gray-600">Aucun partenaire enregistré.</div>
+              ) : (
+                partners.map((p) => (
+                  <div key={p.id} className="p-3.5 space-y-2.5 hover:bg-white/3 transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-white truncate">{p.displayName}</p>
+                        <p className="text-[10px] text-gray-500 truncate">{p.email || p.phone || "—"}</p>
+                      </div>
+                      <span className="font-mono text-[11px] font-bold text-[#C7D300] bg-[#C7D300]/10 border border-[#C7D300]/25 px-2 py-0.5 rounded shrink-0">
+                        {p.referralCode}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 bg-black/30 p-2.5 rounded-lg border border-white/5 text-center">
+                      <div>
+                        <span className="text-[9px] text-gray-500 uppercase block">Boutiques</span>
+                        <span className="text-xs font-bold text-white">{p.referralCount}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-gray-500 uppercase block">Solde Dispo</span>
+                        <span className="text-xs font-extrabold text-emerald-400">${Number(p.balance || 0).toFixed(2)}</span>
+                      </div>
+                      <div>
+                        <span className="text-[9px] text-gray-500 uppercase block">Cumulé</span>
+                        <span className="text-xs font-bold text-gray-300">${Number(p.totalEarned || 0).toFixed(2)}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setSelectedPartnerId(p.id);
+                        setIsCommissionModalOpen(true);
+                      }}
+                      className="w-full py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5 border border-white/8"
+                    >
+                      <Coins size={13} className="text-[#C7D300]" />
+                      <span>Créditer une commission</span>
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

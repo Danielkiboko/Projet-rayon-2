@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
+import { getServerCaller, canActForSupplier } from '@/lib/serverAuth';
 
 export async function POST(req: Request) {
   try {
+    const caller = await getServerCaller(req);
+    if (!caller) {
+      return NextResponse.json({ error: "Authentification requise." }, { status: 401 });
+    }
+
     const { productId, quantity, action } = await req.json();
 
     if (!productId || typeof quantity !== 'number' || !['decrement', 'increment'].includes(action)) {
@@ -11,6 +17,15 @@ export async function POST(req: Request) {
     }
 
     const productRef = adminDb.collection('products').doc(productId);
+    const productSnap = await productRef.get();
+    if (!productSnap.exists) {
+      return NextResponse.json({ error: "Produit introuvable." }, { status: 404 });
+    }
+
+    const productData = productSnap.data() || {};
+    if (!canActForSupplier(caller, productData.supplierId || 'admin')) {
+      return NextResponse.json({ error: "Non autorisé à modifier le stock de ce produit." }, { status: 403 });
+    }
     
     const amount = action === 'decrement' ? -Math.abs(quantity) : Math.abs(quantity);
 

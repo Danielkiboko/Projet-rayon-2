@@ -61,11 +61,11 @@ export default function PropertyDetailModal({
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden my-8 max-h-[92vh] flex flex-col text-gray-900 border border-gray-100"
+          className="w-full max-w-4xl bg-white rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden my-2 sm:my-8 max-h-[92dvh] flex flex-col text-gray-900 border border-gray-100"
         >
           {/* Top Bar with Title & Close */}
-          <div className="flex items-center justify-between p-5 border-b border-gray-100 bg-gray-50/80 sticky top-0 z-20">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between p-3.5 sm:p-5 border-b border-gray-100 bg-gray-50/80 sticky top-0 z-20 gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
               <span className={`px-3 py-1 text-xs font-bold uppercase rounded-full tracking-wider ${
                 isHotel 
                   ? "bg-amber-100 text-amber-900 border border-amber-300"
@@ -305,20 +305,20 @@ export default function PropertyDetailModal({
           </div>
 
           {/* Bottom Action Footer */}
-          <div className="p-5 border-t border-gray-100 bg-gray-50 flex items-center gap-3">
+          <div className="p-3.5 sm:p-5 border-t border-gray-100 bg-gray-50 flex items-center gap-2.5 sm:gap-3 shrink-0">
             <button
               onClick={() => {
                 onClose();
                 onBook(property);
               }}
-              className={`flex-1 py-3.5 text-white font-bold rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg ${
+              className={`flex-1 py-3 sm:py-3.5 px-3 text-white font-bold text-xs sm:text-sm rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg ${
                 isHotel
                   ? "bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600"
                   : "bg-gray-900 hover:bg-black"
               }`}
             >
-              <CalendarCheck size={18} />
-              <span>{isHotel ? "Réserver une Nuitée" : "Prendre RDV / Visiter ce bien"}</span>
+              <CalendarCheck size={17} className="shrink-0" />
+              <span className="truncate">{isHotel ? "Réserver une Nuitée" : "Prendre RDV / Visiter ce bien"}</span>
             </button>
 
             <button
@@ -326,7 +326,7 @@ export default function PropertyDetailModal({
                 onClose();
                 onChat(property);
               }}
-              className="px-5 py-3.5 bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-bold rounded-2xl transition-all flex items-center gap-2 shadow-xs"
+              className="px-4 sm:px-5 py-3 sm:py-3.5 bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-bold text-xs sm:text-sm rounded-2xl transition-all flex items-center gap-2 shadow-xs shrink-0"
             >
               <MessageSquare size={18} className="text-primary" />
               <span className="hidden sm:inline">Discuter avec l'Agent</span>

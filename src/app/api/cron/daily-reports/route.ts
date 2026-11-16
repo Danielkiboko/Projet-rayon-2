@@ -3,7 +3,7 @@ import { adminDb } from "@/lib/firebase-admin";
 import { sendEmail } from "@/lib/email";
 import { sendMobiShastraSMS } from "@/lib/sms";
 import { FieldValue } from "firebase-admin/firestore";
-import { SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
+import { SUPER_ADMIN_EMAILS, getServerCaller } from "@/lib/serverAuth";
 
 // ─── Security ────────────────────────────────────────────────────────────────
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -105,12 +105,14 @@ async function handleDailyReports(req: Request) {
     const { searchParams } = new URL(req.url);
     const secretParam = searchParams.get("secret");
 
-    // ── 🔒 SECURITY: strictly block unauthorized calls when CRON_SECRET is set ──
-    if (CRON_SECRET) {
-      const isAuthorized =
-        authHeader === `Bearer ${CRON_SECRET}` ||
-        secretParam === CRON_SECRET;
-      if (!isAuthorized) {
+    // ── 🔒 SECURITY: strictly require valid CRON_SECRET or authenticated Admin ──
+    const hasValidCronSecret =
+      Boolean(CRON_SECRET && CRON_SECRET !== "REMPLACEZ_PAR_VOTRE_SECRET") &&
+      (authHeader === `Bearer ${CRON_SECRET}` || secretParam === CRON_SECRET);
+
+    if (!hasValidCronSecret) {
+      const caller = await getServerCaller(req);
+      if (!caller || !caller.isAdmin) {
         console.warn("[DailyReport] ⛔ Unauthorized access attempt blocked.");
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }

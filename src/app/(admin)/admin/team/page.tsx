@@ -22,7 +22,11 @@ import {
   Mail, 
   Phone,
   Crown,
-  Truck
+  Truck,
+  ChevronDown,
+  ChevronUp,
+  Layers,
+  Eye
 } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
 import { collection, query, where, getDocs, doc, updateDoc, onSnapshot, serverTimestamp, limit } from "firebase/firestore";
@@ -61,6 +65,7 @@ export default function AdminTeamPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null);
 
   // Modal creation states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -491,20 +496,36 @@ export default function AdminTeamPage() {
       );
     }
     const posList = member.positions && member.positions.length > 0 ? member.positions : extractPositions(member);
+    const primaryPos = posList[0];
+    const primaryDef = ALL_STAFF_POSITIONS[primaryPos];
+    const isExpanded = expandedMemberId === member.id;
+
+    if (posList.length <= 1) {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+          <span>{primaryDef?.icon || "🛡️"}</span>
+          <span>{primaryDef?.label || primaryPos}</span>
+        </span>
+      );
+    }
+
     return (
-      <div className="flex flex-wrap gap-1.5">
-        {posList.map((pos) => {
-          const def = ALL_STAFF_POSITIONS[pos];
-          return (
-            <span
-              key={pos}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25"
-            >
-              <span>{def?.icon || "🛡️"}</span>
-              <span>{def?.label || pos}</span>
-            </span>
-          );
-        })}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+          <span>{primaryDef?.icon || "🛡️"}</span>
+          <span>{primaryDef?.label || primaryPos}</span>
+        </span>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpandedMemberId(isExpanded ? null : member.id);
+          }}
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/25 hover:bg-indigo-500/40 text-indigo-200 border border-indigo-500/30 transition-all cursor-pointer"
+        >
+          <span>+{posList.length - 1} autre{posList.length > 2 ? "s" : ""}</span>
+          {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+        </button>
       </div>
     );
   };
@@ -514,7 +535,29 @@ export default function AdminTeamPage() {
       return "Directeur Général : Tous les modules, paramètres & privilèges système complets";
     }
     const posList = member.positions && member.positions.length > 0 ? member.positions : extractPositions(member);
-    return posList.map((pos) => ALL_STAFF_POSITIONS[pos]?.description).filter(Boolean).join(" • ");
+    const primaryDef = ALL_STAFF_POSITIONS[posList[0]];
+    const isExpanded = expandedMemberId === member.id;
+
+    return (
+      <div className="space-y-0.5">
+        <p className="line-clamp-1 text-gray-400">
+          {primaryDef?.description || "Attributions administratives"}
+        </p>
+        {posList.length > 1 && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpandedMemberId(isExpanded ? null : member.id);
+            }}
+            className="text-[10px] font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer transition-colors"
+          >
+            <span>{isExpanded ? "Replier les attributions" : `Dérouler les ${posList.length} attributions`}</span>
+            {isExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+          </button>
+        )}
+      </div>
+    );
   };
 
   const getRoleBadge = (role: string) => {
@@ -725,73 +768,128 @@ export default function AdminTeamPage() {
                 ) : (
                   teamMembers.map((member) => {
                     const isMemberSuperAdmin = member.role?.toUpperCase().includes("SUPER");
-                    return (
-                      <tr key={member.id} className="hover:bg-white/5 transition-colors">
-                        <td className="px-6 py-4 font-medium text-white">
-                          <div className="flex items-center space-x-3">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
-                              isMemberSuperAdmin
-                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                                : member.role?.toUpperCase().includes("FINANCE")
-                                ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                                : member.role?.toUpperCase().includes("DB")
-                                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                                : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
-                            }`}>
-                              {isMemberSuperAdmin ? "👑" : member.name.charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-white">{member.name}</p>
-                              <p className="text-xs text-gray-400">{member.email}</p>
-                              {member.phoneNumber && (
-                                <p className="text-[11px] text-gray-500 mt-0.5">{member.phoneNumber}</p>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          {renderPositionBadges(member)}
-                        </td>
-                        <td className="px-6 py-4 text-xs text-gray-300 max-w-xs">
-                          {renderScopeDescription(member)}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            Actif
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right whitespace-nowrap">
-                          {isSuper && !isMemberSuperAdmin ? (
-                            <div className="inline-flex items-center gap-2">
-                              <button
-                                onClick={() => {
-                                  setEditingMember(member);
-                                  setEditPositions(member.positions && member.positions.length > 0 ? member.positions : extractPositions(member));
-                                }}
-                                disabled={isUpdating}
-                                className="text-xs text-indigo-300 hover:text-white bg-indigo-500/20 hover:bg-indigo-500/30 px-3 py-1.5 rounded-lg border border-indigo-500/30 transition-all font-medium flex items-center gap-1.5 cursor-pointer"
-                              >
-                                <ShieldCheck size={13} />
-                                <span>Gérer les Postes ({member.positions?.length || 1})</span>
-                              </button>
+                    const isExpanded = expandedMemberId === member.id;
+                    const posList = member.positions && member.positions.length > 0 ? member.positions : extractPositions(member);
 
-                              <button
-                                onClick={() => handleRevokeRole(member.id, member.name)}
-                                disabled={isUpdating}
-                                title="Révoquer tous les droits internes"
-                                className="text-xs text-red-400 hover:text-white hover:bg-red-500/20 px-2.5 py-1.5 rounded-lg border border-red-500/30 transition-all font-medium cursor-pointer"
-                              >
-                                Révoquer
-                              </button>
+                    return (
+                      <tbody key={member.id} className="divide-y divide-white/5 border-b border-white/5">
+                        <tr className="hover:bg-white/5 transition-colors">
+                          <td className="px-6 py-4 font-medium text-white">
+                            <div className="flex items-center space-x-3">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
+                                isMemberSuperAdmin
+                                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                  : member.role?.toUpperCase().includes("FINANCE")
+                                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                  : member.role?.toUpperCase().includes("DB")
+                                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                                  : "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                              }`}>
+                                {isMemberSuperAdmin ? "👑" : member.name.charAt(0).toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-white">{member.name}</p>
+                                <p className="text-xs text-gray-400">{member.email}</p>
+                                {member.phoneNumber && (
+                                  <p className="text-[11px] text-gray-500 mt-0.5">{member.phoneNumber}</p>
+                                )}
+                              </div>
                             </div>
-                          ) : isMemberSuperAdmin ? (
-                            <span className="inline-flex items-center gap-1 text-xs text-amber-400 font-semibold px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                              👑 Propriétaire Système (Intouchable)
+                          </td>
+                          <td className="px-6 py-4">
+                            {renderPositionBadges(member)}
+                          </td>
+                          <td className="px-6 py-4 text-xs text-gray-300 max-w-xs">
+                            {renderScopeDescription(member)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                              Actif
                             </span>
-                          ) : null}
-                        </td>
-                      </tr>
+                          </td>
+                          <td className="px-6 py-4 text-right whitespace-nowrap">
+                            {isSuper && !isMemberSuperAdmin ? (
+                              <div className="inline-flex items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    setEditingMember(member);
+                                    setEditPositions(member.positions && member.positions.length > 0 ? member.positions : extractPositions(member));
+                                  }}
+                                  disabled={isUpdating}
+                                  className="text-xs text-indigo-300 hover:text-white bg-indigo-500/20 hover:bg-indigo-500/30 px-3 py-1.5 rounded-lg border border-indigo-500/30 transition-all font-medium flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  <ShieldCheck size={13} />
+                                  <span>Gérer les Postes ({member.positions?.length || 1})</span>
+                                </button>
+
+                                <button
+                                  onClick={() => handleRevokeRole(member.id, member.name)}
+                                  disabled={isUpdating}
+                                  title="Révoquer tous les droits internes"
+                                  className="text-xs text-red-400 hover:text-white hover:bg-red-500/20 px-2.5 py-1.5 rounded-lg border border-red-500/30 transition-all font-medium cursor-pointer"
+                                >
+                                  Révoquer
+                                </button>
+                              </div>
+                            ) : isMemberSuperAdmin ? (
+                              <span className="inline-flex items-center gap-1 text-xs text-amber-400 font-semibold px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                                👑 Propriétaire Système (Intouchable)
+                              </span>
+                            ) : null}
+                          </td>
+                        </tr>
+
+                        {/* Accordion / Détail Déroulant des Postes */}
+                        {isExpanded && (
+                          <tr className="bg-indigo-950/20 border-b border-indigo-500/20">
+                            <td colSpan={5} className="px-6 py-4">
+                              <div className="bg-black/40 border border-indigo-500/20 rounded-xl p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                                    <Layers size={14} className="text-indigo-400" />
+                                    <span>Attributions & Modules Détaillés ({posList.length} postes assignés à {member.name})</span>
+                                  </h4>
+                                  <button
+                                    onClick={() => setExpandedMemberId(null)}
+                                    className="text-[10px] text-gray-400 hover:text-white flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <span>Replier</span>
+                                    <ChevronUp size={11} />
+                                  </button>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                  {posList.map((pos) => {
+                                    const def = ALL_STAFF_POSITIONS[pos];
+                                    return (
+                                      <div key={pos} className="bg-white/4 border border-white/8 rounded-xl p-3.5 space-y-2">
+                                        <div className="flex items-center gap-1.5">
+                                          <span>{def?.icon || "🛡️"}</span>
+                                          <span className="text-xs font-bold text-white">{def?.label || pos}</span>
+                                        </div>
+                                        <p className="text-[11px] text-gray-300 leading-relaxed">
+                                          {def?.description}
+                                        </p>
+                                        <div className="pt-2 border-t border-white/5 flex flex-wrap gap-1">
+                                          {def?.defaultPermissions?.slice(0, 4).map((p: string) => (
+                                            <span key={p} className="text-[9px] font-mono text-indigo-300 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/15">
+                                              {p}
+                                            </span>
+                                          ))}
+                                          {(def?.defaultPermissions?.length || 0) > 4 && (
+                                            <span className="text-[9px] text-gray-500">+{def!.defaultPermissions.length - 4}</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
                     );
                   })
                 )
@@ -933,6 +1031,9 @@ export default function AdminTeamPage() {
             ) : (
               teamMembers.map((member) => {
                 const isMemberSuperAdmin = member.role?.toUpperCase().includes("SUPER");
+                const posList = member.positions && member.positions.length > 0 ? member.positions : extractPositions(member);
+                const isExpanded = expandedMemberId === member.id;
+
                 return (
                   <div key={member.id} className="p-4 space-y-3 hover:bg-white/[0.02] transition-colors">
                     <div className="flex items-start justify-between gap-3">
@@ -967,9 +1068,42 @@ export default function AdminTeamPage() {
                       {renderPositionBadges(member)}
                     </div>
 
-                    <p className="text-[11px] text-gray-400 leading-relaxed bg-black/20 p-2.5 rounded-lg border border-white/5">
+                    <div className="text-[11px] text-gray-400 leading-relaxed bg-black/20 p-2.5 rounded-lg border border-white/5">
                       {renderScopeDescription(member)}
-                    </p>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="bg-black/40 border border-indigo-500/20 rounded-xl p-3 space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-[11px] font-bold text-white flex items-center gap-1.5">
+                            <Layers size={13} className="text-indigo-400" />
+                            <span>Postes & Permissions ({posList.length})</span>
+                          </h4>
+                          <button
+                            onClick={() => setExpandedMemberId(null)}
+                            className="text-[10px] text-gray-400 hover:text-white cursor-pointer"
+                          >
+                            Fermer ▲
+                          </button>
+                        </div>
+                        <div className="space-y-2">
+                          {posList.map((pos) => {
+                            const def = ALL_STAFF_POSITIONS[pos];
+                            return (
+                              <div key={pos} className="bg-white/5 border border-white/10 rounded-lg p-2.5 space-y-1">
+                                <div className="flex items-center gap-1.5">
+                                  <span>{def?.icon || "🛡️"}</span>
+                                  <span className="text-[11px] font-bold text-white">{def?.label || pos}</span>
+                                </div>
+                                <p className="text-[10px] text-gray-300">
+                                  {def?.description}
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {isSuper && (
                       <div className="pt-2 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">

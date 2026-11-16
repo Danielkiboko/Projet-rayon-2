@@ -11,7 +11,7 @@ import { useProductAiAssistant, handleImageUploadShared } from "@/hooks/useProdu
 import AiAssistantChat from "@/modules/shared/components/shared/AiAssistantChat";
 import ImageUploadArea from "@/modules/shared/components/shared/ImageUploadArea";
 import { useAuth } from "@/context/AuthContext";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { 
   collection, query, where, getDocs, addDoc, updateDoc, 
   deleteDoc, doc, serverTimestamp, orderBy, onSnapshot, limit 
@@ -464,9 +464,13 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
     if (confirm("Approuver et publier ce bien immobilier ?")) {
       let isSuccess = false;
       try {
+        const token = await auth.currentUser?.getIdToken();
         const response = await fetch("/api/properties/update-status", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({
             propertyId: property.id,
             supplierId: property.supplierId,
@@ -526,9 +530,13 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
     if (reason !== null) {
       const prop = properties.find(p => p.id === id);
       try {
+        const token = await auth.currentUser?.getIdToken();
         const response = await fetch("/api/properties/update-status", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({
             propertyId: id,
             supplierId: prop?.supplierId,

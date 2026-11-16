@@ -376,7 +376,10 @@ export default function SupplierRegisterPage() {
         try {
           await fetch("/api/sms", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
             body: JSON.stringify({
               phone: phone || paymentPhone,
               message: `Bienvenue sur Rayons.net, ${name}! Votre abonnement Vendeur ($50) est actif. Boutique: ${company}. Mot de passe provisoire: ${tempPassword}`,
@@ -390,7 +393,10 @@ export default function SupplierRegisterPage() {
         try {
           await fetch("/api/emails/onboarding", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
             body: JSON.stringify({
               email: email.trim(),
               name: name.trim(),

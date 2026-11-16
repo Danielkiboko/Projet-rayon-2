@@ -24,6 +24,7 @@ import { UniversalSearchBar } from "@/modules/client/components/home/UniversalSe
 import NotificationBell from "@/modules/shared/components/notifications/NotificationBell";
 import { ProductCard } from "@/modules/client/components/rayon/ProductCard";
 import { DirectBuyModal } from "@/modules/client/components/DirectBuyModal";
+import AlibabaClientBottomNav from "@/modules/client/components/AlibabaClientBottomNav";
 
 // --- Animated Counter Hook ---
 function useCounter(target: number, duration = 2000, start = false) {
@@ -984,6 +985,7 @@ export default function Home() {
       />
 
       <Footer />
+      <AlibabaClientBottomNav />
     </div>
   );
 }

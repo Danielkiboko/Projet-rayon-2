@@ -36,23 +36,49 @@ export async function POST(req: NextRequest) {
 
     // ── Sécurité : seul le fournisseur lui-même (ou son sous-compte) ou un admin peut enregistrer un abonnement ──
     const caller = await getServerCaller(req);
-    if (!canActForSupplier(caller, supplierId)) {
+    if (!caller || !canActForSupplier(caller, supplierId)) {
       return NextResponse.json(
         { success: false, error: "Authentification requise pour enregistrer un abonnement." },
         { status: 401 }
       );
     }
 
-    const baseAmount = Number(amount) || 50;
+    // Tarif officiel depuis settings/platform (un non-admin ne peut pas imposer un montant inférieur)
+    let officialPrice = 50;
+    try {
+      const platformSnap = await adminDb.collection("settings").doc("platform").get();
+      if (platformSnap.exists) {
+        const pPrice = Number(platformSnap.data()?.monthlySubscriptionPrice);
+        if (pPrice > 0) officialPrice = pPrice;
+      }
+    } catch {
+      // fallback 50
+    }
+
+    const requestedAmount = Number(amount) || officialPrice;
+    const baseAmount = caller.isAdmin ? Math.max(1, requestedAmount) : Math.max(officialPrice, requestedAmount);
     const ref = referencePiece || `RAY-DEP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const now = FieldValue.serverTimestamp();
 
-    // ── Idempotence : une même référence de paiement n'est comptabilisée qu'une seule fois ──
+    const userDocRef = adminDb.collection("users").doc(supplierId);
+    const userDocSnap = await userDocRef.get();
+    const existingUserData = userDocSnap.exists ? userDocSnap.data() : {};
+
+    // ── Idempotence & anti-abus : une même référence ou un double appel non-admin en moins de 24h n'est comptabilisé qu'une seule fois ──
     const paymentLockRef = adminDb.collection("subscription_payments").doc(
       `${supplierId}_${ref}`.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 140)
     );
     const paymentLockSnap = await paymentLockRef.get();
-    const isDuplicatePayment = paymentLockSnap.exists;
+    let isDuplicatePayment = paymentLockSnap.exists;
+
+    if (!isDuplicatePayment && !caller.isAdmin && existingUserData?.lastDepositPaidAt) {
+      const lastPaidDate = existingUserData.lastDepositPaidAt?.toDate
+        ? existingUserData.lastDepositPaidAt.toDate()
+        : new Date(existingUserData.lastDepositPaidAt);
+      if (!isNaN(lastPaidDate.getTime()) && Date.now() - lastPaidDate.getTime() < 24 * 60 * 60 * 1000) {
+        isDuplicatePayment = true;
+      }
+    }
 
     const assigned = businessType === "IMMOBILIER" 
       ? ["immo"] 
@@ -69,10 +95,6 @@ export async function POST(req: NextRequest) {
 
     const effectiveName = (companyData?.company || supplierName || "Boutique Partenaire").trim();
     const entryNumber = generateEntryNumber();
-
-    const userDocRef = adminDb.collection("users").doc(supplierId);
-    const userDocSnap = await userDocRef.get();
-    const existingUserData = userDocSnap.exists ? userDocSnap.data() : {};
 
     // ── Réduction immédiate code promo / parrainage (-10 USD direct) ──
     const hasPromo = Boolean(referralCode || existingUserData?.referralCodeUsed || existingUserData?.referralDiscountPending);
@@ -259,8 +281,10 @@ export async function POST(req: NextRequest) {
         referral.attached = r.attached;
         referral.reason = r.reason;
       }
-      const c = await creditReferralCommission({ filleulId: supplierId, paymentRef: ref, amountPaid: finalAmount });
-      referral.credited = c.credited;
+      if (!isDuplicatePayment) {
+        const c = await creditReferralCommission({ filleulId: supplierId, paymentRef: ref, amountPaid: finalAmount });
+        referral.credited = c.credited;
+      }
     } catch (refErr) {
       console.error("[SUPPLIER SUBSCRIBE] referral processing error:", refErr);
     }

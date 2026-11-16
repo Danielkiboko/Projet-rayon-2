@@ -131,9 +131,13 @@ export function ChatBox({
     }
 
     try {
+      const token = await user.getIdToken();
       const res = await fetch("/api/orders/pay-proforma", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           chatId: chatId,
           messageId: msg.id,
@@ -222,9 +226,9 @@ export function ChatBox({
                   </div>
                 )}
 
-                <div className={`flex flex-col max-w-[85%] sm:max-w-[75%] ${isMe ? 'self-end items-end ml-auto' : 'self-start items-start'}`}>
+                <div className={`flex flex-col max-w-[90%] sm:max-w-[75%] ${isMe ? 'self-end items-end ml-auto' : 'self-start items-start'}`}>
                   <div
-                    className={`px-4 py-3 rounded-2xl shadow-2xs text-xs sm:text-sm leading-relaxed ${
+                    className={`px-3.5 py-2.5 sm:px-4 sm:py-3 rounded-2xl shadow-2xs text-xs sm:text-sm leading-relaxed w-full ${
                       isMe 
                         ? (msg.type === 'proforma' 
                             ? 'bg-[#FF6600] text-white rounded-tr-xs' 
@@ -236,7 +240,7 @@ export function ChatBox({
                   >
                     {msg.type === 'proforma' && msg.proforma ? (
                       /* Proforma Quote Card */
-                      <div className="flex flex-col space-y-2.5 min-w-[260px] text-xs">
+                      <div className="flex flex-col space-y-2.5 w-full sm:min-w-[260px] text-xs">
                         <div className="font-bold border-b border-amber-200 pb-1.5 flex items-center justify-between text-amber-900">
                           <span className="flex items-center gap-1.5 font-black uppercase text-[11px] tracking-wider">
                             <FileText size={15} className="text-[#FF6600]" /> Facture Proforma Offcielle

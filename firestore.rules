@@ -5,9 +5,11 @@ service cloud.firestore {
     // Helper functions within database scope
     function isSuperAdmin() {
       return request.auth != null && (
-        request.auth.token.email == 'danielkiboko218@gmail.com' ||
-        request.auth.token.email == 'danielKIBOKO218@gmail.com' ||
-        request.auth.token.email == 'admin@rayons.net' ||
+        (request.auth.token.email_verified == true && (
+          request.auth.token.email == 'danielkiboko218@gmail.com' ||
+          request.auth.token.email == 'danielKIBOKO218@gmail.com' ||
+          request.auth.token.email == 'admin@rayons.net'
+        )) ||
         request.auth.token.role == 'superAdmin' ||
         request.auth.token.role == 'SUPER_ADMIN' ||
         request.auth.token.role == 'SUPERADMIN' ||
@@ -44,11 +46,10 @@ service cloud.firestore {
     }
 
     function ownsSupplierData(supplierId) {
-      return request.auth != null && (
-        request.auth.uid == supplierId ||
+      return request.auth != null && supplierId != null && (
         (isSupplier() && request.auth.uid == supplierId) ||
-        (request.auth.token.parentSupplierId == supplierId) ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        (isSubSupplier() && request.auth.token.parentSupplierId == supplierId) ||
+        (isSubSupplier() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.parentSupplierId == supplierId)
       );
     }
@@ -90,7 +91,7 @@ service cloud.firestore {
         ownsSupplierData(request.resource.data.supplierId)
       );
 
-      allow read: if (
+      allow get: if (
         resource.data.clientId == 'GUEST' || (
           request.auth != null && (
             resource.data.clientId == request.auth.uid ||
@@ -109,15 +110,42 @@ service cloud.firestore {
         )
       );
 
-      allow update: if request.auth != null && (
+      allow list: if request.auth != null && (
         resource.data.clientId == request.auth.uid ||
         isSuperAdmin() || isAdmin() || 
         resource.data.supplierId == request.auth.uid ||
         ownsSupplierData(resource.data.supplierId) ||
+        (resource.data.keys().hasAll(['supplierIds']) && (
+          (isSupplier() && request.auth.uid in resource.data.supplierIds) || 
+          (isSubSupplier() && request.auth.token.parentSupplierId in resource.data.supplierIds)
+        )) ||
         (isDriver() && (
-          (request.resource.data.driverId == request.auth.uid && resource.data.status in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver']) ||
-          (resource.data.driverId == request.auth.uid && request.resource.data.driverId == request.auth.uid)
+          resource.data.status in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver'] || 
+          resource.data.driverId == request.auth.uid
         ))
+      );
+
+      allow update: if request.auth != null && (
+        isSuperAdmin() || isAdmin() || 
+        ownsSupplierData(resource.data.supplierId) ||
+        (resource.data.clientId == request.auth.uid &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'totalAmount', 'subtotal', 'remainingBalance', 'paidAmount',
+            'paymentStatus', 'paymentReference', 'cashCollectedByDriver',
+            'cashHandedOverToSupplier', 'collectedAmount', 'supplierId',
+            'supplierIds', 'items', 'clientId', 'driverId'
+          ]) &&
+          (request.resource.data.status == resource.data.status ||
+           (request.resource.data.status == 'CANCELLED' && resource.data.status in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver']))
+        ) ||
+        (isDriver() &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+            'totalAmount', 'subtotal', 'supplierId', 'supplierIds', 'clientId', 'items'
+          ]) && (
+            (request.resource.data.driverId == request.auth.uid && resource.data.status in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver']) ||
+            (resource.data.driverId == request.auth.uid && request.resource.data.driverId == request.auth.uid)
+          )
+        )
       );
 
       allow delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
@@ -125,12 +153,30 @@ service cloud.firestore {
 
     // Users collection
     match /users/{userId} {
-      allow read: if request.auth != null && (request.auth.uid == userId || isSuperAdmin() || isAdmin());
-      allow read, update: if (
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        isSuperAdmin() ||
+        isAdmin() ||
         (resource.data.keys().hasAll(['parentSupplierId']) && ownsSupplierData(resource.data.parentSupplierId)) ||
         (resource.data.keys().hasAll(['createdBy']) && ownsSupplierData(resource.data.createdBy)) ||
         (resource.data.keys().hasAll(['supplierId']) && ownsSupplierData(resource.data.supplierId))
       );
+
+      // Update by parent supplier on sub-users (sub-suppliers, drivers, staff) without privilege escalation
+      allow update: if request.auth != null && request.auth.uid != userId && (
+        (resource.data.keys().hasAll(['parentSupplierId']) && ownsSupplierData(resource.data.parentSupplierId)) ||
+        (resource.data.keys().hasAll(['createdBy']) && ownsSupplierData(resource.data.createdBy)) ||
+        (resource.data.keys().hasAll(['supplierId']) && ownsSupplierData(resource.data.supplierId))
+      ) && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'role', 'accountType', 'isPartner', 'isSupplier', 'isInternalStaff',
+        'isSuperAdmin', 'isAdmin', 'subscriptionStatus', 'subscriptionEndDate',
+        'staffProfile', 'partnerProfile', 'depositAmount', 'trialPeriodDays',
+        'adminCustomTrial', 'creatorRole', 'createdBy', 'parentSupplierId',
+        'supplierId', 'referredByPartnerId', 'partnerBalance', 'partnerTotalEarned',
+        'referralBalance', 'referralTotalEarned', 'referralPaidTotal',
+        'referralCount', 'referralDiscountPending', 'kycStatus', 'kycVerifiedAt',
+        'kycVerifiedBy', 'profileUpdateStatus'
+      ]);
 
       // Create by user themselves (e.g. self-registration): cannot set privileged roles or sensitive fields
       allow create: if request.auth != null && request.auth.uid == userId &&
@@ -141,7 +187,11 @@ service cloud.firestore {
           'isBlocked', 'subscriptionStatus', 'subscriptionEndDate', 'staffProfile',
           'partnerProfile', 'assignedRayons', 'serviceAttached', 'rayon',
           'depositAmount', 'trialPeriodDays', 'adminCustomTrial', 'creatorRole',
-          'createdBy', 'referredByPartnerId', 'partnerBalance', 'partnerTotalEarned'
+          'createdBy', 'parentSupplierId', 'supplierId', 'referredByPartnerId',
+          'partnerBalance', 'partnerTotalEarned', 'referralBalance',
+          'referralTotalEarned', 'referralPaidTotal', 'referralCount',
+          'referralDiscountPending', 'kycStatus', 'kycVerifiedAt',
+          'kycVerifiedBy', 'profileUpdateStatus'
         ]);
 
       // Update by user themselves: strictly prevent modifying privileges or sensitive system metadata
@@ -152,7 +202,11 @@ service cloud.firestore {
           'subscriptionEndDate', 'staffProfile', 'partnerProfile',
           'assignedRayons', 'serviceAttached', 'rayon', 'depositAmount',
           'trialPeriodDays', 'adminCustomTrial', 'creatorRole', 'createdBy',
-          'referredByPartnerId', 'partnerBalance', 'partnerTotalEarned'
+          'parentSupplierId', 'supplierId', 'referredByPartnerId',
+          'partnerBalance', 'partnerTotalEarned', 'referralBalance',
+          'referralTotalEarned', 'referralPaidTotal', 'referralCount',
+          'referralDiscountPending', 'kycStatus', 'kycVerifiedAt',
+          'kycVerifiedBy', 'profileUpdateStatus'
         ]);
 
       // SuperAdmin and Admin have full write privileges
@@ -161,7 +215,12 @@ service cloud.firestore {
 
     // Chats collection
     match /chats/{chatId} {
-      allow create: if request.auth != null;
+      allow create: if request.auth != null && (
+        request.resource.data.clientId == request.auth.uid ||
+        request.resource.data.supplierId == request.auth.uid ||
+        ownsSupplierData(request.resource.data.supplierId) ||
+        isSuperAdmin() || isAdmin()
+      );
       allow read, update: if request.auth != null && (
         resource.data.clientId == request.auth.uid || 
         resource.data.supplierId == request.auth.uid ||
@@ -178,13 +237,17 @@ service cloud.firestore {
           isSuperAdmin() || isAdmin()
         );
         allow create, write: if request.auth != null && (
-          !exists(/databases/$(database)/documents/chats/$(chatId)) ||
-          get(/databases/$(database)/documents/chats/$(chatId)).data.clientId == request.auth.uid ||
-          get(/databases/$(database)/documents/chats/$(chatId)).data.supplierId == request.auth.uid ||
-          ownsSupplierData(get(/databases/$(database)/documents/chats/$(chatId)).data.supplierId) ||
-          request.resource.data.senderId == request.auth.uid ||
-          ownsSupplierData(request.resource.data.senderId) ||
-          isSuperAdmin() || isAdmin()
+          isSuperAdmin() || isAdmin() || (
+            (
+              !exists(/databases/$(database)/documents/chats/$(chatId)) ||
+              get(/databases/$(database)/documents/chats/$(chatId)).data.clientId == request.auth.uid ||
+              get(/databases/$(database)/documents/chats/$(chatId)).data.supplierId == request.auth.uid ||
+              ownsSupplierData(get(/databases/$(database)/documents/chats/$(chatId)).data.supplierId)
+            ) && (
+              request.resource.data.senderId == request.auth.uid ||
+              ownsSupplierData(request.resource.data.senderId)
+            )
+          )
         );
       }
     }
@@ -197,7 +260,7 @@ service cloud.firestore {
 
       match /reviews/{reviewId} {
         allow read: if true;
-        allow create: if request.auth != null;
+        allow create: if request.auth != null && request.resource.data.clientId == request.auth.uid;
         allow update, delete: if isSuperAdmin() || isAdmin();
       }
     }
@@ -214,7 +277,7 @@ service cloud.firestore {
 
       match /reviews/{reviewId} {
         allow read: if true;
-        allow create: if request.auth != null;
+        allow create: if request.auth != null && request.resource.data.clientId == request.auth.uid;
         allow update, delete: if isSuperAdmin() || isAdmin();
       }
     }
@@ -331,7 +394,10 @@ service cloud.firestore {
 
     // Tickets & Support Desk (Clients, Fournisseurs, Admins)
     match /tickets/{ticketId} {
-      allow create: if request.auth != null;
+      allow create: if request.auth != null && (
+        request.resource.data.creatorId == request.auth.uid ||
+        isSuperAdmin() || isAdmin()
+      );
       allow read: if isSuperAdmin() || isAdmin() || (
         request.auth != null && (
           resource.data.creatorId == request.auth.uid ||

@@ -290,9 +290,13 @@ export default function SupplierTenantsPage() {
       }, { autoDownload: false });
 
       // Envoi du document officiel par email
+      const token = await auth.currentUser?.getIdToken();
       const res = await fetch("/api/immo/send-lease", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           tenantEmail: tenant.email,
           tenantName: tenant.name,
@@ -593,12 +597,16 @@ export default function SupplierTenantsPage() {
       }
 
       // --- ENVOI DIRECT DU CONTRAT PDF PAR EMAIL AU LOCATAIRE ---
+      const idToken = await user.getIdToken();
       let emailSuccess = false;
       if (email && leaseResult?.base64) {
         try {
           const emailRes = await fetch("/api/immo/send-lease", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${idToken}`,
+            },
             body: JSON.stringify({
               tenantEmail: email,
               tenantName: name,
@@ -630,7 +638,10 @@ export default function SupplierTenantsPage() {
           const smsSenderId = getSmsSenderId();
           await fetch("/api/sms", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${idToken}`,
+            },
             body: JSON.stringify({
               to: cleanPhone,
               phone: cleanPhone,

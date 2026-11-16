@@ -7,41 +7,74 @@ import {
   getOrderStatusEmail, 
   getOrderStatusSMS 
 } from "@/lib/notifications";
-import { db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { adminDb } from "@/lib/firebase-admin";
 import { SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
+
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const notifIpWindow = new Map<string, { count: number; firstAt: number }>();
+
+function isNotifRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = notifIpWindow.get(ip);
+  if (!entry || now - entry.firstAt > RATE_LIMIT_WINDOW_MS) {
+    notifIpWindow.set(ip, { count: 1, firstAt: now });
+    return false;
+  }
+  if (entry.count >= RATE_LIMIT_MAX) return true;
+  entry.count += 1;
+  return false;
+}
 
 export async function POST(req: Request) {
   try {
+    const forwarded = req.headers.get("x-forwarded-for");
+    const ip = forwarded ? forwarded.split(",")[0].trim() : "unknown";
+    if (isNotifRateLimited(ip)) {
+      return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 });
+    }
+
     const body = await req.json();
-    const { action, orderId, category, status, supplierId, clientId, clientPhone: reqClientPhone, data } = body;
+    const { action, orderId, category, status, supplierId, clientId, clientPhone: reqClientPhone } = body;
 
     if (!action) {
       return NextResponse.json({ error: "Missing required fields (action)" }, { status: 400 });
     }
 
+    // Verify order exists when orderId is provided to prevent open SMS/Email relay abuse
+    let orderData: Record<string, any> | null = null;
+    if (orderId) {
+      const orderSnap = await adminDb.collection("orders").doc(String(orderId)).get();
+      if (!orderSnap.exists) {
+        return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      }
+      orderData = orderSnap.data() || null;
+    }
+
     let supplierEmail = "";
     let supplierPhone = "";
     let clientEmail = "";
-    let clientPhone = reqClientPhone || "";
+    let clientPhone = orderData?.clientPhone || orderData?.deliveryDetails?.recipientPhone || reqClientPhone || "";
 
-    // Fetch Supplier Details
-    if (supplierId && supplierId !== "admin") {
-      const supplierDoc = await getDoc(doc(db, "users", supplierId));
-      if (supplierDoc.exists()) {
-        supplierEmail = supplierDoc.data().email || "";
-        supplierPhone = supplierDoc.data().phone || "";
+    // Fetch Supplier Details via Admin SDK
+    const effectiveSupplierId = supplierId || orderData?.supplierId;
+    if (effectiveSupplierId && effectiveSupplierId !== "admin") {
+      const supplierDoc = await adminDb.collection("users").doc(String(effectiveSupplierId)).get();
+      if (supplierDoc.exists) {
+        supplierEmail = supplierDoc.data()?.email || "";
+        supplierPhone = supplierDoc.data()?.phone || "";
       }
-    } else if (supplierId === "admin") {
+    } else if (effectiveSupplierId === "admin") {
       supplierEmail = SUPER_ADMIN_EMAILS[0] || process.env.SMTP_USER || "admin@rayons.net";
     }
 
-    // Fetch Client Details
-    if (clientId) {
-      const clientDoc = await getDoc(doc(db, "users", clientId));
-      if (clientDoc.exists()) {
-        clientEmail = clientDoc.data().email || "";
-        if (!clientPhone) clientPhone = clientDoc.data().phone || "";
+    // Fetch Client Details via Admin SDK
+    const effectiveClientId = clientId || orderData?.clientId;
+    if (effectiveClientId && effectiveClientId !== "GUEST") {
+      const clientDoc = await adminDb.collection("users").doc(String(effectiveClientId)).get();
+      if (clientDoc.exists) {
+        clientEmail = clientDoc.data()?.email || "";
+        if (!clientPhone) clientPhone = clientDoc.data()?.phone || "";
       }
     }
 

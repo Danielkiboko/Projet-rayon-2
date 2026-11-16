@@ -307,7 +307,7 @@ export function ClientTicketsWidget() {
       {/* Ticket Conversation Modal for Client */}
       {selectedTicket && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-6 bg-black/85 backdrop-blur-md">
-          <div className="w-full max-w-4xl h-[92vh] sm:h-[85vh] flex flex-col bg-[#0F1D27] rounded-2xl overflow-hidden shadow-2xl border border-white/10">
+          <div className="w-full max-w-4xl h-[92dvh] sm:h-[85dvh] flex flex-col bg-[#0F1D27] rounded-2xl overflow-hidden shadow-2xl border border-white/10">
             <TicketConversation
               ticket={selectedTicket}
               userRole="client"

@@ -1,16 +1,24 @@
 import { NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase-admin';
 import { sendEmail, sendSMS } from '@/lib/notifications';
+import { getServerCaller } from '@/lib/serverAuth';
 
-// Cron Secret (Optionnel, pour sécuriser l'appel de la route)
+// Cron Secret (pour sécuriser l'appel de la route)
 const CRON_SECRET = process.env.CRON_SECRET;
 
 export async function GET(request: Request) {
   try {
-    // 1. Vérification de sécurité (si configuré)
+    // 1. Vérification de sécurité obligatoire (CRON_SECRET valide ou Admin authentifié)
     const authHeader = request.headers.get('authorization');
-    if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
-      return new NextResponse('Unauthorized', { status: 401 });
+    const hasValidCronSecret =
+      Boolean(CRON_SECRET && CRON_SECRET !== 'REMPLACEZ_PAR_VOTRE_SECRET') &&
+      authHeader === `Bearer ${CRON_SECRET}`;
+
+    if (!hasValidCronSecret) {
+      const caller = await getServerCaller(request);
+      if (!caller || !caller.isAdmin) {
+        return new NextResponse('Unauthorized', { status: 401 });
+      }
     }
 
     // 2. Date du jour

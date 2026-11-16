@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { initFirebaseAdmin, adminDb } from "@/lib/firebase-admin";
+import { getServerCaller, canActForSupplier } from "@/lib/serverAuth";
 
 export async function POST(req: Request) {
   let propertyId = "unknown";
   try {
+    const caller = await getServerCaller(req);
+    if (!caller) {
+      return NextResponse.json({ success: false, error: "Authentification requise." }, { status: 401 });
+    }
+
     const body = await req.json();
     propertyId = body.propertyId;
     const { status, rejectionReason, supplierId, title } = body;
@@ -13,13 +19,29 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 });
     }
 
-    console.log("API update-status called for propertyId:", propertyId, "status:", status);
-
     await initFirebaseAdmin();
     const db = adminDb;
 
-    // 1. Mettre à jour le statut de la propriété
+    // 1. Vérifier les droits sur la propriété
     const propRef = db.collection("properties").doc(propertyId);
+    const propSnap = await propRef.get();
+    if (!propSnap.exists) {
+      return NextResponse.json({ success: false, error: "Propriété introuvable." }, { status: 404 });
+    }
+    const propData = propSnap.data() || {};
+    const ownerSupplierId = propData.supplierId || supplierId;
+
+    // Seul un admin peut approuver ("Disponible") ou rejeter ("REJECTED") une annonce en modération
+    if ((status === "Disponible" || status === "REJECTED") && !caller.isAdmin) {
+      return NextResponse.json(
+        { success: false, error: "Seul un administrateur peut approuver ou rejeter un bien immobilier." },
+        { status: 403 }
+      );
+    }
+
+    if (!caller.isAdmin && !canActForSupplier(caller, ownerSupplierId)) {
+      return NextResponse.json({ success: false, error: "Accès refusé." }, { status: 403 });
+    }
     
     const updateData: any = { status };
     if (rejectionReason) {

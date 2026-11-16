@@ -113,7 +113,7 @@ export default function SupplierTicketsPage() {
       </div>
 
       {/* Two-Pane Container */}
-      <div className={`bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col ${selectedTicketId ? "h-[calc(100dvh-130px)] sm:h-[720px]" : "h-[720px]"}`}>
+      <div className={`bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col ${selectedTicketId ? "h-[calc(100dvh-130px)] lg:h-[720px]" : "h-[calc(100dvh-240px)] min-h-[460px] lg:h-[720px]"}`}>
         {/* Search & Status Filters */}
         <div className={`p-3 sm:p-4 border-b border-white/10 bg-black/40 flex flex-wrap items-center justify-between gap-3 ${selectedTicketId ? "hidden lg:flex" : "flex"}`}>
           <div className="relative flex-1 min-w-[200px] max-w-sm">

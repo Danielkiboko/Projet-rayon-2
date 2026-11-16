@@ -63,8 +63,32 @@ export async function POST(req: Request) {
 
     // Seul le Super Admin peut créer/promouvoir en Super Admin ou Staff interne sensible
     const targetRoleUpper = newRole.toString().toUpperCase();
-    if (!isSuperAdminCaller && ['SUPER_ADMIN', 'SUPERADMIN', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH'].includes(targetRoleUpper)) {
+    const restrictedAdminRoles = [
+      'SUPER_ADMIN', 'SUPERADMIN', 'ADMIN', 'SUB_ADMIN', 'SUBADMIN',
+      'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS', 'STAFF',
+      'GESTIONNAIRE_ADMIN', 'RESPONSABLE_LOGISTIQUE', 'RESPONSABLE_FINANCIER',
+      'RESPONSABLE_CATALOGUE', 'SUPPORT_CLIENT'
+    ];
+    if (!isSuperAdminCaller && restrictedAdminRoles.includes(targetRoleUpper)) {
       return NextResponse.json({ error: 'Seul le Super Administrateur peut attribuer ce niveau de privilèges.' }, { status: 403 });
+    }
+
+    // Sanitize extraData to prevent mass assignment of privilege fields
+    const safeExtraData: Record<string, any> = { ...(extraData || {}) };
+    const forbiddenExtraKeys = [
+      'uid', 'email', 'role', 'accountType', 'isSuperAdmin', 'isAdmin',
+      'isInternalStaff', 'isPartner', 'isSupplier', 'staffProfile',
+      'partnerProfile', 'partnerBalance', 'partnerTotalEarned',
+      'referralBalance', 'referralTotalEarned', 'referralPaidTotal'
+    ];
+    if (!isSuperAdminCaller) {
+      for (const k of forbiddenExtraKeys) {
+        delete safeExtraData[k];
+      }
+    } else {
+      delete safeExtraData.uid;
+      delete safeExtraData.email;
+      delete safeExtraData.role;
     }
 
     // 1. Mettre à jour les Custom Claims dans Firebase Auth
@@ -81,11 +105,11 @@ export async function POST(req: Request) {
 
     // 2. Mettre à jour le document Firestore
     const updatePayload: any = {
+      ...safeExtraData,
       role: newRole,
       updatedAt: new Date(),
       promotedBy: callerUid,
       promotedAt: new Date(),
-      ...extraData,
     };
 
     if (newRole === 'PARTNER') {

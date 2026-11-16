@@ -8,7 +8,7 @@ export const sendEmail = async ({ to, subject, html }: { to: string; subject: st
       secure: Number(process.env.SMTP_PORT || 465) === 465,
       auth: {
         user: process.env.SMTP_USER || 'admin@rayons.net',
-        pass: process.env.SMTP_PASS || 'Kinoko88@',
+        pass: process.env.SMTP_PASS || '',
       },
     });
 

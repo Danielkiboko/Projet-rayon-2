@@ -11,6 +11,7 @@ import { RayonNavbar } from "./RayonNavbar";
 import { ProductCard } from "./ProductCard";
 import { Search, X, PackageSearch } from "lucide-react";
 import { DirectBuyModal } from "@/modules/client/components/DirectBuyModal";
+import AlibabaClientBottomNav from "@/modules/client/components/AlibabaClientBottomNav";
 
 interface StoreTemplateProps {
   category: "mode" | "connect" | "saveurs";
@@ -285,6 +286,8 @@ function StoreTemplateContent({ category, heroImage, dummyProducts, dict }: Stor
         onClose={() => setSelectedBuyProduct(null)}
         product={selectedBuyProduct}
       />
+
+      <AlibabaClientBottomNav />
     </div>
   );
 }

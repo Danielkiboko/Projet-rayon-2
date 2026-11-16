@@ -99,7 +99,8 @@ export async function POST(req: Request) {
     batch.delete(adminDb.collection('suppliers').doc(uid));
     batch.delete(adminDb.collection('drivers').doc(uid));
     
-    if (collectionName) {
+    const allowedCollections = ['users', 'suppliers', 'drivers'];
+    if (collectionName && allowedCollections.includes(collectionName)) {
       batch.delete(adminDb.collection(collectionName).doc(uid));
     }
 

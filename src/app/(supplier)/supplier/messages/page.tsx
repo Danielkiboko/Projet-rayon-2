@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { MessageSquare, Send, User, Lock, Package, Loader2, Megaphone, CheckCircle2, Calendar, ShieldCheck, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, addDoc, orderBy, serverTimestamp, doc, updateDoc, getDoc, limit } from "firebase/firestore";
 import { motion } from "framer-motion";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
@@ -366,9 +366,13 @@ export default function SupplierMessagesPage() {
       // 1. Essayer d'abord d'envoyer via l'API sécurisée
       let sentViaApi = false;
       try {
+        const token = await auth.currentUser?.getIdToken();
         const res = await fetch("/api/chats/send-proforma", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({
             chatId: activeChatId,
             senderId: activeSupplierId,
@@ -444,11 +448,11 @@ export default function SupplierMessagesPage() {
   };
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="h-[calc(100dvh-135px)] lg:h-[calc(100dvh-120px)] min-h-[460px] flex flex-col">
+      <div className={`mb-3 sm:mb-6 flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 ${(activeChatId || selectedCommuniqueId) ? "hidden md:flex" : "flex"}`}>
         <div>
-          <h1 className="text-2xl font-bold text-white">Centre de Messagerie</h1>
-          <p className="text-sm text-gray-400">
+          <h1 className="text-xl sm:text-2xl font-bold text-white">Centre de Messagerie</h1>
+          <p className="text-xs sm:text-sm text-gray-400">
             {activeTab === "clients"
               ? "Communiquez directement avec vos clients et envoyez vos factures proforma."
               : "Consultez tous les communiqués et annonces officielles diffusés par la Direction."}
@@ -456,11 +460,11 @@ export default function SupplierMessagesPage() {
         </div>
 
         {/* Switcher d'onglets */}
-        <div className="flex items-center gap-2 bg-black/40 border border-white/10 p-1.5 rounded-2xl w-fit">
+        <div className="flex items-center gap-1.5 sm:gap-2 bg-black/40 border border-white/10 p-1 sm:p-1.5 rounded-2xl w-full sm:w-fit overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveTab("clients")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
               activeTab === "clients"
                 ? "bg-white/15 text-white shadow-md font-bold"
                 : "text-gray-400 hover:text-white hover:bg-white/5"
@@ -473,14 +477,14 @@ export default function SupplierMessagesPage() {
           <button
             type="button"
             onClick={() => setActiveTab("communiques")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all relative cursor-pointer ${
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all relative cursor-pointer whitespace-nowrap ${
               activeTab === "communiques"
                 ? "bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30 shadow-md font-bold"
                 : "text-gray-400 hover:text-white hover:bg-white/5"
             }`}
           >
             <Megaphone size={15} className="text-[#C7D300]" />
-            <span>Communiqués Direction ({communiques.length})</span>
+            <span>Communiqués ({communiques.length})</span>
             {communiques.some(c => !c.read) && (
               <span className="w-2 h-2 rounded-full bg-[#C7D300]" />
             )}
@@ -753,14 +757,14 @@ export default function SupplierMessagesPage() {
                     return (
                       <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                         <div 
-                          className={`max-w-[75%] p-3 text-sm shadow-sm ${
+                          className={`max-w-[90%] sm:max-w-[75%] p-3 text-sm shadow-sm ${
                             isMe 
                               ? (msg.type === 'proforma' ? 'bg-primary/90 text-white rounded-2xl rounded-tr-sm border border-primary-light' : 'bg-primary text-white rounded-2xl rounded-tr-sm')
                               : 'bg-white/10 text-gray-100 rounded-2xl rounded-tl-sm border border-white/5'
                           }`}
                         >
                           {msg.type === 'proforma' && msg.proforma ? (
-                            <div className="flex flex-col space-y-2 min-w-[240px]">
+                            <div className="flex flex-col space-y-2 w-full sm:min-w-[240px]">
                               <div className="font-bold border-b border-white/20 pb-1 mb-1 flex items-center justify-between">
                                 <span className="flex items-center gap-1.5">
                                   {msg.proforma.type === 'hotel' ? '🏨 Devis Séjour Hôtel' : '📄 Facture Proforma'}

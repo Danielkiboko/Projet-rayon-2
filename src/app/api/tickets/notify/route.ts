@@ -1,15 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
 import { adminDb } from "@/lib/firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
+import { getServerCaller } from "@/lib/serverAuth";
 
 export async function POST(req: NextRequest) {
   try {
+    const caller = await getServerCaller(req);
+    if (!caller) {
+      return NextResponse.json({ error: "Authentification requise." }, { status: 401 });
+    }
+
     const body = await req.json();
     const { ticketId, ticketNumber, subject, senderRole, senderName, message, recipientEmail, recipientName, recipientRole, action } = body;
 
     if (!ticketId || !ticketNumber) {
       return NextResponse.json({ error: "Missing ticket information" }, { status: 400 });
+    }
+
+    // Verify ticket exists and prevent non-admins from spoofing senderRole === "admin" to send emails to arbitrary recipientEmail
+    const ticketSnap = await adminDb.collection("tickets").doc(ticketId).get();
+    if (!ticketSnap.exists) {
+      return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
+    }
+    if (senderRole === "admin" && !caller.isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // 1. Notify Admin when a client or supplier opens a ticket or sends a reply

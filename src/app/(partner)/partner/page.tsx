@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import {
   Users,
@@ -61,8 +62,12 @@ interface CommissionData {
   paidAt: string | null;
 }
 
-export default function PartnerDashboardPage() {
+function PartnerDashboardContent() {
   const { user, userData } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabFromUrl = (searchParams.get("tab") as any) || "stats";
+
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -72,6 +77,17 @@ export default function PartnerDashboardPage() {
 
   // Tabs
   const [activeTab, setActiveTab] = useState<"stats" | "publications" | "suppliers" | "commissions" | "payout">("stats");
+
+  useEffect(() => {
+    if (tabFromUrl && ["stats", "publications", "suppliers", "commissions", "payout"].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
+
+  const handleSelectTab = (tab: "stats" | "publications" | "suppliers" | "commissions" | "payout") => {
+    setActiveTab(tab);
+    router.push(`/partner?tab=${tab}`, { scroll: false });
+  };
 
   // Publications des Fournisseurs rattachés
   const [publications, setPublications] = useState<any[]>([]);
@@ -493,7 +509,7 @@ export default function PartnerDashboardPage() {
       {/* Tabs Navigation */}
       <div className="flex items-center gap-2 border-b border-white/[0.08] pb-1 overflow-x-auto">
         <button
-          onClick={() => setActiveTab("stats")}
+          onClick={() => handleSelectTab("stats")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "stats"
               ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
@@ -505,7 +521,7 @@ export default function PartnerDashboardPage() {
         </button>
 
         <button
-          onClick={() => setActiveTab("publications")}
+          onClick={() => handleSelectTab("publications")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "publications"
               ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
@@ -517,7 +533,7 @@ export default function PartnerDashboardPage() {
         </button>
 
         <button
-          onClick={() => setActiveTab("suppliers")}
+          onClick={() => handleSelectTab("suppliers")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "suppliers"
               ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
@@ -529,7 +545,7 @@ export default function PartnerDashboardPage() {
         </button>
 
         <button
-          onClick={() => setActiveTab("commissions")}
+          onClick={() => handleSelectTab("commissions")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "commissions"
               ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
@@ -541,7 +557,7 @@ export default function PartnerDashboardPage() {
         </button>
 
         <button
-          onClick={() => setActiveTab("payout")}
+          onClick={() => handleSelectTab("payout")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === "payout"
               ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
@@ -1263,6 +1279,20 @@ export default function PartnerDashboardPage() {
         </form>
       </ResponsiveModal>
     </div>
+  );
+}
+
+export default function PartnerDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center p-12 text-white">
+          <div className="w-8 h-8 border-3 border-[#C7D300] border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <PartnerDashboardContent />
+    </Suspense>
   );
 }
 

@@ -262,7 +262,7 @@ export function ClientChatsWidget({
   const activeChatName = activeVendor || (isProductChat ? `Fournisseur • ${activeChat?.productName}` : activeChat?.propertyTitle || "Vendeur Vérifié Rayons");
 
   return (
-    <div className={`flex flex-1 bg-white rounded-3xl shadow-sm border border-gray-200/90 overflow-hidden ${embedded ? 'min-h-[640px] h-[720px]' : 'min-h-[680px]'}`}>
+    <div className={`flex flex-1 bg-white rounded-2xl sm:rounded-3xl shadow-sm border border-gray-200/90 overflow-hidden ${embedded ? 'h-[calc(100dvh-160px)] min-h-[480px] sm:h-[720px]' : 'h-[calc(100dvh-130px)] min-h-[500px] sm:min-h-[680px]'}`}>
       
       {/* ────────────────── 1. SLIM ICON RAIL (ALIBABA MESSENGER DESKTOP) ────────────────── */}
       <div className="hidden md:flex flex-col items-center justify-between py-4 px-2 w-[58px] bg-[#0F172A] text-white shrink-0 border-r border-slate-800">
@@ -679,11 +679,12 @@ export function ClientChatsWidget({
                 {(activeChat?.productId || paramProductId) && (
                   <Link
                     href={`/product/${activeChat?.productId || paramProductId}`}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#FF6600] hover:bg-[#e05a00] text-white text-xs font-bold transition-all shadow-xs"
+                    className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl bg-[#FF6600] hover:bg-[#e05a00] text-white text-xs font-bold transition-all shadow-xs shrink-0"
                     title="Consulter ce produit sur Rayons"
                   >
                     <Store size={14} />
-                    <span>Consulter le produit</span>
+                    <span className="hidden sm:inline">Consulter le produit</span>
+                    <span className="sm:hidden">Produit</span>
                   </Link>
                 )}
 

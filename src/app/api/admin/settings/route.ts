@@ -1,11 +1,20 @@
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { initFirebaseAdmin, adminDb } from "@/lib/firebase-admin";
+import { getServerCaller } from "@/lib/serverAuth";
 
 export async function POST(req: Request) {
   try {
+    const caller = await getServerCaller(req);
+    if (!caller || !caller.isAdmin) {
+      return NextResponse.json(
+        { success: false, error: "Accès réservé aux administrateurs." },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json();
-    const { settings, userId } = body;
+    const { settings } = body;
 
     if (!settings) {
       return NextResponse.json({ success: false, error: "Paramètres manquants." }, { status: 400 });
@@ -23,11 +32,8 @@ export async function POST(req: Request) {
       usdToFcRate: Number(settings.usdToFcRate) || 2850,
       usdToEurRate: Number(settings.usdToEurRate) || 0.92,
       updatedAt: FieldValue.serverTimestamp(),
+      updatedBy: caller.uid,
     };
-
-    if (userId) {
-      dataToSave.updatedBy = userId;
-    }
 
     await db.collection("settings").doc("platform").set(dataToSave, { merge: true });
 

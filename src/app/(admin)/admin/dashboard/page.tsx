@@ -51,7 +51,11 @@ export default function AdminDashboardPage() {
 
     setIsSendingReports(true);
     try {
-      const res = await fetch("/api/cron/daily-reports", { method: "POST" });
+      const token = await user?.getIdToken();
+      const res = await fetch("/api/cron/daily-reports", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const data = await res.json();
       if (data.success) {
         alert(

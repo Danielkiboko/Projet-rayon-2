@@ -154,7 +154,7 @@ export default function AdminTicketsPage() {
       </div>
 
       {/* Desk View: Filters + Two-Pane Container */}
-      <div className={`bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col ${selectedTicketId ? "h-[calc(100dvh-130px)] sm:h-[750px]" : "h-[750px]"}`}>
+      <div className={`bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col ${selectedTicketId ? "h-[calc(100dvh-130px)] lg:h-[750px]" : "h-[calc(100dvh-260px)] min-h-[480px] lg:h-[750px]"}`}>
         {/* Filters Bar */}
         <div className={`p-3 sm:p-4 border-b border-white/10 bg-black/30 flex flex-wrap items-center justify-between gap-3 ${selectedTicketId ? "hidden lg:flex" : "flex"}`}>
           <div className="relative flex-1 min-w-[220px] max-w-md">
