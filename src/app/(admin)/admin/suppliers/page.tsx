@@ -70,9 +70,11 @@ export default function SuppliersPage() {
   const [selectedSubStatus, setSelectedSubStatus] = useState<"TRIAL" | "ACTIVE" | "SUSPENDED_PAYMENT">("TRIAL");
   const [customExpiryDate, setCustomExpiryDate] = useState<string>("");
   
-  // Rayon tab filter state: 'all' | 'immo' | 'mode' | 'connect' | 'saveurs' | 'pending'
+  // Filters state: dropdowns for Rayon, Source/Partner, and Subscription Status
   const [selectedRayonFilter, setSelectedRayonFilter] = useState<"all" | "immo" | "mode" | "connect" | "saveurs" | "pending">("all");
-  const [selectedSourceFilter, setSelectedSourceFilter] = useState<"all" | "direct" | "partner">("all");
+  const [selectedSourceFilter, setSelectedSourceFilter] = useState<string>("all");
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<"all" | "trial" | "active" | "expired" | "official">("all");
+  const [partnersList, setPartnersList] = useState<{ id: string; name: string; code: string }[]>([]);
 
   // Rayon selection state for access modal
   const [selectedRayons, setSelectedRayons] = useState<string[]>([]);
@@ -115,23 +117,34 @@ export default function SuppliersPage() {
       const q1 = query(collection(db, "users"), where("role", "in", supplierRoles1));
       const q2 = query(collection(db, "users"), where("role", "in", supplierRoles2));
       const q3 = query(collection(db, "users"), where("isSupplier", "==", true));
-      const qPartners = query(collection(db, "users"), where("isPartner", "==", true));
+      const qPartners1 = query(collection(db, "users"), where("isPartner", "==", true));
+      const qPartners2 = query(collection(db, "users"), where("role", "==", "PARTNER"));
 
-      const [snap1, snap2, snap3, snapPartners] = await Promise.all([
+      const [snap1, snap2, snap3, snapPartners1, snapPartners2] = await Promise.all([
         getDocs(q1), 
         getDocs(q2),
         getDocs(q3),
-        getDocs(qPartners)
+        getDocs(qPartners1),
+        getDocs(qPartners2)
       ]);
 
       const partnersMap: Record<string, { name: string; code: string }> = {};
-      snapPartners.forEach((pDoc) => {
+      const processPartnerDoc = (pDoc: any) => {
+        if (partnersMap[pDoc.id]) return;
         const pd = pDoc.data();
         partnersMap[pDoc.id] = {
           name: pd.displayName || pd.name || pd.company || pd.email || "Partenaire",
           code: pd.partnerCode || pd.referralCode || "---",
         };
-      });
+      };
+      snapPartners1.forEach(processPartnerDoc);
+      snapPartners2.forEach(processPartnerDoc);
+
+      setPartnersList(
+        Object.entries(partnersMap)
+          .map(([id, info]) => ({ id, name: info.name, code: info.code }))
+          .sort((a, b) => a.name.localeCompare(b.name))
+      );
 
       const fetchedSuppliers: Supplier[] = [];
       const seenIds = new Set<string>();
@@ -587,7 +600,7 @@ export default function SuppliersPage() {
   const directSuppliersCount = suppliers.length - partnerSuppliersCount;
 
   const filteredSuppliers = suppliers.filter((s) => {
-    // 1. Pending approval filter
+    // 1. Rayon / Pending approval filter
     if (selectedRayonFilter === "pending") {
       if (s.profileUpdateStatus !== "PENDING_APPROVAL" && s.status !== "PENDING_APPROVAL") return false;
     } else if (selectedRayonFilter === "immo") {
@@ -600,11 +613,30 @@ export default function SuppliersPage() {
       if (!getSupplierRayons(s).includes("saveurs")) return false;
     }
 
-    // 2. Source filter: Direct vs Partner
+    // 2. Source / Specific Partner filter
     if (selectedSourceFilter === "partner") {
       if (!s.partnerReferral && !s.referredByPartnerId) return false;
     } else if (selectedSourceFilter === "direct") {
       if (s.partnerReferral || !!s.referredByPartnerId) return false;
+    } else if (selectedSourceFilter.startsWith("partner:")) {
+      const targetPartnerId = selectedSourceFilter.slice("partner:".length);
+      if (s.referredByPartnerId !== targetPartnerId) return false;
+    }
+
+    // 3. Subscription Status filter
+    if (selectedStatusFilter !== "all") {
+      const isOfficial = Boolean(s.isOfficialAdminStore || s.isAdminSupplier);
+      const endDate = s.subscriptionEndDate
+        ? new Date(s.subscriptionEndDate.toDate ? s.subscriptionEndDate.toDate() : s.subscriptionEndDate)
+        : null;
+      const daysLeft = endDate ? Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+      const isExpired = !isOfficial && daysLeft <= 0;
+      const subStatus = s.subscriptionStatus || "TRIAL";
+
+      if (selectedStatusFilter === "official" && !isOfficial) return false;
+      if (selectedStatusFilter === "expired" && !isExpired) return false;
+      if (selectedStatusFilter === "trial" && (isOfficial || isExpired || subStatus !== "TRIAL")) return false;
+      if (selectedStatusFilter === "active" && (isOfficial || isExpired || subStatus !== "ACTIVE")) return false;
     }
 
     if (!search.trim()) return true;
@@ -612,10 +644,10 @@ export default function SuppliersPage() {
     return (
       s.name.toLowerCase().includes(q) ||
       s.email.toLowerCase().includes(q) ||
+      (s.phone && s.phone.toLowerCase().includes(q)) ||
       s.rayon.toLowerCase().includes(q) ||
       (s.partnerName && s.partnerName.toLowerCase().includes(q)) ||
-      (s.partnerCode && s.partnerCode.toLowerCase().includes(q)) ||
-      (s.role && s.role.toLowerCase().includes(q))
+      (s.partnerCode && s.partnerCode.toLowerCase().includes(q))
     );
   });
 
@@ -711,215 +743,147 @@ export default function SuppliersPage() {
         </div>
       )}
 
-      {/* Rayon Category Separation Tabs */}
-      <div className="flex items-center gap-2 p-1.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl overflow-x-auto scrollbar-none whitespace-nowrap">
-        <button
-          type="button"
-          onClick={() => setSelectedRayonFilter("all")}
-          className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-            selectedRayonFilter === "all"
-              ? "bg-white/15 text-white shadow-lg border border-white/20"
-              : "text-gray-400 hover:text-white hover:bg-white/5"
-          }`}
-        >
-          <Users size={16} />
-          <span>Tous les Fournisseurs</span>
-          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-            selectedRayonFilter === "all" ? "bg-white/25 text-white" : "bg-white/10 text-gray-400"
-          }`}>
-            {suppliers.length}
-          </span>
-        </button>
+      {/* Main Table Card with Clean Dropdown Filters */}
+      <div className="bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+        {/* Unified Filter Bar (Search + Dropdowns) */}
+        <div className="p-4 border-b border-white/10 bg-black/20 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+            {/* 1. Search Input */}
+            <div className="lg:col-span-4">
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                Recherche
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+                <input
+                  type="text"
+                  placeholder="Nom de boutique, email, téléphone..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 bg-[#142430] border border-white/10 rounded-xl focus:outline-none focus:border-white/30 text-white text-xs transition-all"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  >
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+            </div>
 
-        {pendingProfilesCount > 0 && (
-          <button
-            type="button"
-            onClick={() => setSelectedRayonFilter("pending")}
-            className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-              selectedRayonFilter === "pending"
-                ? "bg-amber-500/25 text-amber-300 border border-amber-500/40 shadow-lg shadow-amber-500/10"
-                : "text-amber-400 hover:bg-amber-500/10"
-            }`}
-          >
-            <span className="text-base animate-pulse">⏳</span>
-            <span>À Valider (KYC & Profil)</span>
-            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-500/40 text-amber-200">
-              {pendingProfilesCount}
-            </span>
-          </button>
-        )}
+            {/* 2. Rayon Dropdown */}
+            <div className="lg:col-span-3">
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                Rayon commercial
+              </label>
+              <select
+                value={selectedRayonFilter}
+                onChange={(e) => setSelectedRayonFilter(e.target.value as any)}
+                className="w-full px-3 py-2 bg-[#142430] border border-white/10 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-white/30 cursor-pointer"
+              >
+                <option value="all">Tous les rayons ({suppliers.length})</option>
+                <option value="immo">Immobilier &amp; Hôtels ({immoSuppliersCount})</option>
+                <option value="mode">Mode &amp; Vêtements ({modeSuppliersCount})</option>
+                <option value="connect">Matériel &amp; Connect ({connectSuppliersCount})</option>
+                <option value="saveurs">Saveurs &amp; Restauration ({saveursSuppliersCount})</option>
+                {pendingProfilesCount > 0 && (
+                  <option value="pending">À valider KYC ({pendingProfilesCount})</option>
+                )}
+              </select>
+            </div>
 
-        <button
-          type="button"
-          onClick={() => setSelectedRayonFilter("immo")}
-          className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-            selectedRayonFilter === "immo"
-              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-lg shadow-emerald-500/10"
-              : "text-gray-400 hover:text-emerald-300 hover:bg-emerald-500/10"
-          }`}
-        >
-          <span className="text-base">🏠</span>
-          <span>Fournisseurs Immo & Hôtels</span>
-          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-            selectedRayonFilter === "immo" ? "bg-emerald-500/30 text-emerald-200" : "bg-white/10 text-gray-400"
-          }`}>
-            {immoSuppliersCount}
-          </span>
-        </button>
+            {/* 3. Origine / Partenaire Dropdown */}
+            <div className="lg:col-span-3">
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                Origine / Partenaire
+              </label>
+              <select
+                value={selectedSourceFilter}
+                onChange={(e) => setSelectedSourceFilter(e.target.value)}
+                className="w-full px-3 py-2 bg-[#142430] border border-white/10 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-white/30 cursor-pointer"
+              >
+                <option value="all">Toutes les origines ({suppliers.length})</option>
+                <option value="direct">Direction Centrale ({directSuppliersCount})</option>
+                <option value="partner">Tous les Partenaires ({partnerSuppliersCount})</option>
+                {partnersList.length > 0 && (
+                  <optgroup label="Filtrer par Partenaire">
+                    {partnersList.map((p) => {
+                      const count = suppliers.filter((s) => s.referredByPartnerId === p.id).length;
+                      return (
+                        <option key={p.id} value={`partner:${p.id}`}>
+                          {p.name} ({p.code}) — {count}
+                        </option>
+                      );
+                    })}
+                  </optgroup>
+                )}
+              </select>
+            </div>
 
-        <button
-          type="button"
-          onClick={() => setSelectedRayonFilter("mode")}
-          className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-            selectedRayonFilter === "mode"
-              ? "bg-pink-500/20 text-pink-300 border border-pink-500/40 shadow-lg shadow-pink-500/10"
-              : "text-gray-400 hover:text-pink-300 hover:bg-pink-500/10"
-          }`}
-        >
-          <span className="text-base">👗</span>
-          <span>Fournisseurs Mode & Vêtements</span>
-          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-            selectedRayonFilter === "mode" ? "bg-pink-500/30 text-pink-200" : "bg-white/10 text-gray-400"
-          }`}>
-            {modeSuppliersCount}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSelectedRayonFilter("connect")}
-          className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-            selectedRayonFilter === "connect"
-              ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-lg shadow-cyan-500/10"
-              : "text-gray-400 hover:text-cyan-300 hover:bg-cyan-500/10"
-          }`}
-        >
-          <span className="text-base">⚡</span>
-          <span>Fournisseurs Matériel & Connect</span>
-          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-            selectedRayonFilter === "connect" ? "bg-cyan-500/30 text-cyan-200" : "bg-white/10 text-gray-400"
-          }`}>
-            {connectSuppliersCount}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setSelectedRayonFilter("saveurs")}
-          className={`flex items-center space-x-2.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
-            selectedRayonFilter === "saveurs"
-              ? "bg-[#FF6B35]/20 text-[#FF6B35] border border-[#FF6B35]/40 shadow-lg shadow-[#FF6B35]/10"
-              : "text-gray-400 hover:text-[#FF6B35] hover:bg-[#FF6B35]/10"
-          }`}
-        >
-          <span className="text-base">🍽️</span>
-          <span>Fournisseurs Saveurs & Resto</span>
-          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-            selectedRayonFilter === "saveurs" ? "bg-[#FF6B35]/30 text-[#FF6B35]" : "bg-white/10 text-gray-400"
-          }`}>
-            {saveursSuppliersCount}
-          </span>
-        </button>
-      </div>
-
-      {/* Source Filter: Direct vs Partenaire */}
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="text-gray-400 font-semibold text-[11px] uppercase tracking-wider mr-1">Origine :</span>
-        <button
-          type="button"
-          onClick={() => setSelectedSourceFilter("all")}
-          className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-            selectedSourceFilter === "all"
-              ? "bg-white/20 text-white border border-white/25 shadow-sm"
-              : "text-gray-400 hover:text-white bg-black/30 border border-white/5"
-          }`}
-        >
-          Toutes origines ({suppliers.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setSelectedSourceFilter("partner")}
-          className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-            selectedSourceFilter === "partner"
-              ? "bg-purple-500/25 text-purple-300 border border-purple-500/40 shadow-sm"
-              : "text-gray-400 hover:text-purple-300 bg-black/30 border border-white/5"
-          }`}
-        >
-          <span>🤝 Créés par Partenaires ({partnerSuppliersCount})</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => setSelectedSourceFilter("direct")}
-          className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-            selectedSourceFilter === "direct"
-              ? "bg-blue-500/25 text-blue-300 border border-blue-500/40 shadow-sm"
-              : "text-gray-400 hover:text-blue-300 bg-black/30 border border-white/5"
-          }`}
-        >
-          Direction Centrale ({directSuppliersCount})
-        </button>
-      </div>
-
-      {/* Main Table Card */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden shadow-xl">
-        <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="relative w-full sm:max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input
-              type="text"
-              placeholder="Rechercher par nom, email ou rayon..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-black/30 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary text-white text-sm transition-all"
-            />
+            {/* 4. Subscription Status Dropdown */}
+            <div className="lg:col-span-2">
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                Abonnement
+              </label>
+              <select
+                value={selectedStatusFilter}
+                onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
+                className="w-full px-3 py-2 bg-[#142430] border border-white/10 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-white/30 cursor-pointer"
+              >
+                <option value="all">Tous les statuts</option>
+                <option value="trial">En période d&apos;essai</option>
+                <option value="active">Abonnement actif</option>
+                <option value="expired">Expiré</option>
+                <option value="official">Boutiques Officielles</option>
+              </select>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-gray-400 w-full sm:w-auto justify-between sm:justify-end">
+          {/* Summary & Reset Row */}
+          <div className="flex items-center justify-between pt-1 text-xs text-gray-400">
             <span>
-              Affichage :{" "}
-              <strong className="text-white">
-                {selectedRayonFilter === "immo"
-                  ? "Fournisseurs Immo & Hôtellerie"
-                  : selectedRayonFilter === "mode"
-                  ? "Fournisseurs Mode"
-                  : selectedRayonFilter === "connect"
-                  ? "Fournisseurs Connect"
-                  : selectedRayonFilter === "saveurs"
-                  ? "Fournisseurs Saveurs & Resto"
-                  : "Tous les Rayons"}
-              </strong>{" "}
-              ({filteredSuppliers.length} résultat{filteredSuppliers.length > 1 ? "s" : ""})
+              <strong className="text-white">{filteredSuppliers.length}</strong> fournisseur{filteredSuppliers.length > 1 ? "s" : ""} affiché{filteredSuppliers.length > 1 ? "s" : ""}
             </span>
-            {selectedRayonFilter !== "all" && (
+            {(selectedRayonFilter !== "all" || selectedSourceFilter !== "all" || selectedStatusFilter !== "all" || search.trim() !== "") && (
               <button
-                onClick={() => setSelectedRayonFilter("all")}
-                className="text-[#C7D300] hover:underline ml-2 font-bold"
+                type="button"
+                onClick={() => {
+                  setSelectedRayonFilter("all");
+                  setSelectedSourceFilter("all");
+                  setSelectedStatusFilter("all");
+                  setSearch("");
+                }}
+                className="text-xs text-gray-300 hover:text-white underline cursor-pointer"
               >
-                Voir tout
+                Réinitialiser les filtres
               </button>
             )}
           </div>
         </div>
 
+        {/* Desktop Table (>= md) — Sober & Compartmentalized */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full min-w-[850px] text-left text-sm text-gray-300">
-            <thead className="text-xs uppercase bg-black/30 text-gray-400 tracking-wider">
+          <table className="w-full min-w-[900px] text-left text-xs text-gray-300">
+            <thead className="text-[11px] uppercase bg-black/30 text-gray-400 tracking-wider border-b border-white/10">
               <tr>
-                <th className="px-6 py-4 font-semibold">Prestataire / Entreprise</th>
-                <th className="px-6 py-4 font-semibold">Email</th>
-                <th className="px-6 py-4 font-semibold">Rayon Commercial</th>
-                <th className="px-6 py-4 font-semibold">Abonnement & Cotisation</th>
-                <th className="px-6 py-4 font-semibold">Statut Profil</th>
-                <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                <th className="px-5 py-3.5 font-semibold">Fournisseur / Boutique</th>
+                <th className="px-5 py-3.5 font-semibold">Origine / Partenaire</th>
+                <th className="px-5 py-3.5 font-semibold">Rayon</th>
+                <th className="px-5 py-3.5 font-semibold">Abonnement</th>
+                <th className="px-5 py-3.5 font-semibold">Dossier KYC</th>
+                <th className="px-5 py-3.5 font-semibold text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-white/[0.06]">
               {isLoading ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
                     <div className="flex flex-col items-center gap-2">
-                      <div className="w-6 h-6 border-2 border-[#C7D300] border-t-transparent rounded-full animate-spin" />
-                      <span>Chargement des prestataires...</span>
+                      <div className="w-6 h-6 border-2 border-white/40 border-t-transparent rounded-full animate-spin" />
+                      <span>Chargement des fournisseurs...</span>
                     </div>
                   </td>
                 </tr>
@@ -927,41 +891,20 @@ export default function SuppliersPage() {
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
                     <div className="max-w-md mx-auto flex flex-col items-center">
-                      <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 mb-3 text-2xl">
-                        {selectedRayonFilter === "immo" ? "🏠" : selectedRayonFilter === "mode" ? "👗" : selectedRayonFilter === "connect" ? "⚡" : selectedRayonFilter === "saveurs" ? "🍽️" : "🔍"}
-                      </div>
-                      <h3 className="text-base font-semibold text-white mb-1">
-                        {selectedRayonFilter === "immo"
-                          ? "Aucun fournisseur Immobilier & Hôtellerie"
-                          : selectedRayonFilter === "mode"
-                          ? "Aucun fournisseur Mode & Vêtements"
-                          : selectedRayonFilter === "connect"
-                          ? "Aucun fournisseur Matériel & Connect"
-                          : selectedRayonFilter === "saveurs"
-                          ? "Aucun fournisseur Gastronomie & Saveurs"
-                          : "Aucun fournisseur trouvé"}
-                      </h3>
+                      <h3 className="text-sm font-semibold text-white mb-1">Aucun fournisseur trouvé</h3>
                       <p className="text-xs text-gray-400 mb-4">
-                        {search
-                          ? `Aucun résultat ne correspond à votre recherche "${search}".`
-                          : "Il n'y a actuellement aucun fournisseur configuré dans cette catégorie."}
+                        Aucun compte ne correspond aux filtres sélectionnés.
                       </p>
                       <button
-                        onClick={() => handleOpenCreateModal(selectedRayonFilter !== "all" && selectedRayonFilter !== "pending" ? selectedRayonFilter : "immo")}
-                        className="flex items-center space-x-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs px-4 py-2 rounded-lg font-bold transition-colors shadow-sm"
+                        onClick={() => {
+                          setSelectedRayonFilter("all");
+                          setSelectedSourceFilter("all");
+                          setSelectedStatusFilter("all");
+                          setSearch("");
+                        }}
+                        className="px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs font-medium transition-colors cursor-pointer"
                       >
-                        <Plus size={16} />
-                        <span>
-                          {selectedRayonFilter === "immo"
-                            ? "Créer un Fournisseur Immobilier & Hôtels"
-                            : selectedRayonFilter === "mode"
-                            ? "Créer un Fournisseur Mode"
-                            : selectedRayonFilter === "connect"
-                            ? "Créer un Fournisseur Connect"
-                            : selectedRayonFilter === "saveurs"
-                            ? "Créer un Fournisseur Saveurs"
-                            : "Créer un Fournisseur"}
-                        </span>
+                        Afficher toute la liste
                       </button>
                     </div>
                   </td>
@@ -972,304 +915,207 @@ export default function SuppliersPage() {
                   const isImmo = supplierRayons.includes("immo");
                   const isMode = supplierRayons.includes("mode");
                   const isConnect = supplierRayons.includes("connect");
+                  const isOfficial = Boolean(supplier.isOfficialAdminStore || supplier.isAdminSupplier);
+
+                  const rayonLabel = isImmo
+                    ? "Immobilier & Hôtels"
+                    : isMode
+                    ? "Mode & Vêtements"
+                    : isConnect
+                    ? "Matériel & Connect"
+                    : "Saveurs & Resto";
+
+                  const status = supplier.subscriptionStatus || "TRIAL";
+                  const endDate = supplier.subscriptionEndDate
+                    ? new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate)
+                    : null;
+                  const daysLeft = endDate ? Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+                  const isExpired = !isOfficial && daysLeft <= 0;
+
+                  const subCount = suppliers.filter(
+                    (s) => s.parentSupplierId === supplier.id || (s.role === "SUB_SUPPLIER" && s.createdBy === supplier.id)
+                  ).length;
 
                   return (
-                    <tr key={supplier.id} className="hover:bg-white/5 transition-colors">
-                      <td className="px-6 py-4 font-medium text-white">
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                            isImmo
-                              ? "bg-[#4C6EF5]/20 text-[#4C6EF5] border border-[#4C6EF5]/30"
-                              : isMode
-                              ? "bg-[#D4B08C]/20 text-[#D4B08C] border border-[#D4B08C]/30"
-                              : isConnect
-                              ? "bg-[#00B5A5]/20 text-[#00B5A5] border border-[#00B5A5]/30"
-                              : "bg-[#FF6B35]/20 text-[#FF6B35] border border-[#FF6B35]/30"
-                          }`}>
+                    <tr key={supplier.id} className="hover:bg-white/[0.03] transition-colors">
+                      {/* 1. Fournisseur / Boutique */}
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/10 text-gray-300 flex items-center justify-center shrink-0">
                             {isImmo ? (
-                              <Home size={18} />
+                              <Home size={15} />
                             ) : isMode ? (
-                              <ShoppingBag size={18} />
+                              <ShoppingBag size={15} />
                             ) : isConnect ? (
-                              <Zap size={18} />
+                              <Zap size={15} />
                             ) : (
-                              <Store size={18} />
+                              <Store size={15} />
                             )}
                           </div>
-                          <div className="flex flex-col">
-                            <div className="flex items-center space-x-2">
-                              <span className="font-semibold text-white">{supplier.name}</span>
-                              {(supplier.isOfficialAdminStore || supplier.isAdminSupplier) && (
-                                <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider flex items-center gap-1">
-                                  <span>🏷️</span>
-                                  <span>Boutique Officielle Rayons</span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-white text-sm truncate">{supplier.name}</span>
+                              {isOfficial && (
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-200 border border-white/15 font-medium shrink-0">
+                                  Officiel
                                 </span>
                               )}
-                              {supplier.role === 'SUB_ADMIN' && (
-                                <span className="text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">
-                                  Sous-Admin
-                                </span>
-                              )}
-                              {supplier.role === 'SUB_SUPPLIER' && (
-                                <span className="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full uppercase font-bold tracking-wider">
-                                  Sous-Fournisseur
-                                </span>
-                              )}
-                              {supplier.referralCodeUsed && (
-                                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full font-bold">
-                                  Parrainé ({supplier.referralCodeUsed})
-                                </span>
-                              )}
-                              {supplier.referralCode && (
-                                <span className="text-[10px] bg-[#C7D300]/15 text-[#C7D300] border border-[#C7D300]/25 px-2 py-0.5 rounded-full font-mono font-bold">
-                                  Code: {supplier.referralCode}
+                              {supplier.role === "SUB_SUPPLIER" && (
+                                <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400 border border-white/10 shrink-0">
+                                  Sous-agent
                                 </span>
                               )}
                             </div>
-                            
-                            {/* Distinct Category Tag */}
-                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                              {isImmo && (
-                                <span className="text-[10px] font-medium bg-emerald-500/15 text-emerald-300 px-2 py-0.5 rounded-md border border-emerald-500/25 flex items-center gap-1">
-                                  <span>🏠</span>
-                                  <span>Fournisseur Immo & Hôtels</span>
-                                </span>
-                              )}
-                              {isMode && (
-                                <span className="text-[10px] font-medium bg-pink-500/15 text-pink-300 px-2 py-0.5 rounded-md border border-pink-500/25 flex items-center gap-1">
-                                  <span>👗</span>
-                                  <span>Fournisseur Mode</span>
-                                </span>
-                              )}
-                              {isConnect && (
-                                <span className="text-[10px] font-medium bg-cyan-500/15 text-cyan-300 px-2 py-0.5 rounded-md border border-cyan-500/25 flex items-center gap-1">
-                                  <span>⚡</span>
-                                  <span>Fournisseur Connect</span>
-                                </span>
-                              )}
+                            <div className="text-[11px] text-gray-400 truncate mt-0.5">
+                              {supplier.email}
+                              {supplier.phone ? ` · ${supplier.phone}` : ""}
                             </div>
-
-                            {supplier.role === 'SUB_SUPPLIER' ? (
-                              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                                <span className="text-[10px] font-semibold bg-blue-500/15 text-blue-300 px-2 py-0.5 rounded border border-blue-500/25">
-                                  👤 Sous-Agent Délégué
-                                </span>
-                                {(supplier.parentSupplierId || supplier.createdBy) && (
-                                  <span className="text-[11px] text-gray-400">
-                                    de <strong>{suppliers.find(s => s.id === (supplier.parentSupplierId || supplier.createdBy))?.name || 'Agence partenaire'}</strong>
-                                  </span>
-                                )}
-                              </div>
-                            ) : (() => {
-                              const subCount = suppliers.filter(s => (s.parentSupplierId === supplier.id || (s.role === 'SUB_SUPPLIER' && s.createdBy === supplier.id))).length;
-                              return subCount > 0 ? (
-                                <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-medium bg-purple-500/15 text-purple-300 px-2 py-0.5 rounded border border-purple-500/25 w-max">
-                                  <span>👥</span>
-                                  <span>{subCount} sous-agent{subCount > 1 ? 's' : ''} rattaché{subCount > 1 ? 's' : ''}</span>
-                                </span>
-                              ) : null;
-                            })()}
-
-                            {/* Partner Badge if created by a partner */}
-                            {supplier.partnerName && (
-                              <div className="mt-1 flex items-center gap-1.5">
-                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-purple-500/15 text-purple-300 px-2 py-0.5 rounded border border-purple-500/30">
-                                  <span>🤝 Partenaire :</span>
-                                  <strong className="text-white">{supplier.partnerName}</strong>
-                                  {supplier.partnerCode && <span className="text-[#C7D300] font-mono">({supplier.partnerCode})</span>}
-                                </span>
+                            {subCount > 0 && (
+                              <div className="text-[10px] text-gray-500 mt-0.5">
+                                {subCount} sous-agent{subCount > 1 ? "s" : ""} rattaché{subCount > 1 ? "s" : ""}
                               </div>
                             )}
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-gray-300">{supplier.email}</td>
-                      <td className="px-6 py-4">
-                        {supplier.role === 'SUB_SUPPLIER' ? (
-                          <div className="text-xs text-gray-500 italic">Hérité du compte parent</div>
-                        ) : (
-                          <>
-                            <div className="flex flex-wrap gap-1.5 mb-1.5">
-                              {supplierRayons.length > 0 ? (
-                                supplierRayons.map(r => {
-                                  if (r === "immo") {
-                                    return (
-                                      <button
-                                        key={r}
-                                        type="button"
-                                        onClick={() => setSelectedRayonFilter("immo")}
-                                        className="px-2.5 py-0.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 rounded-lg text-xs font-medium flex items-center gap-1 transition-all"
-                                        title="Filtrer par Immobilier & Hôtels"
-                                      >
-                                        <span>🏠</span>
-                                        <span>Immobilier & Hôtels</span>
-                                      </button>
-                                    );
-                                  }
-                                  if (r === "mode") {
-                                    return (
-                                      <button
-                                        key={r}
-                                        type="button"
-                                        onClick={() => setSelectedRayonFilter("mode")}
-                                        className="px-2.5 py-0.5 bg-pink-500/15 hover:bg-pink-500/25 border border-pink-500/30 text-pink-300 rounded-lg text-xs font-medium flex items-center gap-1 transition-all"
-                                        title="Filtrer par Mode & Vêtements"
-                                      >
-                                        <span>👗</span>
-                                        <span>Mode</span>
-                                      </button>
-                                    );
-                                  }
-                                  if (r === "connect") {
-                                    return (
-                                      <button
-                                        key={r}
-                                        type="button"
-                                        onClick={() => setSelectedRayonFilter("connect")}
-                                        className="px-2.5 py-0.5 bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 rounded-lg text-xs font-medium flex items-center gap-1 transition-all"
-                                        title="Filtrer par Matériel & Connect"
-                                      >
-                                        <span>⚡</span>
-                                        <span>Connect</span>
-                                      </button>
-                                    );
-                                  }
-                                  if (r === "saveurs") {
-                                    return (
-                                      <button
-                                        key={r}
-                                        type="button"
-                                        onClick={() => setSelectedRayonFilter("saveurs")}
-                                        className="px-2.5 py-0.5 bg-[#FF6B35]/15 hover:bg-[#FF6B35]/25 border border-[#FF6B35]/30 text-[#FF6B35] rounded-lg text-xs font-medium flex items-center gap-1 transition-all"
-                                        title="Filtrer par Gastronomie & Saveurs"
-                                      >
-                                        <span>🍽️</span>
-                                        <span>Saveurs</span>
-                                      </button>
-                                    );
-                                  }
-                                  return (
-                                    <span key={r} className="px-2.5 py-0.5 bg-white/10 rounded-lg text-xs font-medium capitalize text-gray-300">
-                                      {r}
-                                    </span>
-                                  );
-                                })
-                              ) : (
-                                <span className="text-xs text-gray-500">Aucun accès</span>
-                              )}
-                            </div>
-                            <button 
-                              onClick={() => openAccessModal(supplier)}
-                              className="text-xs text-[#C7D300] hover:text-white flex items-center transition-colors font-medium"
+
+                      {/* 2. Origine / Partenaire (Dedicated Column) */}
+                      <td className="px-5 py-3.5">
+                        {supplier.partnerName || supplier.partnerReferral ? (
+                          <div className="flex flex-col">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (supplier.referredByPartnerId) {
+                                  setSelectedSourceFilter(`partner:${supplier.referredByPartnerId}`);
+                                } else {
+                                  setSelectedSourceFilter("partner");
+                                }
+                              }}
+                              className="text-left group cursor-pointer"
+                              title="Filtrer les fournisseurs de ce partenaire"
                             >
-                              <Shield size={12} className="mr-1" />
-                              Changer de rayon
+                              <span className="font-semibold text-gray-200 group-hover:text-white group-hover:underline block">
+                                {supplier.partnerName || "Partenaire affilié"}
+                              </span>
+                              <span className="text-[11px] text-gray-500 font-mono">
+                                {supplier.partnerCode || supplier.referralCodeUsed || "Partenaire"}
+                              </span>
                             </button>
-                          </>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-500">Direction Centrale</span>
                         )}
                       </td>
-                      <td className="px-6 py-4">
-                        {(supplier.isOfficialAdminStore || supplier.isAdminSupplier) ? (
-                          <div className="flex flex-col">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 w-max">
-                              <span>🏷️</span>
-                              <span>Boutique Officielle Rayons</span>
+
+                      {/* 3. Rayon Commercial */}
+                      <td className="px-5 py-3.5">
+                        {supplier.role === "SUB_SUPPLIER" ? (
+                          <span className="text-xs text-gray-500 italic">Hérité</span>
+                        ) : (
+                          <div className="flex flex-col items-start gap-1">
+                            <span className="px-2.5 py-1 rounded-md bg-white/[0.05] border border-white/10 text-gray-200 text-xs font-medium">
+                              {rayonLabel}
                             </span>
-                            <span className="text-[11px] text-gray-400 mt-1">Magasin de la plateforme (Exempté d'abonnement)</span>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col">
-                            {(() => {
-                              const status = supplier.subscriptionStatus || "TRIAL";
-                              const endDate = supplier.subscriptionEndDate ? new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate) : null;
-                              const daysLeft = endDate ? Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
-                              const isExpired = daysLeft <= 0;
-
-                              if (isExpired) {
-                                return (
-                                  <div className="flex flex-col gap-1">
-                                    <span className="inline-flex items-center gap-1 text-xs font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-md w-max">
-                                      ⛔ Expiré ({daysLeft <= 0 ? `${Math.abs(daysLeft)}j de retard` : ""})
-                                    </span>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleQuickReactivate(supplier)}
-                                      className="inline-flex items-center gap-1 text-[11px] font-bold bg-amber-500 hover:bg-amber-400 text-gray-950 px-2.5 py-1 rounded-lg shadow-md transition-all cursor-pointer w-max"
-                                      title="Réactiver immédiatement ce fournisseur avec 15 jours d'essai gratuit"
-                                    >
-                                      <span>⚡ Réactiver (15j)</span>
-                                    </button>
-                                  </div>
-                                );
-                              }
-
-                              if (status === "TRIAL") {
-                                return (
-                                  <span className="inline-flex items-center gap-1 text-xs font-bold text-blue-300 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md w-max">
-                                    ⏱️ Essai ({daysLeft}j restants)
-                                  </span>
-                                );
-                              }
-
-                              return (
-                                <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md w-max">
-                                  ✅ Actif ({daysLeft}j restants)
-                                </span>
-                              );
-                            })()}
-                            {supplier.subscriptionEndDate && (
-                              <span className="text-xs text-gray-400 mt-1">
-                                Échéance: {new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate).toLocaleDateString("fr-FR")}
-                              </span>
-                            )}
-                            <button 
-                              onClick={() => openSubModal(supplier)}
-                              className="text-xs text-[#C7D300] font-medium mt-1 text-left hover:underline flex items-center gap-1 cursor-pointer"
+                            <button
+                              type="button"
+                              onClick={() => openAccessModal(supplier)}
+                              className="text-[11px] text-gray-400 hover:text-white underline cursor-pointer"
                             >
-                              <span>⚙️ Gérer l'abonnement / Essai</span>
+                              Modifier le rayon
                             </button>
                           </div>
                         )}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col space-y-1.5">
-                          {supplier.profileUpdateStatus === "PENDING_APPROVAL" || supplier.status === "PENDING_APPROVAL" ? (
-                            <div className="space-y-1">
-                              <span className="text-amber-400 text-[11px] font-bold flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                                ⏳ Modifications en attente
+
+                      {/* 4. Abonnement */}
+                      <td className="px-5 py-3.5">
+                        {isOfficial ? (
+                          <div>
+                            <span className="text-xs text-gray-300 font-medium block">Exempté</span>
+                            <span className="text-[11px] text-gray-500">Boutique plateforme</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-start gap-0.5">
+                            {isExpired ? (
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-400">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                                  Expiré
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleQuickReactivate(supplier)}
+                                  className="text-[11px] px-2 py-0.5 rounded bg-white/10 hover:bg-white/15 text-white font-medium cursor-pointer"
+                                >
+                                  Réactiver 15j
+                                </button>
+                              </div>
+                            ) : status === "TRIAL" ? (
+                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                                Essai ({daysLeft}j restants)
                               </span>
-                              <button 
-                                onClick={() => openReviewModal(supplier)}
-                                className="text-xs bg-amber-500 hover:bg-amber-400 text-gray-950 font-extrabold px-3 py-1.5 rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer w-max animate-pulse"
-                              >
-                                ⚡ Valider Profil & Pièces
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              {supplier.idDocumentNumber || supplier.idDocumentFrontUrl ? (
-                                <span className="text-emerald-400 text-[11px] font-bold">✅ Identité renseignée</span>
-                              ) : (
-                                <span className="text-gray-500 text-[11px]">Aucune pièce jointe</span>
-                              )}
-                              <button 
-                                onClick={() => openReviewModal(supplier)}
-                                className="text-xs bg-blue-500/15 text-blue-300 border border-blue-500/25 px-2.5 py-1 rounded-lg hover:bg-blue-500/25 transition-colors w-max font-semibold cursor-pointer"
-                              >
-                                🪪 Dossier Identité / KYC
-                              </button>
-                            </>
-                          )}
-                          {supplier.phone && (
-                            <span className="text-[11px] text-gray-300 font-mono">{supplier.phone}</span>
-                          )}
-                        </div>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                Actif ({daysLeft}j restants)
+                              </span>
+                            )}
+                            {endDate && (
+                              <span className="text-[11px] text-gray-500">
+                                Échéance : {endDate.toLocaleDateString("fr-FR")}
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => openSubModal(supplier)}
+                              className="text-[11px] text-gray-400 hover:text-white underline mt-0.5 cursor-pointer"
+                            >
+                              Gérer l&apos;échéance
+                            </button>
+                          </div>
+                        )}
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <button 
+
+                      {/* 5. Dossier KYC */}
+                      <td className="px-5 py-3.5">
+                        {supplier.profileUpdateStatus === "PENDING_APPROVAL" || supplier.status === "PENDING_APPROVAL" ? (
+                          <div className="flex flex-col items-start gap-1">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-300">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                              En attente
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => openReviewModal(supplier)}
+                              className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold cursor-pointer"
+                            >
+                              Vérifier &amp; valider
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-start gap-1">
+                            <span className="text-xs text-gray-400">
+                              {supplier.idDocumentNumber || supplier.idDocumentFrontUrl ? "Vérifié / Renseigné" : "Non renseigné"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => openReviewModal(supplier)}
+                              className="text-[11px] text-gray-400 hover:text-white underline cursor-pointer"
+                            >
+                              Consulter le dossier
+                            </button>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* 6. Actions */}
+                      <td className="px-5 py-3.5 text-right">
+                        <button
+                          type="button"
                           onClick={() => handleDeleteSupplier(supplier.id)}
-                          className="text-red-400 hover:bg-red-400/10 px-3 py-1 rounded-lg transition-colors text-xs font-medium"
+                          className="text-gray-400 hover:text-red-400 hover:bg-red-500/10 px-2.5 py-1 rounded-lg transition-colors text-xs font-medium cursor-pointer"
                         >
                           Supprimer
                         </button>
@@ -1282,12 +1128,12 @@ export default function SuppliersPage() {
           </table>
         </div>
 
-        {/* Mobile Supplier Cards (< md) */}
-        <div className="md:hidden divide-y divide-white/5">
+        {/* Mobile Supplier Cards (< md) — Sober & Clean */}
+        <div className="md:hidden divide-y divide-white/[0.06]">
           {isLoading ? (
             <div className="p-8 text-center text-gray-400">
-              <div className="w-6 h-6 border-2 border-[#C7D300] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-              <p className="text-xs">Chargement des prestataires...</p>
+              <div className="w-6 h-6 border-2 border-white/40 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-xs">Chargement des fournisseurs...</p>
             </div>
           ) : filteredSuppliers.length === 0 ? (
             <div className="p-8 text-center text-gray-400">
@@ -1299,121 +1145,93 @@ export default function SuppliersPage() {
               const isImmo = supplierRayons.includes("immo");
               const isMode = supplierRayons.includes("mode");
               const isConnect = supplierRayons.includes("connect");
+              const isOfficial = Boolean(supplier.isOfficialAdminStore || supplier.isAdminSupplier);
+
+              const rayonLabel = isImmo
+                ? "Immobilier & Hôtels"
+                : isMode
+                ? "Mode & Vêtements"
+                : isConnect
+                ? "Matériel & Connect"
+                : "Saveurs & Resto";
 
               const status = supplier.subscriptionStatus || "TRIAL";
-              const endDate = supplier.subscriptionEndDate ? new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate) : null;
+              const endDate = supplier.subscriptionEndDate
+                ? new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate)
+                : null;
               const daysLeft = endDate ? Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
-              const isExpired = daysLeft <= 0;
+              const isExpired = !isOfficial && daysLeft <= 0;
 
               return (
-                <div key={supplier.id} className="p-3.5 flex flex-col gap-2.5 hover:bg-white/[0.02] transition-colors">
-                  {/* Top: Icon + Name + Badges */}
+                <div key={supplier.id} className="p-4 flex flex-col gap-2.5 hover:bg-white/[0.02] transition-colors">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                        isImmo ? "bg-[#4C6EF5]/20 text-[#4C6EF5] border border-[#4C6EF5]/30" :
-                        isMode ? "bg-[#D4B08C]/20 text-[#D4B08C] border border-[#D4B08C]/30" :
-                        isConnect ? "bg-[#00B5A5]/20 text-[#00B5A5] border border-[#00B5A5]/30" :
-                        "bg-[#FF6B35]/20 text-[#FF6B35] border border-[#FF6B35]/30"
-                      }`}>
-                        {isImmo ? <Home size={15} /> : isMode ? <ShoppingBag size={15} /> : isConnect ? <Zap size={15} /> : <Store size={15} />}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <h4 className="font-bold text-xs text-white truncate">{supplier.name}</h4>
-                          {supplier.partnerName && (
-                            <span className="text-[9px] bg-purple-500/15 text-purple-300 border border-purple-500/25 px-1.5 py-0.5 rounded font-semibold inline-flex items-center gap-1 shrink-0">
-                              <span>🤝 {supplier.partnerName}</span>
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-gray-400 truncate">{supplier.email}</p>
-                      </div>
+                    <div className="min-w-0">
+                      <h4 className="font-semibold text-sm text-white truncate">{supplier.name}</h4>
+                      <p className="text-[11px] text-gray-400 truncate">{supplier.email}</p>
                     </div>
-
-                    {/* Subscription Status Chip */}
-                    {(supplier.isOfficialAdminStore || supplier.isAdminSupplier) ? (
-                      <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full uppercase font-bold shrink-0">
-                        Boutique Officielle
-                      </span>
-                    ) : isExpired ? (
-                      <span className="text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-md shrink-0">
-                        ⛔ Expiré
-                      </span>
-                    ) : status === "TRIAL" ? (
-                      <span className="text-[9px] font-bold text-blue-300 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-md shrink-0">
-                        ⏱️ {daysLeft}j essai
-                      </span>
-                    ) : (
-                      <span className="text-[9px] font-bold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md shrink-0">
-                        ✅ {daysLeft}j actif
-                      </span>
-                    )}
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-white/[0.06] border border-white/10 text-gray-300 shrink-0">
+                      {rayonLabel}
+                    </span>
                   </div>
 
-                  {/* Rayons tags */}
-                  <div className="flex flex-wrap items-center gap-1">
-                    {supplierRayons.map((rId) => {
-                      const rConfig = availableRayons.find(ar => ar.id === rId);
-                      return (
-                        <span key={rId} className="text-[9px] font-semibold bg-white/5 border border-white/10 text-gray-300 px-2 py-0.5 rounded">
-                          {rConfig?.label || rId}
-                        </span>
-                      );
-                    })}
-                    {supplier.referralCode && (
-                      <span className="text-[9px] bg-[#C7D300]/15 text-[#C7D300] border border-[#C7D300]/25 px-1.5 py-0.5 rounded font-mono font-bold">
-                        Promo: {supplier.referralCode}
+                  {/* Clean Info Grid: Origine + Abonnement */}
+                  <div className="grid grid-cols-2 gap-2 text-[11px] bg-black/20 p-2.5 rounded-lg border border-white/5">
+                    <div>
+                      <span className="text-[10px] text-gray-500 uppercase block">Origine</span>
+                      <span className="text-gray-200 font-medium truncate block">
+                        {supplier.partnerName ? `Partenaire : ${supplier.partnerName}` : "Direction Centrale"}
                       </span>
-                    )}
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-gray-500 uppercase block">Abonnement</span>
+                      <span className="text-gray-200 font-medium block">
+                        {isOfficial
+                          ? "Officiel (Exempté)"
+                          : isExpired
+                          ? "Expiré"
+                          : status === "TRIAL"
+                          ? `Essai (${daysLeft}j)`
+                          : `Actif (${daysLeft}j)`}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Pending profile action on mobile */}
                   {(supplier.profileUpdateStatus === "PENDING_APPROVAL" || supplier.status === "PENDING_APPROVAL") && (
                     <button
                       onClick={() => openReviewModal(supplier)}
-                      className="w-full text-xs font-extrabold bg-amber-500 hover:bg-amber-400 text-gray-950 py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 shadow-md animate-pulse cursor-pointer"
+                      className="w-full text-xs font-bold bg-amber-500 hover:bg-amber-400 text-gray-950 py-2 px-3 rounded-lg cursor-pointer"
                     >
-                      <span>⚡ Valider Profil & Pièces KYC</span>
+                      Vérifier &amp; valider le dossier KYC
                     </button>
                   )}
 
-                  {/* Footer actions */}
-                  <div className="pt-2 border-t border-white/5 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5">
+                  <div className="pt-1 flex items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-3">
                       <button
                         onClick={() => openAccessModal(supplier)}
-                        className="text-[10px] bg-white/5 hover:bg-white/10 text-gray-300 px-2 py-1 rounded-md border border-white/8 font-medium transition-colors cursor-pointer"
+                        className="text-gray-400 hover:text-white underline cursor-pointer"
                       >
-                        Accès
+                        Rayon
                       </button>
                       <button
                         onClick={() => openReviewModal(supplier)}
-                        className="text-[10px] bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/20 px-2 py-1 rounded-md font-medium transition-colors cursor-pointer"
+                        className="text-gray-400 hover:text-white underline cursor-pointer"
                       >
-                        🪪 KYC
+                        Dossier KYC
                       </button>
-                      {!(supplier.isOfficialAdminStore || supplier.isAdminSupplier) && (
+                      {!isOfficial && (
                         <button
                           onClick={() => openSubModal(supplier)}
-                          className="text-[10px] text-[#C7D300] font-medium hover:underline px-1 py-1 cursor-pointer"
+                          className="text-gray-400 hover:text-white underline cursor-pointer"
                         >
-                          Abo
-                        </button>
-                      )}
-                      {isExpired && !(supplier.isOfficialAdminStore || supplier.isAdminSupplier) && (
-                        <button
-                          onClick={() => handleQuickReactivate(supplier)}
-                          className="text-[10px] bg-amber-500 hover:bg-amber-400 text-gray-950 font-extrabold px-2 py-1 rounded-md shadow transition-colors cursor-pointer"
-                        >
-                          ⚡ Réactiver
+                          Échéance
                         </button>
                       )}
                     </div>
 
                     <button
                       onClick={() => handleDeleteSupplier(supplier.id)}
-                      className="text-red-400 hover:bg-red-400/10 px-2 py-1 rounded text-[10px] font-medium transition-colors cursor-pointer"
+                      className="text-gray-400 hover:text-red-400 text-xs cursor-pointer"
                     >
                       Supprimer
                     </button>

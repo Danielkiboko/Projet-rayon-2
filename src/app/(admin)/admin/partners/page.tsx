@@ -66,6 +66,8 @@ export default function AdminPartnersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"partners" | "suppliers">("partners");
+  const [partnerFilterId, setPartnerFilterId] = useState<string>("all");
+  const [rayonFilter, setRayonFilter] = useState<string>("all");
 
   // Modal Details Fournisseurs d'un Partenaire
   const [selectedPartner, setSelectedPartner] = useState<PartnerUser | null>(null);
@@ -223,6 +225,8 @@ export default function AdminPartnersPage() {
   });
 
   const filteredSuppliers = allPartnerSuppliers.filter((s) => {
+    if (partnerFilterId !== "all" && s.partnerId !== partnerFilterId) return false;
+    if (rayonFilter !== "all" && !s.rayon.toLowerCase().includes(rayonFilter)) return false;
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -318,43 +322,74 @@ export default function AdminPartnersPage() {
         </div>
       </div>
 
-      {/* Tabs & Search */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.08] pb-3">
+      {/* Tabs & Dropdown Filters */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-white/[0.08] pb-3">
         <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveTab("partners")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
               activeTab === "partners"
-                ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
+                ? "bg-white/15 text-white border border-white/20"
                 : "text-gray-400 hover:text-white hover:bg-white/5"
             }`}
           >
             <Briefcase size={14} />
-            <span>Liste des Partenaires ({partners.length})</span>
+            <span>Partenaires ({partners.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab("suppliers")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
               activeTab === "suppliers"
-                ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
+                ? "bg-white/15 text-white border border-white/20"
                 : "text-gray-400 hover:text-white hover:bg-white/5"
             }`}
           >
             <Store size={14} />
-            <span>Boutiques Créées par Partenaires ({allPartnerSuppliers.length})</span>
+            <span>Fournisseurs par Partenaire ({allPartnerSuppliers.length})</span>
           </button>
         </div>
 
-        <div className="relative w-full sm:w-72">
-          <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder={activeTab === "partners" ? "Rechercher un partenaire..." : "Rechercher une boutique..."}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3.5 py-2 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
-          />
+        <div className="flex flex-wrap items-center gap-2.5">
+          {activeTab === "suppliers" && (
+            <>
+              <select
+                value={partnerFilterId}
+                onChange={(e) => setPartnerFilterId(e.target.value)}
+                className="px-3 py-2 bg-[#142430] border border-white/10 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-white/30 cursor-pointer"
+              >
+                <option value="all">Tous les partenaires ({partners.length})</option>
+                {partners.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.partnerCode}) — {p.suppliersCount}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={rayonFilter}
+                onChange={(e) => setRayonFilter(e.target.value)}
+                className="px-3 py-2 bg-[#142430] border border-white/10 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-white/30 cursor-pointer"
+              >
+                <option value="all">Tous les rayons</option>
+                <option value="immo">Immobilier &amp; Hôtels</option>
+                <option value="mode">Mode &amp; Vêtements</option>
+                <option value="connect">Matériel &amp; Connect</option>
+                <option value="saveur">Saveurs &amp; Restauration</option>
+              </select>
+            </>
+          )}
+
+          <div className="relative w-full sm:w-64">
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder={activeTab === "partners" ? "Rechercher un partenaire..." : "Rechercher un fournisseur..."}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3.5 py-2 bg-[#142430] border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-white/30"
+            />
+          </div>
         </div>
       </div>
 
