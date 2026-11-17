@@ -525,69 +525,6 @@ function PartnerDashboardContent() {
         </div>
       </div>
 
-      {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 border-b border-white/[0.08] pb-1 overflow-x-auto">
-        <button
-          onClick={() => handleSelectTab("stats")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === "stats"
-              ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
-              : "text-gray-400 hover:text-white hover:bg-white/5"
-          }`}
-        >
-          <BarChart3 size={14} />
-          <span>Tableau de Bord & Statistiques</span>
-        </button>
-
-        <button
-          onClick={() => handleSelectTab("publications")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === "publications"
-              ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
-              : "text-gray-400 hover:text-white hover:bg-white/5"
-          }`}
-        >
-          <ShoppingBag size={14} />
-          <span>Publications de mes Fournisseurs ({publications.length})</span>
-        </button>
-
-        <button
-          onClick={() => handleSelectTab("suppliers")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === "suppliers"
-              ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
-              : "text-gray-400 hover:text-white hover:bg-white/5"
-          }`}
-        >
-          <Building2 size={14} />
-          <span>Mes Fournisseurs Rattachés ({data?.filleuls?.length || 0})</span>
-        </button>
-
-        <button
-          onClick={() => handleSelectTab("commissions")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === "commissions"
-              ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
-              : "text-gray-400 hover:text-white hover:bg-white/5"
-          }`}
-        >
-          <Coins size={14} />
-          <span>Historique des Commissions ({data?.commissions?.length || 0})</span>
-        </button>
-
-        <button
-          onClick={() => handleSelectTab("payout")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === "payout"
-              ? "bg-[#C7D300] text-[#0F1D27] shadow-md shadow-[#C7D300]/20"
-              : "text-gray-400 hover:text-white hover:bg-white/5"
-          }`}
-        >
-          <TrendingUp size={14} />
-          <span>Demander un Virement Mobile Money</span>
-        </button>
-      </div>
-
       {/* TAB 0: STATISTIQUES AVEC GRAPHIQUES */}
       {activeTab === "stats" && (
         <div className="space-y-6">
