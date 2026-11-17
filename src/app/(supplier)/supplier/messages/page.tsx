@@ -53,7 +53,7 @@ export default function SupplierMessagesPage() {
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [newChatMessage, setNewChatMessage] = useState("");
-  
+
   const [showProformaForm, setShowProformaForm] = useState(false);
   const [proformaQuantity, setProformaQuantity] = useState(1);
   const [proformaUnitPrice, setProformaUnitPrice] = useState<number>(0);
@@ -223,7 +223,7 @@ export default function SupplierMessagesPage() {
     const targetProdId = activeChat.productId || "";
     setSelectedProductId(targetProdId);
     setProformaProductName(activeChat.propertyTitle || activeChat.productName || (isHotelChat ? "Séjour Hôtel" : "Produit"));
-    
+
     if (targetProdId) {
       const found = supplierProducts.find(p => p.id === targetProdId);
       if (found) {
@@ -307,19 +307,38 @@ export default function SupplierMessagesPage() {
     }
     if (!newChatMessage.trim() || !user || !activeChatId) return;
 
+    const messageToSend = newChatMessage.trim();
     try {
       await addDoc(collection(db, "chats", activeChatId, "messages"), {
-        text: newChatMessage,
+        text: messageToSend,
         senderId: activeSupplierId,
         createdAt: serverTimestamp()
       });
-      
+
       await updateDoc(doc(db, "chats", activeChatId), {
-        lastMessage: newChatMessage,
-        updatedAt: serverTimestamp()
+        lastMessage: messageToSend,
+        updatedAt: serverTimestamp(),
+        unreadClient: true
       });
-      
+
       setNewChatMessage("");
+
+      // Déclencher la notification Push / In-App pour le client destinataire
+      auth.currentUser?.getIdToken().then((token) => {
+        if (!token) return;
+        fetch("/api/push/notify", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            eventType: "CHAT_MESSAGE",
+            chatId: activeChatId,
+            text: messageToSend,
+          }),
+        }).catch(() => {});
+      }).catch(() => {});
     } catch (err: any) {
       console.error("Error sending message", err);
       alert("Erreur lors de l'envoi du message : " + (err?.message || "Veuillez vérifier votre connexion."));
@@ -355,7 +374,7 @@ export default function SupplierMessagesPage() {
       alert("Veuillez saisir un prix unitaire valide supérieur à 0.");
       return;
     }
-    
+
     setIsSubmittingProforma(true);
 
     try {
@@ -429,14 +448,14 @@ export default function SupplierMessagesPage() {
           type: 'proforma',
           proforma: proformaPayload
         });
-        
+
         await updateDoc(doc(db, "chats", activeChatId), {
           lastMessage: isHotel ? "🏨 Devis Séjour envoyé" : `📄 Proforma envoyé : ${proformaQuantity}x à $${proformaUnitPrice}`,
           updatedAt: serverTimestamp(),
           unreadClient: true
         });
       }
-      
+
       setShowProformaForm(false);
       setProformaQuantity(1);
     } catch (err: any) {
@@ -464,11 +483,10 @@ export default function SupplierMessagesPage() {
           <button
             type="button"
             onClick={() => setActiveTab("clients")}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
-              activeTab === "clients"
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${activeTab === "clients"
                 ? "bg-white/15 text-white shadow-md font-bold"
                 : "text-gray-400 hover:text-white hover:bg-white/5"
-            }`}
+              }`}
           >
             <MessageSquare size={15} />
             <span>Messages Clients ({chats.length})</span>
@@ -477,11 +495,10 @@ export default function SupplierMessagesPage() {
           <button
             type="button"
             onClick={() => setActiveTab("communiques")}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all relative cursor-pointer whitespace-nowrap ${
-              activeTab === "communiques"
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-xl text-xs font-semibold transition-all relative cursor-pointer whitespace-nowrap ${activeTab === "communiques"
                 ? "bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30 shadow-md font-bold"
                 : "text-gray-400 hover:text-white hover:bg-white/5"
-            }`}
+              }`}
           >
             <Megaphone size={15} className="text-[#C7D300]" />
             <span>Communiqués ({communiques.length})</span>
@@ -525,11 +542,10 @@ export default function SupplierMessagesPage() {
                         setSelectedCommuniqueId(c.id);
                         if (!c.read) markCommuniqueAsRead(c.id);
                       }}
-                      className={`w-full p-4 text-left transition-colors flex items-start gap-3 cursor-pointer ${
-                        isSelected
+                      className={`w-full p-4 text-left transition-colors flex items-start gap-3 cursor-pointer ${isSelected
                           ? "bg-white/10 border-l-4 border-[#C7D300]"
                           : "border-l-4 border-transparent hover:bg-white/5"
-                      }`}
+                        }`}
                     >
                       <div className="w-9 h-9 rounded-xl bg-[#C7D300]/15 text-[#C7D300] flex items-center justify-center shrink-0 mt-0.5">
                         <Megaphone size={16} />
@@ -642,481 +658,478 @@ export default function SupplierMessagesPage() {
         </div>
       ) : (
         <div className="flex-1 bg-white/5 border border-white/10 rounded-2xl overflow-hidden flex flex-col md:flex-row shadow-xl">
-        
-        {/* Chats List Sidebar */}
-        <div className={`w-full md:w-1/3 border-b md:border-b-0 md:border-r border-white/10 flex flex-col bg-black/20 ${activeChatId ? 'hidden md:flex' : 'flex'}`}>
-          <div className="p-4 border-b border-white/10">
-            <h3 className="font-semibold text-white flex items-center">
-              <MessageSquare size={18} className="mr-2 text-primary-light" />
-              Conversations ({chats.length})
-            </h3>
+
+          {/* Chats List Sidebar */}
+          <div className={`w-full md:w-1/3 border-b md:border-b-0 md:border-r border-white/10 flex flex-col bg-black/20 ${activeChatId ? 'hidden md:flex' : 'flex'}`}>
+            <div className="p-4 border-b border-white/10">
+              <h3 className="font-semibold text-white flex items-center">
+                <MessageSquare size={18} className="mr-2 text-primary-light" />
+                Conversations ({chats.length})
+              </h3>
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {chats.length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  <p>Aucune conversation</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-white/5">
+                  {chats.map(chat => {
+                    const isChatHotel = chat.isHotel || chat.propertyTitle?.toLowerCase().includes("hotel") || chat.productName?.toLowerCase().includes("hotel");
+                    return (
+                      <button
+                        key={chat.id}
+                        onClick={() => {
+                          setActiveChatId(chat.id);
+                          markChatAsRead(chat.id);
+                        }}
+                        className={`w-full p-4 text-left transition-colors flex items-center space-x-3 hover:bg-white/5 ${activeChatId === chat.id ? "bg-white/10 border-l-4 border-primary" : "border-l-4 border-transparent"
+                          }`}
+                      >
+                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary-light flex-shrink-0">
+                          {isChatHotel ? <span className="text-base">🏨</span> : <User size={18} />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">
+                            {isChatHotel
+                              ? `Hôtel: ${chat.propertyTitle || chat.productName}`
+                              : (chat.propertyTitle ? `Bien: ${chat.propertyTitle}` : chat.productName ? `Produit: ${chat.productName}` : `Client: ${chat.clientId.substring(0, 6)}...`)}
+                          </p>
+                          <p className="text-xs text-gray-400 truncate mt-0.5">{chat.lastMessage || "Nouveau message"}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
-          
-          <div className="flex-1 overflow-y-auto">
-            {chats.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <p>Aucune conversation</p>
+
+          {/* Chat Box area */}
+          <div className={`flex-1 flex flex-col bg-transparent ${!activeChatId ? 'hidden md:flex' : 'flex'}`}>
+            {!activeChatId ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-gray-500 p-8">
+                <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
+                  <MessageSquare size={32} className="text-gray-600" />
+                </div>
+                <p className="font-medium text-gray-400">Sélectionnez une conversation</p>
+                <p className="text-sm mt-1 text-center">Les messages de vos clients apparaîtront ici.</p>
               </div>
             ) : (
-              <div className="divide-y divide-white/5">
-                {chats.map(chat => {
-                  const isChatHotel = chat.isHotel || chat.propertyTitle?.toLowerCase().includes("hotel") || chat.productName?.toLowerCase().includes("hotel");
-                  return (
+              <>
+                {/* Chat Header */}
+                <div className="p-4 border-b border-white/10 bg-black/20 flex items-center justify-between">
+                  <div className="flex items-center">
                     <button
-                      key={chat.id}
-                      onClick={() => {
-                        setActiveChatId(chat.id);
-                        markChatAsRead(chat.id);
-                      }}
-                      className={`w-full p-4 text-left transition-colors flex items-center space-x-3 hover:bg-white/5 ${
-                        activeChatId === chat.id ? "bg-white/10 border-l-4 border-primary" : "border-l-4 border-transparent"
-                      }`}
+                      type="button"
+                      onClick={() => setActiveChatId(null)}
+                      className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 text-white hover:bg-white/15 mr-2.5 cursor-pointer"
+                      aria-label="Retour"
                     >
-                      <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary-light flex-shrink-0">
-                        {isChatHotel ? <span className="text-base">🏨</span> : <User size={18} />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate">
-                          {isChatHotel 
-                            ? `Hôtel: ${chat.propertyTitle || chat.productName}` 
-                            : (chat.propertyTitle ? `Bien: ${chat.propertyTitle}` : chat.productName ? `Produit: ${chat.productName}` : `Client: ${chat.clientId.substring(0,6)}...`)}
-                        </p>
-                        <p className="text-xs text-gray-400 truncate mt-0.5">{chat.lastMessage || "Nouveau message"}</p>
-                      </div>
+                      <ArrowLeft size={16} />
                     </button>
-                  );
-                })}
-              </div>
+                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary-light mr-3">
+                      {isHotelChat ? <span className="text-sm">🏨</span> : <User size={16} />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">Client {activeChat?.clientId.substring(0, 6)}...</p>
+                      <p className="text-xs text-gray-400">
+                        {isHotelChat
+                          ? `Séjour Hôtelier : ${activeChat?.propertyTitle || activeChat?.productName}`
+                          : (activeChat?.propertyTitle ? `Bien : ${activeChat?.propertyTitle}` : activeChat?.productName ? `Produit : ${activeChat?.productName}` : "Discussion active")}
+                      </p>
+                    </div>
+                  </div>
+                  {isHotelChat && (
+                    <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 font-medium flex items-center gap-1">
+                      🏨 Hôtellerie
+                    </span>
+                  )}
+                </div>
+
+                {/* Messages History */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {chatMessages.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-gray-500 text-sm">
+                      Aucun message. Envoyez un message pour commencer.
+                    </div>
+                  ) : (
+                    chatMessages.map(msg => {
+                      const isMe = msg.senderId === activeSupplierId;
+                      const isSystem = msg.senderId === 'system';
+
+                      if (isSystem) {
+                        return (
+                          <div key={msg.id} className="flex justify-center my-2">
+                            <span className="text-xs text-gray-400 bg-white/5 px-3 py-1 rounded-full text-center">
+                              {msg.text}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                          <div
+                            className={`max-w-[90%] sm:max-w-[75%] p-3 text-sm shadow-sm ${isMe
+                                ? (msg.type === 'proforma' ? 'bg-primary/90 text-white rounded-2xl rounded-tr-sm border border-primary-light' : 'bg-primary text-white rounded-2xl rounded-tr-sm')
+                                : 'bg-white/10 text-gray-100 rounded-2xl rounded-tl-sm border border-white/5'
+                              }`}
+                          >
+                            {msg.type === 'proforma' && msg.proforma ? (
+                              <div className="flex flex-col space-y-2 w-full sm:min-w-[240px]">
+                                <div className="font-bold border-b border-white/20 pb-1 mb-1 flex items-center justify-between">
+                                  <span className="flex items-center gap-1.5">
+                                    {msg.proforma.type === 'hotel' ? '🏨 Devis Séjour Hôtel' : '📄 Facture Proforma'}
+                                  </span>
+                                  {msg.proforma.status === 'paid' && <span className="bg-green-500 text-white text-xs px-2 py-0.5 rounded font-bold">Confirmé</span>}
+                                  {msg.proforma.status === 'pending' && <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded font-bold">En attente</span>}
+                                </div>
+                                <div>
+                                  <p className="font-bold text-sm text-white">{msg.proforma.productName}</p>
+                                  {msg.proforma.brand && (
+                                    <span className="text-[10px] bg-white/10 text-gray-300 px-1.5 py-0.5 rounded font-medium">
+                                      Marque : {msg.proforma.brand}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="bg-black/25 rounded-lg p-2.5 space-y-1 text-xs border border-white/10">
+                                  <div className="flex justify-between text-gray-300">
+                                    <span>{msg.proforma.type === 'hotel' ? 'Nuitées :' : 'Quantité :'}</span>
+                                    <span className="font-bold text-white">{msg.proforma.quantity} {msg.proforma.type === 'hotel' ? 'nuit(s)' : 'pièce(s)'}</span>
+                                  </div>
+                                  {msg.proforma.type !== 'hotel' && (
+                                    <div className="flex justify-between text-gray-300">
+                                      <span>Prix unitaire :</span>
+                                      <span className="font-medium text-white">${Number(msg.proforma.unitPrice || (msg.proforma.price / (msg.proforma.quantity || 1))).toFixed(2)} / pc</span>
+                                    </div>
+                                  )}
+                                  <div className="flex justify-between text-gray-300 border-t border-white/10 pt-1">
+                                    <span>{msg.proforma.type === 'hotel' ? 'Tarif total séjour :' : 'Sous-total produits :'}</span>
+                                    <span className="font-bold text-emerald-400">
+                                      {msg.proforma.type !== 'hotel'
+                                        ? `${msg.proforma.quantity} x ${formatPrice(msg.proforma.unitPrice || (msg.proforma.price / (msg.proforma.quantity || 1)))} = ${formatPrice(msg.proforma.totalPrice || msg.proforma.price)}`
+                                        : formatPrice(msg.proforma.price)}
+                                    </span>
+                                  </div>
+                                  {msg.proforma.type !== 'hotel' && (
+                                    <div className="flex justify-between text-gray-300">
+                                      <span>Frais Livraison :</span>
+                                      <span className="font-medium text-white">{formatPrice(msg.proforma.deliveryFee ?? 3)}</span>
+                                    </div>
+                                  )}
+                                  <div className="flex justify-between font-bold border-t border-white/20 pt-1 text-white">
+                                    <span>{msg.proforma.type === 'hotel' ? 'Total Séjour :' : 'Total Commande :'}</span>
+                                    <span className="text-sm">
+                                      {formatPrice(Number(msg.proforma.totalPrice || msg.proforma.price) + (msg.proforma.type === 'hotel' ? 0 : Number(msg.proforma.deliveryFee ?? 3)))}
+                                    </span>
+                                  </div>
+                                  {msg.proforma.type !== 'hotel' && (
+                                    <div className="text-[11px] text-amber-300 flex justify-between pt-0.5">
+                                      <span>À régler au livreur :</span>
+                                      <span className="font-bold">{formatPrice(msg.proforma.totalPrice || msg.proforma.price)}</span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {msg.proforma.status === 'paid' && (
+                                  <div className="mt-2 pt-2 border-t border-white/20 flex flex-col gap-1.5">
+                                    <div className="flex items-center justify-between text-xs bg-black/30 p-2 rounded-lg">
+                                      <span className="font-semibold text-white">
+                                        Commande #{msg.proforma.orderId ? msg.proforma.orderId.substring(0, 12) : 'Validée'}
+                                      </span>
+                                      <span className="text-[10px] bg-green-500/20 text-green-300 px-1.5 py-0.5 rounded font-bold">
+                                        Transmise aux livreurs
+                                      </span>
+                                    </div>
+                                    <Link
+                                      href="/supplier/orders"
+                                      className="w-full bg-white/20 hover:bg-white/30 text-white py-1.5 px-2.5 rounded-lg text-xs font-semibold text-center transition-colors flex items-center justify-center gap-1.5"
+                                    >
+                                      <Package size={13} />
+                                      <span>Gérer dans Commandes</span>
+                                    </Link>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Input Area */}
+                <div className="p-4 border-t border-white/10 bg-black/20 flex flex-col space-y-3">
+                  {showProformaForm && (
+                    <form onSubmit={handleSendProforma} className="bg-white/5 p-4 rounded-xl border border-primary/30 flex flex-col space-y-3 animate-fade-in">
+                      {/* En-tête avec informations du produit et stock */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
+                        <div>
+                          <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                            <span>{isHotelChat ? "🏨 Devis Réservation Séjour" : "📄 Générateur de Facture Proforma"}</span>
+                          </h4>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            Créez une facture proforma personnalisée pour votre client.
+                          </p>
+                        </div>
+
+                        {!isHotelChat && currentProductStock !== null && (
+                          <div>
+                            {currentProductStock <= 0 ? (
+                              <span className="text-xs px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/40 font-bold flex items-center gap-1">
+                                🔴 Rupture Totale (0 pièce en stock)
+                              </span>
+                            ) : currentProductStock < 10 ? (
+                              <span className="text-xs px-2.5 py-1 rounded-full bg-red-500/15 text-red-300 border border-red-500/30 font-bold flex items-center gap-1">
+                                ⚠️ Moins de 10 pcs ({currentProductStock} disponibles)
+                              </span>
+                            ) : (
+                              <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold flex items-center gap-1">
+                                🟢 En stock ({currentProductStock} pièces disponibles)
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Sélecteur de produit dans le magasin */}
+                      {!isHotelChat && supplierProducts.length > 0 && (
+                        <div>
+                          <label className="block text-xs text-gray-300 mb-1 font-medium">
+                            Sélectionner l'article du magasin :
+                          </label>
+                          <select
+                            value={selectedProductId}
+                            onChange={(e) => handleSelectProduct(e.target.value)}
+                            className="w-full bg-black/40 border border-white/20 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                          >
+                            <option value="">-- Article sur mesure / Saisie manuelle --</option>
+                            {supplierProducts.map((p) => {
+                              const pTitle = p.title?.fr || p.title?.en || p.title || p.name || p.productName || "Sans nom";
+                              const stk = Number(p.stock ?? 0);
+                              const price = Number(p.price ?? 0);
+                              return (
+                                <option key={p.id} value={p.id}>
+                                  {stk <= 0 ? "🔴 [Épuisé 0 pc]" : stk < 10 ? `⚠️ [${stk} pcs]` : `🟢 [${stk} pcs]`} {pTitle} — ${price.toFixed(2)}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Désignation de l'article */}
+                      <div>
+                        <label className="block text-xs text-gray-300 mb-1 font-medium">
+                          {isHotelChat ? "Nom de l'Hôtel / Type de Chambre" : "Désignation de l'article"}
+                        </label>
+                        <input
+                          type="text"
+                          value={proformaProductName}
+                          onChange={(e) => setProformaProductName(e.target.value)}
+                          placeholder="Ex: iPhone 13 128GB Bleu ou Chambre Deluxe"
+                          className="w-full bg-black/30 border border-white/15 rounded-xl px-3.5 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                          required
+                        />
+                      </div>
+
+                      {/* Si le produit est en rupture de stock */}
+                      {!isHotelChat && currentProductStock !== null && currentProductStock <= 0 && (
+                        <div className="p-3 bg-red-500/20 border border-red-500/40 rounded-xl text-xs text-red-200 flex items-center gap-2">
+                          <span>🔴</span>
+                          <span>
+                            <strong>Produit épuisé :</strong> Ce produit a 0 pièce en stock. Veuillez choisir un autre produit ou réapprovisionner votre magasin.
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Alerte si la quantité saisie dépasse le stock */}
+                      {!isHotelChat && currentProductStock !== null && currentProductStock > 0 && proformaQuantity > currentProductStock && (
+                        <div className="p-3 bg-red-500/20 border border-red-500/40 rounded-xl text-xs text-red-200 flex items-center gap-2">
+                          <span>⚠️</span>
+                          <span>
+                            <strong>Stock insuffisant :</strong> Vous demandez <strong>{proformaQuantity} pièces</strong> alors qu'il n'y a que <strong>{currentProductStock} pièce(s)</strong> disponibles en magasin.
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Champs de saisie : Quantité & Prix unitaire */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-300 mb-1 font-medium">
+                            {isHotelChat ? "Nombre de Nuitées" : "Quantité demandée (Pièces)"}
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            max={isHotelChat ? 365 : (currentProductStock !== null && currentProductStock > 0 ? currentProductStock : undefined)}
+                            value={proformaQuantity}
+                            onChange={e => setProformaQuantity(parseInt(e.target.value) || 1)}
+                            className={`w-full bg-black/30 border rounded-xl px-3.5 py-2 text-white text-sm focus:outline-none focus:ring-2 ${!isHotelChat && currentProductStock !== null && proformaQuantity > currentProductStock
+                                ? "border-red-500 ring-1 ring-red-500"
+                                : "border-white/15 focus:ring-primary"
+                              }`}
+                            required
+                          />
+                          {!isHotelChat && currentProductStock !== null && (
+                            <span className="text-[11px] text-gray-400 mt-1 block">
+                              Stock max disponible : <strong>{currentProductStock} pièce(s)</strong>
+                            </span>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-gray-300 mb-1 font-medium">
+                            {isHotelChat ? "Tarif Total Séjour ($)" : "Prix Unitaire ($ / pièce)"}
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            value={proformaUnitPrice || ""}
+                            onChange={e => setProformaUnitPrice(parseFloat(e.target.value) || 0)}
+                            placeholder="ex: 5.00"
+                            className="w-full bg-black/30 border border-white/15 rounded-xl px-3.5 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                            required
+                          />
+                          <span className="text-[11px] text-gray-400 mt-1 block">
+                            Prix par pièce
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Bloc de calcul automatique du total */}
+                      <div className="bg-black/30 border border-white/10 rounded-xl p-3 text-xs space-y-1.5">
+                        <div className="flex justify-between text-gray-300">
+                          <span>Sous-total articles :</span>
+                          <span className="font-bold text-white">
+                            {proformaQuantity} pc(s) × ${Number(proformaUnitPrice || 0).toFixed(2)} = <strong className="text-emerald-400">${calculatedTotalProducts.toFixed(2)}</strong>
+                          </span>
+                        </div>
+                        {!isHotelChat && (
+                          <div className="flex justify-between text-gray-300">
+                            <span>Frais de livraison Rayons (payé d'avance) :</span>
+                            <span className="font-medium text-white">$3.00</span>
+                          </div>
+                        )}
+                        <div className="border-t border-white/10 pt-1.5 flex justify-between font-bold text-sm text-white">
+                          <span>Total Général Proforma :</span>
+                          <span className="text-primary-light">
+                            ${(calculatedTotalProducts + (isHotelChat ? 0 : 3)).toFixed(2)}
+                          </span>
+                        </div>
+                        {!isHotelChat && (
+                          <div className="text-[11px] text-amber-300 flex justify-between pt-0.5">
+                            <span>À encaisser en espèces par le livreur :</span>
+                            <span className="font-bold">${calculatedTotalProducts.toFixed(2)}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Boutons d'action */}
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
+                        <div className="text-[11px] text-gray-400">
+                          {!isHotelChat && proformaUnitPrice <= 0 && (
+                            <span className="text-amber-300">⚠️ Indiquez un prix unitaire supérieur à 0.</span>
+                          )}
+                          {!isHotelChat && currentProductStock !== null && currentProductStock <= 0 && (
+                            <span className="text-red-400">🔴 Produit épuisé (stock = 0).</span>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-end gap-2.5">
+                          <button
+                            type="button"
+                            onClick={() => setShowProformaForm(false)}
+                            className="text-gray-400 hover:text-white px-3 py-2 text-xs font-semibold rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
+                          >
+                            Annuler
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={
+                              isSubmittingProforma ||
+                              (!isHotelChat && currentProductStock !== null && (
+                                currentProductStock <= 0 ||
+                                proformaQuantity > currentProductStock ||
+                                proformaUnitPrice <= 0
+                              )) ||
+                              (!isHotelChat && currentProductStock === null && proformaUnitPrice <= 0)
+                            }
+                            className="bg-primary hover:bg-primary-light text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            {isSubmittingProforma ? (
+                              <>
+                                <Loader2 size={14} className="animate-spin" />
+                                <span>Envoi en cours...</span>
+                              </>
+                            ) : (
+                              <span>{isHotelChat ? "Envoyer Devis Séjour" : `Envoyer Proforma ($${calculatedTotalProducts.toFixed(2)})`}</span>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  )}
+
+                  {subscriptionInfo.isBlocked ? (
+                    <div className="p-4 bg-red-500/15 border border-red-500/30 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-red-300">
+                      <div className="flex items-center gap-2 text-xs">
+                        <Lock className="w-4 h-4 text-red-400 shrink-0" />
+                        <span>Messagerie suspendue : Dépôt mensuel impayé. Veuillez régulariser votre compte pour converser avec vos clients.</span>
+                      </div>
+                      <Link href="/supplier/finance" className="px-3.5 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold shrink-0 transition-colors shadow-sm">
+                        Régulariser ($50)
+                      </Link>
+                    </div>
+                  ) : (
+                    <div className="flex space-x-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!showProformaForm) {
+                            if (!selectedProductId && activeChat?.productId) {
+                              handleSelectProduct(activeChat.productId);
+                            } else if (!selectedProductId && supplierProducts.length > 0) {
+                              handleSelectProduct(supplierProducts[0].id);
+                            }
+                          }
+                          setShowProformaForm(!showProformaForm);
+                        }}
+                        className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-xl transition-colors border border-white/10 flex items-center justify-center text-base cursor-pointer"
+                        title={isHotelChat ? "Générer Devis Séjour Hôtel" : "Générer Facture Proforma"}
+                      >
+                        {isHotelChat ? "🏨" : "📄"}
+                      </button>
+                      <form onSubmit={handleSendMessage} className="flex flex-1 space-x-2">
+                        <input
+                          type="text"
+                          value={newChatMessage}
+                          onChange={(e) => setNewChatMessage(e.target.value)}
+                          placeholder={isHotelChat ? "Répondre au client pour son séjour..." : "Écrivez votre message..."}
+                          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary placeholder-gray-500 transition-all"
+                        />
+                        <button
+                          type="submit"
+                          disabled={!newChatMessage.trim()}
+                          className="bg-primary hover:bg-primary-light text-white p-3 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                        >
+                          <Send size={20} />
+                        </button>
+                      </form>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
           </div>
         </div>
-
-        {/* Chat Box area */}
-        <div className={`flex-1 flex flex-col bg-transparent ${!activeChatId ? 'hidden md:flex' : 'flex'}`}>
-          {!activeChatId ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-500 p-8">
-              <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                <MessageSquare size={32} className="text-gray-600" />
-              </div>
-              <p className="font-medium text-gray-400">Sélectionnez une conversation</p>
-              <p className="text-sm mt-1 text-center">Les messages de vos clients apparaîtront ici.</p>
-            </div>
-          ) : (
-            <>
-              {/* Chat Header */}
-              <div className="p-4 border-b border-white/10 bg-black/20 flex items-center justify-between">
-                <div className="flex items-center">
-                  <button
-                    type="button"
-                    onClick={() => setActiveChatId(null)}
-                    className="md:hidden flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 text-white hover:bg-white/15 mr-2.5 cursor-pointer"
-                    aria-label="Retour"
-                  >
-                    <ArrowLeft size={16} />
-                  </button>
-                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary-light mr-3">
-                    {isHotelChat ? <span className="text-sm">🏨</span> : <User size={16} />}
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-white">Client {activeChat?.clientId.substring(0,6)}...</p>
-                    <p className="text-xs text-gray-400">
-                      {isHotelChat 
-                        ? `Séjour Hôtelier : ${activeChat?.propertyTitle || activeChat?.productName}` 
-                        : (activeChat?.propertyTitle ? `Bien : ${activeChat?.propertyTitle}` : activeChat?.productName ? `Produit : ${activeChat?.productName}` : "Discussion active")}
-                    </p>
-                  </div>
-                </div>
-                {isHotelChat && (
-                  <span className="text-xs px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20 font-medium flex items-center gap-1">
-                    🏨 Hôtellerie
-                  </span>
-                )}
-              </div>
-
-              {/* Messages History */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {chatMessages.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-gray-500 text-sm">
-                    Aucun message. Envoyez un message pour commencer.
-                  </div>
-                ) : (
-                  chatMessages.map(msg => {
-                    const isMe = msg.senderId === activeSupplierId;
-                    const isSystem = msg.senderId === 'system';
-                    
-                    if (isSystem) {
-                      return (
-                         <div key={msg.id} className="flex justify-center my-2">
-                           <span className="text-xs text-gray-400 bg-white/5 px-3 py-1 rounded-full text-center">
-                             {msg.text}
-                           </span>
-                         </div>
-                      );
-                    }
-                    
-                    return (
-                      <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                        <div 
-                          className={`max-w-[90%] sm:max-w-[75%] p-3 text-sm shadow-sm ${
-                            isMe 
-                              ? (msg.type === 'proforma' ? 'bg-primary/90 text-white rounded-2xl rounded-tr-sm border border-primary-light' : 'bg-primary text-white rounded-2xl rounded-tr-sm')
-                              : 'bg-white/10 text-gray-100 rounded-2xl rounded-tl-sm border border-white/5'
-                          }`}
-                        >
-                          {msg.type === 'proforma' && msg.proforma ? (
-                            <div className="flex flex-col space-y-2 w-full sm:min-w-[240px]">
-                              <div className="font-bold border-b border-white/20 pb-1 mb-1 flex items-center justify-between">
-                                <span className="flex items-center gap-1.5">
-                                  {msg.proforma.type === 'hotel' ? '🏨 Devis Séjour Hôtel' : '📄 Facture Proforma'}
-                                </span>
-                                {msg.proforma.status === 'paid' && <span className="bg-green-500 text-white text-xs px-2 py-0.5 rounded font-bold">Confirmé</span>}
-                                {msg.proforma.status === 'pending' && <span className="bg-orange-500 text-white text-xs px-2 py-0.5 rounded font-bold">En attente</span>}
-                              </div>
-                              <div>
-                                <p className="font-bold text-sm text-white">{msg.proforma.productName}</p>
-                                {msg.proforma.brand && (
-                                  <span className="text-[10px] bg-white/10 text-gray-300 px-1.5 py-0.5 rounded font-medium">
-                                    Marque : {msg.proforma.brand}
-                                  </span>
-                                )}
-                              </div>
-                              
-                              <div className="bg-black/25 rounded-lg p-2.5 space-y-1 text-xs border border-white/10">
-                                <div className="flex justify-between text-gray-300">
-                                  <span>{msg.proforma.type === 'hotel' ? 'Nuitées :' : 'Quantité :'}</span>
-                                  <span className="font-bold text-white">{msg.proforma.quantity} {msg.proforma.type === 'hotel' ? 'nuit(s)' : 'pièce(s)'}</span>
-                                </div>
-                                {msg.proforma.type !== 'hotel' && (
-                                  <div className="flex justify-between text-gray-300">
-                                    <span>Prix unitaire :</span>
-                                    <span className="font-medium text-white">${Number(msg.proforma.unitPrice || (msg.proforma.price / (msg.proforma.quantity || 1))).toFixed(2)} / pc</span>
-                                  </div>
-                                )}
-                                <div className="flex justify-between text-gray-300 border-t border-white/10 pt-1">
-                                  <span>{msg.proforma.type === 'hotel' ? 'Tarif total séjour :' : 'Sous-total produits :'}</span>
-                                  <span className="font-bold text-emerald-400">
-                                    {msg.proforma.type !== 'hotel' 
-                                      ? `${msg.proforma.quantity} x ${formatPrice(msg.proforma.unitPrice || (msg.proforma.price / (msg.proforma.quantity || 1)))} = ${formatPrice(msg.proforma.totalPrice || msg.proforma.price)}`
-                                      : formatPrice(msg.proforma.price)}
-                                  </span>
-                                </div>
-                                {msg.proforma.type !== 'hotel' && (
-                                  <div className="flex justify-between text-gray-300">
-                                    <span>Frais Livraison :</span>
-                                    <span className="font-medium text-white">{formatPrice(msg.proforma.deliveryFee ?? 3)}</span>
-                                  </div>
-                                )}
-                                <div className="flex justify-between font-bold border-t border-white/20 pt-1 text-white">
-                                  <span>{msg.proforma.type === 'hotel' ? 'Total Séjour :' : 'Total Commande :'}</span>
-                                  <span className="text-sm">
-                                    {formatPrice(Number(msg.proforma.totalPrice || msg.proforma.price) + (msg.proforma.type === 'hotel' ? 0 : Number(msg.proforma.deliveryFee ?? 3)))}
-                                  </span>
-                                </div>
-                                {msg.proforma.type !== 'hotel' && (
-                                  <div className="text-[11px] text-amber-300 flex justify-between pt-0.5">
-                                    <span>À régler au livreur :</span>
-                                    <span className="font-bold">{formatPrice(msg.proforma.totalPrice || msg.proforma.price)}</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              {msg.proforma.status === 'paid' && (
-                                <div className="mt-2 pt-2 border-t border-white/20 flex flex-col gap-1.5">
-                                  <div className="flex items-center justify-between text-xs bg-black/30 p-2 rounded-lg">
-                                    <span className="font-semibold text-white">
-                                      Commande #{msg.proforma.orderId ? msg.proforma.orderId.substring(0, 12) : 'Validée'}
-                                    </span>
-                                    <span className="text-[10px] bg-green-500/20 text-green-300 px-1.5 py-0.5 rounded font-bold">
-                                      Transmise aux livreurs
-                                    </span>
-                                  </div>
-                                  <Link
-                                    href="/supplier/orders"
-                                    className="w-full bg-white/20 hover:bg-white/30 text-white py-1.5 px-2.5 rounded-lg text-xs font-semibold text-center transition-colors flex items-center justify-center gap-1.5"
-                                  >
-                                    <Package size={13} />
-                                    <span>Gérer dans Commandes</span>
-                                  </Link>
-                                </div>
-                              )}
-                            </div>
-                          ) : (
-                            <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Input Area */}
-              <div className="p-4 border-t border-white/10 bg-black/20 flex flex-col space-y-3">
-                {showProformaForm && (
-                  <form onSubmit={handleSendProforma} className="bg-white/5 p-4 rounded-xl border border-primary/30 flex flex-col space-y-3 animate-fade-in">
-                    {/* En-tête avec informations du produit et stock */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
-                      <div>
-                        <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                          <span>{isHotelChat ? "🏨 Devis Réservation Séjour" : "📄 Générateur de Facture Proforma"}</span>
-                        </h4>
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          Créez une facture proforma personnalisée pour votre client.
-                        </p>
-                      </div>
-
-                      {!isHotelChat && currentProductStock !== null && (
-                        <div>
-                          {currentProductStock <= 0 ? (
-                            <span className="text-xs px-2.5 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/40 font-bold flex items-center gap-1">
-                              🔴 Rupture Totale (0 pièce en stock)
-                            </span>
-                          ) : currentProductStock < 10 ? (
-                            <span className="text-xs px-2.5 py-1 rounded-full bg-red-500/15 text-red-300 border border-red-500/30 font-bold flex items-center gap-1">
-                              ⚠️ Moins de 10 pcs ({currentProductStock} disponibles)
-                            </span>
-                          ) : (
-                            <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-bold flex items-center gap-1">
-                              🟢 En stock ({currentProductStock} pièces disponibles)
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Sélecteur de produit dans le magasin */}
-                    {!isHotelChat && supplierProducts.length > 0 && (
-                      <div>
-                        <label className="block text-xs text-gray-300 mb-1 font-medium">
-                          Sélectionner l'article du magasin :
-                        </label>
-                        <select
-                          value={selectedProductId}
-                          onChange={(e) => handleSelectProduct(e.target.value)}
-                          className="w-full bg-black/40 border border-white/20 rounded-xl px-3 py-2 text-white text-xs focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
-                          <option value="">-- Article sur mesure / Saisie manuelle --</option>
-                          {supplierProducts.map((p) => {
-                            const pTitle = p.title?.fr || p.title?.en || p.title || p.name || p.productName || "Sans nom";
-                            const stk = Number(p.stock ?? 0);
-                            const price = Number(p.price ?? 0);
-                            return (
-                              <option key={p.id} value={p.id}>
-                                {stk <= 0 ? "🔴 [Épuisé 0 pc]" : stk < 10 ? `⚠️ [${stk} pcs]` : `🟢 [${stk} pcs]`} {pTitle} — ${price.toFixed(2)}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-                    )}
-
-                    {/* Désignation de l'article */}
-                    <div>
-                      <label className="block text-xs text-gray-300 mb-1 font-medium">
-                        {isHotelChat ? "Nom de l'Hôtel / Type de Chambre" : "Désignation de l'article"}
-                      </label>
-                      <input
-                        type="text"
-                        value={proformaProductName}
-                        onChange={(e) => setProformaProductName(e.target.value)}
-                        placeholder="Ex: iPhone 13 128GB Bleu ou Chambre Deluxe"
-                        className="w-full bg-black/30 border border-white/15 rounded-xl px-3.5 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                        required
-                      />
-                    </div>
-
-                    {/* Si le produit est en rupture de stock */}
-                    {!isHotelChat && currentProductStock !== null && currentProductStock <= 0 && (
-                      <div className="p-3 bg-red-500/20 border border-red-500/40 rounded-xl text-xs text-red-200 flex items-center gap-2">
-                        <span>🔴</span>
-                        <span>
-                          <strong>Produit épuisé :</strong> Ce produit a 0 pièce en stock. Veuillez choisir un autre produit ou réapprovisionner votre magasin.
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Alerte si la quantité saisie dépasse le stock */}
-                    {!isHotelChat && currentProductStock !== null && currentProductStock > 0 && proformaQuantity > currentProductStock && (
-                      <div className="p-3 bg-red-500/20 border border-red-500/40 rounded-xl text-xs text-red-200 flex items-center gap-2">
-                        <span>⚠️</span>
-                        <span>
-                          <strong>Stock insuffisant :</strong> Vous demandez <strong>{proformaQuantity} pièces</strong> alors qu'il n'y a que <strong>{currentProductStock} pièce(s)</strong> disponibles en magasin.
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Champs de saisie : Quantité & Prix unitaire */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-gray-300 mb-1 font-medium">
-                          {isHotelChat ? "Nombre de Nuitées" : "Quantité demandée (Pièces)"}
-                        </label>
-                        <input 
-                          type="number" 
-                          min="1" 
-                          max={isHotelChat ? 365 : (currentProductStock !== null && currentProductStock > 0 ? currentProductStock : undefined)}
-                          value={proformaQuantity} 
-                          onChange={e => setProformaQuantity(parseInt(e.target.value) || 1)} 
-                          className={`w-full bg-black/30 border rounded-xl px-3.5 py-2 text-white text-sm focus:outline-none focus:ring-2 ${
-                            !isHotelChat && currentProductStock !== null && proformaQuantity > currentProductStock
-                              ? "border-red-500 ring-1 ring-red-500"
-                              : "border-white/15 focus:ring-primary"
-                          }`} 
-                          required 
-                        />
-                        {!isHotelChat && currentProductStock !== null && (
-                          <span className="text-[11px] text-gray-400 mt-1 block">
-                            Stock max disponible : <strong>{currentProductStock} pièce(s)</strong>
-                          </span>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="block text-xs text-gray-300 mb-1 font-medium">
-                          {isHotelChat ? "Tarif Total Séjour ($)" : "Prix Unitaire ($ / pièce)"}
-                        </label>
-                        <input 
-                          type="number" 
-                          step="0.01"
-                          min="0.01" 
-                          value={proformaUnitPrice || ""} 
-                          onChange={e => setProformaUnitPrice(parseFloat(e.target.value) || 0)} 
-                          placeholder="ex: 5.00"
-                          className="w-full bg-black/30 border border-white/15 rounded-xl px-3.5 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary" 
-                          required 
-                        />
-                        <span className="text-[11px] text-gray-400 mt-1 block">
-                          Prix par pièce
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Bloc de calcul automatique du total */}
-                    <div className="bg-black/30 border border-white/10 rounded-xl p-3 text-xs space-y-1.5">
-                      <div className="flex justify-between text-gray-300">
-                        <span>Sous-total articles :</span>
-                        <span className="font-bold text-white">
-                          {proformaQuantity} pc(s) × ${Number(proformaUnitPrice || 0).toFixed(2)} = <strong className="text-emerald-400">${calculatedTotalProducts.toFixed(2)}</strong>
-                        </span>
-                      </div>
-                      {!isHotelChat && (
-                        <div className="flex justify-between text-gray-300">
-                          <span>Frais de livraison Rayons (payé d'avance) :</span>
-                          <span className="font-medium text-white">$3.00</span>
-                        </div>
-                      )}
-                      <div className="border-t border-white/10 pt-1.5 flex justify-between font-bold text-sm text-white">
-                        <span>Total Général Proforma :</span>
-                        <span className="text-primary-light">
-                          ${(calculatedTotalProducts + (isHotelChat ? 0 : 3)).toFixed(2)}
-                        </span>
-                      </div>
-                      {!isHotelChat && (
-                        <div className="text-[11px] text-amber-300 flex justify-between pt-0.5">
-                          <span>À encaisser en espèces par le livreur :</span>
-                          <span className="font-bold">${calculatedTotalProducts.toFixed(2)}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Boutons d'action */}
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
-                      <div className="text-[11px] text-gray-400">
-                        {!isHotelChat && proformaUnitPrice <= 0 && (
-                          <span className="text-amber-300">⚠️ Indiquez un prix unitaire supérieur à 0.</span>
-                        )}
-                        {!isHotelChat && currentProductStock !== null && currentProductStock <= 0 && (
-                          <span className="text-red-400">🔴 Produit épuisé (stock = 0).</span>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-end gap-2.5">
-                        <button 
-                          type="button" 
-                          onClick={() => setShowProformaForm(false)} 
-                          className="text-gray-400 hover:text-white px-3 py-2 text-xs font-semibold rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
-                        >
-                          Annuler
-                        </button>
-                        <button 
-                          type="submit" 
-                          disabled={
-                            isSubmittingProforma ||
-                            (!isHotelChat && currentProductStock !== null && (
-                              currentProductStock <= 0 || 
-                              proformaQuantity > currentProductStock || 
-                              proformaUnitPrice <= 0
-                            )) ||
-                            (!isHotelChat && currentProductStock === null && proformaUnitPrice <= 0)
-                          }
-                          className="bg-primary hover:bg-primary-light text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
-                        >
-                          {isSubmittingProforma ? (
-                            <>
-                              <Loader2 size={14} className="animate-spin" />
-                              <span>Envoi en cours...</span>
-                            </>
-                          ) : (
-                            <span>{isHotelChat ? "Envoyer Devis Séjour" : `Envoyer Proforma ($${calculatedTotalProducts.toFixed(2)})`}</span>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </form>
-                )}
-                
-                {subscriptionInfo.isBlocked ? (
-                  <div className="p-4 bg-red-500/15 border border-red-500/30 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-3 text-red-300">
-                    <div className="flex items-center gap-2 text-xs">
-                      <Lock className="w-4 h-4 text-red-400 shrink-0" />
-                      <span>Messagerie suspendue : Dépôt mensuel impayé. Veuillez régulariser votre compte pour converser avec vos clients.</span>
-                    </div>
-                    <Link href="/supplier/finance" className="px-3.5 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold shrink-0 transition-colors shadow-sm">
-                      Régulariser ($50)
-                    </Link>
-                  </div>
-                ) : (
-                  <div className="flex space-x-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!showProformaForm) {
-                          if (!selectedProductId && activeChat?.productId) {
-                            handleSelectProduct(activeChat.productId);
-                          } else if (!selectedProductId && supplierProducts.length > 0) {
-                            handleSelectProduct(supplierProducts[0].id);
-                          }
-                        }
-                        setShowProformaForm(!showProformaForm);
-                      }}
-                      className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-xl transition-colors border border-white/10 flex items-center justify-center text-base cursor-pointer"
-                      title={isHotelChat ? "Générer Devis Séjour Hôtel" : "Générer Facture Proforma"}
-                    >
-                      {isHotelChat ? "🏨" : "📄"}
-                    </button>
-                    <form onSubmit={handleSendMessage} className="flex flex-1 space-x-2">
-                      <input
-                        type="text"
-                        value={newChatMessage}
-                        onChange={(e) => setNewChatMessage(e.target.value)}
-                        placeholder={isHotelChat ? "Répondre au client pour son séjour..." : "Écrivez votre message..."}
-                        className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-primary placeholder-gray-500 transition-all"
-                      />
-                      <button
-                        type="submit"
-                        disabled={!newChatMessage.trim()}
-                        className="bg-primary hover:bg-primary-light text-white p-3 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                      >
-                        <Send size={20} />
-                      </button>
-                    </form>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    )}
-  </div>
-);
+      )}
+    </div>
+  );
 }

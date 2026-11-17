@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
-import { onAuthStateChanged, User, signOut as firebaseSignOut, getIdTokenResult } from "firebase/auth";
+import { onAuthStateChanged, User, signOut as firebaseSignOut, getIdTokenResult, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { doc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
@@ -33,6 +33,13 @@ const WARN_BEFORE_MS = 60 * 1000; // avertissement 1 min avant
 
 function getTimeoutMs(role: string | undefined): number | null {
   if (!role) return null;
+  // Sur téléphone / appareil mobile, garder le compte connecté en permanence (pas de déconnexion d'inactivité)
+  if (typeof window !== "undefined") {
+    const isMobileDevice =
+      /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+      window.matchMedia?.("(max-width: 768px)")?.matches;
+    if (isMobileDevice) return null;
+  }
   const r = role.toLowerCase();
   if (r === "super_admin" || r === "admin" || r === "sub_admin") return 15 * 60 * 1000;
   if (r === "supplier" || r === "sub_supplier") return 30 * 60 * 1000;
@@ -183,9 +190,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [user, userData?.role, showWarning]);
 
-  // ── Auth state listener (Optimized ultra-fast sync) ──
+  // ── Auth state listener (Optimized ultra-fast sync + persistent mobile session) ──
   useEffect(() => {
     let unsubscribeUserDoc: (() => void) | null = null;
+
+    if (auth) {
+      setPersistence(auth, browserLocalPersistence).catch(() => {});
+    }
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);

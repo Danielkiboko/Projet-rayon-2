@@ -9,6 +9,7 @@ import {
 } from "@/lib/notifications";
 import { adminDb } from "@/lib/firebase-admin";
 import { SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
+import { dispatchAccountNotification } from "@/lib/pushNotifications";
 
 const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -82,6 +83,19 @@ export async function POST(req: Request) {
 
     // 1. ORDER_CREATED : Notify Supplier
     if (action === "ORDER_CREATED") {
+      if (effectiveSupplierId) {
+        tasks.push(
+          dispatchAccountNotification({
+            userId: String(effectiveSupplierId),
+            supplierId: String(effectiveSupplierId),
+            type: "order",
+            title: `💰 Nouvelle commande Rayons (${category || "Général"})`,
+            message: `Vous avez reçu la commande #${String(orderId || "").slice(-6)}.`,
+            link: effectiveSupplierId === "admin" ? "/admin/orders" : "/supplier/orders",
+            tag: `notif-order-${orderId}`,
+          })
+        );
+      }
       if (supplierEmail) {
         tasks.push(sendEmail(
           supplierEmail, 
@@ -96,6 +110,19 @@ export async function POST(req: Request) {
 
     // 2. ORDER_STATUS_CHANGED : Notify Client
     if (action === "ORDER_STATUS_CHANGED" && status) {
+      if (effectiveClientId && effectiveClientId !== "GUEST") {
+        tasks.push(
+          dispatchAccountNotification({
+            userId: String(effectiveClientId),
+            clientId: String(effectiveClientId),
+            type: "order",
+            title: "📦 Mise à jour de votre commande Rayons",
+            message: `Le statut de votre commande #${String(orderId || "").slice(-6)} est passé à : ${status}.`,
+            link: orderId ? `/order/${orderId}/tracking` : "/orders",
+            tag: `notif-status-${orderId}-${status}`,
+          })
+        );
+      }
       if (clientEmail) {
         tasks.push(sendEmail(
           clientEmail,
@@ -111,6 +138,18 @@ export async function POST(req: Request) {
     // 3. NEW_VISIT_REQUEST : Notify Supplier
     if (action === "NEW_VISIT_REQUEST") {
       const propertyTitle = body.propertyTitle || "Un bien immobilier";
+      if (effectiveSupplierId) {
+        tasks.push(
+          dispatchAccountNotification({
+            userId: String(effectiveSupplierId),
+            supplierId: String(effectiveSupplierId),
+            type: "booking",
+            title: "🏡 Nouvelle demande de visite !",
+            message: `Un client souhaite visiter : ${propertyTitle}. Consultez vos messages.`,
+            link: "/supplier/messages",
+          })
+        );
+      }
       if (supplierEmail) {
         tasks.push(sendEmail(
           supplierEmail,
@@ -123,8 +162,20 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. PROPERTY_APPROVED : Notify Supplier
+    // 4. PROPERTY_APPROVED : Notify Supplier
     if (action === "PROPERTY_APPROVED") {
+      if (effectiveSupplierId) {
+        tasks.push(
+          dispatchAccountNotification({
+            userId: String(effectiveSupplierId),
+            supplierId: String(effectiveSupplierId),
+            type: "system",
+            title: "✅ Votre annonce immobilière est publiée",
+            message: "Votre bien immobilier a été approuvé et est désormais visible sur Rayons.net.",
+            link: "/supplier/properties",
+          })
+        );
+      }
       if (supplierEmail) {
         tasks.push(sendEmail(
           supplierEmail,

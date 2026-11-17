@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { 
-  X, MapPin, Maximize, BedDouble, Bath, Hotel, 
-  CalendarCheck, MessageSquare, Zap, Wifi, Waves, 
+import {
+  X, MapPin, Maximize, BedDouble, Bath, Hotel,
+  CalendarCheck, MessageSquare, Zap, Wifi, Waves,
   Shield, Sparkles, ChevronLeft, ChevronRight, CheckCircle2,
   Star
 } from "lucide-react";
@@ -35,7 +35,7 @@ export default function PropertyDetailModal({
 
   const title = property.title?.[lang] || property.title?.fr || property.title;
   const description = property.description || "Aucune description détaillée fournie pour ce bien.";
-  
+
   const trans = (property.typeTransaction || "").toLowerCase().trim();
   const isHotel = property.immoBranch === "hotel" || property.type === "hotel" || trans.includes("hotel") || trans.includes("nuit") || trans.includes("réservation") || !!property.hotelDetails;
   const isSale = !isHotel && (trans.includes("vent") || trans.includes("vendre") || trans === "sale");
@@ -66,13 +66,12 @@ export default function PropertyDetailModal({
           {/* Top Bar with Title & Close */}
           <div className="flex items-center justify-between p-3.5 sm:p-5 border-b border-gray-100 bg-gray-50/80 sticky top-0 z-20 gap-2">
             <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 min-w-0">
-              <span className={`px-3 py-1 text-xs font-bold uppercase rounded-full tracking-wider ${
-                isHotel 
+              <span className={`px-3 py-1 text-xs font-bold uppercase rounded-full tracking-wider ${isHotel
                   ? "bg-amber-100 text-amber-900 border border-amber-300"
-                  : isSale 
-                  ? "bg-emerald-100 text-emerald-900 border border-emerald-300"
-                  : "bg-blue-100 text-blue-900 border border-blue-300"
-              }`}>
+                  : isSale
+                    ? "bg-emerald-100 text-emerald-900 border border-emerald-300"
+                    : "bg-blue-100 text-blue-900 border border-blue-300"
+                }`}>
                 {isHotel ? "🏨 Établissement Hôtelier" : isSale ? "🏠 Habitation À Vendre" : "🏠 Habitation À Louer"}
               </span>
               {property.status === "Disponible" && (
@@ -146,11 +145,10 @@ export default function PropertyDetailModal({
                     <button
                       key={idx}
                       onClick={() => setActivePhotoIndex(idx)}
-                      className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
-                        activePhotoIndex === idx
+                      className={`relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${activePhotoIndex === idx
                           ? "border-amber-500 scale-95 shadow-md"
                           : "border-transparent opacity-60 hover:opacity-100"
-                      }`}
+                        }`}
                     >
                       <img src={ph} alt="" className="w-full h-full object-cover" />
                     </button>
@@ -311,11 +309,10 @@ export default function PropertyDetailModal({
                 onClose();
                 onBook(property);
               }}
-              className={`flex-1 py-3 sm:py-3.5 px-3 text-white font-bold text-xs sm:text-sm rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg ${
-                isHotel
+              className={`flex-1 py-3 sm:py-3.5 px-3 text-white font-bold text-xs sm:text-sm rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg ${isHotel
                   ? "bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600"
                   : "bg-gray-900 hover:bg-black"
-              }`}
+                }`}
             >
               <CalendarCheck size={17} className="shrink-0" />
               <span className="truncate">{isHotel ? "Réserver une Nuitée" : "Prendre RDV / Visiter ce bien"}</span>

@@ -20,6 +20,7 @@ import {
   normalizeReferralCode,
 } from "./referralConfig";
 import { commissionEmail, newReferralEmail, payoutEmail } from "./referralEmails";
+import { dispatchAccountNotification } from "./pushNotifications";
 
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -43,23 +44,19 @@ function isExcludedAccount(d: any) {
   );
 }
 
-/** Notification in-app (cloche du dashboard fournisseur). */
-export async function pushSupplierNotification(supplierId: string, title: string, message: string, link = "/supplier/referrals") {
+/** Notification in-app + Push Mobile (cloche du dashboard fournisseur / partenaire). */
+export async function pushSupplierNotification(supplierId: string, title: string, message: string, link = "/partner") {
   try {
-    await adminDb.collection("inapp_notifications").add({
+    await dispatchAccountNotification({
       userId: supplierId,
-      clientId: supplierId,
       supplierId,
       type: "system",
       title,
       message,
       link,
-      read: false,
-      time: Date.now(),
-      createdAt: FieldValue.serverTimestamp(),
     });
   } catch (e) {
-    console.warn("[REFERRAL] in-app notification failed:", e);
+    console.warn("[REFERRAL] in-app/push notification failed:", e);
   }
 }
 

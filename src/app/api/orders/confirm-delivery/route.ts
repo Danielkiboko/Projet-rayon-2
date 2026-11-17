@@ -3,6 +3,7 @@ import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendSMS, sendEmail, getOrderStatusEmail, getOrderStatusSMS } from "@/lib/notifications";
 import { getServerCaller, canActForSupplier } from "@/lib/serverAuth";
+import { dispatchAccountNotification } from "@/lib/pushNotifications";
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,6 +28,7 @@ export async function POST(req: NextRequest) {
     const orderRef = adminDb.collection("orders").doc(orderId);
     let clientPhoneToNotify = "";
     let clientEmailToNotify = "";
+    let clientIdToNotify = "";
     const orderNum = orderId.substring(0, 8).toUpperCase();
     let suppliersAffected: string[] = [];
     let alreadyCompleted = false;
@@ -57,6 +59,7 @@ export async function POST(req: NextRequest) {
 
       clientPhoneToNotify = orderData.clientPhone || orderData.customerInfo?.phone || orderData.deliveryDetails?.recipientPhone || "";
       clientEmailToNotify = orderData.clientEmail || orderData.customerInfo?.email || "";
+      clientIdToNotify = orderData.clientId || "";
 
       const finalAmount = amountCollected !== undefined 
         ? Number(amountCollected) 
@@ -169,9 +172,31 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 3. Notification en arrière-plan au client
+    // 3. Notification en arrière-plan au client et aux fournisseurs (SMS, Email & Push Mobile)
     Promise.resolve().then(async () => {
       try {
+        if (clientIdToNotify && clientIdToNotify !== "GUEST") {
+          await dispatchAccountNotification({
+            userId: clientIdToNotify,
+            clientId: clientIdToNotify,
+            type: "delivery",
+            title: "✅ Commande livrée avec succès !",
+            message: `Votre commande #${orderNum} a été remise et confirmée. Merci pour votre confiance sur Rayons.net !`,
+            link: `/order/${orderId}/tracking`,
+            tag: `delivered-cli-${orderId}`,
+          });
+        }
+        for (const sId of suppliersAffected) {
+          await dispatchAccountNotification({
+            userId: sId,
+            supplierId: sId,
+            type: "delivery",
+            title: "💰 Vente livrée & encaissée !",
+            message: `La commande #${orderNum} a été livrée au client et enregistrée dans votre livre de caisse.`,
+            link: sId === "admin" ? "/admin/finance" : "/supplier/finance",
+            tag: `delivered-sup-${orderId}-${sId}`,
+          });
+        }
         if (clientPhoneToNotify) {
           const smsText = `Rayon : Votre commande #${orderNum} a été livrée avec succès ! Merci de votre confiance.`;
           await sendSMS(clientPhoneToNotify, smsText);

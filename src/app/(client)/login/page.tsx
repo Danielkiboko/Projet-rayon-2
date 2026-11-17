@@ -11,17 +11,29 @@ import { useAuth } from "@/context/AuthContext";
 import { useEffect, Suspense } from "react";
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
 import GoogleAuthButton from "@/modules/shared/components/auth/GoogleAuthButton";
+import { getBoundPhoneAccount, BoundAccountInfo } from "@/modules/shared/components/notifications/MobilePushManager";
 
 function LoginContent() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [boundAccount, setBoundAccount] = useState<BoundAccountInfo | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get("redirect") || "/dashboard";
   const reason = searchParams.get("reason");
   const { user, userData, loading } = useAuth();
+
+  useEffect(() => {
+    const savedBound = getBoundPhoneAccount();
+    if (savedBound) {
+      setBoundAccount(savedBound);
+      if (savedBound.email) {
+        setEmail((prev) => prev || savedBound.email);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (reason === "inactivity") {
@@ -111,6 +123,28 @@ function LoginContent() {
             <h1 className="text-3xl font-heading font-extrabold tracking-tight text-[#0F1D27]">Bon retour</h1>
             <p className="text-gray-500 text-sm">Connectez-vous pour accéder à votre console Rayons.net.</p>
           </div>
+
+          {boundAccount && (
+            <div className="mb-5 p-3.5 bg-[#0F1D27] text-white rounded-xl border border-[#C7D300]/30 flex items-center justify-between gap-3 shadow-sm">
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#C7D300] block">
+                  📱 Compte lié à cet appareil (Push actif)
+                </span>
+                <p className="text-xs font-bold truncate mt-0.5">
+                  {boundAccount.displayName} ({boundAccount.email})
+                </p>
+              </div>
+              {email !== boundAccount.email && boundAccount.email && (
+                <button
+                  type="button"
+                  onClick={() => setEmail(boundAccount.email)}
+                  className="px-2.5 py-1 rounded-lg bg-[#C7D300] text-[#0F1D27] text-[11px] font-extrabold shrink-0 cursor-pointer"
+                >
+                  Utiliser
+                </button>
+              )}
+            </div>
+          )}
 
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl">

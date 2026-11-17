@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb, adminAuth } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { getDeliveryFeeForCommune } from "@/lib/kinshasaDelivery";
+import { dispatchAccountNotification } from "@/lib/pushNotifications";
 
 export async function POST(req: NextRequest) {
   try {
@@ -189,41 +190,39 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 8. Notifications in-app pour le client et les fournisseurs
-    const notifBatch = adminDb.batch();
+    // 8. Notifications in-app + Push Mobile pour le client et les fournisseurs
+    const pushTasks: Promise<any>[] = [];
     if (clientId !== "GUEST") {
-      const clientNotifRef = adminDb.collection("inapp_notifications").doc();
-      notifBatch.set(clientNotifRef, {
-        userId: clientId,
-        clientId,
-        type: "order",
-        title: "Commande validée avec succès 🎉",
-        message: `Votre commande #${orderId.slice(-6)} (${primaryTitle} - $${totalAmount.toFixed(2)}) est enregistrée. Un livreur va prendre en charge la livraison à ${commune}.`,
-        link: `/order/${orderId}/tracking`,
-        read: false,
-        time: Date.now(),
-        createdAt: FieldValue.serverTimestamp()
-      });
+      pushTasks.push(
+        dispatchAccountNotification({
+          userId: clientId,
+          clientId,
+          type: "order",
+          title: "Commande validée avec succès 🎉",
+          message: `Votre commande #${orderId.slice(-6)} (${primaryTitle} - $${totalAmount.toFixed(2)}) est enregistrée. Un livreur va prendre en charge la livraison à ${commune}.`,
+          link: `/order/${orderId}/tracking`,
+          tag: `order-client-${orderId}`,
+        })
+      );
     }
 
     for (const supId of supplierIds) {
-      if (supId && supId !== "admin") {
-        const supNotifRef = adminDb.collection("inapp_notifications").doc();
-        notifBatch.set(supNotifRef, {
-          userId: supId,
-          supplierId: supId,
-          type: "order",
-          title: "Nouvelle commande reçue 📦",
-          message: `Nouvelle commande #${orderId.slice(-6)} de ${clientName} (${commune}) pour un montant de $${subtotal.toFixed(2)}.`,
-          link: "/supplier/orders",
-          read: false,
-          time: Date.now(),
-          createdAt: FieldValue.serverTimestamp()
-        });
+      if (supId) {
+        pushTasks.push(
+          dispatchAccountNotification({
+            userId: supId,
+            supplierId: supId,
+            type: "order",
+            title: "💰 Nouvelle vente ! Commande reçue 📦",
+            message: `Nouvelle commande #${orderId.slice(-6)} de ${clientName} (${commune}) pour $${subtotal.toFixed(2)} (${primaryTitle}).`,
+            link: supId === "admin" ? "/admin/orders" : "/supplier/orders",
+            tag: `order-sup-${orderId}-${supId}`,
+          })
+        );
       }
     }
 
-    await notifBatch.commit().catch((err: any) => console.warn("[OrderCreate] Notification batch warn:", err));
+    await Promise.allSettled(pushTasks);
 
     return NextResponse.json({
       success: true,

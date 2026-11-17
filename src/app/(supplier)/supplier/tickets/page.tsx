@@ -4,16 +4,16 @@ import { useEffect, useState } from "react";
 import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
-import { 
-  LifeBuoy, 
-  Plus, 
-  Search, 
-  Clock, 
-  CheckCircle2, 
-  AlertCircle, 
-  Inbox, 
-  ShieldCheck, 
-  User 
+import {
+  LifeBuoy,
+  Plus,
+  Search,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Inbox,
+  ShieldCheck,
+  User
 } from "lucide-react";
 import { Ticket } from "@/types/tickets";
 import { TicketConversation } from "@/modules/tickets/components/TicketConversation";
@@ -144,9 +144,8 @@ export default function SupplierTicketsPage() {
         <div className="flex-1 flex overflow-hidden">
           {/* Left Column: List */}
           <div
-            className={`w-full lg:w-96 border-r border-white/10 overflow-y-auto flex flex-col bg-[#0F1D27]/80 ${
-              selectedTicketId ? "hidden lg:flex" : "flex"
-            }`}
+            className={`w-full lg:w-96 border-r border-white/10 overflow-y-auto flex flex-col bg-[#0F1D27]/80 ${selectedTicketId ? "hidden lg:flex" : "flex"
+              }`}
           >
             {loading ? (
               <div className="p-8 text-center text-gray-500 text-sm">Chargement...</div>
@@ -172,11 +171,10 @@ export default function SupplierTicketsPage() {
                   <div
                     key={t.id}
                     onClick={() => setSelectedTicketId(t.id)}
-                    className={`p-4 border-b border-white/5 cursor-pointer transition-colors relative ${
-                      isSelected
+                    className={`p-4 border-b border-white/5 cursor-pointer transition-colors relative ${isSelected
                         ? "bg-[#C7D300]/10 border-l-4 border-l-[#C7D300]"
                         : "hover:bg-white/5"
-                    }`}
+                      }`}
                   >
                     {isUnread && (
                       <span className="absolute top-4 right-4 w-2.5 h-2.5 rounded-full bg-[#C7D300] animate-pulse" />
@@ -190,11 +188,10 @@ export default function SupplierTicketsPage() {
                         {category.label}
                       </span>
                       <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 font-semibold ${
-                          t.creatorRole === "supplier"
+                        className={`text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1 font-semibold ${t.creatorRole === "supplier"
                             ? "bg-amber-500/10 text-amber-400"
                             : "bg-blue-500/10 text-blue-400"
-                        }`}
+                          }`}
                       >
                         {t.creatorRole === "supplier" ? "Envoyé par vous" : "Client"}
                       </span>

@@ -1,15 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, Animated,
-  ActivityIndicator, Alert, BackHandler, Image,
+  ActivityIndicator, Alert, BackHandler, Image, Vibration,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { FontAwesome5 } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { onAuthStateChanged, signInWithEmailAndPassword, sendPasswordResetEmail, signOut, User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { auth, db, isFirebaseConfigured } from './src/lib/firebase';
 import { DriverProfile } from './src/lib/orders';
+
+const BOUND_DRIVER_KEY = 'rayons_bound_driver_v1';
 import DashboardScreen from './src/screens/DashboardScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
@@ -70,7 +73,22 @@ export default function App() {
 function Root() {
   const [booting, setBooting] = useState(true);
   const [driver, setDriver] = useState<DriverProfile | null>(null);
+  const [boundDriver, setBoundDriver] = useState<{ profile: DriverProfile; email: string } | null>(null);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const seenNotifIds = useRef<Set<string>>(new Set());
+
+  // Charger le compte lié au téléphone même en cas de déconnexion
+  useEffect(() => {
+    AsyncStorage.getItem(BOUND_DRIVER_KEY)
+      .then((raw) => {
+        if (raw) {
+          try {
+            setBoundDriver(JSON.parse(raw));
+          } catch {}
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Restaure la session au démarrage (persistance AsyncStorage)
   useEffect(() => {
@@ -92,9 +110,45 @@ function Root() {
         return;
       }
       setDriver(profile);
+      const boundPayload = { profile, email: user.email || '' };
+      setBoundDriver(boundPayload);
+      AsyncStorage.setItem(BOUND_DRIVER_KEY, JSON.stringify(boundPayload)).catch(() => {});
       setBooting(false);
     });
   }, []);
+
+  // Écoute des notifications du compte lié au téléphone (même déconnecté)
+  useEffect(() => {
+    const targetUid = driver?.uid || boundDriver?.profile?.uid;
+    if (!isFirebaseConfigured || !targetUid) return;
+
+    const mountTime = Date.now();
+    const qNotifs = query(
+      collection(db, 'inapp_notifications'),
+      where('userId', '==', targetUid),
+      limit(15)
+    );
+
+    const unsub = onSnapshot(
+      qNotifs,
+      (snap) => {
+        snap.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            const d = change.doc.data();
+            const tMs = Number(d.time) || (d.createdAt?.seconds ? d.createdAt.seconds * 1000 : 0);
+            if (!d.read && tMs >= mountTime - 5000 && !seenNotifIds.current.has(change.doc.id)) {
+              seenNotifIds.current.add(change.doc.id);
+              Vibration.vibrate([0, 300, 150, 300]);
+              Alert.alert(d.title || 'Notification Rayons.net', d.message || '');
+            }
+          }
+        });
+      },
+      () => {}
+    );
+
+    return () => unsub();
+  }, [driver?.uid, boundDriver?.profile?.uid]);
 
   // Bouton retour Android : revenir au tableau de bord depuis une course
   useEffect(() => {
@@ -203,15 +257,21 @@ function Root() {
     );
   }
 
-  return <LoginScreen />;
+  return <LoginScreen boundDriver={boundDriver} />;
 }
 
-function LoginScreen() {
-  const [email, setEmail] = useState('');
+function LoginScreen({ boundDriver }: { boundDriver?: { profile: DriverProfile; email: string } | null }) {
+  const [email, setEmail] = useState(boundDriver?.email || '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const passwordRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (boundDriver?.email && !email) {
+      setEmail(boundDriver.email);
+    }
+  }, [boundDriver?.email]);
 
   // Animations
   const fadeAnimHeader = useRef(new Animated.Value(0)).current;

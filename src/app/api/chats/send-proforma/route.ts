@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { getServerCaller, canActForSupplier } from "@/lib/serverAuth";
+import { dispatchAccountNotification } from "@/lib/pushNotifications";
 
 export async function POST(req: NextRequest) {
   try {
@@ -141,6 +142,27 @@ export async function POST(req: NextRequest) {
       },
       { merge: true }
     );
+
+    // Notification Push + In-App au client destinataire de la facture proforma
+    try {
+      const chatDoc = await adminDb.collection("chats").doc(chatId).get();
+      const chatData = chatDoc.data() || {};
+      if (chatData.clientId) {
+        await dispatchAccountNotification({
+          userId: chatData.clientId,
+          clientId: chatData.clientId,
+          type: "chat",
+          title: isHotel
+            ? `🏨 Devis Séjour reçu (${pName})`
+            : `📄 Facture Proforma reçue (${qty}x ${pName})`,
+          message: `Montant : $${calculatedTotalProducts.toFixed(2)} — Ouvrez la discussion pour valider et régler.`,
+          link: `/dashboard?tab=messages&chatId=${encodeURIComponent(chatId)}`,
+          tag: `proforma-${chatId}`,
+        });
+      }
+    } catch (pushErr) {
+      console.warn("[send-proforma] Push notification warning:", pushErr);
+    }
 
     return NextResponse.json({
       success: true,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { getServerCaller } from "@/lib/serverAuth";
+import { dispatchAccountNotification } from "@/lib/pushNotifications";
 
 export async function POST(req: NextRequest) {
   try {
@@ -192,9 +193,39 @@ export async function POST(req: NextRequest) {
       return {
         alreadyPaid: false,
         orderId,
-        proforma
+        proforma,
+        supplierId,
+        totalP,
+        qty,
+        isHotel
       };
     });
+
+    if (!result.alreadyPaid) {
+      const pName = result.proforma?.productName || "Produit";
+      const supId = (result as any).supplierId || "admin";
+      const totalVal = Number((result as any).totalP || 0).toFixed(2);
+      await Promise.allSettled([
+        dispatchAccountNotification({
+          userId: supId,
+          supplierId: supId,
+          type: "order",
+          title: "💰 Proforma réglée — Nouvelle vente !",
+          message: `${clientName || "Un client"} a validé la facture proforma #${result.orderId.slice(-6)} (${pName} — $${totalVal}).`,
+          link: supId === "admin" ? "/admin/orders" : "/supplier/orders",
+          tag: `proforma-paid-sup-${result.orderId}`,
+        }),
+        dispatchAccountNotification({
+          userId: clientId,
+          clientId,
+          type: "order",
+          title: "Commande Proforma confirmée 🎉",
+          message: `Votre commande #${result.orderId.slice(-6)} (${pName} — $${totalVal}) est validée et transmise à la livraison.`,
+          link: `/order/${result.orderId}/tracking`,
+          tag: `proforma-paid-cli-${result.orderId}`,
+        }),
+      ]);
+    }
 
     return NextResponse.json({
       success: true,

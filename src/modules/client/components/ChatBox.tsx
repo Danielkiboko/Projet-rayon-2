@@ -111,6 +111,22 @@ export function ChatBox({
         unreadSupplier: true
       }, { merge: true });
 
+      // Déclencher la notification Push / In-App pour le destinataire
+      user.getIdToken().then((token) => {
+        fetch("/api/push/notify", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            eventType: "CHAT_MESSAGE",
+            chatId,
+            text: messageText,
+          }),
+        }).catch(() => {});
+      }).catch(() => {});
+
       scrollToBottom();
     } catch (error) {
       console.error("Erreur envoi message:", error);

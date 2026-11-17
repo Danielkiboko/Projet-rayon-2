@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { getServerCaller } from "@/lib/serverAuth";
+import { dispatchAccountNotification } from "@/lib/pushNotifications";
 
 function generateEntryNumber(): string {
   const year = new Date().getFullYear();
@@ -123,15 +124,14 @@ export async function POST(req: NextRequest) {
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      // 4. Notification in-app pour le partenaire
-      await adminDb.collection("inapp_notifications").add({
+      // 4. Notification in-app + Push Mobile pour le partenaire
+      await dispatchAccountNotification({
         userId: partnerId,
         type: "COMMISSION_CREDITED",
         title: `💰 +${numAmount} $ USD crédités sur votre compte`,
         message: `L'administration centrale Rayons.net vous a crédité une commission directe de ${numAmount} $ USD (${reason || "Bonus partenaire"}). Votre nouveau solde est de ${updatedBalance.toFixed(2)} $ USD.`,
         link: "/partner",
-        read: false,
-        createdAt: FieldValue.serverTimestamp(),
+        tag: `comm-credit-${refPiece}`,
       });
 
       return NextResponse.json({
