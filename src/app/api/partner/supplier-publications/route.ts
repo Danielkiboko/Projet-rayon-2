@@ -33,13 +33,14 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    // B. Via la collection users (referredBy ou referredByPartnerId)
-    const [usersSnap1, usersSnap2] = await Promise.all([
+    // B. Via la collection users (referredBy, referredByPartnerId ou createdBy)
+    const [usersSnap1, usersSnap2, usersSnap3] = await Promise.all([
       adminDb.collection("users").where("referredBy", "==", partnerId).get(),
       adminDb.collection("users").where("referredByPartnerId", "==", partnerId).get(),
+      adminDb.collection("users").where("createdBy", "==", partnerId).get(),
     ]);
 
-    [...usersSnap1.docs, ...usersSnap2.docs].forEach((doc: any) => {
+    [...usersSnap1.docs, ...usersSnap2.docs, ...usersSnap3.docs].forEach((doc: any) => {
       const d = doc.data();
       const sId = doc.id;
       const current = supplierMap.get(sId);

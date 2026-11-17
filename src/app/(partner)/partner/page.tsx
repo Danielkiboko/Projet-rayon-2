@@ -43,6 +43,9 @@ interface FilleulData {
   filleulId: string;
   filleulName: string;
   filleulEmail: string | null;
+  phone?: string | null;
+  rayon?: string | null;
+  subscriptionStatus?: string | null;
   code: string;
   totalCommissions: number;
   paymentsCount: number;
@@ -242,8 +245,9 @@ function PartnerDashboardContent() {
         password: "",
       });
 
-      // Rafraîchir les données
-      fetchPartnerData();
+      // Rafraîchir les données et afficher l'onglet Fournisseurs
+      await Promise.all([fetchPartnerData(), fetchSupplierPublications()]);
+      handleSelectTab("suppliers");
     } catch (err: any) {
       console.error("Erreur création boutique:", err);
       toast.error(err.message || "Impossible de créer le fournisseur.");
@@ -335,6 +339,21 @@ function PartnerDashboardContent() {
       connect: pubStats?.byRayon?.connect || 0,
       saveurs: pubStats?.byRayon?.saveurs || 0,
     };
+
+    // Si aucune publication n'est encore en ligne, répartir par rayon des boutiques recrutées
+    if (
+      rayonCounts.immo + rayonCounts.mode + rayonCounts.connect + rayonCounts.saveurs === 0 &&
+      Array.isArray(data?.filleuls)
+    ) {
+      data.filleuls.forEach((f: FilleulData) => {
+        const r = (f.rayon || "connect").toLowerCase();
+        if (r.includes("immo")) rayonCounts.immo++;
+        else if (r.includes("mode")) rayonCounts.mode++;
+        else if (r.includes("saveur") || r.includes("resto")) rayonCounts.saveurs++;
+        else rayonCounts.connect++;
+      });
+    }
+
     const totalByRayon = rayonCounts.immo + rayonCounts.mode + rayonCounts.connect + rayonCounts.saveurs || 1;
 
     return {
@@ -937,52 +956,92 @@ function PartnerDashboardContent() {
               </button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs text-gray-300">
-                <thead className="bg-black/20 text-gray-400 uppercase text-[10px] font-semibold border-b border-white/[0.06]">
-                  <tr>
-                    <th className="px-5 py-3.5">Boutique / Commerçant</th>
-                    <th className="px-5 py-3.5">Contact</th>
-                    <th className="px-5 py-3.5">Date Inscription</th>
-                    <th className="px-5 py-3.5">Paiements Validés</th>
-                    <th className="px-5 py-3.5 text-right">Commissions Rapportées</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/[0.04]">
-                  {data.filleuls.map((f: FilleulData) => (
-                    <tr key={f.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center font-bold text-xs shrink-0">
-                            {(f.filleulName || "F").charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <div className="font-semibold text-white">{f.filleulName}</div>
-                            <div className="text-[10px] text-gray-500 font-mono">ID: {f.filleulId.substring(0, 8)}...</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="text-gray-300">{f.filleulEmail || "—"}</span>
-                      </td>
-                      <td className="px-5 py-4 text-gray-400">
-                        {f.createdAt ? new Date(f.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/5 border border-white/10 text-gray-300">
-                          {f.paymentsCount} mois réglé(s)
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <span className="font-bold text-emerald-400 text-sm">
-                          +${Number(f.totalCommissions || 0).toFixed(2)}
-                        </span>
-                      </td>
+            <>
+              {/* Desktop Table (>= md) */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left text-xs text-gray-300">
+                  <thead className="bg-black/20 text-gray-400 uppercase text-[10px] font-semibold border-b border-white/[0.06]">
+                    <tr>
+                      <th className="px-5 py-3.5">Boutique / Commerçant</th>
+                      <th className="px-5 py-3.5">Rayon</th>
+                      <th className="px-5 py-3.5">Contact</th>
+                      <th className="px-5 py-3.5">Date Inscription</th>
+                      <th className="px-5 py-3.5">Paiements Validés</th>
+                      <th className="px-5 py-3.5 text-right">Commissions Rapportées</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {data.filleuls.map((f: FilleulData) => (
+                      <tr key={f.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center font-bold text-xs shrink-0">
+                              {(f.filleulName || "F").charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-white">{f.filleulName}</div>
+                              <div className="text-[10px] text-gray-500 font-mono">ID: {f.filleulId.substring(0, 8)}...</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-white/5 border border-white/10 text-[#C7D300]">
+                            {f.rayon || "connect"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="text-gray-300">{f.filleulEmail || "—"}</div>
+                          {f.phone && <div className="text-[10px] text-gray-500 font-mono mt-0.5">{f.phone}</div>}
+                        </td>
+                        <td className="px-5 py-4 text-gray-400">
+                          {f.createdAt ? new Date(f.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/5 border border-white/10 text-gray-300">
+                            {f.paymentsCount} mois réglé(s)
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <span className="font-bold text-emerald-400 text-sm">
+                            +${Number(f.totalCommissions || 0).toFixed(2)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Stacked Cards (< md) */}
+              <div className="md:hidden divide-y divide-white/[0.06]">
+                {data.filleuls.map((f: FilleulData) => (
+                  <div key={f.id} className="p-4 space-y-2.5 hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center font-bold text-xs shrink-0">
+                          {(f.filleulName || "F").charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-xs text-white truncate">{f.filleulName}</p>
+                          <p className="text-[10px] text-gray-400 truncate">{f.filleulEmail || f.phone || "—"}</p>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase bg-white/5 border border-white/10 text-[#C7D300] shrink-0">
+                        {f.rayon || "connect"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-white/5">
+                      <span className="text-gray-400">
+                        {f.createdAt ? new Date(f.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                      </span>
+                      <span className="text-gray-300 font-medium">{f.paymentsCount} mois réglé(s)</span>
+                      <span className="font-extrabold text-emerald-400">+${Number(f.totalCommissions || 0).toFixed(2)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
       )}

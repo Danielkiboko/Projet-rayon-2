@@ -79,8 +79,23 @@ async function safeSendEmail(to: string | undefined, mail: { subject: string; ht
 export async function ensureReferralCode(userId: string): Promise<string> {
   const userRef = adminDb.collection("users").doc(userId);
   const snap = await userRef.get();
-  const existing = snap.data()?.referralCode;
-  if (existing) return existing;
+  const existing = snap.data()?.referralCode || snap.data()?.partnerCode;
+  if (existing) {
+    // S'assurer que l'entrée dans referral_codes/{existing} existe bien en base
+    try {
+      const codeRef = adminDb.collection("referral_codes").doc(existing);
+      const codeSnap = await codeRef.get();
+      if (!codeSnap.exists) {
+        await codeRef.set({ ownerId: userId, createdAt: FieldValue.serverTimestamp() });
+      }
+      if (!snap.data()?.referralCode) {
+        await userRef.set({ referralCode: existing }, { merge: true });
+      }
+    } catch (e) {
+      console.warn("[REFERRAL] ensureReferralCode sync warning:", e);
+    }
+    return existing;
+  }
 
   for (let attempt = 0; attempt < 6; attempt++) {
     const code = generateReferralCode();
@@ -133,7 +148,9 @@ export async function attachReferral(params: {
   const result = await adminDb.runTransaction(async (tx: any) => {
     const [fSnap, relSnap] = await Promise.all([tx.get(filleulRef), tx.get(relationRef)]);
     const f = fSnap.exists ? fSnap.data() : {};
-    if (f?.referredBy || relSnap.exists) return { attached: false, reason: "ALREADY_REFERRED" };
+    if (relSnap.exists || (f?.referredBy && f.referredBy !== resolved.ownerId)) {
+      return { attached: false, reason: "ALREADY_REFERRED" };
+    }
     if (isExcludedAccount(f)) return { attached: false, reason: "EXCLUDED_ACCOUNT" };
     // Un parrain ne peut pas devenir le filleul de son propre filleul
     if (f?.referralCount > 0) {

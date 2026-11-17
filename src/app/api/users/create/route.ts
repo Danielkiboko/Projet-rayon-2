@@ -141,13 +141,11 @@ export async function POST(req: Request) {
     let partnerRefCode: string | null = null;
 
     if (isPartnerCaller) {
-      partnerRefCode = callerDocData?.referralCode || callerDocData?.partnerCode || null;
-      if (!partnerRefCode) {
-        try {
-          partnerRefCode = await ensureReferralCode(callerUid);
-        } catch (e) {
-          console.warn('Could not ensure partner referral code:', e);
-        }
+      try {
+        partnerRefCode = await ensureReferralCode(callerUid);
+      } catch (e) {
+        console.warn('Could not ensure partner referral code:', e);
+        partnerRefCode = callerDocData?.referralCode || callerDocData?.partnerCode || null;
       }
       additionalData.referredByPartnerId = callerUid;
       additionalData.referredBy = callerUid;
@@ -155,6 +153,8 @@ export async function POST(req: Request) {
       additionalData.referralCodeUsed = partnerRefCode;
       additionalData.supplierId = 'admin'; // Managed directly by Central Administration
       additionalData.isCentralCatalog = true;
+      additionalData.isSupplier = true;
+      additionalData.companyName = additionalData.companyName || additionalData.company || displayName;
       additionalData.createdBy = callerUid;
       additionalData.creatorRole = 'PARTNER';
     }
@@ -253,16 +253,47 @@ export async function POST(req: Request) {
       }, { merge: true });
 
       // If created by partner, attach referral relation immediately
-      if (isPartnerCaller && partnerRefCode) {
-        try {
-          await attachReferral({
-            filleulId: userRecord.uid,
-            code: partnerRefCode,
-            filleulName: displayName || email,
-            filleulEmail: email,
-          });
-        } catch (attachErr) {
-          console.warn('Partner auto-referral attach error:', attachErr);
+      if (isPartnerCaller) {
+        let attachedOk = false;
+        if (partnerRefCode) {
+          try {
+            const attachRes = await attachReferral({
+              filleulId: userRecord.uid,
+              code: partnerRefCode,
+              filleulName: displayName || email,
+              filleulEmail: email,
+            });
+            attachedOk = Boolean(attachRes?.attached);
+          } catch (attachErr) {
+            console.warn('Partner auto-referral attach error:', attachErr);
+          }
+        }
+        // Fallback direct dans la collection referrals si attachReferral n'a pas pu créer la relation
+        if (!attachedOk) {
+          try {
+            const { FieldValue } = await import('firebase-admin/firestore');
+            const relRef = adminDb.collection('referrals').doc(userRecord.uid);
+            const relSnap = await relRef.get();
+            if (!relSnap.exists) {
+              await relRef.set({
+                filleulId: userRecord.uid,
+                filleulName: displayName || email,
+                filleulEmail: email.toLowerCase().trim(),
+                referrerId: callerUid,
+                referrerName: callerDocData?.displayName || callerDocData?.name || callerEmail || 'Partenaire',
+                code: partnerRefCode || '',
+                rayon: additionalData.rayon || 'connect',
+                totalCommissions: 0,
+                paymentsCount: 0,
+                createdAt: FieldValue.serverTimestamp(),
+              });
+              await adminDb.collection('users').doc(callerUid).set({
+                referralCount: FieldValue.increment(1),
+              }, { merge: true });
+            }
+          } catch (fallbackErr) {
+            console.warn('Partner fallback referral creation error:', fallbackErr);
+          }
         }
       }
     } else if (roleToCreate === 'driver') {

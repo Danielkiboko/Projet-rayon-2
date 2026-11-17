@@ -3,6 +3,7 @@ import { getServerCaller } from "@/lib/serverAuth";
 import { ensureReferralCode } from "@/lib/referrals";
 import { buildReferralLink, REFERRAL_COMMISSION_USD, REFERRAL_DISCOUNT_USD } from "@/lib/referralConfig";
 import { adminDb } from "@/lib/firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,28 +20,122 @@ export async function GET(req: NextRequest) {
     const userSnap = await adminDb.collection("users").doc(supplierId).get();
     const userData = userSnap.data() || {};
 
-    // Get referrals (filleuls)
-    const referralsSnap = await adminDb
-      .collection("referrals")
-      .where("referrerId", "==", supplierId)
-      .limit(100)
-      .get();
+    // 1. Get referrals (filleuls) from both `referrals` collection AND `users` collection
+    const [referralsSnap, uSnap1, uSnap2, uSnap3] = await Promise.all([
+      adminDb.collection("referrals").where("referrerId", "==", supplierId).limit(150).get(),
+      adminDb.collection("users").where("referredBy", "==", supplierId).limit(150).get(),
+      adminDb.collection("users").where("referredByPartnerId", "==", supplierId).limit(150).get(),
+      adminDb.collection("users").where("createdBy", "==", supplierId).limit(150).get(),
+    ]);
 
-    const filleuls: any[] = [];
+    const filleulMap = new Map<string, any>();
+
     referralsSnap.forEach((doc: any) => {
       const d = doc.data();
-      filleuls.push({
+      const fId = d.filleulId || doc.id;
+      filleulMap.set(fId, {
         id: doc.id,
-        filleulId: d.filleulId,
-        filleulName: d.filleulName,
-        filleulEmail: d.filleulEmail,
-        code: d.code,
+        filleulId: fId,
+        filleulName: d.filleulName || "Boutique",
+        filleulEmail: d.filleulEmail || null,
+        phone: d.phone || null,
+        rayon: d.rayon || null,
+        subscriptionStatus: d.subscriptionStatus || "TRIAL",
+        code: d.code || referralCode,
         totalCommissions: Number(d.totalCommissions) || 0,
         paymentsCount: Number(d.paymentsCount) || 0,
-        createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : null,
+        createdAt: d.createdAt?.toDate ? d.createdAt.toDate().toISOString() : (typeof d.createdAt === "string" ? d.createdAt : null),
         lastPaymentAt: d.lastPaymentAt?.toDate ? d.lastPaymentAt.toDate().toISOString() : null,
       });
     });
+
+    // 2. Merge & auto-backfill any suppliers found in `users` that were created/referred by this partner
+    const userDocs = [...uSnap1.docs, ...uSnap2.docs, ...uSnap3.docs];
+    const seenUserIds = new Set<string>();
+    const missingReferralsToSync: Array<{ fId: string; payload: any }> = [];
+
+    for (const uDoc of userDocs) {
+      const fId = uDoc.id;
+      if (fId === supplierId || seenUserIds.has(fId)) continue;
+      seenUserIds.add(fId);
+
+      const u = uDoc.data() || {};
+      const existing = filleulMap.get(fId);
+      const resolvedName = u.companyName || u.company || u.displayName || u.name || existing?.filleulName || u.email || "Boutique";
+      const resolvedEmail = u.email || existing?.filleulEmail || null;
+      const resolvedRayon = u.rayon || (Array.isArray(u.assignedRayons) ? u.assignedRayons[0] : null) || existing?.rayon || "connect";
+      const resolvedPhone = u.phone || u.phoneNumber || existing?.phone || null;
+      const resolvedSubStatus = u.subscriptionStatus || existing?.subscriptionStatus || "TRIAL";
+      const resolvedCreatedAt = u.createdAt?.toDate
+        ? u.createdAt.toDate().toISOString()
+        : (typeof u.createdAt === "string" ? u.createdAt : existing?.createdAt || new Date().toISOString());
+
+      if (existing) {
+        filleulMap.set(fId, {
+          ...existing,
+          filleulName: resolvedName,
+          filleulEmail: resolvedEmail,
+          phone: resolvedPhone,
+          rayon: resolvedRayon,
+          subscriptionStatus: resolvedSubStatus,
+          createdAt: existing.createdAt || resolvedCreatedAt,
+        });
+      } else {
+        filleulMap.set(fId, {
+          id: fId,
+          filleulId: fId,
+          filleulName: resolvedName,
+          filleulEmail: resolvedEmail,
+          phone: resolvedPhone,
+          rayon: resolvedRayon,
+          subscriptionStatus: resolvedSubStatus,
+          code: u.referralCodeUsed || referralCode,
+          totalCommissions: 0,
+          paymentsCount: 0,
+          createdAt: resolvedCreatedAt,
+          lastPaymentAt: null,
+        });
+
+        missingReferralsToSync.push({
+          fId,
+          payload: {
+            filleulId: fId,
+            filleulName: resolvedName,
+            filleulEmail: resolvedEmail,
+            phone: resolvedPhone,
+            rayon: resolvedRayon,
+            referrerId: supplierId,
+            referrerName: userData.displayName || userData.name || userData.email || "Partenaire",
+            code: u.referralCodeUsed || referralCode,
+            totalCommissions: 0,
+            paymentsCount: 0,
+            createdAt: u.createdAt || FieldValue.serverTimestamp(),
+          },
+        });
+      }
+    }
+
+    // Backfill missing documents in `referrals/{fId}` asynchronously so future commission credits work
+    if (missingReferralsToSync.length > 0) {
+      try {
+        const batch = adminDb.batch();
+        for (const item of missingReferralsToSync) {
+          batch.set(adminDb.collection("referrals").doc(item.fId), item.payload, { merge: true });
+        }
+        batch.set(
+          adminDb.collection("users").doc(supplierId),
+          { referralCount: filleulMap.size },
+          { merge: true }
+        );
+        await batch.commit();
+      } catch (syncErr) {
+        console.warn("[REFERRALS ME] Auto-backfill warning:", syncErr);
+      }
+    }
+
+    const filleuls = Array.from(filleulMap.values()).sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
 
     // Get commissions history
     const commissionsSnap = await adminDb
@@ -97,8 +192,8 @@ export async function GET(req: NextRequest) {
       filleulDiscount: REFERRAL_DISCOUNT_USD,
       stats: {
         referralCount: filleuls.length,
-        referralBalance: Number(userData.referralBalance) || 0,
-        referralTotalEarned: Number(userData.referralTotalEarned) || 0,
+        referralBalance: Number(userData.referralBalance ?? userData.partnerBalance) || 0,
+        referralTotalEarned: Number(userData.referralTotalEarned ?? userData.partnerTotalEarned) || 0,
         referralPaidTotal: Number(userData.referralPaidTotal) || 0,
         pendingDiscount: Number(userData.referralDiscountPending) || 0,
         referredBy: userData.referredBy || null,
