@@ -324,7 +324,7 @@ export default function SupplierMessagesPage() {
       setNewChatMessage("");
 
       // Déclencher la notification Push / In-App pour le client destinataire
-      auth.currentUser?.getIdToken().then((token) => {
+      auth.currentUser?.getIdToken().then((token: string) => {
         if (!token) return;
         fetch("/api/push/notify", {
           method: "POST",

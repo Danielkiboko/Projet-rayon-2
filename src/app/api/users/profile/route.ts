@@ -81,38 +81,42 @@ export async function POST(req: NextRequest) {
     if (bio !== undefined) {
       updatePayload.bio = String(bio).trim();
     }
-    if (logoUrl !== undefined) {
+    const isSafeUrl = (u: any) =>
+      typeof u === "string" &&
+      (u === "" || u.startsWith("https://") || u.startsWith("http://localhost") || u.startsWith("data:image/"));
+
+    if (logoUrl !== undefined && isSafeUrl(logoUrl)) {
       updatePayload.logoUrl = logoUrl;
       updatePayload.logo = logoUrl;
       updatePayload.photoURL = logoUrl;
     }
     if (primaryColor !== undefined) {
-      updatePayload.primaryColor = String(primaryColor).trim();
+      updatePayload.primaryColor = String(primaryColor).trim().slice(0, 32);
     }
     if (companyName !== undefined) {
-      updatePayload.companyName = String(companyName).trim();
+      updatePayload.companyName = String(companyName).trim().slice(0, 120);
     }
     if (rccm !== undefined) {
-      updatePayload.rccm = String(rccm).trim();
+      updatePayload.rccm = String(rccm).trim().slice(0, 80);
     }
     if (idNat !== undefined) {
-      updatePayload.idNat = String(idNat).trim();
+      updatePayload.idNat = String(idNat).trim().slice(0, 80);
     }
     if (nif !== undefined) {
-      updatePayload.nif = String(nif).trim();
+      updatePayload.nif = String(nif).trim().slice(0, 80);
     }
 
     // Identity / KYC fields stored directly in the database
     if (idDocumentType !== undefined) {
-      updatePayload.idDocumentType = String(idDocumentType).trim();
+      updatePayload.idDocumentType = String(idDocumentType).trim().slice(0, 60);
     }
     if (idDocumentNumber !== undefined) {
-      updatePayload.idDocumentNumber = String(idDocumentNumber).trim();
+      updatePayload.idDocumentNumber = String(idDocumentNumber).trim().slice(0, 80);
     }
-    if (idDocumentFrontUrl !== undefined) {
+    if (idDocumentFrontUrl !== undefined && isSafeUrl(idDocumentFrontUrl)) {
       updatePayload.idDocumentFrontUrl = idDocumentFrontUrl;
     }
-    if (idDocumentBackUrl !== undefined) {
+    if (idDocumentBackUrl !== undefined && isSafeUrl(idDocumentBackUrl)) {
       updatePayload.idDocumentBackUrl = idDocumentBackUrl;
     }
     if (nationality !== undefined) {

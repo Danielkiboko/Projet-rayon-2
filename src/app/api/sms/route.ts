@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // ─── 2. Authentification Firebase obligatoire ──────────────────────────────
+  // ─── 2. Authentification Firebase & Autorisation Rôle obligatoires ─────────
   const authHeader = request.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return NextResponse.json(
@@ -47,8 +47,26 @@ export async function POST(request: Request) {
     );
   }
 
+  let callerUid = "";
+  let callerRole = "";
   try {
-    await adminAuth.verifyIdToken(authHeader.split("Bearer ")[1]);
+    const decoded = await adminAuth.verifyIdToken(authHeader.split("Bearer ")[1]);
+    callerUid = decoded.uid;
+    const callerSnap = await adminDb.collection("users").doc(callerUid).get();
+    const callerData = callerSnap.exists ? callerSnap.data() || {} : {};
+    callerRole = String(callerData.role || decoded.role || "").toUpperCase();
+    const allowedSmsRoles = [
+      "SUPER_ADMIN", "SUPERADMIN", "ADMIN", "SUB_ADMIN", "ADMIN_FINANCE",
+      "ADMIN_DB", "ADMIN_OPS", "STAFF", "SUPPLIER", "SUPPLIER_IMMO",
+      "SUPPLIER_SAVEURS", "SUPPLIER_MODE", "SUPPLIER_CONNECT", "SUB_SUPPLIER",
+      "FOURNISSEUR", "PARTNER", "DRIVER", "LIVREUR"
+    ];
+    if (!allowedSmsRoles.includes(callerRole) && !callerData.isSupplier && !callerData.isAdmin) {
+      return NextResponse.json(
+        { success: false, error: "Accès refusé : privilèges insuffisants pour envoyer des SMS." },
+        { status: 403 }
+      );
+    }
   } catch {
     return NextResponse.json(
       { success: false, error: "Token invalide ou expiré." },
