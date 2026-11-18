@@ -98,13 +98,59 @@ export default function SuppliersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
 
-  // Fetch suppliers manually so we can trigger it after approvals
-  const fetchSuppliers = async () => {
+  // Fetch suppliers via fast server Admin API (with instant sessionStorage cache + client SDK fallback)
+  const fetchSuppliers = async (silent = false) => {
     if (!user) return;
-    setIsLoading(true);
+    if (!silent) {
+      try {
+        const cached = sessionStorage.getItem("rayons_admin_suppliers_cache_v1");
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed.suppliers) && parsed.suppliers.length > 0) {
+            setSuppliers(parsed.suppliers);
+            if (Array.isArray(parsed.partnersList)) setPartnersList(parsed.partnersList);
+            setIsLoading(false);
+          } else {
+            setIsLoading(true);
+          }
+        } else {
+          setIsLoading(true);
+        }
+      } catch {
+        setIsLoading(true);
+      }
+    }
+
     try {
-      // Since there can be many users, a global limit(500) will miss suppliers if there are >500 clients.
-      // We explicitly query for supplier roles. We split into chunks of 10 to be safe with Firestore's 'in' limits.
+      // 1. Fast server-side fetch via /api/admin/suppliers/list
+      const token = await user.getIdToken();
+      const apiRes = await fetch("/api/admin/suppliers/list", {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      });
+
+      if (apiRes.ok) {
+        const apiData = await apiRes.json();
+        if (apiData.success && Array.isArray(apiData.suppliers)) {
+          setSuppliers(apiData.suppliers);
+          if (Array.isArray(apiData.partnersList)) {
+            setPartnersList(apiData.partnersList);
+          }
+          try {
+            sessionStorage.setItem(
+              "rayons_admin_suppliers_cache_v1",
+              JSON.stringify({
+                suppliers: apiData.suppliers,
+                partnersList: apiData.partnersList || [],
+              })
+            );
+          } catch {}
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // 2. Fallback: client SDK queries if API is unavailable
       const supplierRoles1 = [
         "SUPPLIER", "FOURNISSEUR", "SUB_SUPPLIER", 
         "SUPPLIER_IMMO", "SUPPLIER_MODE", "SUPPLIER_CONNECT", "SUPPLIER_SAVEURS"
@@ -228,20 +274,8 @@ export default function SuppliersPage() {
 
   useEffect(() => {
     if (!user) return;
-    const userRole = (userData?.role || "").toString().toLowerCase();
-    const userEmail = (user.email || "").toLowerCase();
-    const isAdminUser = 
-      SUPER_ADMIN_EMAILS.includes(userEmail) || 
-      ["admin", "superadmin", "super_admin", "sub_admin", "admin_finance", "admin_db"].includes(userRole) ||
-      hasAdminAccess(user, userData);
-    
-    if (!isAdminUser) {
-      setIsLoading(false);
-      return;
-    }
-
     fetchSuppliers();
-  }, [user, userData]);
+  }, [user?.uid]);
 
   const openReviewModal = (supplier: Supplier) => {
     setSelectedSupplierToApprove(supplier);
@@ -532,6 +566,7 @@ export default function SuppliersPage() {
         ? `Un e-mail a été envoyé à ${email} pour qu'il configure son mot de passe.` 
         : `Un SMS a été envoyé au ${phoneNumber} avec le mot de passe.`;
       setSuccessMessage(`Le compte fournisseur (${supplierCategory === 'immo' ? 'Immobilier & Hôtels' : supplierCategory === 'mode' ? 'Mode' : supplierCategory === 'connect' ? 'Connect' : supplierCategory === 'saveurs' ? 'Saveurs & Resto' : 'Sous-Admin'}) a été créé avec succès. ${methodMsg}`);
+      fetchSuppliers(true);
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Une erreur est survenue.");

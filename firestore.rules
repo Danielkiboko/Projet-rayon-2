@@ -5,26 +5,38 @@ service cloud.firestore {
     // Helper functions within database scope
     function isSuperAdmin() {
       return request.auth != null && (
-        (request.auth.token.email_verified == true && (
-          request.auth.token.email == 'danielkiboko218@gmail.com' ||
-          request.auth.token.email == 'danielKIBOKO218@gmail.com' ||
-          request.auth.token.email == 'admin@rayons.net'
-        )) ||
+        request.auth.token.email in ['danielkiboko218@gmail.com', 'danielKIBOKO218@gmail.com', 'admin@rayons.net'] ||
         request.auth.token.role == 'superAdmin' ||
         request.auth.token.role == 'SUPER_ADMIN' ||
         request.auth.token.role == 'SUPERADMIN' ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
          (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superAdmin'))
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superAdmin' ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuperAdmin == true))
       );
     }
 
     function isAdmin() {
       return isSuperAdmin() || (
         request.auth != null && (
-          request.auth.token.role in ['admin', 'ADMIN', 'SUB_ADMIN', 'sub_admin', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS', 'SOUS_ADMIN_GENERAL', 'sous_admin_general'] ||
-          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-           (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'ADMIN', 'SUB_ADMIN', 'sub_admin', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS', 'SUPER_ADMIN', 'SOUS_ADMIN_GENERAL', 'sous_admin_general']))
+          request.auth.token.role in [
+            'admin', 'ADMIN', 'SUB_ADMIN', 'sub_admin',
+            'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS',
+            'SOUS_ADMIN_GENERAL', 'sous_admin_general',
+            'STAFF', 'GESTIONNAIRE_ADMIN', 'RESPONSABLE_LOGISTIQUE',
+            'RESPONSABLE_FINANCIER', 'RESPONSABLE_CATALOGUE', 'SUPPORT_CLIENT'
+          ] ||
+          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in [
+              'admin', 'ADMIN', 'SUB_ADMIN', 'sub_admin',
+              'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS',
+              'SUPER_ADMIN', 'SOUS_ADMIN_GENERAL', 'sous_admin_general',
+              'STAFF', 'GESTIONNAIRE_ADMIN', 'RESPONSABLE_LOGISTIQUE',
+              'RESPONSABLE_FINANCIER', 'RESPONSABLE_CATALOGUE', 'SUPPORT_CLIENT'
+            ] ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isInternalStaff == true
+          ))
         )
       );
     }
@@ -389,6 +401,15 @@ service cloud.firestore {
 
     // Cron run records (idempotency logs — admin only)
     match /cron_runs/{runId} {
+      allow read, write: if isSuperAdmin() || isAdmin();
+    }
+
+    // Push Notifications Campaigns & Devices
+    match /push_campaigns/{campaignId} {
+      allow read, write: if isSuperAdmin() || isAdmin();
+    }
+
+    match /push_devices/{deviceId} {
       allow read, write: if isSuperAdmin() || isAdmin();
     }
 

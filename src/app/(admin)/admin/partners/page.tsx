@@ -100,13 +100,14 @@ export default function AdminPartnersPage() {
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Impossible de charger la liste des partenaires.");
+        toast.error(data.error || "Impossible de charger la liste des partenaires.");
+        return;
       }
 
       setPartners(data.partners || []);
       setAllPartnerSuppliers(data.partnerSuppliers || []);
     } catch (err: any) {
-      console.error("Error fetching partners:", err);
+      console.warn("Error fetching partners:", err);
       toast.error(err.message || "Impossible de charger la liste des partenaires.");
     } finally {
       setIsLoading(false);

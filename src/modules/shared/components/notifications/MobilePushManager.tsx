@@ -235,7 +235,7 @@ export default function MobilePushManager() {
 
   // 3. Obtention éventuelle du token FCM Web Push et liaison permanente de l'appareil au compte connecté
   const bindDeviceAndRegisterPush = useCallback(
-    async (requestInteractivePermission = false) => {
+    async (requestInteractivePermission = false, forceInstalledFlag = false) => {
       if (typeof window === "undefined") return;
 
       let currentPerm: NotificationPermission =
@@ -250,7 +250,19 @@ export default function MobilePushManager() {
         }
       }
 
-      if (!user) return;
+      const isStandalone =
+        forceInstalledFlag ||
+        Boolean(window.matchMedia?.("(display-mode: standalone)")?.matches) ||
+        Boolean((window.navigator as any)?.standalone) ||
+        localStorage.getItem("rayons_app_installed_v1") === "true";
+
+      if (isStandalone) {
+        try {
+          localStorage.setItem("rayons_app_installed_v1", "true");
+        } catch {}
+      }
+
+      if (!user && !isStandalone && currentPerm !== "granted") return;
 
       let fcmToken: string | null = null;
       if (currentPerm === "granted") {
@@ -272,33 +284,43 @@ export default function MobilePushManager() {
       }
 
       try {
-        const idToken = await user.getIdToken();
+        const idToken = user ? await user.getIdToken().catch(() => null) : null;
         const deviceId = getOrCreateDeviceId();
+        const ua = navigator.userAgent || "";
+        const osPlatform = /android/i.test(ua)
+          ? "android"
+          : /iphone|ipad|ipod/i.test(ua)
+          ? "ios"
+          : "desktop";
+
         const res = await fetch("/api/push/register", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${idToken}`,
+            ...(idToken ? { Authorization: `Bearer ${idToken}` } : {}),
           },
           body: JSON.stringify({
             deviceId,
             fcmToken,
-            platform: /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ? "mobile" : "desktop",
-            userAgent: navigator.userAgent,
+            isInstalledApp: isStandalone,
+            pushEnabled: currentPerm === "granted",
+            osPlatform,
+            platform: osPlatform === "desktop" ? "desktop" : "mobile",
+            userAgent: ua,
           }),
         });
 
         const data = await res.json();
-        if (res.ok && data.success) {
+        if (res.ok && data.success && data.boundUid) {
           const boundInfo: BoundAccountInfo = {
             uid: data.boundUid,
-            email: data.boundEmail || user.email || "",
+            email: data.boundEmail || user?.email || "",
             displayName:
               data.boundName ||
               userData?.company ||
               userData?.displayName ||
-              user.displayName ||
-              user.email ||
+              user?.displayName ||
+              user?.email ||
               "Mon Compte",
             role: data.boundRole || userData?.role || "CLIENT",
             deviceId: data.deviceId,
@@ -322,10 +344,19 @@ export default function MobilePushManager() {
     [user, userData]
   );
 
-  // Dès qu'un utilisateur se connecte sur ce téléphone, lier l'appareil à son compte
+  // Dès qu'un utilisateur se connecte ou installe l'application sur son téléphone, enregistrer l'appareil
   useEffect(() => {
-    if (!user) return;
     bindDeviceAndRegisterPush(false);
+
+    const handleAppInstalled = () => {
+      try {
+        localStorage.setItem("rayons_app_installed_v1", "true");
+      } catch {}
+      bindDeviceAndRegisterPush(false, true);
+    };
+
+    window.addEventListener("appinstalled", handleAppInstalled);
+    return () => window.removeEventListener("appinstalled", handleAppInstalled);
   }, [user, bindDeviceAndRegisterPush]);
 
   // 4. Écoute en temps réel quand l'utilisateur est connecté (Notifications + Messages + Ventes)

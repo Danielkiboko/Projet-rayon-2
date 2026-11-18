@@ -3,12 +3,13 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { ShieldAlert, LayoutDashboard, Package, Users, Settings, UserCheck, Store, Truck, ShoppingCart, Building, Wallet, LifeBuoy, Gift, Briefcase } from "lucide-react";
+import { ShieldAlert, LayoutDashboard, Package, Users, Settings, UserCheck, Store, Truck, ShoppingCart, Building, Wallet, LifeBuoy, Gift, Briefcase, Bell } from "lucide-react";
 import DashboardLayout from "@/modules/shared/components/layouts/DashboardLayout";
 import { hasAdminAccess, isSuperAdmin } from "@/lib/permissions";
 
 const ADMIN_MENU = [
   { title: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+  { title: "Push & App Mobile", href: "/admin/push", icon: Bell, colorClass: { bg: "bg-[#C7D300]/10", text: "text-[#C7D300]" } },
   { title: "Clients", href: "/admin/clients", icon: UserCheck, colorClass: { bg: "bg-blue-600/10", text: "text-blue-500" } },
   { title: "Partenaires", href: "/admin/partners", icon: Briefcase, colorClass: { bg: "bg-[#C7D300]/10", text: "text-[#C7D300]" } },
   { title: "Fournisseurs", href: "/admin/suppliers", icon: Store, colorClass: { bg: "bg-blue-600/10", text: "text-blue-500" } },
@@ -232,6 +233,7 @@ export default function AdminLayout({
     const allowedHrefs = new Set(["/admin/dashboard", "/admin/settings"]);
 
     if (positions.includes("GESTIONNAIRE_ADMIN")) {
+      allowedHrefs.add("/admin/push");
       allowedHrefs.add("/admin/clients");
       allowedHrefs.add("/admin/suppliers");
       allowedHrefs.add("/admin/partners");

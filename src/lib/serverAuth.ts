@@ -27,7 +27,9 @@ export const SUPER_ADMIN_EMAILS: string[] = Array.from(
 export const ADMIN_ROLES = [
   "SUPER_ADMIN", "SUPERADMIN", "SUB_ADMIN", "SUBADMIN", "SOUS_ADMIN", "SOUSADMIN",
   "ADMIN", "ADMIN_FINANCE", "ADMIN_OPS", "ADMIN_DB", "ADMIN_TECH",
-  "SOUS_ADMIN_GENERAL", "FONCTIONNAIRE", "STAFF"
+  "SOUS_ADMIN_GENERAL", "FONCTIONNAIRE", "STAFF",
+  "GESTIONNAIRE_ADMIN", "RESPONSABLE_LOGISTIQUE", "RESPONSABLE_FINANCIER",
+  "RESPONSABLE_CATALOGUE", "SUPPORT_CLIENT"
 ];
 
 export interface ServerCaller {
@@ -72,8 +74,12 @@ export async function getServerCaller(req: Request): Promise<ServerCaller | null
       ADMIN_ROLES.includes(role) || 
       role.includes("ADMIN") || 
       role.includes("FONCTIONNAIRE") ||
+      role.includes("RESPONSABLE_") ||
+      role.includes("GESTIONNAIRE_") ||
       data.isAdmin === true || 
       data.isSuperAdmin === true ||
+      data.isInternalStaff === true ||
+      data.accountType === "STAFF" ||
       decoded.admin === true ||
       decoded.isSuperAdmin === true;
 
