@@ -91,12 +91,11 @@ export const ALL_STAFF_POSITIONS: Record<StaffPosition, StaffPositionDefinition>
   RESPONSABLE_FINANCIER: {
     id: "RESPONSABLE_FINANCIER",
     label: "Responsable Financier & Caisse",
-    description: "Gestion de la caisse centrale, validation des dépôts et paiement des commissions.",
+    description: "Gestion de la caisse centrale, suivi des abonnements (payés/impayés) et paiement des commissions partenaires.",
     icon: "💼",
     defaultPermissions: [
       "finance.view", "finance.cash", "subscriptions.manage",
-      "partners.view", "partners.payout",
-      "orders.view"
+      "partners.view", "partners.payout"
     ]
   },
   RESPONSABLE_CATALOGUE: {
@@ -106,19 +105,17 @@ export const ALL_STAFF_POSITIONS: Record<StaffPosition, StaffPositionDefinition>
     icon: "🗄️",
     defaultPermissions: [
       "products.moderate", "properties.moderate",
-      "suppliers.view",
-      "orders.view"
+      "suppliers.view"
     ]
   },
   SUPPORT_CLIENT: {
     id: "SUPPORT_CLIENT",
     label: "Support Client & Assistance",
-    description: "Traitement des tickets, assistance aux acheteurs et suivi des réclamations.",
+    description: "Traitement des requêtes clients, correspondances et suivi des réclamations.",
     icon: "🎧",
     defaultPermissions: [
       "tickets.handle",
-      "clients.view",
-      "orders.view"
+      "clients.view"
     ]
   }
 };
@@ -206,13 +203,16 @@ export function hasStaffPermission(user: any, permission: StaffPermission): bool
     return permission !== "staff.manage" && permission !== "settings.system";
   }
   if (role.includes("FINANCE")) {
-    return ["finance.view", "finance.cash", "subscriptions.manage", "partners.view", "partners.payout", "orders.view"].includes(permission);
+    return ["finance.view", "finance.cash", "subscriptions.manage", "partners.view", "partners.payout"].includes(permission);
   }
-  if (role.includes("DB") || role.includes("TECH")) {
-    return ["products.moderate", "properties.moderate", "suppliers.view", "orders.view"].includes(permission);
+  if (role.includes("DB") || role.includes("TECH") || role.includes("CATALOGUE")) {
+    return ["products.moderate", "properties.moderate", "suppliers.view"].includes(permission);
   }
-  if (role.includes("OPS")) {
+  if (role.includes("OPS") || role.includes("LOGISTIQUE")) {
     return ["orders.view", "orders.manage", "drivers.view", "drivers.manage", "deliveries.dispatch"].includes(permission);
+  }
+  if (role.includes("SUPPORT")) {
+    return ["tickets.handle", "clients.view"].includes(permission);
   }
 
   return false;

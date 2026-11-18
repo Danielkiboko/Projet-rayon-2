@@ -135,6 +135,33 @@ export default function AdminTeamPage() {
       const members: TeamMember[] = [];
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
+        const emailLower = (data.email || "").toLowerCase().trim();
+        const isOwnerSuperAdmin =
+          SUPER_ADMIN_EMAILS.includes(emailLower) ||
+          emailLower === "admin@rayons.net" ||
+          data.isSuperAdmin === true ||
+          (data.role || "").toUpperCase() === "SUPER_ADMIN" ||
+          (data.role || "").toUpperCase() === "SUPERADMIN";
+
+        // Auto-réparation : si le compte Super Admin a été accidentellement affecté à un poste subalterne (ex: SUPPORT_CLIENT),
+        // on restaure immédiatement son statut exclusif de Directeur Général (SUPER_ADMIN) en base.
+        if (SUPER_ADMIN_EMAILS.includes(emailLower) && (data.role !== "SUPER_ADMIN" || data.staffProfile)) {
+          updateDoc(doc(db, "users", docSnap.id), {
+            role: "SUPER_ADMIN",
+            accountType: "STAFF",
+            isSuperAdmin: true,
+            roleTitle: "Directeur Général (Super Admin)",
+            department: "Direction Générale",
+            staffProfile: null,
+          }).catch((e) => console.warn("Auto-heal SuperAdmin warning:", e));
+        }
+
+        // Le Super Administrateur (Directeur Général) n'est PAS un fonctionnaire subalterne (Support, Finance, etc.) :
+        // il ne doit jamais apparaître comme un agent de support ou être modifiable dans la liste des fonctionnaires.
+        if (isOwnerSuperAdmin) {
+          return;
+        }
+
         const extracted = extractPositions(data);
         members.push({
           id: docSnap.id,
@@ -219,6 +246,13 @@ export default function AdminTeamPage() {
     setIsSearching(true);
     setSearchError("");
     setSearchedUser(null);
+
+    const normalizedSearchEmail = searchEmail.trim().toLowerCase();
+    if (SUPER_ADMIN_EMAILS.includes(normalizedSearchEmail) || normalizedSearchEmail === "admin@rayons.net") {
+      setSearchError("Ce compte appartient à la Direction Générale (Super Administrateur). Il ne peut pas être affecté à un poste de fonctionnaire subalterne.");
+      setIsSearching(false);
+      return;
+    }
     
     try {
       const q = query(collection(db, "users"), where("email", "==", searchEmail.trim().toLowerCase()));
@@ -241,6 +275,11 @@ export default function AdminTeamPage() {
   const handleCreateTeamMember = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newEmail.trim()) return;
+    const normalizedNewEmail = newEmail.trim().toLowerCase();
+    if (SUPER_ADMIN_EMAILS.includes(normalizedNewEmail) || normalizedNewEmail === "admin@rayons.net") {
+      setErrorMessage("Cette adresse email appartient au Super Administrateur (Direction Générale) et ne peut pas être utilisée pour un fonctionnaire.");
+      return;
+    }
     setIsCreating(true);
     setErrorMessage("");
     setSuccessMessage("");
@@ -306,6 +345,12 @@ export default function AdminTeamPage() {
 
   const handleSaveMemberPositions = async () => {
     if (!editingMember) return;
+    const targetEmail = (editingMember.email || "").toLowerCase().trim();
+    if (SUPER_ADMIN_EMAILS.includes(targetEmail) || targetEmail === "admin@rayons.net") {
+      alert("Action interdite : Le Super Administrateur (Directeur Général) ne peut pas être affecté à un poste subalterne.");
+      setEditingMember(null);
+      return;
+    }
     if (editPositions.length === 0) {
       alert("Veuillez assigner au moins un poste ou fonction.");
       return;

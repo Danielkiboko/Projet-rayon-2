@@ -59,8 +59,8 @@ export default function AdminFinancePage() {
   const { user, userData, loading } = useAuth();
   const router = useRouter();
 
-  // Navigation tabs
-  const [activeTab, setActiveTab] = useState<"ledger" | "deposits" | "commissions" | "settings" | "overview">("ledger");
+  // Navigation tabs (Par défaut sur l'échéancier des abonnements fournisseurs : Payés vs Impayés)
+  const [activeTab, setActiveTab] = useState<"ledger" | "deposits" | "commissions" | "settings" | "overview">("deposits");
 
   // State data
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -126,6 +126,22 @@ export default function AdminFinancePage() {
 
   // Action feedback
   const [actionNotice, setActionNotice] = useState("");
+  const [execOverview, setExecOverview] = useState<any>(null);
+
+  const fetchExecutiveOverview = async () => {
+    try {
+      const token = await user?.getIdToken();
+      const res = await fetch("/api/admin/executive-overview", {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const json = await res.json();
+      if (json.success) {
+        setExecOverview(json);
+      }
+    } catch (e) {
+      console.warn("Executive overview fetch warning:", e);
+    }
+  };
 
   const isSuperAdmin = Boolean(
     userData?.role === "SUPER_ADMIN" ||
@@ -324,6 +340,7 @@ export default function AdminFinancePage() {
       fetchSuppliers();
       fetchPartners();
       fetchFinancialSettings();
+      fetchExecutiveOverview();
     }
 
     // 1. Listen to Transactions
@@ -469,23 +486,34 @@ export default function AdminFinancePage() {
     return true;
   });
 
-  // Settle supplier deposit (1-click action)
+  // Settle supplier deposit (1-click action connected to backend + partner commission + push)
   const handleSettleSupplierDeposit = async (supplier: UserSupplier) => {
     const depositAmount = supplier.depositAmount || 50;
-    if (!confirm(`Confirmez-vous l'encaissement du dépôt de $${depositAmount} pour le fournisseur ${supplier.displayName || supplier.email} ?\n\nCette action prolongera son abonnement de 30 jours, débloquera son compte et passera l'écriture comptable correspondante.`)) {
+    if (!confirm(`Confirmez-vous l'encaissement de l'abonnement de $${depositAmount} pour le fournisseur ${supplier.displayName || supplier.email} ?\n\nCette action prolongera son abonnement de 30 jours, débloquera son compte, passera l'écriture au Grand Livre et créditera automatiquement la commission partenaire ($5) le cas échéant.`)) {
       return;
     }
 
     try {
-      await recordSubscriptionDeposit({
-        supplierId: supplier.id,
-        supplierName: supplier.displayName || supplier.email || "Fournisseur",
-        amount: depositAmount,
-        paymentMethod: "Caisse centrale / Mobile Money",
-        currentBalance
+      const token = await user?.getIdToken();
+      const res = await fetch("/api/admin/executive-overview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          action: "RECORD_SUBSCRIPTION_PAYMENT",
+          supplierId: supplier.id,
+          amount: depositAmount,
+          paymentMethod: "Caisse centrale / Mobile Money",
+        }),
       });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Erreur lors de l'encaissement.");
+      }
 
-      // Refresh local supplier list
+      // Refresh local supplier list & executive overview
       setSuppliers(prev => prev.map(s => {
         if (s.id === supplier.id) {
           const next = new Date();
@@ -499,8 +527,10 @@ export default function AdminFinancePage() {
         }
         return s;
       }));
+      fetchExecutiveOverview();
+      fetchPartners();
 
-      setActionNotice(`Dépôt de $${depositAmount} encaissé avec succès pour ${supplier.displayName || supplier.email}. Compte actif et débloqué !`);
+      setActionNotice(json.message || `Abonnement de $${depositAmount} encaissé avec succès pour ${supplier.displayName || supplier.email}.`);
       setTimeout(() => setActionNotice(""), 6000);
     } catch (err: any) {
       console.error("Error settling deposit:", err);
@@ -643,13 +673,13 @@ export default function AdminFinancePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-white tracking-tight">Comptabilité Centrale</h1>
+            <h1 className="text-xl font-bold text-white tracking-tight">Finances, Abonnements & Commissions</h1>
             <span className="px-2 py-0.5 bg-[#C7D300]/10 text-[#C7D300] border border-[#C7D300]/20 rounded-md text-[10px] font-bold uppercase tracking-widest">
-              Officiel
+              Centralisé
             </span>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Grand Livre · Encaissements abonnements · Ventes directes Admin
+          <p className="text-xs text-gray-400 mt-1">
+            Revenus générés par l&apos;application : Abonnements fournisseurs (Payés / Impayés), Commissions partenaires, Grand Livre &amp; Prévisions financières
           </p>
         </div>
 
@@ -695,15 +725,52 @@ export default function AdminFinancePage() {
       {/* Période Comptable */}
       <DateRangeFilterPills filter={dateFilter} />
 
-      {/* KPI Cards — palette monochrome */}
+      {/* KPI Cards — Centralisation Revenus Plateforme & Prévisions */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3">
         {[
-          { label: "Caisse Nette", value: `$${currentBalance.toFixed(2)}`, sub: "Solde consolidé", icon: <Wallet size={14} />, accent: currentBalance >= 0 },
-          { label: "Revenus", value: `$${periodIncome.toFixed(2)}`, sub: getPeriodLabel(), icon: <ArrowDownRight size={14} />, accent: false },
-          { label: "Dépenses", value: `$${periodPayout.toFixed(2)}`, sub: "Charges & sorties", icon: <ArrowUpRight size={14} />, accent: false, negative: true },
-          { label: "Ventes Admin", value: `$${periodAdminSalesTotal.toFixed(2)}`, sub: "Boutique officielle", icon: <ShoppingBag size={14} />, accent: false },
-          { label: "Vol. Plateforme", value: `$${periodPlatformVolume.toFixed(2)}`, sub: "Commandes livrées", icon: <TrendingUp size={14} />, accent: false },
-          { label: "Abonnements", value: `$${periodSubscriptions.toFixed(2)}`, sub: "Dépôts fournisseurs", icon: <ArrowDownRight size={14} />, accent: true },
+          {
+            label: "Caisse Nette",
+            value: `$${currentBalance.toFixed(2)}`,
+            sub: "Solde trésorerie consolidé",
+            icon: <Wallet size={14} />,
+            accent: currentBalance >= 0,
+          },
+          {
+            label: "Abonnements Encaissés",
+            value: `$${(execOverview?.financeSummary?.collectedSubscriptionRevenueUSD ?? totalSubscriptions).toFixed(2)}`,
+            sub: `${supplierStats.active} boutique(s) payée(s)`,
+            icon: <ArrowDownRight size={14} />,
+            accent: true,
+          },
+          {
+            label: "MRR Actuel",
+            value: `$${(execOverview?.forecasts?.currentMRR ?? supplierStats.active * 50).toFixed(0)}/mois`,
+            sub: "Revenu mensuel récurrent",
+            icon: <TrendingUp size={14} />,
+            accent: false,
+          },
+          {
+            label: "Prévision Net 30J",
+            value: `$${(execOverview?.forecasts?.projected30dNetRevenue ?? supplierStats.projectedMonthlySubscriptions).toFixed(0)}`,
+            sub: `ARR projeté : $${(execOverview?.forecasts?.projectedAnnualARR ?? supplierStats.projectedMonthlySubscriptions * 12).toFixed(0)}/an`,
+            icon: <TrendingUp size={14} />,
+            accent: true,
+          },
+          {
+            label: "Commissions Partenaires",
+            value: `$${(execOverview?.financeSummary?.totalPartnerCommissionsEarnedUSD ?? 0).toFixed(2)}`,
+            sub: `À payer : $${(execOverview?.financeSummary?.pendingPartnerPayoutsUSD ?? 0).toFixed(2)}`,
+            icon: <Award size={14} />,
+            accent: false,
+          },
+          {
+            label: "Impayés à Recouvrer",
+            value: `$${supplierStats.overdueAmountToCollect.toFixed(0)}`,
+            sub: `${supplierStats.overdue} fournisseur(s) expiré(s)`,
+            icon: <ArrowUpRight size={14} />,
+            accent: false,
+            negative: supplierStats.overdue > 0,
+          },
         ].map((kpi, i) => (
           <div key={i} className="bg-white/3 border border-white/8 rounded-xl p-3 sm:p-4 flex flex-col gap-2 sm:gap-3">
             <div className="flex items-center justify-between">
@@ -715,7 +782,7 @@ export default function AdminFinancePage() {
             <p className={`text-base sm:text-xl font-black tabular-nums ${kpi.negative ? "text-red-400" : kpi.accent ? "text-[#C7D300]" : "text-white"}`}>
               {kpi.value}
             </p>
-            <p className="text-[10px] text-gray-600 truncate">{kpi.sub}</p>
+            <p className="text-[10px] text-gray-500 truncate">{kpi.sub}</p>
           </div>
         ))}
       </div>
@@ -723,9 +790,9 @@ export default function AdminFinancePage() {
       {/* Tabs */}
       <div className="flex border-b border-white/8 gap-4 sm:gap-6 text-xs font-semibold overflow-x-auto scrollbar-none whitespace-nowrap">
         {[
-          { id: "ledger", label: `Grand Livre (${filteredLedger.length})`, icon: <FileText size={13} /> },
-          { id: "deposits", label: `Échéancier Fournisseurs (${suppliers.length})`, icon: <Clock size={13} /> },
+          { id: "deposits", label: `Abonnements : Payés / Impayés (${suppliers.length})`, icon: <Clock size={13} /> },
           { id: "commissions", label: `Commissions Partenaires (${partners.length})`, icon: <Award size={13} /> },
+          { id: "ledger", label: `Grand Livre (${filteredLedger.length})`, icon: <FileText size={13} /> },
           {
             id: "settings",
             label: pendingProposal ? "Paramètres & Taux (1 En Attente)" : "Paramètres Financiers & Taux",

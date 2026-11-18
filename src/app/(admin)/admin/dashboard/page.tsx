@@ -19,7 +19,12 @@ import {
   Store,
   Clock,
   Sparkles,
-  Send
+  Send,
+  Wallet,
+  TrendingUp,
+  Truck,
+  LifeBuoy,
+  Smartphone
 } from "lucide-react";
 import { hasAdminAccess } from "@/lib/permissions";
 import Link from "next/link";
@@ -40,6 +45,7 @@ export default function AdminDashboardPage() {
     overdueTenantsCount: 0,
   });
 
+  const [execData, setExecData] = useState<any>(null);
   const [dataLoading, setDataLoading] = useState(true);
   const [isSendingReports, setIsSendingReports] = useState(false);
   const [isBroadcastOpen, setIsBroadcastOpen] = useState(false);
@@ -98,6 +104,21 @@ export default function AdminDashboardPage() {
 
     const setupListeners = async () => {
       try {
+        // Fetch centralized executive overview (Finances, Forecasts, Logistics, Support, App Downloads)
+        user.getIdToken().then(async (token) => {
+          try {
+            const res = await fetch("/api/admin/executive-overview", {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            const json = await res.json();
+            if (json.success) {
+              setExecData(json);
+            }
+          } catch (e) {
+            console.warn("Executive overview fetch warning:", e);
+          }
+        });
+
         const { onSnapshot, query, collection, where, limit: fsLimit, orderBy } = await import("firebase/firestore");
         const { db } = await import("@/lib/firebase");
 
@@ -238,6 +259,150 @@ export default function AdminDashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* ── VUE EXÉCUTIVE 360° & PRÉVISIONS FINANCIÈRES (DIRECTION GÉNÉRALE) ── */}
+      {execData && (
+        <div className="space-y-4">
+          {/* Ligne 1 : Synthèse Multi-Départements (Finances, Logistique, Service Client, App Mobile) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <Link
+              href="/admin/finance"
+              className="bg-[#0F1D27] hover:bg-[#132532] border border-white/10 rounded-2xl p-4 transition-all group"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Finances & Abonnements</span>
+                <Wallet size={16} className="text-[#C7D300]" />
+              </div>
+              <p className="text-xl sm:text-2xl font-extrabold text-[#C7D300] tabular-nums">
+                ${execData.financeSummary?.collectedSubscriptionRevenueUSD ?? 0}
+              </p>
+              <p className="text-[11px] text-gray-400 mt-1">
+                {execData.financeSummary?.paidActiveCount ?? 0} payés · {execData.financeSummary?.trialCount ?? 0} essai ·{" "}
+                <span className="text-red-400 font-semibold">{execData.financeSummary?.unpaidExpiredCount ?? 0} impayés</span>
+              </p>
+            </Link>
+
+            <Link
+              href="/admin/drivers"
+              className="bg-[#0F1D27] hover:bg-[#132532] border border-white/10 rounded-2xl p-4 transition-all group"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Logistique & Livreurs</span>
+                <Truck size={16} className="text-blue-400" />
+              </div>
+              <p className="text-xl sm:text-2xl font-extrabold text-white tabular-nums">
+                {execData.operations?.totalDrivers ?? 0} livreur(s)
+              </p>
+              <p className="text-[11px] text-gray-400 mt-1">
+                <span className="text-amber-300 font-semibold">{execData.operations?.ordersAwaitingDriver ?? 0} course(s) en attente</span> ·{" "}
+                {execData.operations?.ordersInProgress ?? 0} en cours
+              </p>
+            </Link>
+
+            <Link
+              href="/admin/tickets"
+              className="bg-[#0F1D27] hover:bg-[#132532] border border-white/10 rounded-2xl p-4 transition-all group"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">Service Client & SAV</span>
+                <LifeBuoy size={16} className="text-amber-400" />
+              </div>
+              <p className="text-xl sm:text-2xl font-extrabold text-white tabular-nums">
+                {execData.operations?.openTicketsCount ?? 0} requête(s)
+              </p>
+              <p className="text-[11px] text-gray-400 mt-1">
+                Sur {execData.operations?.totalTicketsCount ?? 0} correspondances · {execData.operations?.totalClients ?? 0} clients
+              </p>
+            </Link>
+
+            <Link
+              href="/admin/push"
+              className="bg-[#0F1D27] hover:bg-[#132532] border border-white/10 rounded-2xl p-4 transition-all group"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400">App Mobile & GMV</span>
+                <Smartphone size={16} className="text-emerald-400" />
+              </div>
+              <p className="text-xl sm:text-2xl font-extrabold text-emerald-400 tabular-nums">
+                {execData.operations?.installedAppsCount ?? 0} app(s)
+              </p>
+              <p className="text-[11px] text-gray-400 mt-1">
+                Volume ventes livrées : <span className="text-white font-semibold">${execData.operations?.totalGMV ?? 0}</span>
+              </p>
+            </Link>
+          </div>
+
+          {/* Ligne 2 : Module de Prévisions Financières (Forecasts 30j / 90j / ARR Annuel) */}
+          <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 sm:p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 mb-4 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <TrendingUp size={17} className="text-[#C7D300]" />
+                <h2 className="text-sm font-bold text-white">
+                  Prévisions Financières &amp; Projections Revenus Plateforme
+                </h2>
+              </div>
+              <Link href="/admin/finance" className="text-xs font-semibold text-[#C7D300] hover:underline flex items-center gap-1">
+                <span>Ouvrir la Comptabilité Centrale</span>
+                <ArrowRight size={12} />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="bg-black/25 border border-white/5 rounded-xl p-3">
+                <span className="text-[10px] text-gray-400 uppercase font-semibold block">MRR Actuel</span>
+                <span className="text-lg font-extrabold text-white tabular-nums mt-0.5 block">
+                  ${execData.forecasts?.currentMRR ?? 0}/mois
+                </span>
+                <span className="text-[10px] text-gray-500">Abonnés payants actifs</span>
+              </div>
+
+              <div className="bg-black/25 border border-white/5 rounded-xl p-3">
+                <span className="text-[10px] text-gray-400 uppercase font-semibold block">Potentiel Essais (30j)</span>
+                <span className="text-lg font-extrabold text-blue-400 tabular-nums mt-0.5 block">
+                  +${execData.forecasts?.trialConversionPotential30d ?? 0}
+                </span>
+                <span className="text-[10px] text-gray-500">
+                  {execData.forecasts?.expiringIn7DaysCount ?? 0} éch. sous 7 jours
+                </span>
+              </div>
+
+              <div className="bg-black/25 border border-white/5 rounded-xl p-3">
+                <span className="text-[10px] text-gray-400 uppercase font-semibold block">Recouvrement Impayés</span>
+                <span className="text-lg font-extrabold text-amber-400 tabular-nums mt-0.5 block">
+                  +${execData.forecasts?.overdueRecoveryPotential ?? 0}
+                </span>
+                <span className="text-[10px] text-gray-500">Boutiques expirées</span>
+              </div>
+
+              <div className="bg-black/25 border border-white/5 rounded-xl p-3">
+                <span className="text-[10px] text-gray-400 uppercase font-semibold block">Commissions Partenaires</span>
+                <span className="text-lg font-extrabold text-gray-200 tabular-nums mt-0.5 block">
+                  -${execData.forecasts?.projected30dPartnerCommissions ?? 0}
+                </span>
+                <span className="text-[10px] text-gray-500">Provision $5 / affilié</span>
+              </div>
+
+              <div className="bg-[#C7D300]/10 border border-[#C7D300]/25 rounded-xl p-3">
+                <span className="text-[10px] text-[#C7D300] uppercase font-bold block">Prévision Nette (30j)</span>
+                <span className="text-lg font-extrabold text-[#C7D300] tabular-nums mt-0.5 block">
+                  ${execData.forecasts?.projected30dNetRevenue ?? 0}
+                </span>
+                <span className="text-[10px] text-gray-300">
+                  Trimestre (90j) : ${execData.forecasts?.projected90dRevenue ?? 0}
+                </span>
+              </div>
+
+              <div className="bg-black/25 border border-white/10 rounded-xl p-3">
+                <span className="text-[10px] text-gray-400 uppercase font-semibold block">Projection Annuelle (ARR)</span>
+                <span className="text-lg font-extrabold text-emerald-400 tabular-nums mt-0.5 block">
+                  ${execData.forecasts?.projectedAnnualARR ?? 0}/an
+                </span>
+                <span className="text-[10px] text-gray-500">Run-rate annuel net</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── DISPOSITION 2 COLONNES (Gauche 2/3 + Droite 1/3) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

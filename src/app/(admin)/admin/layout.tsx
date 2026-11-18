@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { ShieldAlert, LayoutDashboard, Package, Users, Settings, UserCheck, Store, Truck, ShoppingCart, Building, Wallet, LifeBuoy, Gift, Briefcase, Bell } from "lucide-react";
 import DashboardLayout from "@/modules/shared/components/layouts/DashboardLayout";
@@ -31,6 +32,8 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const { user, userData, loading } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
   const hasAccess = hasAdminAccess(user, userData);
   const isSuper = isSuperAdmin(user, userData);
 
@@ -175,6 +178,101 @@ export default function AdminLayout({
     };
   }, [hasAccess, user?.uid]);
 
+  const userRole = (userData?.role || "").toUpperCase();
+  const positions: string[] = Array.isArray(userData?.staffProfile?.positions) && userData.staffProfile.positions.length > 0
+    ? userData.staffProfile.positions
+    : [userRole];
+
+  const isFullAdmin =
+    isSuper ||
+    positions.includes("SUB_ADMIN") ||
+    positions.includes("SUBADMIN") ||
+    positions.includes("ADMIN") ||
+    userRole === "SUB_ADMIN" ||
+    userRole === "ADMIN";
+
+  const isLogisticsOnly =
+    !isFullAdmin &&
+    (positions.includes("RESPONSABLE_LOGISTIQUE") || positions.includes("ADMIN_OPS") || userRole === "ADMIN_OPS" || userRole === "RESPONSABLE_LOGISTIQUE");
+
+  const isSupportOnly =
+    !isFullAdmin &&
+    (positions.includes("SUPPORT_CLIENT") || userRole === "SUPPORT_CLIENT");
+
+  const isFinanceOnly =
+    !isFullAdmin &&
+    (positions.includes("RESPONSABLE_FINANCIER") || positions.includes("ADMIN_FINANCE") || userRole === "ADMIN_FINANCE" || userRole === "RESPONSABLE_FINANCIER");
+
+  // Construire les routes strictement autorisées par poste fonctionnaire
+  const allowedHrefs = new Set<string>();
+  if (isFullAdmin) {
+    ADMIN_MENU.forEach((m) => allowedHrefs.add(m.href));
+  } else {
+    if (positions.includes("RESPONSABLE_FINANCIER") || positions.includes("ADMIN_FINANCE") || userRole.includes("FINANCE")) {
+      // Finance : uniquement ce que l'application génère (Abonnements, Caisse, Commissions Partenaires & Parrainages)
+      allowedHrefs.add("/admin/finance");
+      allowedHrefs.add("/admin/partners");
+      allowedHrefs.add("/admin/referrals");
+    }
+    if (positions.includes("SUPPORT_CLIENT") || userRole.includes("SUPPORT")) {
+      // Service Client : uniquement les requêtes/correspondances clients et l'annuaire clients
+      allowedHrefs.add("/admin/tickets");
+      allowedHrefs.add("/admin/clients");
+    }
+    if (positions.includes("RESPONSABLE_LOGISTIQUE") || positions.includes("ADMIN_OPS") || userRole.includes("OPS") || userRole.includes("LOGISTIQUE")) {
+      // Logistique : uniquement la flotte de livreurs et les courses/livraisons
+      allowedHrefs.add("/admin/drivers");
+      allowedHrefs.add("/admin/orders");
+    }
+    if (positions.includes("RESPONSABLE_CATALOGUE") || positions.includes("ADMIN_DB") || positions.includes("ADMIN_TECH") || userRole.includes("DB") || userRole.includes("CATALOGUE")) {
+      // Catalogue : uniquement modération produits, immobilier et consultation fournisseurs
+      allowedHrefs.add("/admin/products");
+      allowedHrefs.add("/admin/properties");
+      allowedHrefs.add("/admin/suppliers");
+    }
+    if (positions.includes("GESTIONNAIRE_ADMIN") || userRole === "GESTIONNAIRE_ADMIN") {
+      // Gestionnaire Admin : KYC fournisseurs, partenaires, clients, tickets et push
+      allowedHrefs.add("/admin/suppliers");
+      allowedHrefs.add("/admin/partners");
+      allowedHrefs.add("/admin/clients");
+      allowedHrefs.add("/admin/tickets");
+      allowedHrefs.add("/admin/push");
+    }
+  }
+
+  // Adapter les intitulés du menu selon le métier du fonctionnaire
+  const filteredMenuItems = ADMIN_MENU.filter((item) => isFullAdmin || allowedHrefs.has(item.href)).map((item) => {
+    if (item.href === "/admin/orders" && isLogisticsOnly) {
+      return { ...item, title: "Courses & Livraisons" };
+    }
+    if (item.href === "/admin/drivers" && isLogisticsOnly) {
+      return { ...item, title: "Flotte & Livreurs" };
+    }
+    if (item.href === "/admin/tickets" && isSupportOnly) {
+      return { ...item, title: "Requêtes & Correspondances" };
+    }
+    if (item.href === "/admin/finance" && isFinanceOnly) {
+      return { ...item, title: "Finances & Abonnements" };
+    }
+    return item;
+  });
+
+  // Redirection automatique si un fonctionnaire tente d'ouvrir une page hors de son périmètre
+  const allowedHrefsList = Array.from(allowedHrefs);
+  const primaryRoute = isFullAdmin
+    ? "/admin/dashboard"
+    : allowedHrefsList[0] || "/admin/tickets";
+
+  useEffect(() => {
+    if (loading || !hasAccess || isFullAdmin) return;
+    const isCurrentAllowed = allowedHrefsList.some(
+      (href) => pathname === href || pathname.startsWith(`${href}/`)
+    );
+    if (!isCurrentAllowed && primaryRoute) {
+      router.replace(primaryRoute);
+    }
+  }, [pathname, loading, hasAccess, isFullAdmin, primaryRoute, router, allowedHrefsList.join(",")]);
+
   if (loading) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-[#0F1D27] text-white">
@@ -209,60 +307,6 @@ export default function AdminLayout({
     );
   }
 
-  const userRole = (userData?.role || "").toUpperCase();
-
-  // Role & positions based menu customization
-  const filteredMenuItems = ADMIN_MENU.filter((item) => {
-    if (isSuper) return true;
-
-    const positions: string[] = Array.isArray(userData?.staffProfile?.positions) && userData.staffProfile.positions.length > 0
-      ? userData.staffProfile.positions
-      : [userRole];
-
-    // Sub-Admin sees all modules exactly like the Super Admin
-    if (
-      positions.includes("SUB_ADMIN") ||
-      positions.includes("SUBADMIN") ||
-      positions.includes("ADMIN") ||
-      userRole === "SUB_ADMIN" ||
-      userRole === "ADMIN"
-    ) {
-      return true;
-    }
-
-    const allowedHrefs = new Set(["/admin/dashboard", "/admin/settings"]);
-
-    if (positions.includes("GESTIONNAIRE_ADMIN")) {
-      allowedHrefs.add("/admin/push");
-      allowedHrefs.add("/admin/clients");
-      allowedHrefs.add("/admin/suppliers");
-      allowedHrefs.add("/admin/partners");
-      allowedHrefs.add("/admin/tickets");
-    }
-    if (positions.includes("RESPONSABLE_FINANCIER") || positions.includes("ADMIN_FINANCE")) {
-      allowedHrefs.add("/admin/finance");
-      allowedHrefs.add("/admin/referrals");
-      allowedHrefs.add("/admin/orders");
-      allowedHrefs.add("/admin/partners");
-    }
-    if (positions.includes("RESPONSABLE_CATALOGUE") || positions.includes("ADMIN_DB") || positions.includes("ADMIN_TECH")) {
-      allowedHrefs.add("/admin/products");
-      allowedHrefs.add("/admin/properties");
-      allowedHrefs.add("/admin/orders");
-    }
-    if (positions.includes("RESPONSABLE_LOGISTIQUE") || positions.includes("ADMIN_OPS")) {
-      allowedHrefs.add("/admin/drivers");
-      allowedHrefs.add("/admin/orders");
-      allowedHrefs.add("/admin/delivery/create");
-    }
-    if (positions.includes("SUPPORT_CLIENT")) {
-      allowedHrefs.add("/admin/tickets");
-      allowedHrefs.add("/admin/clients");
-    }
-
-    return allowedHrefs.has(item.href);
-  });
-
   const roleBadgeValue = isSuper 
     ? "SUPER ADMIN" 
     : userRole === "SUB_ADMIN" || userRole === "SUBADMIN" || userRole === "ADMIN"
@@ -284,9 +328,16 @@ export default function AdminLayout({
         ? "Responsable Opérations & Logistique"
         : "Collaborateur Administratif");
 
+  const roleBadgeTitle = isSuper
+    ? "Direction Générale"
+    : userRole === "SUB_ADMIN" || userRole === "SUBADMIN" || userRole === "ADMIN"
+    ? "Direction Adjointe"
+    : "Fonctionnaire Rayons";
+
   return (
     <DashboardLayout
       menuItems={filteredMenuItems}
+      roleBadgeTitle={roleBadgeTitle}
       roleBadgeValue={roleBadgeValue}
       topbarTitle="Administration Centrale"
       userName={userData?.displayName || userData?.name || "Collaborateur"}
