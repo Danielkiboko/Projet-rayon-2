@@ -334,11 +334,11 @@ export default function MobilePushManager() {
 
     const mountWatermark = getWatermark();
 
-    // A. Écoute des notifications du compte (userId == user.uid)
+    // A. Écoute des notifications non lues du compte (userId == user.uid)
     const qUserNotifs = query(
       collection(db, "inapp_notifications"),
       where("userId", "==", user.uid),
-      limit(15)
+      where("read", "==", false)
     );
 
     const unsubUserNotifs = onSnapshot(

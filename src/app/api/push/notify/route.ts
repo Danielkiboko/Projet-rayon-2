@@ -18,6 +18,26 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { eventType, chatId, text, senderName: customSenderName } = body;
 
+    if (eventType === "TEST_PUSH") {
+      const targetUid = (body.targetUid && caller.isAdmin) ? String(body.targetUid) : caller.uid;
+      const res = await dispatchAccountNotification({
+        userId: targetUid,
+        clientId: targetUid,
+        supplierId: targetUid,
+        type: "system",
+        title: body.title || "🔔 Test Notification Push — Rayons.net",
+        message:
+          body.text ||
+          "Votre système de notifications Push en temps réel fonctionne parfaitement sur cet appareil !",
+        link: body.link || "/admin/dashboard",
+        tag: `test-push-${Date.now()}`,
+      });
+      return NextResponse.json({
+        success: true,
+        ...res,
+      });
+    }
+
     if (eventType === "CHAT_MESSAGE") {
       if (!chatId || !text) {
         return NextResponse.json({ success: false, error: "chatId et text requis." }, { status: 400 });

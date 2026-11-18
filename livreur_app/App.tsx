@@ -257,21 +257,15 @@ function Root() {
     );
   }
 
-  return <LoginScreen boundDriver={boundDriver} />;
+  return <LoginScreen />;
 }
 
-function LoginScreen({ boundDriver }: { boundDriver?: { profile: DriverProfile; email: string } | null }) {
-  const [email, setEmail] = useState(boundDriver?.email || '');
+function LoginScreen() {
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const passwordRef = useRef<TextInput>(null);
-
-  useEffect(() => {
-    if (boundDriver?.email && !email) {
-      setEmail(boundDriver.email);
-    }
-  }, [boundDriver?.email]);
 
   // Animations
   const fadeAnimHeader = useRef(new Animated.Value(0)).current;

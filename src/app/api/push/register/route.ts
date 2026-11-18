@@ -103,11 +103,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Jeton d'appareil non valide." }, { status: 403 });
     }
 
-    // Récupérer les notifications récentes de ce compte (inapp_notifications)
+    // Récupérer toutes les notifications non lues de ce compte (inapp_notifications)
     const [byUserSnap, byClientSnap, bySupplierSnap] = await Promise.all([
-      adminDb.collection("inapp_notifications").where("userId", "==", uid).limit(25).get(),
-      adminDb.collection("inapp_notifications").where("clientId", "==", uid).limit(25).get(),
-      adminDb.collection("inapp_notifications").where("supplierId", "==", uid).limit(25).get(),
+      adminDb.collection("inapp_notifications").where("userId", "==", uid).where("read", "==", false).get(),
+      adminDb.collection("inapp_notifications").where("clientId", "==", uid).where("read", "==", false).get(),
+      adminDb.collection("inapp_notifications").where("supplierId", "==", uid).where("read", "==", false).get(),
     ]);
 
     const itemsMap = new Map<string, any>();
