@@ -45,6 +45,7 @@ export const metadata: Metadata = {
 
 import { AuthProvider } from "@/context/AuthContext";
 import { CurrencyProvider } from "@/context/CurrencyContext";
+import { LanguageProvider } from "@/context/LanguageContext";
 import { ChatProvider } from "@/context/ChatContext";
 import { CartProvider } from "@/context/CartContext";
 import { ThemeProvider } from "@/modules/shared/components/ThemeProvider";
@@ -65,15 +66,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-full flex flex-col bg-gray-50 dark:bg-[#0F1D27] text-[#0F1D27] dark:text-gray-100 transition-colors font-sans" suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AuthProvider>
-            <CurrencyProvider>
-              <ChatProvider>
-                <CartProvider>
-                  {children}
-                  <CartDrawer />
-                  <MobilePushManager />
-                </CartProvider>
-              </ChatProvider>
-            </CurrencyProvider>
+            <LanguageProvider>
+              <CurrencyProvider>
+                <ChatProvider>
+                  <CartProvider>
+                    {children}
+                    <CartDrawer />
+                    <MobilePushManager />
+                  </CartProvider>
+                </ChatProvider>
+              </CurrencyProvider>
+            </LanguageProvider>
           </AuthProvider>
         </ThemeProvider>
         <StructuredData />

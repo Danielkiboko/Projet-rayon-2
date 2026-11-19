@@ -15,6 +15,7 @@ import { ProductSkeleton } from "@/modules/shared/components/ui/Skeleton";
 import { useAuth } from "@/context/AuthContext";
 import { useChat } from "@/context/ChatContext";
 import { useCurrency } from "@/context/CurrencyContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { ImmoContactModal } from "@/modules/client/components/ImmoContactModal";
 import PropertyDetailModal from "@/modules/shared/components/properties/PropertyDetailModal";
 import AlibabaClientBottomNav from "@/modules/client/components/AlibabaClientBottomNav";
@@ -42,7 +43,7 @@ const DICT = {
   en: {
     home: "Home",
     connect: "Connect",
-    immo: "Immo",
+    immo: "Real Estate",
     mode: "Fashion",
     saveurs: "Flavors",
     login: "Login",
@@ -54,12 +55,28 @@ const DICT = {
     rent: "🏠 Homes: For Rent",
     hotels: "🏨 Hotels & Stays",
     appointment: "Book Appointment",
+  },
+  zh: {
+    home: "首页",
+    connect: "科技互联",
+    immo: "房产酒店",
+    mode: "时尚服饰",
+    saveurs: "美食餐饮",
+    login: "登录",
+    title: "寻找您的理想居所",
+    subtitle: "探索我们的独家房源精选：高端住宅（别墅、公寓）与精品星级酒店。",
+    tag: "高端房产与酒店预订",
+    all: "全部房源",
+    sale: "🏠 住宅：出售",
+    rent: "🏠 住宅：出租",
+    hotels: "🏨 酒店与住宿",
+    appointment: "预约看房",
   }
 };
 
 function ImmoContent() {
-  const [lang, setLang] = useState<"fr" | "en">("fr");
-  const t = DICT[lang];
+  const { lang, setLang } = useLanguage();
+  const t = DICT[lang] || DICT.fr;
   const { user, loading, signOut } = useAuth();
   const { openChatForProduct } = useChat();
   const { formatPrice } = useCurrency();

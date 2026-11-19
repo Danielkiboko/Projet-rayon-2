@@ -16,9 +16,11 @@ import { Footer } from "@/modules/shared/components/Footer";
 import { useChat } from "@/context/ChatContext";
 import { useCart } from "@/context/CartContext";
 import { useCurrency } from "@/context/CurrencyContext";
+import { useLanguage, LanguageCode } from "@/context/LanguageContext";
 import { db } from "@/lib/firebase";
 import { collection, query, getDocs, limit, where } from "firebase/firestore";
 import { CurrencySelector } from "@/modules/shared/components/CurrencySelector";
+import { LanguageSelector } from "@/modules/shared/components/LanguageSelector";
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
 import { UniversalSearchBar } from "@/modules/client/components/home/UniversalSearchBar";
 import NotificationBell from "@/modules/shared/components/notifications/NotificationBell";
@@ -162,6 +164,7 @@ export default function Home() {
   const { user, userData, signOut } = useAuth();
   const { openChatForProduct } = useChat();
   const { formatPrice } = useCurrency();
+  const { lang, setLang, t } = useLanguage();
   const { totalItems, openCart } = useCart();
 
   const [dbProducts, setDbProducts] = useState<any[]>([]);
@@ -258,7 +261,7 @@ export default function Home() {
               className="flex items-center gap-2 text-xs font-bold text-[#0F1D27] bg-[#C7D300] px-4 py-1.5 rounded-full shadow-md shadow-[#C7D300]/20 transition-all"
             >
               <HomeIcon size={14} />
-              <span>Accueil</span>
+              <span>{t("nav.home")}</span>
             </Link>
 
             <Link
@@ -266,7 +269,7 @@ export default function Home() {
               className="flex items-center gap-2 text-xs font-semibold text-gray-300 hover:text-white hover:bg-white/10 px-3.5 py-1.5 rounded-full transition-all group"
             >
               <span className="w-2 h-2 rounded-full bg-[#00B5A5] group-hover:scale-125 transition-transform" />
-              <span>Connect</span>
+              <span>{t("nav.connect")}</span>
             </Link>
 
             <Link
@@ -274,7 +277,7 @@ export default function Home() {
               className="flex items-center gap-2 text-xs font-semibold text-gray-300 hover:text-white hover:bg-white/10 px-3.5 py-1.5 rounded-full transition-all group"
             >
               <span className="w-2 h-2 rounded-full bg-[#4C6EF5] group-hover:scale-125 transition-transform" />
-              <span>Immobilier</span>
+              <span>{t("nav.immo")}</span>
             </Link>
 
             <Link
@@ -282,7 +285,7 @@ export default function Home() {
               className="flex items-center gap-2 text-xs font-semibold text-gray-300 hover:text-white hover:bg-white/10 px-3.5 py-1.5 rounded-full transition-all group"
             >
               <span className="w-2 h-2 rounded-full bg-[#D4B08C] group-hover:scale-125 transition-transform" />
-              <span>Mode</span>
+              <span>{t("nav.mode")}</span>
             </Link>
 
             <Link
@@ -290,7 +293,7 @@ export default function Home() {
               className="flex items-center gap-2 text-xs font-semibold text-gray-300 hover:text-white hover:bg-white/10 px-3.5 py-1.5 rounded-full transition-all group"
             >
               <span className="w-2 h-2 rounded-full bg-[#FF6B35] group-hover:scale-125 transition-transform" />
-              <span>Saveurs</span>
+              <span>{t("nav.saveurs")}</span>
             </Link>
 
             <span className="w-px h-4 bg-white/15 mx-1" />
@@ -299,20 +302,21 @@ export default function Home() {
               href="/about"
               className="text-xs font-semibold text-gray-300 hover:text-white hover:bg-white/10 px-3 py-1.5 rounded-full transition-all"
             >
-              À propos
+              {lang === "zh" ? "关于我们" : lang === "en" ? "About" : "À propos"}
             </Link>
 
             <Link
               href="/contact"
               className="text-xs font-semibold text-gray-300 hover:text-white hover:bg-white/10 px-3 py-1.5 rounded-full transition-all"
             >
-              Contact
+              {lang === "zh" ? "联系我们" : "Contact"}
             </Link>
           </nav>
 
           {/* Right Utilities */}
-          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             <CurrencySelector variant="dark" />
+            <LanguageSelector variant="dark" />
 
             {user ? (
               <div className="flex items-center gap-2">
@@ -322,25 +326,25 @@ export default function Home() {
                 >
                   <User size={14} className="text-[#C7D300]" />
                   <span className="hidden sm:inline-block max-w-[120px] truncate">
-                    {userData?.displayName || user.displayName || "Mon espace"}
+                    {userData?.displayName || user.displayName || t("nav.account")}
                   </span>
                 </Link>
                 <button
                   onClick={signOut}
                   className="hidden md:block text-xs font-medium text-rose-300 hover:text-rose-200 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-2 rounded-xl transition-colors cursor-pointer"
                 >
-                  Déconnexion
+                  {t("nav.logout")}
                 </button>
               </div>
             ) : (
               <div className="flex items-center gap-1.5">
                 <Link
                   href="/login"
-                  aria-label="Connexion"
+                  aria-label={t("nav.login")}
                   className="flex items-center gap-1.5 text-xs font-bold text-gray-200 hover:text-white bg-white/10 hover:bg-white/15 border border-white/10 p-2 sm:px-3.5 sm:py-2 rounded-xl transition-colors"
                 >
                   <User size={15} className="sm:hidden" />
-                  <span className="hidden sm:inline">Connexion</span>
+                  <span className="hidden sm:inline">{t("nav.login")}</span>
                 </Link>
               </div>
             )}
@@ -409,15 +413,34 @@ export default function Home() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex-1 py-2.5 text-center text-xs font-bold bg-[#C7D300] text-[#0F1D27] rounded-xl"
               >
-                Devenir Fournisseur
+                {t("nav.becomeSupplier")}
               </Link>
               <Link
                 href="/help"
                 onClick={() => setMobileMenuOpen(false)}
                 className="py-2.5 px-4 text-center text-xs font-semibold bg-white/10 text-white rounded-xl"
               >
-                Aide
+                {lang === "zh" ? "帮助" : lang === "en" ? "Help" : "Aide"}
               </Link>
+            </div>
+            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/10 mt-2">
+              {(["fr", "en", "zh"] as LanguageCode[]).map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => {
+                    setLang(code);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`py-2 text-center text-xs font-bold rounded-xl border transition-colors ${
+                    lang === code
+                      ? "bg-[#C7D300]/20 text-[#C7D300] border-[#C7D300]/40"
+                      : "bg-white/10 text-white border-white/10"
+                  }`}
+                >
+                  {code === "fr" ? "🇫🇷 FR" : code === "en" ? "🇬🇧 EN" : "🇨🇳 中文"}
+                </button>
+              ))}
             </div>
           </div>
         )}
@@ -481,9 +504,9 @@ export default function Home() {
 
             {/* Original main headline */}
             <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-[1.08] mb-6 tracking-tight">
-              Achetez en toute confiance.{" "}
+              {t("home.heroTitle1")}{" "}
               <span className="text-[#C7D300] relative">
-                Livré & garanti chez vous.
+                {t("home.heroTitle2")}
                 <svg className="absolute -bottom-1 left-0 w-full" height="6" viewBox="0 0 200 6" fill="none">
                   <path d="M0 5 Q50 1 100 5 Q150 1 200 5" stroke="#C7D300" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.6" />
                 </svg>
@@ -492,7 +515,7 @@ export default function Home() {
 
             {/* Original subheadline */}
             <p className="text-gray-300 text-lg sm:text-xl mb-8 max-w-xl leading-relaxed">
-              Tech, mode, gastronomie ou immobilier : commandez auprès des meilleurs commerçants locaux. Votre paiement reste consigné jusqu&apos;à la remise en main propre.
+              {t("home.heroSubtitle")}
             </p>
 
             {/* Universal Search Bar with Glass Glow */}
@@ -506,7 +529,7 @@ export default function Home() {
                 onClick={() => document.getElementById("rayons")?.scrollIntoView({ behavior: "smooth" })}
                 className="inline-flex items-center gap-2 bg-[#C7D300] text-[#0F1D27] font-heading font-extrabold px-7 py-4 rounded-xl hover:bg-[#b5c000] active:scale-95 transition-all shadow-xl shadow-[#C7D300]/25 text-sm sm:text-base cursor-pointer"
               >
-                <span>Explorer les Rayons</span>
+                <span>{t("home.exploreRayons")}</span>
                 <ArrowRight size={18} />
               </button>
 
@@ -514,7 +537,7 @@ export default function Home() {
                 href="/supplier/register"
                 className="inline-flex items-center gap-2 px-6 py-4 rounded-xl text-white font-bold text-sm sm:text-base bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md transition-all active:scale-95"
               >
-                <span>Ouvrir une Boutique</span>
+                <span>{t("home.openShop")}</span>
                 <BadgeCheck size={18} className="text-[#C7D300]" />
               </Link>
             </div>
@@ -573,10 +596,10 @@ export default function Home() {
               Quatre univers d&apos;excellence
             </span>
             <h2 className="text-2xl sm:text-5xl font-heading font-black text-[#0F1D27] tracking-tight">
-              Explorez les Rayons
+              {t("home.rayonsTitle")}
             </h2>
             <p className="text-gray-500 mt-2 sm:mt-3 max-w-xl mx-auto text-xs sm:text-base px-2">
-              Chaque rayon bénéficie de fournisseurs certifiés, d&apos;un catalogue spécifique et de la garantie de livraison Rayons.
+              {t("home.rayonsSubtitle")}
             </p>
           </div>
 
@@ -605,23 +628,23 @@ export default function Home() {
                       className="text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg border"
                       style={{ color: r.color, backgroundColor: `${r.color}10`, borderColor: `${r.color}30` }}
                     >
-                      {r.badge}
+                      {t(`rayon.${r.id}.badge`, r.badge)}
                     </span>
                   </div>
 
                   <h3 className="text-sm sm:text-xl font-heading font-extrabold text-[#0F1D27] mb-1 sm:mb-2 flex items-center justify-between">
-                    <span>{r.title}</span>
+                    <span>{t(`rayon.${r.id}.title`, r.title)}</span>
                     <ChevronRight
                       size={16}
                       className="text-gray-400 group-hover:translate-x-1 transition-transform hidden sm:block"
                       style={{ color: r.color }}
                     />
                   </h3>
-                  <p className="text-[11px] sm:text-xs text-gray-500 leading-snug sm:leading-relaxed line-clamp-2 sm:line-clamp-none">{r.desc}</p>
+                  <p className="text-[11px] sm:text-xs text-gray-500 leading-snug sm:leading-relaxed line-clamp-2 sm:line-clamp-none">{t(`rayon.${r.id}.desc`, r.desc)}</p>
                 </div>
 
                 <div className="relative z-10 pt-3 sm:pt-5 mt-2.5 sm:mt-4 border-t border-gray-100 flex items-center justify-between text-[11px] sm:text-xs font-bold" style={{ color: r.color }}>
-                  <span>Découvrir</span>
+                  <span>{t("home.discoverRayon")}</span>
                   <ArrowRight size={13} className="group-hover:translate-x-1 transition-transform" />
                 </div>
               </Link>
@@ -636,13 +659,13 @@ export default function Home() {
 
           <div className="relative z-10 text-center mb-12">
             <span className="inline-block text-xs font-bold uppercase tracking-widest text-[#C7D300] bg-[#C7D300]/10 border border-[#C7D300]/30 px-3.5 py-1 rounded-full mb-3">
-              Garantie Sérénité Rayons
+              {t("home.badge")}
             </span>
             <h2 className="text-3xl sm:text-5xl font-heading font-black tracking-tight text-white">
-              Comment vos achats sont protégés ?
+              {t("home.whyTitle")}
             </h2>
             <p className="text-gray-400 mt-3 max-w-xl mx-auto text-sm sm:text-base">
-              Fini les doutes avant de commander : nous gardons votre argent en sécurité et ne payons le commerçant qu&apos;après votre accord.
+              {t("home.whySubtitle")}
             </p>
           </div>
 
@@ -756,8 +779,8 @@ export default function Home() {
                           <ProductCard
                             key={item.id}
                             product={item}
-                            lang="fr"
-                            t={{ details: "Détails" }}
+                            lang={lang}
+                            t={{ details: t("home.details") }}
                             category={normalizedCardCat}
                             index={idx}
                             handleChat={(prod) =>

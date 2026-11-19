@@ -8,12 +8,14 @@ import { useCart } from "@/context/CartContext";
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
 import NotificationBell from "@/modules/shared/components/notifications/NotificationBell";
 import { CurrencySelector } from "@/modules/shared/components/CurrencySelector";
+import { LanguageSelector } from "@/modules/shared/components/LanguageSelector";
+import { useLanguage, LanguageCode } from "@/context/LanguageContext";
 
 interface RayonNavbarProps {
   category: "immo" | "mode" | "connect" | "saveurs";
-  lang: "fr" | "en";
-  setLang: (lang: "fr" | "en") => void;
-  t: any;
+  lang?: LanguageCode;
+  setLang?: (lang: LanguageCode) => void;
+  t?: any;
 }
 
 const cleanLabel = (text?: string, fallback: string = ""): string => {
@@ -21,16 +23,17 @@ const cleanLabel = (text?: string, fallback: string = ""): string => {
   return text.replace(/^Rayons?\s+/i, "").trim() || fallback;
 };
 
-export function RayonNavbar({ category, lang, setLang, t }: RayonNavbarProps) {
+export function RayonNavbar({ category, t }: RayonNavbarProps) {
   const { user, signOut } = useAuth();
   const { totalItems, openCart } = useCart();
+  const { lang, setLang, t: gt } = useLanguage();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const homeLabel = t?.home || "Accueil";
-  const connectLabel = cleanLabel(t?.connect, "Connect");
-  const immoLabel = cleanLabel(t?.immo, "Immo");
-  const modeLabel = cleanLabel(t?.mode, "Mode");
-  const saveursLabel = cleanLabel(t?.saveurs, "Saveurs");
+  const homeLabel = t?.home || gt("nav.home");
+  const connectLabel = cleanLabel(t?.connect, gt("nav.connect"));
+  const immoLabel = cleanLabel(t?.immo, gt("nav.immo"));
+  const modeLabel = cleanLabel(t?.mode, gt("nav.mode"));
+  const saveursLabel = cleanLabel(t?.saveurs, gt("nav.saveurs"));
 
   return (
     <header className="sticky top-2 z-50 px-3 sm:px-6">
@@ -110,41 +113,35 @@ export function RayonNavbar({ category, lang, setLang, t }: RayonNavbarProps) {
         {/* Right Utilities */}
         <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
           <CurrencySelector variant="dark" />
-
-          <button 
-            onClick={() => setLang(lang === "fr" ? "en" : "fr")}
-            className="hidden md:flex items-center px-2.5 py-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-gray-300 hover:text-white transition-colors cursor-pointer"
-          >
-            <Globe size={13} className="mr-1 text-[#C7D300]" /> {lang.toUpperCase()}
-          </button>
+          <LanguageSelector variant="dark" />
 
           {user ? (
             <div className="flex items-center gap-1 sm:gap-2">
               <Link 
                 href="/dashboard" 
-                aria-label="Mon compte"
+                aria-label={gt("nav.account")}
                 className="flex items-center gap-1.5 text-xs font-bold text-white bg-white/10 hover:bg-white/20 border border-white/15 p-2 sm:px-3.5 sm:py-2 rounded-xl transition-all"
               >
                 <User size={14} className="text-[#C7D300]" />
                 <span className="hidden sm:inline-block max-w-[110px] truncate">
-                  {user.displayName || "Mon compte"}
+                  {user.displayName || gt("nav.account")}
                 </span>
               </Link>
               <button 
                 onClick={() => signOut()} 
                 className="hidden md:block text-xs font-medium text-rose-300 hover:text-rose-200 bg-rose-500/10 hover:bg-rose-500/20 px-3 py-2 rounded-xl transition-colors cursor-pointer"
               >
-                Déconnexion
+                {gt("nav.logout")}
               </button>
             </div>
           ) : (
             <Link 
               href="/login" 
-              aria-label="Connexion"
+              aria-label={gt("nav.login")}
               className="flex items-center gap-1.5 text-xs font-bold text-gray-200 hover:text-white bg-white/10 hover:bg-white/15 border border-white/10 p-2 sm:px-3.5 sm:py-2 rounded-xl transition-colors"
             >
               <User size={14} className="sm:hidden" />
-              <span className="hidden sm:inline">{t?.login || "Connexion"}</span>
+              <span className="hidden sm:inline">{t?.login || gt("nav.login")}</span>
             </Link>
           )}
 
@@ -193,23 +190,33 @@ export function RayonNavbar({ category, lang, setLang, t }: RayonNavbarProps) {
               <span>{item.label}</span>
             </Link>
           ))}
-          <div className="border-t border-white/10 mt-2 pt-3 flex gap-2">
+          <div className="border-t border-white/10 mt-2 pt-3 flex flex-col gap-2">
             <Link
               href="/supplier/register"
               onClick={() => setMobileMenuOpen(false)}
-              className="flex-1 py-2.5 text-center text-xs font-bold bg-[#C7D300] text-[#0F1D27] rounded-xl"
+              className="w-full py-2.5 text-center text-xs font-bold bg-[#C7D300] text-[#0F1D27] rounded-xl"
             >
-              Devenir Fournisseur
+              {gt("nav.becomeSupplier")}
             </Link>
-            <button
-              onClick={() => {
-                setLang(lang === "fr" ? "en" : "fr");
-                setMobileMenuOpen(false);
-              }}
-              className="py-2.5 px-4 text-center text-xs font-semibold bg-white/10 text-white rounded-xl"
-            >
-              {lang.toUpperCase()}
-            </button>
+            <div className="grid grid-cols-3 gap-2">
+              {(["fr", "en", "zh"] as LanguageCode[]).map((code) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => {
+                    setLang(code);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`py-2 text-center text-xs font-bold rounded-xl border transition-colors ${
+                    lang === code
+                      ? "bg-[#C7D300]/20 text-[#C7D300] border-[#C7D300]/40"
+                      : "bg-white/10 text-white border-white/10"
+                  }`}
+                >
+                  {code === "fr" ? "🇫🇷 FR" : code === "en" ? "🇬🇧 EN" : "🇨🇳 中文"}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}

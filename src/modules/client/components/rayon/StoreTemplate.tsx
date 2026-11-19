@@ -7,6 +7,7 @@ import { collection, onSnapshot, query, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { ProductSkeleton } from "@/modules/shared/components/ui/Skeleton";
 import { useChat } from "@/context/ChatContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { RayonNavbar } from "./RayonNavbar";
 import { ProductCard } from "./ProductCard";
 import { Search, X, PackageSearch } from "lucide-react";
@@ -21,8 +22,8 @@ interface StoreTemplateProps {
 }
 
 function StoreTemplateContent({ category, heroImage, dummyProducts, dict }: StoreTemplateProps) {
-  const [lang, setLang] = useState<"fr" | "en">("fr");
-  const t = dict[lang];
+  const { lang, setLang } = useLanguage();
+  const t = dict[lang] || dict.fr;
   const { openChatForProduct } = useChat();
   const searchParams = useSearchParams();
 

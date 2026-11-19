@@ -30,6 +30,8 @@ import { RayonsMark } from "@/modules/shared/components/brand/RayonsMark";
 import AnnouncementReaderModal from "@/modules/shared/components/notifications/AnnouncementReaderModal";
 import NotificationCenter, { isAnnouncementNotif } from "@/modules/shared/components/notifications/NotificationCenter";
 import ProfileManagerModal from "@/modules/shared/components/profile/ProfileManagerModal";
+import { LanguageSelector } from "@/modules/shared/components/LanguageSelector";
+import { useLanguage } from "@/context/LanguageContext";
 
 type MenuItem = {
   title: string;
@@ -105,6 +107,7 @@ export function DashboardLayout({
   const pathname = usePathname();
   const { user, userData, signOut } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const { t, translateLabel } = useLanguage();
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<any | null>(null);
   const [lockedModalItem, setLockedModalItem] = useState<MenuItem | null>(null);
@@ -267,7 +270,7 @@ export function DashboardLayout({
                 }`}>
                   <div className="flex items-center space-x-3">
                     <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
-                    <span className={`text-sm ${isActive ? "font-semibold" : "font-medium"}`}>{item.title}</span>
+                    <span className={`text-sm ${isActive ? "font-semibold" : "font-medium"}`}>{translateLabel(item.title)}</span>
                   </div>
                   {item.badge !== undefined && item.badge > 0 && (
                     <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
@@ -283,7 +286,7 @@ export function DashboardLayout({
         <div className="p-4 border-t border-white/5 space-y-2">
           <div className={`px-4 py-3 mb-2 rounded-xl border text-center ${themeColors.activeMenuBg} border-white/5`}>
             {roleBadgeTitle === "Privilèges" && <ShieldAlert size={20} className={`mx-auto mb-1 ${themeColors.accentText}`} />}
-            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">{roleBadgeTitle}</p>
+            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">{translateLabel(roleBadgeTitle)}</p>
             <p className={`text-sm font-semibold truncate ${themeColors.accentText}`}>
               {roleBadgeValue}
             </p>
@@ -297,7 +300,7 @@ export function DashboardLayout({
             className="flex items-center justify-center space-x-2 px-4 py-2.5 w-full rounded-xl text-gray-200 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer"
           >
             <UserCircle size={18} className="text-[#C7D300]" />
-            <span className="text-xs font-bold">Mon Profil & Identité</span>
+            <span className="text-xs font-bold">{t("dash.profileIdentity")}</span>
           </button>
           <button 
             onClick={() => {
@@ -307,7 +310,7 @@ export function DashboardLayout({
             className="flex items-center justify-center space-x-2 px-4 py-2.5 w-full rounded-xl text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer"
           >
             <LogOut size={18} />
-            <span className="text-sm font-medium">Déconnexion</span>
+            <span className="text-sm font-medium">{t("dash.logout")}</span>
           </button>
         </div>
       </motion.aside>
@@ -323,18 +326,20 @@ export function DashboardLayout({
             <Link href="/" className="lg:hidden mr-2 shrink-0 flex items-center">
               <RayonsMark size={22} color="#C7D300" />
             </Link>
-            <h1 className="text-xs sm:text-base md:text-lg font-bold text-white truncate">{topbarTitle}</h1>
+            <h1 className="text-xs sm:text-base md:text-lg font-bold text-white truncate">{translateLabel(topbarTitle)}</h1>
           </div>
           
-          <div className="flex items-center space-x-2 sm:space-x-4 shrink-0">
+          <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
             <div className="hidden md:flex items-center bg-white/5 rounded-full px-4 py-2 border border-white/5">
               <Search size={16} className="text-gray-400 mr-2" />
               <input 
                 type="text" 
-                placeholder="Rechercher..." 
-                className="bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none w-48"
+                placeholder={t("dash.search")} 
+                className="bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none w-44"
               />
             </div>
+
+            <LanguageSelector variant="dark" />
             
             {/* Notification Center */}
             <NotificationCenter
@@ -353,14 +358,14 @@ export function DashboardLayout({
                 <span className="text-sm font-medium text-gray-200 group-hover:text-white block leading-tight transition-colors">
                   {(() => {
                     const currentHour = new Date().getHours();
-                    const greeting = currentHour >= 5 && currentHour < 18 ? "Bonjour" : "Bonsoir";
+                    const greeting = currentHour >= 5 && currentHour < 18 ? t("dash.hello") : t("dash.goodEvening");
                     return (userName && userName !== "Fournisseur" && userName !== "Utilisateur")
                       ? `${greeting} ${userName}`
                       : userName;
                   })()}
                 </span>
                 <span className="text-[10px] text-[#C7D300] font-semibold block leading-tight">
-                  {userRole} • Gérer profil
+                  {userRole} • {t("dash.manageProfile")}
                 </span>
               </div>
               <div className="relative w-9 h-9 rounded-full bg-white/10 text-gray-300 group-hover:text-white group-hover:border-[#C7D300]/50 border border-white/15 flex items-center justify-center overflow-hidden transition-all shrink-0 shadow-sm">

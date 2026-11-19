@@ -10,12 +10,13 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import ReviewsSection from "@/modules/shared/components/reviews/ReviewsSection";
 import { useCurrency } from "@/context/CurrencyContext";
+import { LanguageCode } from "@/context/LanguageContext";
 
 interface PropertyDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   property: any | null;
-  lang?: "fr" | "en";
+  lang?: LanguageCode;
   onBook: (property: any) => void;
   onChat: (property: any) => void;
 }

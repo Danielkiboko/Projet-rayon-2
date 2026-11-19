@@ -26,6 +26,18 @@ const DICT = {
     tag: "Saveurs",
     add: "Order",
     details: "Details",
+  },
+  zh: {
+    home: "首页",
+    connect: "科技互联",
+    immo: "房产酒店",
+    mode: "时尚服饰",
+    saveurs: "美食餐饮",
+    login: "登录",
+    title: "餐厅美食与专业厨具",
+    tag: "美食餐饮",
+    add: "立即预订",
+    details: "详情",
   }
 };
 

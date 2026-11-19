@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Home, MessageSquare, ShoppingCart, User } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, limit } from "firebase/firestore";
 
@@ -25,6 +26,7 @@ export default function AlibabaClientBottomNav({
   const pathname = usePathname();
   const { totalItems, openCart } = useCart();
   const { user } = useAuth();
+  const { t } = useLanguage();
   
   const [livePendingCount, setLivePendingCount] = useState<number>(0);
 
@@ -104,7 +106,7 @@ export default function AlibabaClientBottomNav({
       >
         <Home size={20} strokeWidth={pathname === "/" ? 2.5 : 1.8} className={pathname === "/" ? "text-[#FF6600]" : "text-gray-500"} />
         <span className={`text-[10px] mt-0.5 font-medium ${pathname === "/" ? "text-[#FF6600] font-bold" : "text-gray-600"}`}>
-          Accueil
+          {t("nav.home")}
         </span>
       </Link>
 
@@ -133,7 +135,7 @@ export default function AlibabaClientBottomNav({
           )}
         </div>
         <span className={`text-[10px] mt-0.5 font-medium ${isMessagesActive ? "text-[#FF6600] font-bold" : "text-gray-600"}`}>
-          Messagerie
+          {t("nav.messages")}
         </span>
       </button>
 
@@ -154,7 +156,7 @@ export default function AlibabaClientBottomNav({
           )}
         </div>
         <span className={`text-[10px] mt-0.5 font-medium ${effectivePendingCount > 0 ? "text-[#FF6600] font-bold" : "text-gray-600"}`}>
-          Panier
+          {t("nav.cart")}
         </span>
       </button>
 
@@ -172,7 +174,7 @@ export default function AlibabaClientBottomNav({
       >
         <User size={20} strokeWidth={isProfileActive ? 2.5 : 1.8} className={isProfileActive ? "text-[#FF6600]" : "text-gray-500"} />
         <span className={`text-[10px] mt-0.5 font-medium ${isProfileActive ? "text-[#FF6600] font-bold" : "text-gray-600"}`}>
-          Mon Rayons
+          {t("nav.profile")}
         </span>
       </button>
     </nav>

@@ -3,6 +3,7 @@
 import React, { useEffect } from "react";
 import { motion } from "framer-motion";
 import { Check, ThumbsUp, Sparkles, ArrowRight } from "lucide-react";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface ValidationSuccessViewProps {
   /** Titre principal (par défaut : "C'est fait !") */
@@ -24,13 +25,23 @@ interface ValidationSuccessViewProps {
  * après une validation ou une modification réussie.
  */
 export default function ValidationSuccessView({
-  title = "C'est fait !",
+  title,
   message,
-  badgeLabel = "Validation & Modification Enregistrées",
+  badgeLabel,
   onDone,
   autoHideMs = 2600,
-  actionLabel = "Continuer",
+  actionLabel,
 }: ValidationSuccessViewProps) {
+  const { lang, t } = useLanguage();
+  const resolvedTitle = title || t("dash.doneTitle", "C'est fait !");
+  const resolvedAction = actionLabel || t("dash.continue", "Continuer");
+  const resolvedBadge =
+    badgeLabel ||
+    (lang === "zh"
+      ? "验证与修改已保存"
+      : lang === "en"
+      ? "Validation & Changes Saved"
+      : "Validation & Modification Enregistrées");
   useEffect(() => {
     if (!autoHideMs || autoHideMs <= 0) return;
     const timer = setTimeout(() => {
@@ -99,7 +110,7 @@ export default function ValidationSuccessView({
         className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 mb-3"
       >
         <Sparkles size={12} className="text-[#C7D300]" />
-        <span>{badgeLabel}</span>
+        <span>{resolvedBadge}</span>
       </motion.span>
 
       {/* Titre percutant */}
@@ -109,7 +120,7 @@ export default function ValidationSuccessView({
         transition={{ delay: 0.16 }}
         className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mb-2"
       >
-        {title}
+        {resolvedTitle}
       </motion.h3>
 
       {/* Description de ce qui a été validé ou modifié */}
@@ -131,7 +142,7 @@ export default function ValidationSuccessView({
         transition={{ delay: 0.26 }}
         className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-extrabold text-xs sm:text-sm shadow-lg shadow-[#C7D300]/20 transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
       >
-        <span>{actionLabel}</span>
+        <span>{resolvedAction}</span>
         <ArrowRight size={15} />
       </motion.button>
 

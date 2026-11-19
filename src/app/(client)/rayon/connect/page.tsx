@@ -24,6 +24,17 @@ const DICT = {
     title: "Technological Equipment",
     add: "Add to cart",
     details: "Details",
+  },
+  zh: {
+    home: "首页",
+    connect: "科技互联",
+    immo: "房产酒店",
+    mode: "时尚服饰",
+    saveurs: "美食餐饮",
+    login: "登录",
+    title: "科技与智能设备",
+    add: "加入购物车",
+    details: "详情",
   }
 };
 

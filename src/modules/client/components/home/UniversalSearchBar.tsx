@@ -17,6 +17,7 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { useCurrency } from "@/context/CurrencyContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 interface UniversalSearchBarProps {
   products?: any[];
@@ -26,6 +27,7 @@ interface UniversalSearchBarProps {
 export function UniversalSearchBar({ products = [], properties = [] }: UniversalSearchBarProps) {
   const router = useRouter();
   const { formatPrice } = useCurrency();
+  const { lang, t } = useLanguage();
   const [query, setQuery] = useState("");
   const [selectedRayon, setSelectedRayon] = useState<"all" | "connect" | "immo" | "mode" | "saveurs">("all");
   const [isOpen, setIsOpen] = useState(false);
@@ -144,7 +146,11 @@ export function UniversalSearchBar({ products = [], properties = [] }: Universal
           }}
           onFocus={() => setIsOpen(true)}
           placeholder={
-            selectedRayon === "immo"
+            lang === "zh"
+              ? t("nav.searchPlaceholder")
+              : lang === "en"
+              ? t("nav.searchPlaceholder")
+              : selectedRayon === "immo"
               ? "Rechercher un hôtel, appartement, villa à Kinshasa (ex: Gombe, Ngaliema)..."
               : selectedRayon === "connect"
               ? "Rechercher un équipement tech (ex: Starlink, routeur Wi-Fi, caméra)..."
@@ -176,7 +182,7 @@ export function UniversalSearchBar({ products = [], properties = [] }: Universal
           aria-label="Rechercher"
           className="shrink-0 bg-[#0F1D27] hover:bg-[#1a2d3b] text-white px-3 sm:px-6 py-2.5 sm:py-3 rounded-xl font-heading font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-md"
         >
-          <span className="hidden sm:inline">Rechercher</span>
+          <span className="hidden sm:inline">{lang === "zh" ? "搜索" : lang === "en" ? "Search" : "Rechercher"}</span>
           <ArrowRight size={16} />
         </button>
       </form>

@@ -26,6 +26,18 @@ const DICT = {
     subtitle: "Discover our selection of trendy clothes, shoes and accessories.",
     add: "Add to cart",
     details: "Details",
+  },
+  zh: {
+    home: "首页",
+    connect: "科技互联",
+    immo: "房产酒店",
+    mode: "时尚服饰",
+    saveurs: "美食餐饮",
+    login: "登录",
+    title: "全新时尚系列",
+    subtitle: "探索我们精选的潮流服饰、鞋履与精品配饰。",
+    add: "加入购物车",
+    details: "详情",
   }
 };
 

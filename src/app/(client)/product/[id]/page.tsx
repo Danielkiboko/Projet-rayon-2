@@ -25,7 +25,9 @@ import { useParams } from "next/navigation";
 import { useChat } from "@/context/ChatContext";
 import { useCart } from "@/context/CartContext";
 import { useCurrency } from "@/context/CurrencyContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { CurrencySelector } from "@/modules/shared/components/CurrencySelector";
+import { LanguageSelector } from "@/modules/shared/components/LanguageSelector";
 import { doc, getDoc, collection, getDocs, query, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { evaluateProductVerification } from "@/lib/productVerification";
@@ -38,7 +40,7 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
   const resolvedParams = use(params);
   const productId = resolvedParams?.id || (routeParams?.id as string) || "";
 
-  const [lang, setLang] = useState<"fr" | "en">("fr");
+  const { lang, setLang, t } = useLanguage();
   const { openChatForProduct } = useChat();
   const { addToCart } = useCart();
   const { formatPrice } = useCurrency();
@@ -364,31 +366,25 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
           <div className="flex items-center gap-3 sm:gap-4">
             <Link href="/" className="flex items-center text-gray-300 hover:text-white transition-colors">
               <ChevronLeft size={20} className="mr-0.5 sm:mr-1" />
-              <span className="text-xs sm:text-sm font-semibold">{lang === "fr" ? "Retour" : "Back"}</span>
+              <span className="text-xs sm:text-sm font-semibold">{t("store.back")}</span>
             </Link>
             <div className="h-4 sm:h-5 w-[1px] bg-white/15" />
             <RayonsLogo size="sm" variant="dark" href="/" />
           </div>
 
-          <div className="flex items-center space-x-2.5">
+          <div className="flex items-center space-x-2">
             <button
               type="button"
               onClick={handleShareProduct}
-              className="px-3 py-1.5 bg-white/10 hover:bg-white/15 rounded-full text-xs font-semibold text-[#C7D300] flex items-center gap-1.5 border border-white/10 transition-colors cursor-pointer"
+              className="px-2.5 sm:px-3 py-1.5 bg-white/10 hover:bg-white/15 rounded-full text-xs font-semibold text-[#C7D300] flex items-center gap-1.5 border border-white/10 transition-colors cursor-pointer"
               title="Partager le lien du produit"
             >
               <Share2 size={13} />
-              <span>{copiedLink ? "Lien copié !" : "Partager"}</span>
+              <span className="hidden sm:inline">{copiedLink ? t("store.copied") : t("store.share")}</span>
             </button>
 
             <CurrencySelector variant="dark" />
-
-            <button
-              onClick={() => setLang(lang === "fr" ? "en" : "fr")}
-              className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-full text-xs font-medium text-gray-300 hover:text-white transition-colors"
-            >
-              {lang.toUpperCase()}
-            </button>
+            <LanguageSelector variant="dark" />
           </div>
         </div>
       </header>

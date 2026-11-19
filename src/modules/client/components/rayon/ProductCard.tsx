@@ -5,10 +5,11 @@ import { motion } from "framer-motion";
 import { evaluateProductVerification } from "@/lib/productVerification";
 import { useCart } from "@/context/CartContext";
 import { useCurrency } from "@/context/CurrencyContext";
+import { LanguageCode } from "@/context/LanguageContext";
 
 interface ProductCardProps {
   product: any;
-  lang: "fr" | "en";
+  lang: LanguageCode;
   t: any;
   category: "mode" | "connect" | "saveurs";
   index: number;
@@ -127,7 +128,7 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
             {/* Verification Badge (compact) */}
             {verification.badgeType === "admin_official" ? (
               <span className="flex items-center bg-[#0F1D27]/10 text-[#0F1D27] px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold border border-[#0F1D27]/20 shrink-0" title="Certifié Rayons">
-                <ShieldCheck size={10} className="mr-0.5 text-[#C7D300]" /> Certifié
+                <ShieldCheck size={10} className="mr-0.5 text-[#C7D300]" /> {lang === "zh" ? "已认证" : lang === "en" ? "Verified" : "Certifié"}
               </span>
             ) : verification.badgeType === "community_verified" ? (
               <span className="flex items-center bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded text-[8px] sm:text-[9px] font-bold border border-emerald-200 shrink-0">
@@ -139,14 +140,14 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
                 {verification.averageRating.toFixed(1)}
               </span>
             ) : (
-              <span className="text-[8px] sm:text-[9px] text-gray-300 shrink-0">Nouveau</span>
+              <span className="text-[8px] sm:text-[9px] text-gray-300 shrink-0">{lang === "zh" ? "新品" : lang === "en" ? "New" : "Nouveau"}</span>
             )}
           </div>
           
           {/* Title */}
           <Link href={`/product/${product.id}`} className="block group-hover:text-primary transition-colors">
             <h3 className="text-xs font-semibold text-gray-900 leading-snug line-clamp-2 min-h-[2rem] mb-1">
-              {product.title?.[lang] || product.title?.fr || product.title}
+              {product.title?.[lang] || product.title?.fr || product.title?.en || product.title}
             </h3>
           </Link>
           
@@ -166,7 +167,7 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
               title="Achat direct express"
             >
               <ShoppingBag size={11} className="shrink-0" />
-              <span className="truncate">Acheter</span>
+              <span className="truncate">{lang === "zh" ? "购买" : lang === "en" ? "Buy" : "Acheter"}</span>
             </button>
           ) : (
             <button 
@@ -176,7 +177,7 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
               title="Ajouter au panier"
             >
               <ShoppingCart size={11} className="shrink-0" />
-              <span className="truncate">Panier</span>
+              <span className="truncate">{lang === "zh" ? "加购" : lang === "en" ? "Cart" : "Panier"}</span>
             </button>
           )}
 
