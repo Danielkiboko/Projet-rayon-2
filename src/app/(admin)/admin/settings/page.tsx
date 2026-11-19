@@ -314,337 +314,336 @@ export default function AdminSettingsPage() {
         />
       ) : (
         <>
-      {/* ── Section 1: Identité Boutique Admin ────────────────── */}
-      <div className="bg-[#111111] border border-white/5 rounded-2xl p-6 shadow-sm">
-        <SectionTitle
-          icon={Building}
-          title="Boutique Officielle Rayons"
-          subtitle="Ces informations identifient vos propres produits publiés en tant qu'Admin, distincts des fournisseurs tiers."
-        />
+          {/* ── Section 1: Identité Boutique Admin ────────────────── */}
+          <div className="bg-[#111111] border border-white/5 rounded-2xl p-6 shadow-sm">
+            <SectionTitle
+              icon={Building}
+              title="Boutique Officielle Rayons"
+              subtitle="Ces informations identifient vos propres produits publiés en tant qu'Admin, distincts des fournisseurs tiers."
+            />
 
-        {isLoadingSettings ? (
-          <div className="flex items-center gap-3 text-gray-400 py-6">
-            <Loader2 size={20} className="animate-spin" /> Chargement...
-          </div>
-        ) : (
-          <form onSubmit={handleSaveSettings} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">
-                  <Store size={14} className="inline mr-1.5" />Nom de la boutique Admin
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={settings.adminShopName}
-                  onChange={e => setSettings(s => ({ ...s, adminShopName: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  placeholder="ex: Rayons Officiel"
-                />
+            {isLoadingSettings ? (
+              <div className="flex items-center gap-3 text-gray-400 py-6">
+                <Loader2 size={20} className="animate-spin" /> Chargement...
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-300 mb-2">
-                  <Phone size={14} className="inline mr-1.5" />Téléphone du support
-                </label>
-                <input
-                  type="tel"
-                  value={settings.adminContactPhone}
-                  onChange={e => setSettings(s => ({ ...s, adminContactPhone: e.target.value }))}
-                  className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  placeholder="ex: +243 XXX XXX XXX"
-                />
-              </div>
-            </div>
-
-            {/* ── Section 2: Plans d'Abonnement ──────────── */}
-            <div className="pt-6 mt-2 border-t border-white/5">
-              <div className="flex items-center gap-2 mb-4">
-                <Tag size={18} className="text-blue-400" />
-                <span className="text-base font-bold text-white">Plans d'Abonnement Fournisseur</span>
-              </div>
-              <p className="text-sm text-gray-400 mb-5">
-                Les fournisseurs paient un abonnement mensuel fixe pour accéder à la plateforme. Ils sont ensuite totalement libres de gérer leurs produits, commandes et activités.
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">
-                    Tarif abonnement mensuel (FC)
-                  </label>
-                  <input
-                    type="number"
-                    step="1000"
-                    min="0"
-                    value={settings.monthlySubscriptionPrice}
-                    onChange={e => setSettings(s => ({ ...s, monthlySubscriptionPrice: parseFloat(e.target.value) || 0 }))}
-                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  />
-                  <p className="text-xs text-gray-500 mt-1.5">Visible par l'admin lors du renouvellement.</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">
-                    Durée de la période d'essai (jours)
-                  </label>
-                  <input
-                    type="number"
-                    step="1"
-                    min="0"
-                    max="365"
-                    value={settings.trialDurationDays}
-                    onChange={e => setSettings(s => ({ ...s, trialDurationDays: parseInt(e.target.value) || 0 }))}
-                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  />
-                  <p className="text-xs text-gray-500 mt-1.5">Attribué automatiquement aux nouveaux fournisseurs.</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">
-                    <Truck size={14} className="inline mr-1.5" />Frais de livraison par défaut (FC)
-                  </label>
-                  <input
-                    type="number"
-                    step="100"
-                    min="0"
-                    value={settings.defaultDeliveryFee}
-                    onChange={e => setSettings(s => ({ ...s, defaultDeliveryFee: parseFloat(e.target.value) || 0 }))}
-                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  />
-                  <p className="text-xs text-gray-500 mt-1.5">Appliqué si le fournisseur ne définit pas ses propres frais.</p>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Section 3: Taux de Change & Devises (USD, FC, EUR) ── */}
-            <div className="pt-6 mt-2 border-t border-white/5">
-              <div className="flex items-center gap-2 mb-2">
-                <Coins size={18} className="text-amber-400" />
-                <span className="text-base font-bold text-white">Taux de Change & Multi-Devises</span>
-              </div>
-              <p className="text-sm text-gray-400 mb-5">
-                La devise de référence du catalogue est le Dollar US ($ USD). Définissez ici les taux de conversion appliqués automatiquement aux clients qui basculent en Francs Congolais (FC) ou en Euros (€).
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">
-                    Taux 1 $ USD = ... Francs Congolais (FC)
-                  </label>
-                  <input
-                    type="number"
-                    step="10"
-                    min="100"
-                    required
-                    value={settings.usdToFcRate || 2850}
-                    onChange={e => setSettings(s => ({ ...s, usdToFcRate: parseFloat(e.target.value) || 2850 }))}
-                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono"
-                    placeholder="2850"
-                  />
-                  <p className="text-xs text-gray-500 mt-1.5">Ex: 2 850 FC pour 1 $ USD (Marché RDC).</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">
-                    Taux 1 $ USD = ... Euro (€)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.1"
-                    required
-                    value={settings.usdToEurRate || 0.92}
-                    onChange={e => setSettings(s => ({ ...s, usdToEurRate: parseFloat(e.target.value) || 0.92 }))}
-                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono"
-                    placeholder="0.92"
-                  />
-                  <p className="text-xs text-gray-500 mt-1.5">Ex: 0.92 € pour 1 $ USD (soit 1 € ≈ 1.08 $ USD).</p>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Section 4: Langues & Traduction Automatique (FR / EN / 中文) ── */}
-            <div className="pt-6 mt-2 border-t border-white/5">
-              <div className="flex items-center gap-2 mb-2">
-                <Globe size={18} className="text-[#C7D300]" />
-                <span className="text-base font-bold text-white">Langue du Compte &amp; Langue par Défaut (FR / EN / 中文)</span>
-              </div>
-              <p className="text-sm text-gray-400 mb-5">
-                Définissez la langue de préférence de votre compte (pour recevoir tous les messages, alertes et emails traduits automatiquement) ainsi que la langue par défaut des nouveaux comptes.
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">
-                    Langue de préférence de votre compte Admin
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {(
-                      [
-                        { code: "fr", flag: "🇫🇷", label: "Français" },
-                        { code: "en", flag: "🇬🇧", label: "English" },
-                        { code: "zh", flag: "🇨🇳", label: "中文" },
-                      ] as { code: LanguageCode; flag: string; label: string }[]
-                    ).map((opt) => (
-                      <button
-                        key={opt.code}
-                        type="button"
-                        onClick={() => setAccountLang(opt.code)}
-                        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                          accountLang === opt.code
-                            ? "bg-[#C7D300] text-[#0F1D27] border-[#C7D300]"
-                            : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10"
-                        }`}
-                      >
-                        <span>{opt.flag}</span>
-                        <span>{opt.label}</span>
-                      </button>
-                    ))}
+            ) : (
+              <form onSubmit={handleSaveSettings} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-300 mb-2">
+                      <Store size={14} className="inline mr-1.5" />Nom de la boutique Admin
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={settings.adminShopName}
+                      onChange={e => setSettings(s => ({ ...s, adminShopName: e.target.value }))}
+                      className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      placeholder="ex: Rayons Officiel"
+                    />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1.5">Appliqué immédiatement à votre tableau de bord et vos messages reçus.</p>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-300 mb-2">
+                      <Phone size={14} className="inline mr-1.5" />Téléphone du support
+                    </label>
+                    <input
+                      type="tel"
+                      value={settings.adminContactPhone}
+                      onChange={e => setSettings(s => ({ ...s, adminContactPhone: e.target.value }))}
+                      className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      placeholder="ex: +243 XXX XXX XXX"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-300 mb-2">
-                    Langue par défaut de la plateforme
-                  </label>
-                  <select
-                    value={settings.defaultLanguage || "fr"}
-                    onChange={(e) => setSettings((s) => ({ ...s, defaultLanguage: e.target.value as LanguageCode }))}
-                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all [&>option]:bg-[#0F1D27]"
+                {/* ── Section 2: Plans d'Abonnement ──────────── */}
+                <div className="pt-6 mt-2 border-t border-white/5">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Tag size={18} className="text-blue-400" />
+                    <span className="text-base font-bold text-white">Plans d'Abonnement Fournisseur</span>
+                  </div>
+                  <p className="text-sm text-gray-400 mb-5">
+                    Les fournisseurs paient un abonnement mensuel fixe pour accéder à la plateforme. Ils sont ensuite totalement libres de gérer leurs produits, commandes et activités.
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-300 mb-2">
+                        Tarif abonnement mensuel (FC)
+                      </label>
+                      <input
+                        type="number"
+                        step="1000"
+                        min="0"
+                        value={settings.monthlySubscriptionPrice}
+                        onChange={e => setSettings(s => ({ ...s, monthlySubscriptionPrice: parseFloat(e.target.value) || 0 }))}
+                        className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      />
+                      <p className="text-xs text-gray-500 mt-1.5">Visible par l'admin lors du renouvellement.</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-300 mb-2">
+                        Durée de la période d'essai (jours)
+                      </label>
+                      <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        max="365"
+                        value={settings.trialDurationDays}
+                        onChange={e => setSettings(s => ({ ...s, trialDurationDays: parseInt(e.target.value) || 0 }))}
+                        className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      />
+                      <p className="text-xs text-gray-500 mt-1.5">Attribué automatiquement aux nouveaux fournisseurs.</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-300 mb-2">
+                        <Truck size={14} className="inline mr-1.5" />Frais de livraison par défaut (FC)
+                      </label>
+                      <input
+                        type="number"
+                        step="100"
+                        min="0"
+                        value={settings.defaultDeliveryFee}
+                        onChange={e => setSettings(s => ({ ...s, defaultDeliveryFee: parseFloat(e.target.value) || 0 }))}
+                        className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      />
+                      <p className="text-xs text-gray-500 mt-1.5">Appliqué si le fournisseur ne définit pas ses propres frais.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Section 3: Taux de Change & Devises (USD, FC, EUR) ── */}
+                <div className="pt-6 mt-2 border-t border-white/5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Coins size={18} className="text-amber-400" />
+                    <span className="text-base font-bold text-white">Taux de Change & Multi-Devises</span>
+                  </div>
+                  <p className="text-sm text-gray-400 mb-5">
+                    La devise de référence du catalogue est le Dollar US ($ USD). Définissez ici les taux de conversion appliqués automatiquement aux clients qui basculent en Francs Congolais (FC) ou en Euros (€).
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-300 mb-2">
+                        Taux 1 $ USD = ... Francs Congolais (FC)
+                      </label>
+                      <input
+                        type="number"
+                        step="10"
+                        min="100"
+                        required
+                        value={settings.usdToFcRate || 2850}
+                        onChange={e => setSettings(s => ({ ...s, usdToFcRate: parseFloat(e.target.value) || 2850 }))}
+                        className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono"
+                        placeholder="2850"
+                      />
+                      <p className="text-xs text-gray-500 mt-1.5">Ex: 2 850 FC pour 1 $ USD (Marché RDC).</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-300 mb-2">
+                        Taux 1 $ USD = ... Euro (€)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.1"
+                        required
+                        value={settings.usdToEurRate || 0.92}
+                        onChange={e => setSettings(s => ({ ...s, usdToEurRate: parseFloat(e.target.value) || 0.92 }))}
+                        className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono"
+                        placeholder="0.92"
+                      />
+                      <p className="text-xs text-gray-500 mt-1.5">Ex: 0.92 € pour 1 $ USD (soit 1 € ≈ 1.08 $ USD).</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Section 4: Langues & Traduction Automatique (FR / EN / 中文) ── */}
+                <div className="pt-6 mt-2 border-t border-white/5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Globe size={18} className="text-[#C7D300]" />
+                    <span className="text-base font-bold text-white">Langue du Compte &amp; Langue par Défaut (FR / EN / 中文)</span>
+                  </div>
+                  <p className="text-sm text-gray-400 mb-5">
+                    Définissez la langue de préférence de votre compte (pour recevoir tous les messages, alertes et emails traduits automatiquement) ainsi que la langue par défaut des nouveaux comptes.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-300 mb-2">
+                        Langue de préférence de votre compte Admin
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(
+                          [
+                            { code: "fr", flag: "🇫🇷", label: "Français" },
+                            { code: "en", flag: "🇬🇧", label: "English" },
+                            { code: "zh", flag: "🇨🇳", label: "中文" },
+                          ] as { code: LanguageCode; flag: string; label: string }[]
+                        ).map((opt) => (
+                          <button
+                            key={opt.code}
+                            type="button"
+                            onClick={() => setAccountLang(opt.code)}
+                            className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${accountLang === opt.code
+                                ? "bg-[#C7D300] text-[#0F1D27] border-[#C7D300]"
+                                : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10"
+                              }`}
+                          >
+                            <span>{opt.flag}</span>
+                            <span>{opt.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1.5">Appliqué immédiatement à votre tableau de bord et vos messages reçus.</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-300 mb-2">
+                        Langue par défaut de la plateforme
+                      </label>
+                      <select
+                        value={settings.defaultLanguage || "fr"}
+                        onChange={(e) => setSettings((s) => ({ ...s, defaultLanguage: e.target.value as LanguageCode }))}
+                        className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all [&>option]:bg-[#0F1D27]"
+                      >
+                        <option value="fr">🇫🇷 Français (FR)</option>
+                        <option value="en">🇬🇧 English (EN)</option>
+                        <option value="zh">🇨🇳 中文 — Chinois Simplifié (ZH)</option>
+                      </select>
+                      <p className="text-xs text-gray-500 mt-1.5">Utilisée par défaut pour les nouveaux comptes sans préférence définie.</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Save button */}
+                <div className="flex justify-end pt-4 border-t border-white/5">
+                  <button
+                    type="submit"
+                    disabled={isSavingSettings}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold rounded-xl transition-colors shadow-sm"
                   >
-                    <option value="fr">🇫🇷 Français (FR)</option>
-                    <option value="en">🇬🇧 English (EN)</option>
-                    <option value="zh">🇨🇳 中文 — Chinois Simplifié (ZH)</option>
-                  </select>
-                  <p className="text-xs text-gray-500 mt-1.5">Utilisée par défaut pour les nouveaux comptes sans préférence définie.</p>
+                    {isSavingSettings ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} />}
+                    {isSavingSettings ? "Sauvegarde..." : "Sauvegarder les paramètres"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+
+          {/* ── Section 3: Gestionnaire de Rayons ─────────────────── */}
+          <div className="bg-[#111111] border border-white/5 rounded-2xl p-6 shadow-sm">
+            <SectionTitle
+              icon={Tag}
+              title="Gestion des Rayons (Catégories)"
+              subtitle="Ces catégories sont utilisées par les fournisseurs pour publier leurs produits. Elles alimentent directement les pages publiques du site (Mode, Connect, Immo...)."
+            />
+
+            {/* Add category form */}
+            <form onSubmit={handleAddCategory} className="mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">Nom du rayon *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newCatName}
+                    onChange={e => handleCatNameChange(e.target.value)}
+                    placeholder="ex: Supermarché"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">Slug (ID technique) *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newCatSlug}
+                    onChange={e => setNewCatSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                    placeholder="ex: supermarche"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">Description</label>
+                  <input
+                    type="text"
+                    value={newCatDesc}
+                    onChange={e => setNewCatDesc(e.target.value)}
+                    placeholder="Courte description..."
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  />
                 </div>
               </div>
-            </div>
-
-            {/* Save button */}
-            <div className="flex justify-end pt-4 border-t border-white/5">
               <button
                 type="submit"
-                disabled={isSavingSettings}
-                className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white font-semibold rounded-xl transition-colors shadow-sm"
+                disabled={isAddingCat || !newCatName.trim()}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
               >
-                {isSavingSettings ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} />}
-                {isSavingSettings ? "Sauvegarde..." : "Sauvegarder les paramètres"}
+                {isAddingCat ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+                Ajouter le rayon
               </button>
-            </div>
-          </form>
-        )}
-      </div>
+            </form>
 
-      {/* ── Section 3: Gestionnaire de Rayons ─────────────────── */}
-      <div className="bg-[#111111] border border-white/5 rounded-2xl p-6 shadow-sm">
-        <SectionTitle
-          icon={Tag}
-          title="Gestion des Rayons (Catégories)"
-          subtitle="Ces catégories sont utilisées par les fournisseurs pour publier leurs produits. Elles alimentent directement les pages publiques du site (Mode, Connect, Immo...)."
-        />
-
-        {/* Add category form */}
-        <form onSubmit={handleAddCategory} className="mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-400 mb-1.5">Nom du rayon *</label>
-              <input
-                type="text"
-                required
-                value={newCatName}
-                onChange={e => handleCatNameChange(e.target.value)}
-                placeholder="ex: Supermarché"
-                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-400 mb-1.5">Slug (ID technique) *</label>
-              <input
-                type="text"
-                required
-                value={newCatSlug}
-                onChange={e => setNewCatSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                placeholder="ex: supermarche"
-                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-400 mb-1.5">Description</label>
-              <input
-                type="text"
-                value={newCatDesc}
-                onChange={e => setNewCatDesc(e.target.value)}
-                placeholder="Courte description..."
-                className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-              />
-            </div>
-          </div>
-          <button
-            type="submit"
-            disabled={isAddingCat || !newCatName.trim()}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
-          >
-            {isAddingCat ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
-            Ajouter le rayon
-          </button>
-        </form>
-
-        {/* Categories list */}
-        {isLoadingCats ? (
-          <div className="flex items-center gap-3 text-gray-400 py-6">
-            <Loader2 size={20} className="animate-spin" /> Chargement des rayons...
-          </div>
-        ) : (
-          <div className="border border-white/5 rounded-xl overflow-x-auto">
-            <table className="w-full text-sm min-w-[500px]">
-              <thead>
-                <tr className="bg-white/5 text-xs uppercase tracking-wider text-gray-400">
-                  <th className="px-4 py-3 text-left">Nom</th>
-                  <th className="px-4 py-3 text-left font-mono">Slug (clé interne)</th>
-                  <th className="px-4 py-3 text-left">Description</th>
-                  <th className="px-4 py-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="text-gray-300">
-                {categories.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-10 text-center text-gray-500">
-                      Aucun rayon configuré.
-                    </td>
-                  </tr>
-                ) : (
-                  categories.map(cat => (
-                    <tr key={cat.id} className="border-t border-white/5 hover:bg-white/3 transition-colors">
-                      <td className="px-4 py-3 font-semibold text-white">{cat.name}</td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded-md text-xs font-mono">
-                          {cat.slug}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-400">{cat.description || "—"}</td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                          className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                          title="Supprimer"
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </td>
+            {/* Categories list */}
+            {isLoadingCats ? (
+              <div className="flex items-center gap-3 text-gray-400 py-6">
+                <Loader2 size={20} className="animate-spin" /> Chargement des rayons...
+              </div>
+            ) : (
+              <div className="border border-white/5 rounded-xl overflow-x-auto">
+                <table className="w-full text-sm min-w-[500px]">
+                  <thead>
+                    <tr className="bg-white/5 text-xs uppercase tracking-wider text-gray-400">
+                      <th className="px-4 py-3 text-left">Nom</th>
+                      <th className="px-4 py-3 text-left font-mono">Slug (clé interne)</th>
+                      <th className="px-4 py-3 text-left">Description</th>
+                      <th className="px-4 py-3 text-right">Action</th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        )}
+                  </thead>
+                  <tbody className="text-gray-300">
+                    {categories.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-10 text-center text-gray-500">
+                          Aucun rayon configuré.
+                        </td>
+                      </tr>
+                    ) : (
+                      categories.map(cat => (
+                        <tr key={cat.id} className="border-t border-white/5 hover:bg-white/3 transition-colors">
+                          <td className="px-4 py-3 font-semibold text-white">{cat.name}</td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded-md text-xs font-mono">
+                              {cat.slug}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-gray-400">{cat.description || "—"}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                              className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                              title="Supprimer"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-        <div className="mt-4 p-3 bg-blue-500/5 border border-blue-500/10 rounded-lg">
-          <p className="text-xs text-blue-400/80">
-            <strong>Note :</strong> Le slug est la valeur enregistrée dans chaque produit Firestore
-            (champ <code className="font-mono bg-black/20 px-1 rounded">category</code>). Les pages publiques
-            filtrent les produits en fonction de ce slug. Assurez-vous de la cohérence lors d'ajouts.
-          </p>
-        </div>
-      </div>
+            <div className="mt-4 p-3 bg-blue-500/5 border border-blue-500/10 rounded-lg">
+              <p className="text-xs text-blue-400/80">
+                <strong>Note :</strong> Le slug est la valeur enregistrée dans chaque produit Firestore
+                (champ <code className="font-mono bg-black/20 px-1 rounded">category</code>). Les pages publiques
+                filtrent les produits en fonction de ce slug. Assurez-vous de la cohérence lors d'ajouts.
+              </p>
+            </div>
+          </div>
         </>
       )}
 
