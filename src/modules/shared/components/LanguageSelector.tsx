@@ -35,7 +35,7 @@ export function LanguageSelector({ variant = "dark", className = "" }: LanguageS
   const isDark = variant === "dark";
 
   return (
-    <div ref={containerRef} className={`relative inline-block text-left ${className}`}>
+    <div ref={containerRef} data-no-translate="true" className={`relative inline-block text-left ${className}`}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}

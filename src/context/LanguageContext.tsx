@@ -1,6 +1,9 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { db } from "@/lib/firebase";
+import { doc, setDoc } from "firebase/firestore";
 
 export type LanguageCode = "fr" | "en" | "zh";
 
@@ -369,8 +372,11 @@ const LanguageContext = createContext<LanguageContextType>({
 });
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const { user, userData } = useAuth();
   const [lang, setLangState] = useState<LanguageCode>("fr");
+  const hasSyncedUserLangRef = useRef<string | null>(null);
 
+  // 1. Charger depuis localStorage au montage initial
   useEffect(() => {
     try {
       const saved = localStorage.getItem("rayons_lang") as LanguageCode | null;
@@ -383,15 +389,65 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const setLang = useCallback((newLang: LanguageCode) => {
-    setLangState(newLang);
-    try {
-      localStorage.setItem("rayons_lang", newLang);
-      document.documentElement.lang = newLang === "zh" ? "zh-CN" : newLang;
-    } catch {
-      // Ignore storage errors
+  // 2. Synchroniser avec la langue préférée enregistrée dans le compte Firestore de l'utilisateur
+  useEffect(() => {
+    if (!user?.uid) {
+      hasSyncedUserLangRef.current = null;
+      return;
     }
-  }, []);
+    const accountLang = (userData?.preferredLanguage || userData?.language) as LanguageCode | undefined;
+    if (
+      accountLang &&
+      (accountLang === "fr" || accountLang === "en" || accountLang === "zh") &&
+      hasSyncedUserLangRef.current !== `${user.uid}:${accountLang}`
+    ) {
+      hasSyncedUserLangRef.current = `${user.uid}:${accountLang}`;
+      setLangState(accountLang);
+      try {
+        localStorage.setItem("rayons_lang", accountLang);
+        document.documentElement.lang = accountLang === "zh" ? "zh-CN" : accountLang;
+      } catch {
+        // Ignore storage errors
+      }
+    }
+  }, [user?.uid, userData?.preferredLanguage, userData?.language]);
+
+  const setLang = useCallback(
+    (newLang: LanguageCode) => {
+      setLangState(newLang);
+      try {
+        localStorage.setItem("rayons_lang", newLang);
+        document.documentElement.lang = newLang === "zh" ? "zh-CN" : newLang;
+      } catch {
+        // Ignore storage errors
+      }
+
+      // Persister automatiquement la langue préférée dans le compte Firestore (utilisé par le backend pour traduire les messages, emails et Push)
+      if (user?.uid) {
+        hasSyncedUserLangRef.current = `${user.uid}:${newLang}`;
+        user
+          .getIdToken()
+          .then((token) =>
+            fetch("/api/users/profile", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ preferredLanguage: newLang }),
+            })
+          )
+          .catch(() => {
+            setDoc(
+              doc(db, "users", user.uid),
+              { preferredLanguage: newLang, language: newLang },
+              { merge: true }
+            ).catch(() => {});
+          });
+      }
+    },
+    [user]
+  );
 
   const t = useCallback(
     (key: string, fallback?: string): string => {

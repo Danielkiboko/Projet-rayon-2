@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -108,6 +108,9 @@ export function DashboardLayout({
   const { user, userData, signOut } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { t, translateLabel } = useLanguage();
+  const router = useRouter();
+  const [navQuery, setNavQuery] = useState("");
+  const [isNavSearchOpen, setIsNavSearchOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<any | null>(null);
   const [lockedModalItem, setLockedModalItem] = useState<MenuItem | null>(null);
@@ -204,23 +207,23 @@ export function DashboardLayout({
 
       {/* Sidebar */}
       <motion.aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 ${themeColors.sidebarBg} border-r border-white/10 flex flex-col transition-transform duration-300 lg:translate-x-0 lg:static ${
+        className={`fixed inset-y-0 left-0 z-50 w-64 h-dvh shrink-0 ${themeColors.sidebarBg} border-r border-white/10 flex flex-col transition-transform duration-300 lg:translate-x-0 lg:static ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="h-16 flex items-center justify-between px-6 border-b border-white/10">
+        <div className="h-14 flex items-center justify-between px-5 border-b border-white/10 shrink-0">
           <RayonsLogo 
             variant="dark" 
             size="sm" 
             rayon={serviceType !== "default" ? (serviceType as any) : undefined} 
             href="/" 
           />
-          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-white">
-            <X size={24} />
+          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 cursor-pointer">
+            <X size={20} />
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-1">
+        <nav className="flex-1 min-h-0 overflow-y-auto py-3 px-3 space-y-0.5 overscroll-contain">
           {menuItems.map((item, index) => {
             const isActive = item.active !== undefined 
               ? item.active 
@@ -238,13 +241,13 @@ export function DashboardLayout({
                     setIsSidebarOpen(false);
                     setLockedModalItem(item);
                   }}
-                  className="flex items-center justify-between px-4 py-3 rounded-xl transition-all text-gray-500 hover:bg-red-500/10 hover:text-red-300 cursor-pointer opacity-70 group border border-transparent hover:border-red-500/20"
+                  className="flex items-center justify-between px-3 py-2 rounded-xl transition-all text-gray-500 hover:bg-red-500/10 hover:text-red-300 cursor-pointer opacity-70 group border border-transparent hover:border-red-500/20"
                 >
-                  <div className="flex items-center space-x-3">
-                    <Icon size={20} strokeWidth={1.8} className="text-gray-500 group-hover:text-red-400" />
-                    <span className="text-sm font-medium">{item.title}</span>
+                  <div className="flex items-center space-x-2.5 min-w-0">
+                    <Icon size={17} strokeWidth={1.8} className="text-gray-500 group-hover:text-red-400 shrink-0" />
+                    <span className="text-[13px] font-medium truncate">{translateLabel(item.title)}</span>
                   </div>
-                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500/10 text-red-400 text-[10px] font-bold border border-red-500/20">
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-red-500/10 text-red-400 text-[10px] font-bold border border-red-500/20 shrink-0">
                     <Lock size={10} />
                     <span>Bloqué</span>
                   </div>
@@ -256,24 +259,24 @@ export function DashboardLayout({
               <Link 
                 key={`${item.href || 'menu'}-${item.title}-${index}`} 
                 href={item.href} 
-                onClick={(e) => {
+                onClick={() => {
                   setIsSidebarOpen(false);
                   if (item.onClick) {
                     item.onClick();
                   }
                 }}
               >
-                <div className={`flex items-center justify-between px-4 py-3 rounded-xl transition-all ${
+                <div className={`flex items-center justify-between px-3 py-2 rounded-xl transition-all ${
                   isActive 
                     ? `${activeBg} ${activeText} shadow-sm font-bold` 
                     : "text-gray-400 hover:bg-white/5 hover:text-white"
                 }`}>
-                  <div className="flex items-center space-x-3">
-                    <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
-                    <span className={`text-sm ${isActive ? "font-semibold" : "font-medium"}`}>{translateLabel(item.title)}</span>
+                  <div className="flex items-center space-x-2.5 min-w-0">
+                    <Icon size={17} strokeWidth={isActive ? 2.4 : 1.9} className="shrink-0" />
+                    <span className={`text-[13px] truncate ${isActive ? "font-semibold" : "font-medium"}`}>{translateLabel(item.title)}</span>
                   </div>
                   {item.badge !== undefined && item.badge > 0 && (
-                    <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center shrink-0">
                       {item.badge}
                     </span>
                   )}
@@ -283,35 +286,39 @@ export function DashboardLayout({
           })}
         </nav>
 
-        <div className="p-4 border-t border-white/5 space-y-2">
-          <div className={`px-4 py-3 mb-2 rounded-xl border text-center ${themeColors.activeMenuBg} border-white/5`}>
-            {roleBadgeTitle === "Privilèges" && <ShieldAlert size={20} className={`mx-auto mb-1 ${themeColors.accentText}`} />}
-            <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider mb-1">{translateLabel(roleBadgeTitle)}</p>
-            <p className={`text-sm font-semibold truncate ${themeColors.accentText}`}>
+        <div className="p-3 border-t border-white/10 space-y-1.5 shrink-0 bg-[#0B151C]/60">
+          <div className={`px-3 py-2 rounded-xl border text-center ${themeColors.activeMenuBg} border-white/5`}>
+            <p className="text-[9px] text-gray-400 uppercase font-bold tracking-wider">{translateLabel(roleBadgeTitle)}</p>
+            <p className={`text-xs font-bold truncate ${themeColors.accentText}`}>
               {roleBadgeValue}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              setIsSidebarOpen(false);
-              setIsProfileModalOpen(true);
-            }}
-            className="flex items-center justify-center space-x-2 px-4 py-2.5 w-full rounded-xl text-gray-200 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer"
-          >
-            <UserCircle size={18} className="text-[#C7D300]" />
-            <span className="text-xs font-bold">{t("dash.profileIdentity")}</span>
-          </button>
-          <button 
-            onClick={() => {
-              setIsSidebarOpen(false);
-              signOut();
-            }}
-            className="flex items-center justify-center space-x-2 px-4 py-2.5 w-full rounded-xl text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer"
-          >
-            <LogOut size={18} />
-            <span className="text-sm font-medium">{t("dash.logout")}</span>
-          </button>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                setIsSidebarOpen(false);
+                setIsProfileModalOpen(true);
+              }}
+              className="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-gray-200 bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer text-[11px] font-bold"
+              title={t("dash.profileIdentity")}
+            >
+              <UserCircle size={15} className="text-[#C7D300] shrink-0" />
+              <span className="truncate">{t("nav.profile")}</span>
+            </button>
+            <button 
+              type="button"
+              onClick={() => {
+                setIsSidebarOpen(false);
+                signOut();
+              }}
+              className="flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-red-400 bg-red-500/5 hover:bg-red-500/15 border border-red-500/15 transition-colors cursor-pointer text-[11px] font-bold"
+              title={t("dash.logout")}
+            >
+              <LogOut size={15} className="shrink-0" />
+              <span className="truncate">{t("dash.logout")}</span>
+            </button>
+          </div>
         </div>
       </motion.aside>
 
@@ -330,13 +337,79 @@ export function DashboardLayout({
           </div>
           
           <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
-            <div className="hidden md:flex items-center bg-white/5 rounded-full px-4 py-2 border border-white/5">
-              <Search size={16} className="text-gray-400 mr-2" />
-              <input 
-                type="text" 
-                placeholder={t("dash.search")} 
-                className="bg-transparent text-sm text-white placeholder-gray-500 focus:outline-none w-44"
-              />
+            {/* Quick Jump Navigation Search */}
+            <div className="relative hidden md:block">
+              <div className="flex items-center bg-white/5 rounded-full px-3.5 py-1.5 border border-white/10 focus-within:border-[#C7D300]/50 transition-colors">
+                <Search size={15} className="text-gray-400 mr-2 shrink-0" />
+                <input 
+                  type="text" 
+                  value={navQuery}
+                  onFocus={() => setIsNavSearchOpen(true)}
+                  onBlur={() => setTimeout(() => setIsNavSearchOpen(false), 180)}
+                  onChange={(e) => {
+                    setNavQuery(e.target.value);
+                    setIsNavSearchOpen(true);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && navQuery.trim()) {
+                      const q = navQuery.toLowerCase();
+                      const match = menuItems.find(
+                        (m) =>
+                          !m.locked &&
+                          (m.title.toLowerCase().includes(q) ||
+                            translateLabel(m.title).toLowerCase().includes(q) ||
+                            m.href.toLowerCase().includes(q))
+                      );
+                      if (match) {
+                        router.push(match.href);
+                        setNavQuery("");
+                        setIsNavSearchOpen(false);
+                      }
+                    }
+                  }}
+                  placeholder={t("dash.search")} 
+                  className="bg-transparent text-xs sm:text-sm text-white placeholder-gray-500 focus:outline-none w-40 lg:w-48"
+                />
+                {navQuery && (
+                  <button type="button" onClick={() => setNavQuery("")} className="text-gray-400 hover:text-white ml-1 cursor-pointer">
+                    <X size={13} />
+                  </button>
+                )}
+              </div>
+
+              {isNavSearchOpen && (
+                <div className="absolute right-0 mt-1.5 w-64 max-h-72 overflow-y-auto rounded-xl bg-[#12222E] border border-white/15 shadow-2xl py-1.5 z-50">
+                  {menuItems
+                    .filter((m) => {
+                      if (m.locked) return false;
+                      if (!navQuery.trim()) return true;
+                      const q = navQuery.toLowerCase();
+                      return (
+                        m.title.toLowerCase().includes(q) ||
+                        translateLabel(m.title).toLowerCase().includes(q) ||
+                        m.href.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((m, idx) => {
+                      const ItemIcon = m.icon;
+                      return (
+                        <button
+                          key={`${m.href}-${idx}`}
+                          type="button"
+                          onMouseDown={() => {
+                            router.push(m.href);
+                            setNavQuery("");
+                            setIsNavSearchOpen(false);
+                          }}
+                          className="w-full px-3 py-2 text-left text-xs text-gray-200 hover:bg-white/10 hover:text-white flex items-center gap-2.5 cursor-pointer transition-colors"
+                        >
+                          <ItemIcon size={14} className="text-[#C7D300] shrink-0" />
+                          <span className="truncate font-medium">{translateLabel(m.title)}</span>
+                        </button>
+                      );
+                    })}
+                </div>
+              )}
             </div>
 
             <LanguageSelector variant="dark" />
@@ -421,74 +494,36 @@ export function DashboardLayout({
         {/* Tactile Mobile Bottom Navigation Bar */}
         <nav className="fixed bottom-0 left-0 right-0 z-40 lg:hidden bg-[#0F1D27]/95 backdrop-blur-md border-t border-white/10 px-1.5 pt-1.5 pb-[calc(0.4rem+env(safe-area-inset-bottom,0px))] flex items-center justify-around shadow-2xl">
           {pathname.startsWith("/admin") ? (
-            /* ── ADMIN MOBILE QUICK BAR ── */
+            /* ── ADMIN MOBILE QUICK BAR (Dynamique selon les droits du compte) ── */
             <>
-              {/* 1. Dashboard Admin */}
-              <Link
-                href="/admin/dashboard"
-                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
-                  pathname === "/admin/dashboard" || pathname === "/admin" 
-                    ? themeColors.accentText || "text-[#C7D300]" 
-                    : "text-gray-400 hover:text-white"
-                }`}
-              >
-                <LayoutDashboard size={19} strokeWidth={pathname === "/admin/dashboard" || pathname === "/admin" ? 2.5 : 2} />
-                <span className="text-[10px] font-semibold mt-1">Accueil</span>
-              </Link>
+              {menuItems.slice(0, 4).map((item, idx) => {
+                const QuickIcon = item.icon;
+                const isItemActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+                return (
+                  <Link
+                    key={`${item.href}-${idx}`}
+                    href={item.href}
+                    className={`flex flex-col items-center justify-center flex-1 py-1 min-w-0 transition-colors ${
+                      isItemActive
+                        ? themeColors.accentText || "text-[#C7D300]"
+                        : "text-gray-400 hover:text-white"
+                    }`}
+                  >
+                    <QuickIcon size={19} strokeWidth={isItemActive ? 2.5 : 2} />
+                    <span className="text-[10px] font-semibold mt-1 truncate max-w-[68px]">
+                      {translateLabel(item.title)}
+                    </span>
+                  </Link>
+                );
+              })}
 
-              {/* 2. Ventes Admin */}
-              <Link
-                href="/admin/orders"
-                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
-                  pathname.startsWith("/admin/orders") 
-                    ? themeColors.accentText || "text-[#C7D300]" 
-                    : "text-gray-400 hover:text-white"
-                }`}
-              >
-                <ShoppingBag size={19} strokeWidth={pathname.startsWith("/admin/orders") ? 2.5 : 2} />
-                <span className="text-[10px] font-semibold mt-1">Ventes</span>
-              </Link>
-
-              {/* 3. Produits Admin */}
-              <Link
-                href="/admin/products"
-                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
-                  pathname.startsWith("/admin/products") 
-                    ? themeColors.accentText || "text-[#C7D300]" 
-                    : "text-gray-400 hover:text-white"
-                }`}
-              >
-                <Package size={19} strokeWidth={pathname.startsWith("/admin/products") ? 2.5 : 2} />
-                <span className="text-[10px] font-semibold mt-1">Produits</span>
-              </Link>
-
-              {/* 4. Support & Tickets Admin */}
-              <Link
-                href="/admin/tickets"
-                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
-                  pathname.startsWith("/admin/tickets") 
-                    ? themeColors.accentText || "text-[#C7D300]" 
-                    : "text-gray-400 hover:text-white"
-                }`}
-              >
-                <LifeBuoy size={19} strokeWidth={pathname.startsWith("/admin/tickets") ? 2.5 : 2} />
-                <span className="text-[10px] font-semibold mt-1">Support</span>
-              </Link>
-
-              {/* 5. Menu Drawer */}
+              {/* 5. Menu Drawer complet */}
               <button
                 type="button"
                 onClick={() => setIsSidebarOpen(true)}
-                className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors cursor-pointer relative ${
-                  isAdminMenuSubRoute ? themeColors.accentText || "text-[#C7D300]" : "text-gray-400 hover:text-white"
-                }`}
+                className="flex flex-col items-center justify-center flex-1 py-1 transition-colors cursor-pointer relative text-gray-300 hover:text-white"
               >
-                <div className="relative">
-                  <Menu size={19} strokeWidth={isAdminMenuSubRoute ? 2.5 : 2} />
-                  {isAdminMenuSubRoute && (
-                    <span className="absolute -top-1 -right-1.5 w-2 h-2 rounded-full bg-[#C7D300] animate-pulse" />
-                  )}
-                </div>
+                <Menu size={19} strokeWidth={2.2} />
                 <span className="text-[10px] font-semibold mt-1">Menu</span>
               </button>
             </>

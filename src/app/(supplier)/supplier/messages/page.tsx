@@ -9,6 +9,7 @@ import { collection, query, where, onSnapshot, addDoc, orderBy, serverTimestamp,
 import { motion } from "framer-motion";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
 import { useCurrency } from "@/context/CurrencyContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 type Chat = {
   id: string;
@@ -25,6 +26,7 @@ type Chat = {
 type ChatMessage = {
   id: string;
   text: string;
+  translations?: { fr?: string; en?: string; zh?: string };
   senderId: string;
   createdAt: any;
   type?: 'text' | 'proforma';
@@ -47,6 +49,8 @@ type ChatMessage = {
 export default function SupplierMessagesPage() {
   const { user, userData } = useAuth();
   const { formatPrice } = useCurrency();
+  const { lang } = useLanguage();
+  const [liveTranslations, setLiveTranslations] = useState<Record<string, string>>({});
   const activeSupplierId = userData?.parentSupplierId || user?.uid;
   const subscriptionInfo = evaluateSupplierSubscription(userData);
   const [chats, setChats] = useState<Chat[]>([]);
@@ -186,6 +190,47 @@ export default function SupplierMessagesPage() {
     return () => unsubscribe();
   }, [activeChatId]);
 
+  // Traduire automatiquement à la volée les messages clients entrants dans la langue préférée du fournisseur (FR / EN / 中文)
+  useEffect(() => {
+    const missing = chatMessages.filter(
+      (m) =>
+        m.type !== "proforma" &&
+        m.senderId !== activeSupplierId &&
+        m.text &&
+        !m.translations?.[lang] &&
+        !liveTranslations[`${lang}:${m.id}`]
+    );
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        texts: missing.map((m) => m.text),
+        targetLang: lang,
+      }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !data?.success || !Array.isArray(data.translations)) return;
+        setLiveTranslations((prev) => {
+          const next = { ...prev };
+          missing.forEach((m, idx) => {
+            if (data.translations[idx]) {
+              next[`${lang}:${m.id}`] = data.translations[idx];
+            }
+          });
+          return next;
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chatMessages, lang, activeSupplierId]);
+
   const activeChat = chats.find(c => c.id === activeChatId);
   const isHotelChat = Boolean(
     activeChat?.isHotel ||
@@ -309,9 +354,10 @@ export default function SupplierMessagesPage() {
 
     const messageToSend = newChatMessage.trim();
     try {
-      await addDoc(collection(db, "chats", activeChatId, "messages"), {
+      const createdMsgRef = await addDoc(collection(db, "chats", activeChatId, "messages"), {
         text: messageToSend,
         senderId: activeSupplierId,
+        senderLang: lang,
         createdAt: serverTimestamp()
       });
 
@@ -323,7 +369,7 @@ export default function SupplierMessagesPage() {
 
       setNewChatMessage("");
 
-      // Déclencher la notification Push / In-App pour le client destinataire
+      // Déclencher la traduction automatique + notification Push / In-App dans la langue du client
       auth.currentUser?.getIdToken().then((token: string) => {
         if (!token) return;
         fetch("/api/push/notify", {
@@ -335,6 +381,7 @@ export default function SupplierMessagesPage() {
           body: JSON.stringify({
             eventType: "CHAT_MESSAGE",
             chatId: activeChatId,
+            messageId: createdMsgRef.id,
             text: messageToSend,
           }),
         }).catch(() => {});
@@ -854,9 +901,25 @@ export default function SupplierMessagesPage() {
                                   </div>
                                 )}
                               </div>
-                            ) : (
-                              <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
-                            )}
+                            ) : (() => {
+                              const isClientMsg = msg.senderId !== activeSupplierId;
+                              const translated = isClientMsg
+                                ? msg.translations?.[lang] || liveTranslations[`${lang}:${msg.id}`]
+                                : undefined;
+                              const displayText = translated || msg.text;
+                              const showOriginal = Boolean(translated && translated.trim() !== msg.text.trim());
+                              return (
+                                <div>
+                                  <p className="text-sm whitespace-pre-wrap">{displayText}</p>
+                                  {showOriginal && (
+                                    <p className="text-[10px] text-gray-400 mt-1 pt-1 border-t border-white/10 italic">
+                                      {lang === "zh" ? "原文：" : lang === "en" ? "Original: " : "Original : "}
+                                      {msg.text}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       );

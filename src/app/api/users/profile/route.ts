@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       representantLegal,
       kycStatus,
       approveProfile,
+      preferredLanguage,
     } = body;
 
     // Determine which user document is being updated
@@ -63,6 +64,13 @@ export async function POST(req: NextRequest) {
       const cleanPhone = String(phone).trim();
       updatePayload.phone = cleanPhone;
       updatePayload.phoneNumber = cleanPhone;
+    }
+    if (preferredLanguage !== undefined) {
+      const cleanLang = String(preferredLanguage).toLowerCase().trim();
+      if (cleanLang === "fr" || cleanLang === "en" || cleanLang === "zh") {
+        updatePayload.preferredLanguage = cleanLang;
+        updatePayload.language = cleanLang;
+      }
     }
     if (whatsappPhone !== undefined) {
       updatePayload.whatsappPhone = String(whatsappPhone).trim();

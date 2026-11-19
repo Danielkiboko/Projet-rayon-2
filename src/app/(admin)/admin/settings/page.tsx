@@ -16,9 +16,11 @@ import {
   Loader2,
   AlertTriangle,
   Coins,
+  Globe,
 } from "lucide-react";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, collection, getDocs, addDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { useLanguage, LanguageCode } from "@/context/LanguageContext";
 
 interface PlatformSettings {
   monthlySubscriptionPrice: number;
@@ -28,6 +30,7 @@ interface PlatformSettings {
   adminContactPhone: string;
   usdToFcRate: number;
   usdToEurRate: number;
+  defaultLanguage: LanguageCode;
 }
 
 interface Category {
@@ -46,6 +49,7 @@ const DEFAULT_SETTINGS: PlatformSettings = {
   adminContactPhone: "",
   usdToFcRate: 2850,
   usdToEurRate: 0.92,
+  defaultLanguage: "fr",
 };
 
 const DEFAULT_CATEGORIES: Omit<Category, "id">[] = [
@@ -86,6 +90,7 @@ import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSucc
 
 export default function AdminSettingsPage() {
   const { user, userData } = useAuth();
+  const { lang: accountLang, setLang: setAccountLang } = useLanguage();
   const isSuper = isSuperAdmin(user, userData);
 
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_SETTINGS);
@@ -168,6 +173,7 @@ export default function AdminSettingsPage() {
         adminContactPhone: settings.adminContactPhone || "",
         usdToFcRate: Number(settings.usdToFcRate) || 2850,
         usdToEurRate: Number(settings.usdToEurRate) || 0.92,
+        defaultLanguage: settings.defaultLanguage || "fr",
       };
 
       // 1. Try saving directly via client Firestore
@@ -449,6 +455,65 @@ export default function AdminSettingsPage() {
                     placeholder="0.92"
                   />
                   <p className="text-xs text-gray-500 mt-1.5">Ex: 0.92 € pour 1 $ USD (soit 1 € ≈ 1.08 $ USD).</p>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Section 4: Langues & Traduction Automatique (FR / EN / 中文) ── */}
+            <div className="pt-6 mt-2 border-t border-white/5">
+              <div className="flex items-center gap-2 mb-2">
+                <Globe size={18} className="text-[#C7D300]" />
+                <span className="text-base font-bold text-white">Langue du Compte &amp; Langue par Défaut (FR / EN / 中文)</span>
+              </div>
+              <p className="text-sm text-gray-400 mb-5">
+                Définissez la langue de préférence de votre compte (pour recevoir tous les messages, alertes et emails traduits automatiquement) ainsi que la langue par défaut des nouveaux comptes.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">
+                    Langue de préférence de votre compte Admin
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(
+                      [
+                        { code: "fr", flag: "🇫🇷", label: "Français" },
+                        { code: "en", flag: "🇬🇧", label: "English" },
+                        { code: "zh", flag: "🇨🇳", label: "中文" },
+                      ] as { code: LanguageCode; flag: string; label: string }[]
+                    ).map((opt) => (
+                      <button
+                        key={opt.code}
+                        type="button"
+                        onClick={() => setAccountLang(opt.code)}
+                        className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                          accountLang === opt.code
+                            ? "bg-[#C7D300] text-[#0F1D27] border-[#C7D300]"
+                            : "bg-white/5 text-gray-300 border-white/10 hover:bg-white/10"
+                        }`}
+                      >
+                        <span>{opt.flag}</span>
+                        <span>{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1.5">Appliqué immédiatement à votre tableau de bord et vos messages reçus.</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-300 mb-2">
+                    Langue par défaut de la plateforme
+                  </label>
+                  <select
+                    value={settings.defaultLanguage || "fr"}
+                    onChange={(e) => setSettings((s) => ({ ...s, defaultLanguage: e.target.value as LanguageCode }))}
+                    className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all [&>option]:bg-[#0F1D27]"
+                  >
+                    <option value="fr">🇫🇷 Français (FR)</option>
+                    <option value="en">🇬🇧 English (EN)</option>
+                    <option value="zh">🇨🇳 中文 — Chinois Simplifié (ZH)</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1.5">Utilisée par défaut pour les nouveaux comptes sans préférence définie.</p>
                 </div>
               </div>
             </div>

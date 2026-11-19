@@ -53,6 +53,7 @@ import AdSense from "@/modules/shared/components/shared/AdSense";
 import { CartDrawer } from "@/modules/client/components/cart/CartDrawer";
 import { StructuredData } from "@/modules/shared/components/StructuredData";
 import MobilePushManager from "@/modules/shared/components/notifications/MobilePushManager";
+import GlobalUiTranslator from "@/modules/shared/components/GlobalUiTranslator";
 
 import { Toaster } from "react-hot-toast";
 
@@ -73,6 +74,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     {children}
                     <CartDrawer />
                     <MobilePushManager />
+                    <GlobalUiTranslator />
                   </CartProvider>
                 </ChatProvider>
               </CurrencyProvider>

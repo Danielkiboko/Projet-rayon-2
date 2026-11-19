@@ -3,6 +3,7 @@ import { adminDb, adminAuth } from "@/lib/firebase-admin";
 import { sendEmail } from "@/lib/email";
 import { FieldValue } from "firebase-admin/firestore";
 import { SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
+import { normalizeLang, translateText, SupportedLang } from "@/lib/autoTranslate";
 
 export async function POST(req: NextRequest) {
   // 1. Vérification du token Firebase
@@ -72,7 +73,8 @@ export async function POST(req: NextRequest) {
   }
 
   const seen = new Set<string>();
-  const targets: { id: string; email: string; name: string; isAdmin: boolean }[] = [];
+  const targets: { id: string; email: string; name: string; isAdmin: boolean; preferredLanguage: SupportedLang }[] = [];
+  const neededLangs = new Set<SupportedLang>();
 
   usersSnap.forEach((d: any) => {
     if (seen.has(d.id)) return;
@@ -96,11 +98,14 @@ export async function POST(req: NextRequest) {
 
     seen.add(d.id);
     const defaultName = isAdmin ? "Administrateur" : ((data.role || "").toUpperCase().includes("DRIVER") ? "Livreur" : "Partenaire");
+    const targetLang = normalizeLang(data.preferredLanguage || data.language);
+    neededLangs.add(targetLang);
     targets.push({
       id: d.id,
       email: data.email.trim(),
       name: data.displayName || data.firstName || data.companyName || defaultName,
       isAdmin,
+      preferredLanguage: targetLang,
     });
   });
 
@@ -108,14 +113,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Aucun destinataire (admin/partenaire) trouvé pour ce ciblage." }, { status: 404 });
   }
 
-  // 5. Envoi email + notification in-app
+  // 5. Traduction automatique du communiqué dans la langue de préférence de chaque groupe (FR / EN / 中文)
+  const localizedByLang = new Map<SupportedLang, { subject: string; message: string; html: string }>();
+  await Promise.all(
+    Array.from(neededLangs).map(async (langCode) => {
+      const [trSubject, trMessage] = await Promise.all([
+        translateText(subject, langCode),
+        translateText(message, langCode),
+      ]);
+      const finalSubj = trSubject || subject;
+      const finalMsg = trMessage || message;
+      localizedByLang.set(langCode, {
+        subject: finalSubj,
+        message: finalMsg,
+        html: buildBroadcastEmailHtml({ subject: finalSubj, message: finalMsg, lang: langCode }),
+      });
+    })
+  );
+
+  // 6. Envoi email + notification in-app dans la langue préférée du destinataire
   const results = { emailsSent: 0, emailsFailed: 0, notifsSent: 0 };
-  const emailHtml = buildBroadcastEmailHtml({ subject, message });
 
   await Promise.allSettled(
     targets.map(async (target) => {
+      const loc = localizedByLang.get(target.preferredLanguage) || {
+        subject,
+        message,
+        html: buildBroadcastEmailHtml({ subject, message, lang: "fr" }),
+      };
+
       try {
-        await sendEmail({ to: target.email, subject: `[Rayons.net] ${subject}`, html: emailHtml });
+        await sendEmail({ to: target.email, subject: `[Rayons.net] ${loc.subject}`, html: loc.html });
         results.emailsSent++;
       } catch (err) {
         console.error(`Email failed for ${target.email}:`, err);
@@ -127,8 +155,11 @@ export async function POST(req: NextRequest) {
           userId: target.id,
           supplierId: target.id,
           type: "broadcast",
-          title: subject,
-          message: message,
+          title: loc.subject,
+          message: loc.message,
+          originalTitle: subject,
+          originalMessage: message,
+          targetLanguage: target.preferredLanguage,
           link: "/supplier/messages?tab=communiques",
           read: false,
           time: Date.now(),
@@ -162,10 +193,24 @@ export async function POST(req: NextRequest) {
   });
 }
 
-function buildBroadcastEmailHtml({ subject, message }: { subject: string; message: string }) {
+function buildBroadcastEmailHtml({
+  subject,
+  message,
+  lang = "fr",
+}: {
+  subject: string;
+  message: string;
+  lang?: SupportedLang;
+}) {
   const messageHtml = message.replace(/\n/g, "<br/>");
+  const headerSubtitle =
+    lang === "zh"
+      ? "平台管理中心官方通知"
+      : lang === "en"
+      ? "Official Message from Administration"
+      : "Message de l'Administration";
   return `<!DOCTYPE html>
-<html lang="fr">
+<html lang="${lang === "zh" ? "zh-CN" : lang}">
 <head>
   <meta charset="UTF-8"/>
   <title>${subject}</title>
@@ -177,7 +222,7 @@ function buildBroadcastEmailHtml({ subject, message }: { subject: string; messag
         <tr>
           <td style="background:linear-gradient(135deg,#1a1a2e 0%,#0f3460 100%);padding:36px 40px;text-align:center;">
             <h1 style="margin:0;color:#fff;font-size:22px;font-weight:700;">📢 Rayons.net</h1>
-            <p style="margin:8px 0 0;color:rgba(255,255,255,0.7);font-size:13px;">Message de l'Administration</p>
+            <p style="margin:8px 0 0;color:rgba(255,255,255,0.7);font-size:13px;">${headerSubtitle}</p>
           </td>
         </tr>
         <tr>

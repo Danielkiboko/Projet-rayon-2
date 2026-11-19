@@ -31,6 +31,9 @@ export async function POST(req: Request) {
       adminContactPhone: settings.adminContactPhone || "",
       usdToFcRate: Number(settings.usdToFcRate) || 2850,
       usdToEurRate: Number(settings.usdToEurRate) || 0.92,
+      defaultLanguage: ["fr", "en", "zh"].includes(String(settings.defaultLanguage))
+        ? String(settings.defaultLanguage)
+        : "fr",
       updatedAt: FieldValue.serverTimestamp(),
       updatedBy: caller.uid,
     };

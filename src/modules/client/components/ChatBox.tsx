@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase";
 import { Send, Loader2, FileText, Smile, Image as ImageIcon, Paperclip, Phone, Globe, CheckCheck, Sparkles, ClipboardList } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
+import { useLanguage } from "@/context/LanguageContext";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -20,6 +21,7 @@ interface ChatBoxProps {
 interface Message {
   id: string;
   text: string;
+  translations?: { fr?: string; en?: string; zh?: string };
   senderId: string;
   createdAt: any;
   type?: 'text' | 'proforma';
@@ -51,7 +53,50 @@ export function ChatBox({
   const [isSending, setIsSending] = useState(false);
   const { user } = useAuth();
   const { formatPrice } = useCurrency();
+  const { lang } = useLanguage();
+  const [liveTranslations, setLiveTranslations] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Traduire automatiquement à la volée les anciens messages entrants qui n'ont pas encore `translations[lang]`
+  useEffect(() => {
+    const missing = messages.filter(
+      (m) =>
+        m.type !== "proforma" &&
+        m.senderId !== user?.uid &&
+        m.text &&
+        !m.translations?.[lang] &&
+        !liveTranslations[`${lang}:${m.id}`]
+    );
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    fetch("/api/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        texts: missing.map((m) => m.text),
+        targetLang: lang,
+      }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !data?.success || !Array.isArray(data.translations)) return;
+        setLiveTranslations((prev) => {
+          const next = { ...prev };
+          missing.forEach((m, idx) => {
+            if (data.translations[idx]) {
+              next[`${lang}:${m.id}`] = data.translations[idx];
+            }
+          });
+          return next;
+        });
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [messages, lang, user?.uid]);
 
   useEffect(() => {
     if (!chatId) return;
@@ -99,9 +144,10 @@ export function ChatBox({
     setIsSending(true);
 
     try {
-      await addDoc(collection(db, "chats", chatId, "messages"), {
+      const createdMsgRef = await addDoc(collection(db, "chats", chatId, "messages"), {
         text: messageText,
         senderId: user.uid,
+        senderLang: lang,
         createdAt: serverTimestamp(),
       });
       await setDoc(doc(db, "chats", chatId), {
@@ -111,7 +157,7 @@ export function ChatBox({
         unreadSupplier: true
       }, { merge: true });
 
-      // Déclencher la notification Push / In-App pour le destinataire
+      // Déclencher la traduction automatique + notification Push / In-App dans la langue du destinataire
       user.getIdToken().then((token) => {
         fetch("/api/push/notify", {
           method: "POST",
@@ -122,6 +168,7 @@ export function ChatBox({
           body: JSON.stringify({
             eventType: "CHAT_MESSAGE",
             chatId,
+            messageId: createdMsgRef.id,
             text: messageText,
           }),
         }).catch(() => {});
@@ -317,9 +364,24 @@ export function ChatBox({
                           </a>
                         )}
                       </div>
-                    ) : (
-                      <p>{msg.text}</p>
-                    )}
+                    ) : (() => {
+                      const translated = !isMe
+                        ? msg.translations?.[lang] || liveTranslations[`${lang}:${msg.id}`]
+                        : undefined;
+                      const displayText = translated || msg.text;
+                      const showOriginal = Boolean(translated && translated.trim() !== msg.text.trim());
+                      return (
+                        <div>
+                          <p>{displayText}</p>
+                          {showOriginal && (
+                            <p className="text-[10px] opacity-60 mt-1 pt-1 border-t border-black/10 italic">
+                              {lang === "zh" ? "原文：" : lang === "en" ? "Original: " : "Original : "}
+                              {msg.text}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-0.5 px-1">

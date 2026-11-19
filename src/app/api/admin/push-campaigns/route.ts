@@ -3,6 +3,7 @@ import { getMessaging } from "firebase-admin/messaging";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb, initFirebaseAdmin, adminInitError } from "@/lib/firebase-admin";
 import { getServerCaller, SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
+import { normalizeLang, translateText, SupportedLang } from "@/lib/autoTranslate";
 
 function classifyUserRole(u: any): "ADMIN" | "SUPPLIER" | "PARTNER" | "DRIVER" | "CLIENT" {
   const email = String(u?.email || "").toLowerCase().trim();
@@ -290,12 +291,28 @@ export async function POST(req: NextRequest) {
       return false;
     };
 
+    const userLangMap = new Map<string, SupportedLang>();
+    const tokensByLang = new Map<SupportedLang, Set<string>>([
+      ["fr", new Set()],
+      ["en", new Set()],
+      ["zh", new Set()],
+    ]);
+    const neededLangs = new Set<SupportedLang>();
+
     usersSnap.forEach((docSnap: any) => {
       const u = docSnap.data() || {};
       if (matchesAudience(u, docSnap.id)) {
         targetUserIds.add(docSnap.id);
+        const uLang = normalizeLang(u.preferredLanguage || u.language);
+        userLangMap.set(docSnap.id, uLang);
+        neededLangs.add(uLang);
         if (Array.isArray(u.fcmTokens)) {
-          u.fcmTokens.forEach((t: string) => typeof t === "string" && t.trim() && tokenSet.add(t.trim()));
+          u.fcmTokens.forEach((t: string) => {
+            if (typeof t === "string" && t.trim()) {
+              tokenSet.add(t.trim());
+              tokensByLang.get(uLang)?.add(t.trim());
+            }
+          });
         }
       }
     });
@@ -305,23 +322,44 @@ export async function POST(req: NextRequest) {
       const d = docSnap.data() || {};
       const bUid = d.boundUid;
       let includeDevice = false;
+      let devLang: SupportedLang = "fr";
 
       if (bUid && targetUserIds.has(bUid)) {
         includeDevice = true;
+        devLang = userLangMap.get(bUid) || "fr";
       } else if (!bUid && (audience === "ALL" || audience === "CLIENTS") && campaignType !== "PROMO_PRO_ADMIN") {
         // Visiteur mobile ayant installé l'app -> reçoit les promos clients et push globaux
         includeDevice = true;
+        devLang = normalizeLang(d.preferredLanguage || d.language);
       }
 
       if (includeDevice && typeof d.fcmToken === "string" && d.fcmToken.trim()) {
         tokenSet.add(d.fcmToken.trim());
+        tokensByLang.get(devLang)?.add(d.fcmToken.trim());
+        neededLangs.add(devLang);
       }
     });
 
     const uidsList = Array.from(targetUserIds);
     const nowMs = Date.now();
 
-    // 2. Créer les notifications dans `inapp_notifications` par lots de 400 (ce qui déclenche aussi le Push Service Worker en direct sur tous les téléphones liés !)
+    // Traduire la campagne une fois par langue requise (FR / EN / 中文)
+    if (neededLangs.size === 0) neededLangs.add("fr");
+    const localizedCampaign = new Map<SupportedLang, { title: string; body: string }>();
+    await Promise.all(
+      Array.from(neededLangs).map(async (langCode) => {
+        const [trTitle, trBody] = await Promise.all([
+          translateText(cleanTitle, langCode),
+          translateText(formattedPushBody, langCode),
+        ]);
+        localizedCampaign.set(langCode, {
+          title: trTitle || cleanTitle,
+          body: trBody || formattedPushBody,
+        });
+      })
+    );
+
+    // 2. Créer les notifications dans `inapp_notifications` dans la langue de préférence de chaque compte
     const notifType =
       campaignType === "COMMUNIQUE"
         ? "broadcast"
@@ -333,6 +371,8 @@ export async function POST(req: NextRequest) {
       const chunk = uidsList.slice(i, i + 400);
       const batch = adminDb.batch();
       for (const uid of chunk) {
+        const uLang = userLangMap.get(uid) || "fr";
+        const loc = localizedCampaign.get(uLang) || { title: cleanTitle, body: formattedPushBody };
         const ref = adminDb.collection("inapp_notifications").doc();
         batch.set(ref, {
           userId: uid,
@@ -340,8 +380,11 @@ export async function POST(req: NextRequest) {
           supplierId: uid,
           type: notifType,
           campaignType,
-          title: cleanTitle,
-          message: formattedPushBody,
+          title: loc.title,
+          message: loc.body,
+          originalTitle: cleanTitle,
+          originalMessage: formattedPushBody,
+          targetLanguage: uLang,
           promoCode: cleanPromo,
           discountLabel: cleanDiscount,
           link: defaultLink,
@@ -356,7 +399,7 @@ export async function POST(req: NextRequest) {
       await batch.commit();
     }
 
-    // 3. Envoyer via Firebase Cloud Messaging (FCM) à tous les tokens collectés
+    // 3. Envoyer via Firebase Cloud Messaging (FCM) par langue préférée
     const allTokens = Array.from(tokenSet);
     let fcmSuccessCount = 0;
 
@@ -365,38 +408,44 @@ export async function POST(req: NextRequest) {
         initFirebaseAdmin();
         if (!adminInitError) {
           const messaging = getMessaging();
-          for (let i = 0; i < allTokens.length; i += 450) {
-            const tokenChunk = allTokens.slice(i, i + 450);
-            const res = await messaging.sendEachForMulticast({
-              tokens: tokenChunk,
-              notification: {
-                title: cleanTitle,
-                body: formattedPushBody,
-              },
-              data: {
-                title: cleanTitle,
-                body: formattedPushBody,
-                url: defaultLink,
-                link: defaultLink,
-                campaignType,
-                promoCode: cleanPromo || "",
-              },
-              webpush: {
-                headers: { Urgency: "high" },
+          for (const [langCode, langTokenSet] of tokensByLang.entries()) {
+            const langTokens = Array.from(langTokenSet);
+            if (langTokens.length === 0) continue;
+            const loc = localizedCampaign.get(langCode) || { title: cleanTitle, body: formattedPushBody };
+
+            for (let i = 0; i < langTokens.length; i += 450) {
+              const tokenChunk = langTokens.slice(i, i + 450);
+              const res = await messaging.sendEachForMulticast({
+                tokens: tokenChunk,
                 notification: {
-                  title: cleanTitle,
-                  body: formattedPushBody,
-                  icon: "/icon-512.png",
-                  badge: "/icon.png",
-                  vibrate: [200, 100, 200],
-                  renotify: true,
+                  title: loc.title,
+                  body: loc.body,
                 },
-                fcmOptions: {
+                data: {
+                  title: loc.title,
+                  body: loc.body,
+                  url: defaultLink,
                   link: defaultLink,
+                  campaignType,
+                  promoCode: cleanPromo || "",
                 },
-              },
-            });
-            fcmSuccessCount += res.successCount;
+                webpush: {
+                  headers: { Urgency: "high" },
+                  notification: {
+                    title: loc.title,
+                    body: loc.body,
+                    icon: "/icon-512.png",
+                    badge: "/icon.png",
+                    vibrate: [200, 100, 200],
+                    renotify: true,
+                  },
+                  fcmOptions: {
+                    link: defaultLink,
+                  },
+                },
+              });
+              fcmSuccessCount += res.successCount;
+            }
           }
         }
       } catch (fcmErr) {

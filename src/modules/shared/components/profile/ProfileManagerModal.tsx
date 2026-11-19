@@ -26,6 +26,7 @@ import { auth, db } from "@/lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
 import { optimizeImageToWebP } from "@/lib/imageOptimizer";
 import { isSupplier } from "@/lib/permissions";
+import { useLanguage, LanguageCode } from "@/context/LanguageContext";
 import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 
 interface ProfileManagerModalProps {
@@ -71,11 +72,13 @@ export default function ProfileManagerModal({
   userRoleLabel,
 }: ProfileManagerModalProps) {
   const { user, userData } = useAuth();
+  const { lang: currentAppLang, setLang: setAppLang } = useLanguage();
   const isSupplierAccount = isSupplier(userData);
 
   const [activeTab, setActiveTab] = useState<"contact" | "identity">("contact");
 
   // Editable Contact & Profile states
+  const [preferredLanguage, setPreferredLanguage] = useState<LanguageCode>("fr");
   const [phone, setPhone] = useState("");
   const [whatsappPhone, setWhatsappPhone] = useState("");
   const [payoutPhone, setPayoutPhone] = useState("");
@@ -112,6 +115,8 @@ export default function ProfileManagerModal({
     }
     if (isOpen && userData && !initializedForOpenRef.current) {
       initializedForOpenRef.current = true;
+      const savedLang = (userData.preferredLanguage || userData.language || currentAppLang || "fr") as LanguageCode;
+      setPreferredLanguage(["fr", "en", "zh"].includes(savedLang) ? savedLang : "fr");
       setPhone(userData.phone || userData.phoneNumber || userData.pendingProfile?.phone || "");
       setWhatsappPhone(userData.whatsappPhone || userData.pendingProfile?.whatsappPhone || "");
       setPayoutPhone(userData.payoutPhone || userData.pendingProfile?.payoutPhone || "");
@@ -209,6 +214,7 @@ export default function ProfileManagerModal({
     setErrorMsg("");
 
     const payload = {
+      preferredLanguage,
       phone: phone.trim(),
       whatsappPhone: whatsappPhone.trim(),
       payoutPhone: payoutPhone.trim(),
@@ -244,8 +250,9 @@ export default function ProfileManagerModal({
         throw new Error(data.error || "Erreur serveur lors de la sauvegarde.");
       }
 
+      setAppLang(preferredLanguage);
       setSuccessMsg(
-        "Vos coordonnées, numéros de téléphone et pièces d'identité ont été mis à jour avec succès !"
+        "Vos coordonnées, votre langue préférée et vos pièces d'identité ont été mis à jour avec succès !"
       );
     } catch (apiErr: any) {
       console.warn("API profile fallback to client Firestore:", apiErr);
@@ -254,6 +261,8 @@ export default function ProfileManagerModal({
         await setDoc(
           doc(db, "users", user.uid),
           {
+            preferredLanguage: payload.preferredLanguage,
+            language: payload.preferredLanguage,
             phone: payload.phone,
             phoneNumber: payload.phone,
             whatsappPhone: payload.whatsappPhone,
@@ -506,6 +515,42 @@ export default function ProfileManagerModal({
                           <Trash2 size={14} />
                         </button>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Preferred Language for Account (UI + Messages + Emails + Push) */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-[#C7D300]/10 via-white/5 to-transparent border border-[#C7D300]/25 space-y-2.5">
+                    <div className="flex items-center gap-2">
+                      <Globe size={16} className="text-[#C7D300]" />
+                      <h4 className="text-xs sm:text-sm font-bold text-white">
+                        Langue de préférence du compte (Traduction automatique)
+                      </h4>
+                    </div>
+                    <p className="text-[11px] text-gray-300 leading-relaxed">
+                      Choisissez votre langue préférée : l&apos;interface ainsi que tous les messages clients, communiqués de l&apos;administration, emails et notifications Push que vous recevez seront automatiquement traduits dans cette langue.
+                    </p>
+                    <div className="grid grid-cols-3 gap-2 pt-1">
+                      {(
+                        [
+                          { code: "fr", flag: "🇫🇷", label: "Français" },
+                          { code: "en", flag: "🇬🇧", label: "English" },
+                          { code: "zh", flag: "🇨🇳", label: "中文 (Chinois)" },
+                        ] as { code: LanguageCode; flag: string; label: string }[]
+                      ).map((opt) => (
+                        <button
+                          key={opt.code}
+                          type="button"
+                          onClick={() => setPreferredLanguage(opt.code)}
+                          className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                            preferredLanguage === opt.code
+                              ? "bg-[#C7D300] text-[#0F1D27] border-[#C7D300] shadow-md"
+                              : "bg-black/40 text-gray-300 border-white/10 hover:bg-white/10"
+                          }`}
+                        >
+                          <span>{opt.flag}</span>
+                          <span>{opt.label}</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
 

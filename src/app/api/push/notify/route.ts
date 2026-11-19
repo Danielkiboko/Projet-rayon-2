@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { getServerCaller, canActForSupplier } from "@/lib/serverAuth";
 import { dispatchAccountNotification } from "@/lib/pushNotifications";
+import { translateToAllLanguages } from "@/lib/autoTranslate";
 
 /**
  * POST /api/push/notify
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { eventType, chatId, text, senderName: customSenderName } = body;
+    const { eventType, chatId, messageId, text, senderName: customSenderName } = body;
 
     if (eventType === "TEST_PUSH") {
       const targetUid = (body.targetUid && caller.isAdmin) ? String(body.targetUid) : caller.uid;
@@ -76,6 +77,25 @@ export async function POST(req: NextRequest) {
         : `/dashboard?tab=messages&chatId=${encodeURIComponent(chatId)}`;
 
       const cleanPreview = String(text).trim().slice(0, 140);
+
+      // Traduction automatique multilingue (FR / EN / 中文) persistée en base sur le message et le chat
+      try {
+        const translations = await translateToAllLanguages(String(text).trim());
+        if (messageId) {
+          await adminDb
+            .collection("chats")
+            .doc(String(chatId))
+            .collection("messages")
+            .doc(String(messageId))
+            .set({ translations }, { merge: true });
+        }
+        await adminDb.collection("chats").doc(String(chatId)).set(
+          { lastMessageTranslations: translations },
+          { merge: true }
+        );
+      } catch (trErr) {
+        console.warn("[CHAT AUTO-TRANSLATE WARNING]:", trErr);
+      }
 
       const res = await dispatchAccountNotification({
         userId: recipientUid,
