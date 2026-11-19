@@ -18,6 +18,7 @@ import {
   Wallet,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
+import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 
 export default function AdminReferralsPage() {
   const { user } = useAuth();
@@ -25,6 +26,7 @@ export default function AdminReferralsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [processingPayoutId, setProcessingPayoutId] = useState<string | null>(null);
+  const [validationSuccessMsg, setValidationSuccessMsg] = useState("");
 
   const fetchAdminReferrals = async () => {
     if (!user) return;
@@ -82,7 +84,7 @@ export default function AdminReferralsPage() {
         throw new Error(json.error || "Erreur lors du versement.");
       }
 
-      toast.success(json.message || "Commissions versées avec succès !");
+      setValidationSuccessMsg(json.message || `Commissions versées avec succès à ${referrer.name} !`);
       fetchAdminReferrals();
     } catch (err: any) {
       toast.error(err.message || "Erreur versement.");
@@ -186,6 +188,15 @@ export default function AdminReferralsPage() {
         </div>
       </div>
 
+      {validationSuccessMsg ? (
+        <ValidationSuccessView
+          title="C'est fait !"
+          message={validationSuccessMsg}
+          badgeLabel="Versement Parrainage Validé"
+          onDone={() => setValidationSuccessMsg("")}
+        />
+      ) : (
+        <>
       {/* TABLEAU DES PARRAINS & VERSEMENTS */}
       <div className="bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-sm space-y-4 p-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -333,6 +344,8 @@ export default function AdminReferralsPage() {
           </table>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

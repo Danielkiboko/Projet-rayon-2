@@ -22,6 +22,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
+import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 
 type CampaignType = "COMMUNIQUE" | "PROMO_CLIENT" | "PROMO_PRO_ADMIN" | "PERSONALIZED";
 
@@ -95,6 +96,7 @@ export default function AdminPushCenterPage() {
   const [activeTab, setActiveTab] = useState<"compose" | "devices" | "history">("compose");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [validationSuccessMsg, setValidationSuccessMsg] = useState("");
 
   const [telemetry, setTelemetry] = useState<TelemetryData>({
     installedAppsCount: 0,
@@ -236,7 +238,7 @@ export default function AdminPushCenterPage() {
         throw new Error(data.error || "Erreur lors de l'envoi du Push.");
       }
 
-      toast.success(data.message || "Notification Push diffusée avec succès !");
+      setValidationSuccessMsg(data.message || "Notification Push diffusée avec succès !");
       setTitle("");
       setMessage("");
       setDiscountLabel("");
@@ -430,6 +432,15 @@ export default function AdminPushCenterPage() {
         </div>
       </div>
 
+      {validationSuccessMsg ? (
+        <ValidationSuccessView
+          title="C'est fait !"
+          message={validationSuccessMsg}
+          badgeLabel="Campagne Push Diffusée"
+          onDone={() => setValidationSuccessMsg("")}
+        />
+      ) : (
+        <>
       {/* Navigation Tabs */}
       <div className="flex items-center gap-2 border-b border-white/10 pb-3 overflow-x-auto">
         <button
@@ -1058,6 +1069,8 @@ export default function AdminPushCenterPage() {
             ))}
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

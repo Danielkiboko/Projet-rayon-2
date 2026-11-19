@@ -27,6 +27,7 @@ import {
   isOfficialAdminSupplier,
 } from "@/lib/accountingLedger";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
+import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 
 interface Transaction {
   id: string;
@@ -710,18 +711,6 @@ export default function AdminFinancePage() {
         </div>
       </div>
 
-      {/* Action Notification Banner */}
-      {actionNotice && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="p-3.5 bg-[#C7D300]/8 border border-[#C7D300]/20 rounded-lg flex items-center gap-3 text-[#C7D300] text-xs font-semibold"
-        >
-          <CheckCircle size={16} className="shrink-0" />
-          <span>{actionNotice}</span>
-        </motion.div>
-      )}
-
       {/* Période Comptable */}
       <DateRangeFilterPills filter={dateFilter} />
 
@@ -787,6 +776,15 @@ export default function AdminFinancePage() {
         ))}
       </div>
 
+      {actionNotice ? (
+        <ValidationSuccessView
+          title="C'est fait !"
+          message={actionNotice}
+          badgeLabel="Opération Financière Validée"
+          onDone={() => setActionNotice("")}
+        />
+      ) : (
+        <>
       {/* Tabs */}
       <div className="flex border-b border-white/8 gap-4 sm:gap-6 text-xs font-semibold overflow-x-auto scrollbar-none whitespace-nowrap">
         {[
@@ -1611,6 +1609,8 @@ export default function AdminFinancePage() {
             )}
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* MODAL 1: AJUSTEMENT DE CAISSE */}

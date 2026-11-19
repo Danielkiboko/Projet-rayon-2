@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -26,6 +26,7 @@ import { auth, db } from "@/lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
 import { optimizeImageToWebP } from "@/lib/imageOptimizer";
 import { isSupplier } from "@/lib/permissions";
+import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 
 interface ProfileManagerModalProps {
   isOpen: boolean;
@@ -101,10 +102,16 @@ export default function ProfileManagerModal({
   const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
+  const initializedForOpenRef = useRef(false);
 
-  // Sync state with userData when modal opens
+  // Sync state with userData ONLY when modal transitions to open (avoid resetting inputs or wiping successMsg on live snapshot updates)
   useEffect(() => {
-    if (isOpen && userData) {
+    if (!isOpen) {
+      initializedForOpenRef.current = false;
+      return;
+    }
+    if (isOpen && userData && !initializedForOpenRef.current) {
+      initializedForOpenRef.current = true;
       setPhone(userData.phone || userData.phoneNumber || userData.pendingProfile?.phone || "");
       setWhatsappPhone(userData.whatsappPhone || userData.pendingProfile?.whatsappPhone || "");
       setPayoutPhone(userData.payoutPhone || userData.pendingProfile?.payoutPhone || "");
@@ -222,7 +229,7 @@ export default function ProfileManagerModal({
     };
 
     try {
-      const token = await auth.currentUser?.getIdToken();
+      const token = await user.getIdToken(true);
       const res = await fetch("/api/users/profile", {
         method: "POST",
         headers: {
@@ -238,7 +245,7 @@ export default function ProfileManagerModal({
       }
 
       setSuccessMsg(
-        "Vos coordonnées et vos pièces d'identité ont été enregistrées dans la base de données !"
+        "Vos coordonnées, numéros de téléphone et pièces d'identité ont été mis à jour avec succès !"
       );
     } catch (apiErr: any) {
       console.warn("API profile fallback to client Firestore:", apiErr);
@@ -267,14 +274,15 @@ export default function ProfileManagerModal({
             nationality: payload.nationality,
             idDocumentFrontUrl: payload.idDocumentFrontUrl,
             idDocumentBackUrl: payload.idDocumentBackUrl,
+            pendingProfile: null,
             updatedAt: new Date().toISOString(),
           },
           { merge: true }
         );
-        setSuccessMsg("Profil et identité mis à jour avec succès !");
+        setSuccessMsg("Profil, numéro de téléphone et identité mis à jour avec succès !");
       } catch (fsErr: any) {
         setErrorMsg(
-          fsErr.message || "Erreur lors de l'enregistrement de votre profil."
+          fsErr.message || apiErr?.message || "Erreur lors de l'enregistrement de votre profil."
         );
       }
     } finally {
@@ -330,6 +338,21 @@ export default function ProfileManagerModal({
               </button>
             </div>
 
+            {successMsg ? (
+              <div className="p-6">
+                <ValidationSuccessView
+                  title="C'est fait !"
+                  message={successMsg}
+                  badgeLabel="Profil & Identité Enregistrés"
+                  actionLabel="Terminer"
+                  onDone={() => {
+                    setSuccessMsg("");
+                    onClose();
+                  }}
+                />
+              </div>
+            ) : (
+              <>
             {/* Navigation Tabs */}
             <div className="px-4 sm:px-6 pt-3 bg-[#0B151C]/50 border-b border-white/10 flex gap-2 shrink-0 overflow-x-auto scrollbar-none">
               <button
@@ -371,13 +394,6 @@ export default function ProfileManagerModal({
               onSubmit={handleSaveProfile}
               className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1"
             >
-              {successMsg && (
-                <div className="p-3.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center gap-2.5">
-                  <CheckCircle2 size={18} className="text-emerald-400 shrink-0" />
-                  <span>{successMsg}</span>
-                </div>
-              )}
-
               {errorMsg && (
                 <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold flex items-center gap-2.5">
                   <AlertCircle size={18} className="text-rose-400 shrink-0" />
@@ -882,6 +898,8 @@ export default function ProfileManagerModal({
                 </button>
               </div>
             </form>
+              </>
+            )}
           </motion.div>
         </div>
       )}

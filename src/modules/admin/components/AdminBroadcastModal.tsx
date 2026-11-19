@@ -8,6 +8,7 @@ import {
   Shirt, Zap, FileText, Loader2
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 
 export interface AdminBroadcastModalProps {
   isOpen: boolean;
@@ -99,12 +100,6 @@ export default function AdminBroadcastModal({ isOpen, onClose, onSuccess }: Admi
         const successMsg = data.message || "Message diffusé avec succès par Email et Notification !";
         setResult({ success: true, text: successMsg });
         if (onSuccess) onSuccess(successMsg);
-        setTimeout(() => {
-          onClose();
-          setResult(null);
-          setSubject("");
-          setMessage("");
-        }, 2200);
       } else {
         setResult({ success: false, text: data.error || "Impossible d'envoyer le message." });
       }
@@ -155,6 +150,22 @@ export default function AdminBroadcastModal({ isOpen, onClose, onSuccess }: Admi
             </div>
           </div>
 
+          {result?.success ? (
+            <div className="p-6">
+              <ValidationSuccessView
+                title="C'est fait !"
+                message={result.text}
+                badgeLabel="Message Diffusé (Email + App)"
+                actionLabel="Fermer"
+                onDone={() => {
+                  setResult(null);
+                  setSubject("");
+                  setMessage("");
+                  onClose();
+                }}
+              />
+            </div>
+          ) : (
           <form onSubmit={handleSend} className="p-6 space-y-5">
             {/* 1. Sélection des Destinataires */}
             <div>
@@ -330,6 +341,7 @@ export default function AdminBroadcastModal({ isOpen, onClose, onSuccess }: Admi
               </button>
             </div>
           </form>
+          )}
         </motion.div>
       </div>
     </AnimatePresence>

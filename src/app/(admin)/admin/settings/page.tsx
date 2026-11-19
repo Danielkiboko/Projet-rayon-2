@@ -82,6 +82,7 @@ function Toast({ message, type }: { message: string; type: "success" | "error" }
 }
 
 import { isSuperAdmin, hasAdminAccess } from "@/lib/permissions";
+import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 
 export default function AdminSettingsPage() {
   const { user, userData } = useAuth();
@@ -298,6 +299,15 @@ export default function AdminSettingsPage() {
         </p>
       </div>
 
+      {toast?.type === "success" ? (
+        <ValidationSuccessView
+          title="C'est fait !"
+          message={toast.message}
+          badgeLabel="Paramètres Plateforme Mis à Jour"
+          onDone={() => setToast(null)}
+        />
+      ) : (
+        <>
       {/* ── Section 1: Identité Boutique Admin ────────────────── */}
       <div className="bg-[#111111] border border-white/5 rounded-2xl p-6 shadow-sm">
         <SectionTitle
@@ -570,9 +580,11 @@ export default function AdminSettingsPage() {
           </p>
         </div>
       </div>
+        </>
+      )}
 
-      {/* Toast notification */}
-      {toast && <Toast message={toast.message} type={toast.type} />}
+      {/* Toast notification for errors */}
+      {toast && toast.type === "error" && <Toast message={toast.message} type={toast.type} />}
     </div>
   );
 }

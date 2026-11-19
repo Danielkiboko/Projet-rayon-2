@@ -26,6 +26,7 @@ import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { hasAdminAccess } from "@/lib/permissions";
 import ResponsiveModal from "@/modules/shared/components/ui/ResponsiveModal";
+import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 import toast, { Toaster } from "react-hot-toast";
 import Link from "next/link";
 
@@ -86,6 +87,7 @@ export default function AdminPartnersPage() {
 
   // Copied code feedback
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [validationSuccessMsg, setValidationSuccessMsg] = useState<string>("");
 
   const fetchPartnersAndSuppliers = async () => {
     if (!user) return;
@@ -150,8 +152,9 @@ export default function AdminPartnersPage() {
         throw new Error(data.error || "Erreur lors du versement");
       }
 
-      toast.success(data.message || `Commissions versées avec succès à ${payoutPartner.name} !`);
+      const successText = data.message || `Commissions versées avec succès à ${payoutPartner.name} !`;
       setPayoutPartner(null);
+      setValidationSuccessMsg(successText);
       fetchPartnersAndSuppliers();
     } catch (err: any) {
       console.error("Payout error:", err);
@@ -193,11 +196,12 @@ export default function AdminPartnersPage() {
         throw new Error(data.error || "Erreur lors de la création du partenaire.");
       }
 
-      toast.success(`Partenaire "${newPartnerName}" créé avec succès !`);
+      const createdName = newPartnerName;
       setIsCreatePartnerOpen(false);
       setNewPartnerName("");
       setNewPartnerEmail("");
       setNewPartnerPhone("");
+      setValidationSuccessMsg(`Partenaire "${createdName}" créé et activé avec succès !`);
       fetchPartnersAndSuppliers();
     } catch (err: any) {
       console.error("Partner creation error:", err);
@@ -323,6 +327,15 @@ export default function AdminPartnersPage() {
         </div>
       </div>
 
+      {validationSuccessMsg ? (
+        <ValidationSuccessView
+          title="C'est fait !"
+          message={validationSuccessMsg}
+          badgeLabel="Réseau Partenaires Mis à Jour"
+          onDone={() => setValidationSuccessMsg("")}
+        />
+      ) : (
+        <>
       {/* Tabs & Dropdown Filters */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-white/[0.08] pb-3">
         <div className="flex items-center gap-2">
@@ -610,6 +623,8 @@ export default function AdminPartnersPage() {
             </div>
           )}
         </div>
+      )}
+        </>
       )}
 
       {/* MODAL : Détail des boutiques d'un Partenaire */}

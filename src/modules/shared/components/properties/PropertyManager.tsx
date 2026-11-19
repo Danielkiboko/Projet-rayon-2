@@ -19,6 +19,7 @@ import {
 import { useCurrency, CurrencyCode } from "@/context/CurrencyContext";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
 import PricingCurrencySelector from "@/modules/shared/components/pricing/PricingCurrencySelector";
+import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 
 interface PropertyManagerProps {
   isAdmin: boolean;
@@ -36,6 +37,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [previewProperty, setPreviewProperty] = useState<any | null>(null);
+  const [validationSuccessMsg, setValidationSuccessMsg] = useState("");
 
   // Separation: Habitation vs Hotel
   const [immoBranch, setImmoBranch] = useState<"habitation" | "hotel">("habitation");
@@ -430,16 +432,20 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
         }
       }
 
+      const savedPropTitle = propertyTitle;
+      const wasEditingProp = Boolean(editingId);
       setIsModalOpen(false);
       resetForm();
 
-      if (!isAdmin) {
-        alert(
-          editingId
-            ? "Vos modifications ont été enregistrées ! L'annonce est actuellement en attente de validation par l'administrateur avant d'être remise en ligne."
-            : "Votre annonce a bien été soumise ! Elle est en attente de validation par l'administrateur avant d'être publiée sur le Rayon Immo."
-        );
-      }
+      setValidationSuccessMsg(
+        !isAdmin
+          ? wasEditingProp
+            ? `Vos modifications sur "${savedPropTitle}" ont été enregistrées et transmises pour validation.`
+            : `Votre annonce "${savedPropTitle}" a bien été soumise et attend la validation de l'administration.`
+          : wasEditingProp
+          ? `Les modifications sur le bien "${savedPropTitle}" ont été enregistrées avec succès.`
+          : `Le bien "${savedPropTitle}" a été enregistré et publié en ligne.`
+      );
     } catch (error: any) {
       console.error("Erreur lors de la sauvegarde de la propriété:", error);
       alert("Une erreur est survenue: " + error.message);
@@ -509,6 +515,13 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
           alert("Erreur lors de l'approbation: " + (apiError?.message || directError?.message));
           return;
         }
+      }
+
+      if (isSuccess) {
+        setPreviewProperty(null);
+        setValidationSuccessMsg(
+          `L'annonce immobilière "${getTitle(property.title)}" a été validée et mise en ligne avec succès !`
+        );
       }
 
       if (isSuccess && property.supplierId) {
@@ -712,6 +725,14 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
         </div>
       </div>
 
+      {validationSuccessMsg ? (
+        <ValidationSuccessView
+          title="C'est fait !"
+          message={validationSuccessMsg}
+          badgeLabel="Immobilier & Hôtellerie Mis à Jour"
+          onDone={() => setValidationSuccessMsg("")}
+        />
+      ) : (
       <div className="bg-[#0F1D27] rounded-2xl shadow-sm border border-white/10 overflow-hidden">
         <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
           <div className="relative max-w-sm w-full">
@@ -1014,6 +1035,7 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
         )}
       </div>
     </div>
+      )}
 
       {/* Create Property Modal */}
       <AnimatePresence>

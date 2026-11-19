@@ -38,6 +38,7 @@ import {
   ALL_STAFF_POSITIONS, 
   resolveStaffPermissions 
 } from "@/domain/permissions";
+import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 
 interface TeamMember {
   id: string;
@@ -474,7 +475,8 @@ export default function AdminTeamPage() {
         updatedAt: serverTimestamp(),
       });
       setSuccessMessage(`Utilisateur ${searchedUser.email} promu avec succès : ${dept}.`);
-      setSearchedUser({ ...searchedUser, role: primaryRole, accountType: "STAFF" });
+      setSearchedUser(null);
+      setSearchEmail("");
     } catch (err: any) {
       console.error(err);
       setErrorMessage("Erreur lors de la promotion.");
@@ -660,19 +662,6 @@ export default function AdminTeamPage() {
         )}
       </div>
 
-      {/* Success / Error Alerts */}
-      {successMessage && (
-        <div className="p-4 bg-green-500/20 border border-green-500/50 rounded-xl text-green-300 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={18} className="text-green-400 shrink-0" />
-            <span className="text-sm">{successMessage}</span>
-          </div>
-          <button onClick={() => setSuccessMessage("")} className="text-green-400 hover:text-white">
-            <X size={16} />
-          </button>
-        </div>
-      )}
-
       {errorMessage && (
         <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -685,7 +674,16 @@ export default function AdminTeamPage() {
         </div>
       )}
 
-      {/* KPI Stats Cards */}
+      {successMessage ? (
+        <ValidationSuccessView
+          title="C'est fait !"
+          message={successMessage}
+          badgeLabel="Équipe & Fonctionnaires Mis à Jour"
+          onDone={() => setSuccessMessage("")}
+        />
+      ) : (
+        <>
+          {/* KPI Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between">
           <div>
@@ -1422,6 +1420,8 @@ export default function AdminTeamPage() {
             </table>
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* Modal: Create New Collaborator */}

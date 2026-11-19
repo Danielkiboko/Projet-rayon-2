@@ -22,6 +22,7 @@ import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
 import { collection, query, where, onSnapshot, limit, doc, updateDoc } from "firebase/firestore";
 import { generateOrderInvoicePDF } from "@/lib/invoiceGenerator";
+import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 
 interface Order {
   id: string;
@@ -101,6 +102,7 @@ export default function AdminMyOrdersPage() {
   const [filter, setFilter] = useState("all");
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [validationSuccessMsg, setValidationSuccessMsg] = useState("");
 
   useEffect(() => {
     if (!user?.uid) {
@@ -149,6 +151,7 @@ export default function AdminMyOrdersPage() {
         status: newStatus,
         updatedAt: new Date(),
       });
+      setValidationSuccessMsg(`Le statut de la commande #${orderId.slice(0, 8)} a été mis à jour (${newStatus}).`);
     } catch (e: any) {
       console.error(e);
       alert(`Erreur lors de la mise à jour : ${e.message}`);
@@ -257,7 +260,15 @@ export default function AdminMyOrdersPage() {
         </div>
       </div>
 
-      {/* Table des commandes */}
+      {validationSuccessMsg ? (
+        <ValidationSuccessView
+          title="C'est fait !"
+          message={validationSuccessMsg}
+          badgeLabel="Commande & Livraison Mise à Jour"
+          onDone={() => setValidationSuccessMsg("")}
+        />
+      ) : (
+      /* Table des commandes */
       <div className="bg-[#0F1A23] border border-white/[0.08] rounded-2xl overflow-hidden shadow-lg">
         {/* Recherche et filtres */}
         <div className="p-3 sm:p-4 border-b border-white/[0.06] flex flex-col sm:flex-row justify-between gap-2.5 sm:gap-3 bg-white/[0.01]">
@@ -556,6 +567,7 @@ export default function AdminMyOrdersPage() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

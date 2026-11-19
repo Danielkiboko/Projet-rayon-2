@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase-admin";
+import { adminDb, initFirebaseAdmin } from "@/lib/firebase-admin";
 import { getServerCaller } from "@/lib/serverAuth";
 
 export async function POST(req: NextRequest) {
   try {
+    await initFirebaseAdmin();
     const caller = await getServerCaller(req);
     if (!caller) {
       return NextResponse.json(
@@ -190,6 +191,11 @@ export async function POST(req: NextRequest) {
           updatePayload.kycStatus = existingData.kycStatus === "VERIFIED" ? "VERIFIED" : "PENDING_REVIEW";
         }
       }
+    }
+
+    // If Admin is updating their own profile, clear any stale pendingProfile so the new phone/info always takes priority
+    if (caller.isAdmin && !targetUid && existingData.pendingProfile) {
+      updatePayload.pendingProfile = null;
     }
 
     await userRef.set(updatePayload, { merge: true });

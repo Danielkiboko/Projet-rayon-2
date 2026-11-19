@@ -8,6 +8,7 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 
 import { PERMANENT_DRIVER_APK_PATH, getPermanentDriverApkUrl } from "@/lib/constants";
 import DriverFormModal from "@/modules/shared/components/drivers/DriverFormModal";
+import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 
 interface Driver {
   id: string;
@@ -80,12 +81,15 @@ export default function DriversPage() {
         </button>
       </div>
       
-      {successMessage && (
-        <div className="p-4 bg-green-500/20 border border-green-500/50 rounded-xl text-green-400">
-          {successMessage}
-        </div>
-      )}
-
+      {successMessage ? (
+        <ValidationSuccessView
+          title="C'est fait !"
+          message={successMessage}
+          badgeLabel="Flotte & Livreurs Mis à Jour"
+          onDone={() => setSuccessMessage("")}
+        />
+      ) : (
+        <>
       {/* APK Distribution Card */}
       <div className="bg-gradient-to-r from-[#C7D300]/10 via-white/5 to-[#C7D300]/10 border border-[#C7D300]/30 rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div className="flex items-center space-x-3.5">
@@ -266,6 +270,8 @@ export default function DriversPage() {
           )}
         </div>
       </div>
+        </>
+      )}
 
       {/* Create Driver Modal */}
       <DriverFormModal

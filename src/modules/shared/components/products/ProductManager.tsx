@@ -21,6 +21,7 @@ import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
 import { Lock } from "lucide-react";
 import PricingCurrencySelector from "@/modules/shared/components/pricing/PricingCurrencySelector";
 import { optimizeImageToWebP } from "@/lib/imageOptimizer";
+import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 
 interface ProductManagerProps {
   isAdmin: boolean;
@@ -88,6 +89,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
   });
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const [validationSuccessMsg, setValidationSuccessMsg] = useState("");
 
   // Fetch products
   useEffect(() => {
@@ -400,8 +402,15 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
           }
         }
       }
+      const savedTitle = productTitle.trim();
+      const wasEditing = Boolean(editingId);
       setIsModalOpen(false);
       resetForm();
+      setValidationSuccessMsg(
+        wasEditing
+          ? `Les modifications sur l'article "${savedTitle}" ont été enregistrées avec succès.`
+          : `L'article "${savedTitle}" a été enregistré et publié dans le catalogue.`
+      );
     } catch (error: any) {
       console.error("Erreur lors de la sauvegarde du produit", error);
       alert("Erreur lors de la sauvegarde : " + (error?.message || "Vérifiez vos permissions réseau."));
@@ -448,6 +457,9 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
             createdAt: serverTimestamp()
           });
         }
+        setValidationSuccessMsg(
+          `Le produit "${prod?.title?.fr || prod?.title || prod?.name || "Sélectionné"}" a été validé et mis en ligne !`
+        );
       } catch (error) {
         console.error("Error approving product", error);
         alert("Erreur lors de l'approbation.");
@@ -687,6 +699,14 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
         </div>
       )}
 
+      {validationSuccessMsg ? (
+        <ValidationSuccessView
+          title="C'est fait !"
+          message={validationSuccessMsg}
+          badgeLabel="Catalogue & Produits Mis à Jour"
+          onDone={() => setValidationSuccessMsg("")}
+        />
+      ) : (
       <div className="bg-white/5 border border-white/10 rounded-2xl shadow-sm overflow-hidden">
         <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
           <div className="relative max-w-sm w-full">
@@ -1057,6 +1077,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
           )}
         </div>
       </div>
+      )}
 
       {/* Create / Edit Product Modal */}
       <AnimatePresence>

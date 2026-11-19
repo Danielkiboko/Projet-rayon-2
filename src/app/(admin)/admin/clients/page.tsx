@@ -28,6 +28,7 @@ import { collection, query, limit, onSnapshot, addDoc, serverTimestamp } from "f
 import { isSupplier, isTeamMember, hasAdminAccess, SUPER_ADMIN_EMAILS } from "@/lib/permissions";
 import { getAccountType } from "@/domain/roles";
 import ResponsiveModal from "@/modules/shared/components/ui/ResponsiveModal";
+import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 import toast, { Toaster } from "react-hot-toast";
 
 interface ClientData {
@@ -84,6 +85,7 @@ export default function ClientsPage() {
 
   // Copied feedback
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [validationSuccessMsg, setValidationSuccessMsg] = useState("");
 
   // Suppression & Promotion
   const [clientToDelete, setClientToDelete] = useState<ClientData | null>(null);
@@ -190,8 +192,9 @@ export default function ClientsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur lors de la suppression");
 
-      toast.success(`Le compte client (${clientToDelete.email || clientToDelete.name}) a été définitivement supprimé. Son adresse email est désormais libre.`);
+      const deletedLabel = clientToDelete.email || clientToDelete.name;
       setClientToDelete(null);
+      setValidationSuccessMsg(`Le compte client (${deletedLabel}) a été supprimé avec succès.`);
     } catch (err: any) {
       console.error("Erreur suppression:", err);
       toast.error(err.message || "Erreur lors de la suppression.");
@@ -229,8 +232,9 @@ export default function ClientsPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Erreur lors de la conversion");
 
-      toast.success(data.message || `Client converti avec succès en ${targetRole} !`);
+      const promoteText = data.message || `Client converti avec succès en ${targetRole} !`;
       setClientToPromote(null);
+      setValidationSuccessMsg(promoteText);
     } catch (err: any) {
       console.error("Erreur conversion:", err);
       toast.error(err.message || "Erreur lors de la conversion.");
@@ -266,7 +270,7 @@ export default function ClientsPage() {
 
       setIsModalOpen(false);
       setFormData({ firstName: "", lastName: "", email: "", phone: "", address: "" });
-      alert("✅ Nouveau client enregistré avec succès dans la base de données !");
+      setValidationSuccessMsg(`Le nouveau client "${displayName || formData.email || "Client"}" a été enregistré avec succès dans la base de données !`);
     } catch (err: any) {
       console.error(err);
       alert(`Erreur lors de la création : ${err.message}`);
@@ -465,7 +469,15 @@ export default function ClientsPage() {
         </button>
       </div>
 
-      {/* Barre de recherche, filtres et tri */}
+      {validationSuccessMsg ? (
+        <ValidationSuccessView
+          title="C'est fait !"
+          message={validationSuccessMsg}
+          badgeLabel="Base Clients Mise à Jour"
+          onDone={() => setValidationSuccessMsg("")}
+        />
+      ) : (
+      /* Barre de recherche, filtres et tri */
       <div className="bg-[#0F1A23] border border-white/[0.08] rounded-2xl overflow-hidden shadow-lg">
         <div className="p-4 border-b border-white/[0.06] flex flex-col md:flex-row gap-3 justify-between items-center bg-white/[0.01]">
           <div className="relative w-full md:max-w-md">
@@ -769,6 +781,7 @@ export default function ClientsPage() {
           )}
         </div>
       </div>
+      )}
 
       {/* MODAL : Enregistrer un Client Manuellement */}
       <ResponsiveModal

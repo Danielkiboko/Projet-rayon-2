@@ -11,6 +11,7 @@ import { collection, getDocs, query, where, doc, updateDoc, setDoc, onSnapshot, 
 import { useAuth } from "@/context/AuthContext";
 import { hasAdminAccess, isTeamMember, SUPER_ADMIN_EMAILS } from "@/lib/permissions";
 import AdminBroadcastModal from "@/modules/admin/components/AdminBroadcastModal";
+import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 
 interface Supplier {
   id: string;
@@ -766,19 +767,15 @@ export default function SuppliersPage() {
         </div>
       )}
       
-      {successMessage && (
-        <div className="p-4 bg-green-500/20 border border-green-500/50 rounded-xl text-green-300 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={18} className="text-green-400 shrink-0" />
-            <span>{successMessage}</span>
-          </div>
-          <button onClick={() => setSuccessMessage("")} className="text-green-400 hover:text-white">
-            <X size={16} />
-          </button>
-        </div>
-      )}
-
-      {/* Main Table Card with Clean Dropdown Filters */}
+      {successMessage ? (
+        <ValidationSuccessView
+          title="C'est fait !"
+          message={successMessage}
+          badgeLabel="Dossier Fournisseur Validé & Mis à Jour"
+          onDone={() => setSuccessMessage("")}
+        />
+      ) : (
+      /* Main Table Card with Clean Dropdown Filters */
       <div className="bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
         {/* Unified Filter Bar (Search + Dropdowns) */}
         <div className="p-4 border-b border-white/10 bg-black/20 space-y-3">
@@ -1277,6 +1274,7 @@ export default function SuppliersPage() {
           )}
         </div>
       </div>
+      )}
 
       {/* Access Management Modal */}
       <AnimatePresence>
