@@ -21,7 +21,7 @@ export default function AdminProductsPage() {
         router.push("/");
       }
     }
-  }, [user, userData, loading, router, isAuthorized]);
+  }, [user?.uid, loading, router, isAuthorized]);
 
   if (loading || !user || !isAuthorized) {
     return (

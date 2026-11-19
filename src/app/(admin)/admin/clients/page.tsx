@@ -29,7 +29,7 @@ import { isSupplier, isTeamMember, hasAdminAccess, SUPER_ADMIN_EMAILS } from "@/
 import { getAccountType } from "@/domain/roles";
 import ResponsiveModal from "@/modules/shared/components/ui/ResponsiveModal";
 import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 
 interface ClientData {
   id: string;
@@ -370,7 +370,6 @@ export default function ClientsPage() {
 
   return (
     <div className="space-y-6">
-      <Toaster position="top-right" />
       {/* En-tête */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./AuthContext";
 import toast from "react-hot-toast";
@@ -33,7 +33,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [activeProduct, setActiveProduct] = useState<ProductInfo | null>(null);
 
-  const openChat = (supplierId?: string, productId?: string) => {
+  const openChat = useCallback((supplierId?: string, productId?: string) => {
     const params = new URLSearchParams();
     params.set("tab", "messages");
     if (supplierId) params.set("supplierId", supplierId);
@@ -50,9 +50,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
 
     router.push(targetUrl);
-  };
+  }, [user, router]);
 
-  const openChatForProduct = (product: ProductInfo) => {
+  const openChatForProduct = useCallback((product: ProductInfo) => {
     setActiveProduct(product);
 
     const params = new URLSearchParams();
@@ -74,24 +74,27 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
 
     router.push(targetUrl);
-  };
+  }, [user, router]);
 
-  const closeChat = () => setIsChatOpen(false);
-  const toggleChat = () => openChat();
-  const closeActiveProductChat = () => setActiveProduct(null);
+  const closeChat = useCallback(() => setIsChatOpen(false), []);
+  const toggleChat = useCallback(() => openChat(), [openChat]);
+  const closeActiveProductChat = useCallback(() => setActiveProduct(null), []);
+
+  const chatValue = useMemo(
+    () => ({
+      isChatOpen,
+      openChat,
+      closeChat,
+      toggleChat,
+      activeProduct,
+      openChatForProduct,
+      closeActiveProductChat,
+    }),
+    [isChatOpen, openChat, closeChat, toggleChat, activeProduct, openChatForProduct, closeActiveProductChat]
+  );
 
   return (
-    <ChatContext.Provider
-      value={{
-        isChatOpen,
-        openChat,
-        closeChat,
-        toggleChat,
-        activeProduct,
-        openChatForProduct,
-        closeActiveProductChat
-      }}
-    >
+    <ChatContext.Provider value={chatValue}>
       {children}
     </ChatContext.Provider>
   );

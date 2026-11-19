@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     const lang = normalizeLang(targetLang);
 
     if (Array.isArray(texts)) {
-      const limited = texts.slice(0, 60).map((t) => String(t || "").slice(0, 1200));
+      const limited = texts.slice(0, 150).map((t) => String(t || "").slice(0, 1200));
       const translations = await translateBatch(limited, lang);
       return NextResponse.json({ success: true, targetLang: lang, translations });
     }

@@ -21,6 +21,10 @@ function isStaffOrAdminDoc(data: any): boolean {
   );
 }
 
+// Cache mémoire court (20s) pour rendre la navigation entre pages Admin quasi-instantanée
+let executiveOverviewCache: { data: any; expiresAt: number } | null = null;
+const OVERVIEW_CACHE_TTL_MS = 20_000;
+
 /**
  * GET /api/admin/executive-overview
  * Centralise toutes les données financières (Abonnements Payés/Impayés/Essai, Commissions Partenaires, Caisse),
@@ -31,6 +35,11 @@ export async function GET(req: NextRequest) {
     const caller = await getServerCaller(req);
     if (!caller || !caller.isAdmin) {
       return NextResponse.json({ success: false, error: "Accès réservé à l'administration." }, { status: 403 });
+    }
+
+    const forceFresh = req.nextUrl.searchParams.get("fresh") === "1";
+    if (!forceFresh && executiveOverviewCache && Date.now() < executiveOverviewCache.expiresAt) {
+      return NextResponse.json(executiveOverviewCache.data);
     }
 
     const [
@@ -299,7 +308,7 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    return NextResponse.json({
+    const payload = {
       success: true,
       financeSummary: {
         paidActiveCount,
@@ -346,7 +355,14 @@ export async function GET(req: NextRequest) {
         installedAppsCount: devicesSnap.size + driversSnap.size,
       },
       supplierSubscriptions,
-    });
+    };
+
+    executiveOverviewCache = {
+      data: payload,
+      expiresAt: Date.now() + OVERVIEW_CACHE_TTL_MS,
+    };
+
+    return NextResponse.json(payload);
   } catch (error: any) {
     console.error("[EXECUTIVE OVERVIEW GET ERROR]:", error);
     return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
@@ -364,6 +380,9 @@ export async function POST(req: NextRequest) {
     if (!caller || !caller.isAdmin) {
       return NextResponse.json({ success: false, error: "Accès réservé à la Direction Financière." }, { status: 403 });
     }
+
+    // Invalider le cache lors d'une écriture financière
+    executiveOverviewCache = null;
 
     const body = await req.json();
     const { action, supplierId, amountPaid, paymentMethod = "Mobile Money / Caisse Centrale" } = body;

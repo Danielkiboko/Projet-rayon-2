@@ -322,8 +322,10 @@ export default function AdminFinancePage() {
     }
   };
 
+  const hasFinanceAccess = canAccessFinance(user, userData);
+
   useEffect(() => {
-    if (!loading && !canAccessFinance(user, userData)) {
+    if (!loading && !hasFinanceAccess) {
       router.push("/admin/dashboard");
       return;
     }
@@ -337,7 +339,7 @@ export default function AdminFinancePage() {
       }
     };
 
-    if (canAccessFinance(user, userData)) {
+    if (hasFinanceAccess) {
       fetchSuppliers();
       fetchPartners();
       fetchFinancialSettings();
@@ -416,7 +418,7 @@ export default function AdminFinancePage() {
       unsubLedger();
       unsubOrders();
     };
-  }, [user, userData, loading, router]);
+  }, [user?.uid, hasFinanceAccess, loading, router]);
 
   // Calculations globales (Solde de Caisse)
   const totalSubscriptions = transactions

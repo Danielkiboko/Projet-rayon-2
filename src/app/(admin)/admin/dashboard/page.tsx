@@ -91,11 +91,11 @@ export default function AdminDashboardPage() {
         router.push("/");
       }
     }
-  }, [user, userData, loading, router, isAuthorized]);
+  }, [user?.uid, loading, router, isAuthorized]);
 
   // Fetch Validation & Regulation Data
   useEffect(() => {
-    if (!user || !userData || !isAuthorized) return;
+    if (!user?.uid || !isAuthorized) return;
 
     let unsubUsers: any;
     let unsubProps: any;
@@ -205,7 +205,7 @@ export default function AdminDashboardPage() {
       if (unsubProds) unsubProds();
       if (unsubTenants) unsubTenants();
     };
-  }, [user, userData, isAuthorized]);
+  }, [user?.uid, isAuthorized]);
 
   if (loading || !user || !isAuthorized) {
     return (

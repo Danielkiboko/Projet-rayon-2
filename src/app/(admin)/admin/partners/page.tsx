@@ -27,7 +27,7 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import { hasAdminAccess } from "@/lib/permissions";
 import ResponsiveModal from "@/modules/shared/components/ui/ResponsiveModal";
 import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import Link from "next/link";
 
 interface PartnerUser {
@@ -244,7 +244,6 @@ export default function AdminPartnersPage() {
 
   return (
     <div className="space-y-6">
-      <Toaster position="top-right" />
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

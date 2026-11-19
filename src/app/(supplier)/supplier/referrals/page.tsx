@@ -19,7 +19,7 @@ import {
   HelpCircle,
   ExternalLink,
 } from "lucide-react";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 
 export default function SupplierReferralsPage() {
   const { user, userData } = useAuth();
@@ -141,7 +141,6 @@ export default function SupplierReferralsPage() {
 
   return (
     <div className="space-y-6 pb-12">
-      <Toaster position="top-right" />
 
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">

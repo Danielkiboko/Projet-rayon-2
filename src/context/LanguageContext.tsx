@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { db } from "@/lib/firebase";
 import { doc, setDoc } from "firebase/firestore";
@@ -480,8 +480,13 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     [lang]
   );
 
+  const contextValue = useMemo(
+    () => ({ lang, setLang, t, translateLabel, getLocalizedText }),
+    [lang, setLang, t, translateLabel, getLocalizedText]
+  );
+
   return (
-    <LanguageContext.Provider value={{ lang, setLang, t, translateLabel, getLocalizedText }}>
+    <LanguageContext.Provider value={contextValue}>
       {children}
     </LanguageContext.Provider>
   );

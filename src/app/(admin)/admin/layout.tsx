@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -39,7 +39,10 @@ export default function AdminLayout({
 
   // Notifications logic
   const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.read && !n.archived).length,
+    [notifications]
+  );
 
   useEffect(() => {
     if (!hasAccess) return;
@@ -55,13 +58,16 @@ export default function AdminLayout({
         const { db } = await import("@/lib/firebase");
 
         const updateNotifications = (type: string, newItems: any[]) => {
-          setNotifications(prev => {
-            const filtered = prev.filter(n => n.type !== type);
-            const combined = [...filtered, ...newItems].sort((a, b) => b.time - a.time);
-            setUnreadCount(combined.length);
-            return combined;
+          setNotifications((prev) => {
+            const filtered = prev.filter((n) => n.type !== type);
+            return [...filtered, ...newItems].sort((a, b) => (b.time || 0) - (a.time || 0));
           });
         };
+
+        const extractTime = (d: any) =>
+          d?.updatedAt?.toMillis?.() ||
+          d?.createdAt?.toMillis?.() ||
+          (typeof d?.time === "number" ? d.time : 0);
 
         const qUsers = query(
           collection(db, "users"), 
@@ -78,7 +84,7 @@ export default function AdminLayout({
                 type: "supplier",
                 title: "Profil Fournisseur modifié",
                 message: `${d.displayName || d.email} a mis à jour ses informations.`,
-                time: Date.now(),
+                time: extractTime(d),
                 link: "/admin/suppliers"
               });
             }
@@ -102,7 +108,7 @@ export default function AdminLayout({
               type: "property",
               title: "Nouveau Bien Immobilier",
               message: `${d.title || 'Bien'} est en attente de validation.`,
-              time: Date.now(),
+              time: extractTime(d),
               link: "/admin/properties"
             });
           });
@@ -125,7 +131,7 @@ export default function AdminLayout({
               type: "product",
               title: "Nouveau Produit",
               message: `${d.name || 'Produit'} est en attente de validation.`,
-              time: Date.now(),
+              time: extractTime(d),
               link: "/admin/products"
             });
           });
@@ -240,25 +246,33 @@ export default function AdminLayout({
     }
   }
 
-  // Adapter les intitulés du menu selon le métier du fonctionnaire
-  const filteredMenuItems = ADMIN_MENU.filter((item) => isFullAdmin || allowedHrefs.has(item.href)).map((item) => {
-    if (item.href === "/admin/orders" && isLogisticsOnly) {
-      return { ...item, title: "Courses & Livraisons" };
-    }
-    if (item.href === "/admin/drivers" && isLogisticsOnly) {
-      return { ...item, title: "Flotte & Livreurs" };
-    }
-    if (item.href === "/admin/tickets" && isSupportOnly) {
-      return { ...item, title: "Requêtes & Correspondances" };
-    }
-    if (item.href === "/admin/finance" && isFinanceOnly) {
-      return { ...item, title: "Finances & Abonnements" };
-    }
-    return item;
-  });
-
   // Redirection automatique si un fonctionnaire tente d'ouvrir une page hors de son périmètre
-  const allowedHrefsList = Array.from(allowedHrefs);
+  const allowedHrefsKey = Array.from(allowedHrefs).sort().join(",");
+  const allowedHrefsList = useMemo(
+    () => (allowedHrefsKey ? allowedHrefsKey.split(",") : []),
+    [allowedHrefsKey]
+  );
+
+  // Adapter les intitulés du menu selon le métier du fonctionnaire (mémoïsé pour fluidité sidebar)
+  const filteredMenuItems = useMemo(() => {
+    const allowedSet = new Set(allowedHrefsList);
+    return ADMIN_MENU.filter((item) => isFullAdmin || allowedSet.has(item.href)).map((item) => {
+      if (item.href === "/admin/orders" && isLogisticsOnly) {
+        return { ...item, title: "Courses & Livraisons" };
+      }
+      if (item.href === "/admin/drivers" && isLogisticsOnly) {
+        return { ...item, title: "Flotte & Livreurs" };
+      }
+      if (item.href === "/admin/tickets" && isSupportOnly) {
+        return { ...item, title: "Requêtes & Correspondances" };
+      }
+      if (item.href === "/admin/finance" && isFinanceOnly) {
+        return { ...item, title: "Finances & Abonnements" };
+      }
+      return item;
+    });
+  }, [isFullAdmin, allowedHrefsList, isLogisticsOnly, isSupportOnly, isFinanceOnly]);
+
   const primaryRoute = isFullAdmin
     ? "/admin/dashboard"
     : allowedHrefsList[0] || "/admin/tickets";
@@ -271,7 +285,7 @@ export default function AdminLayout({
     if (!isCurrentAllowed && primaryRoute) {
       router.replace(primaryRoute);
     }
-  }, [pathname, loading, hasAccess, isFullAdmin, primaryRoute, router, allowedHrefsList.join(",")]);
+  }, [pathname, loading, hasAccess, isFullAdmin, primaryRoute, router, allowedHrefsList]);
 
   if (loading) {
     return (

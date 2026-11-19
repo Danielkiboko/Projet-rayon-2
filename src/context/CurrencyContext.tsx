@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { db } from "@/lib/firebase";
 import { doc, onSnapshot } from "firebase/firestore";
 
@@ -73,23 +73,23 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const setCurrency = (c: CurrencyCode) => {
+  const setCurrency = useCallback((c: CurrencyCode) => {
     setCurrencyState(c);
     try {
       localStorage.setItem("rayon_currency", c);
     } catch {}
-  };
+  }, []);
 
-  const convertPrice = (amountInUSD: number | string | null | undefined): number => {
+  const convertPrice = useCallback((amountInUSD: number | string | null | undefined): number => {
     if (amountInUSD === null || amountInUSD === undefined || amountInUSD === "") return 0;
     const num = typeof amountInUSD === "number" ? amountInUSD : parseFloat(String(amountInUSD).replace(/[^0-9.-]+/g, ""));
     if (isNaN(num)) return 0;
 
     const rate = rates[currency] || 1;
     return num * rate;
-  };
+  }, [currency, rates]);
 
-  const formatPrice = (amountInUSD: number | string | null | undefined): string => {
+  const formatPrice = useCallback((amountInUSD: number | string | null | undefined): string => {
     if (amountInUSD === null || amountInUSD === undefined || amountInUSD === "") return "";
     const num = typeof amountInUSD === "number" ? amountInUSD : parseFloat(String(amountInUSD).replace(/[^0-9.-]+/g, ""));
     if (isNaN(num)) return String(amountInUSD);
@@ -113,10 +113,15 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         : converted.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       return `$ ${formatted}`;
     }
-  };
+  }, [currency, rates]);
+
+  const contextValue = useMemo(
+    () => ({ currency, setCurrency, formatPrice, convertPrice, rates }),
+    [currency, setCurrency, formatPrice, convertPrice, rates]
+  );
 
   return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, formatPrice, convertPrice, rates }}>
+    <CurrencyContext.Provider value={contextValue}>
       {children}
     </CurrencyContext.Provider>
   );

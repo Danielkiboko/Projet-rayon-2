@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -114,6 +114,25 @@ export function DashboardLayout({
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<any | null>(null);
   const [lockedModalItem, setLockedModalItem] = useState<MenuItem | null>(null);
+  const [isDaytime, setIsDaytime] = useState(true);
+
+  useEffect(() => {
+    const h = new Date().getHours();
+    setIsDaytime(h >= 5 && h < 18);
+  }, []);
+
+  const filteredQuickJumpItems = useMemo(() => {
+    const q = navQuery.trim().toLowerCase();
+    return menuItems.filter((m) => {
+      if (m.locked) return false;
+      if (!q) return true;
+      return (
+        m.title.toLowerCase().includes(q) ||
+        translateLabel(m.title).toLowerCase().includes(q) ||
+        m.href.toLowerCase().includes(q)
+      );
+    });
+  }, [menuItems, navQuery, translateLabel]);
 
   // Utiliser directement les notifications transmises par le parent (pour rester réactif en temps réel)
   const notifications = passedNotifications || [];
@@ -148,11 +167,13 @@ export function DashboardLayout({
   return (
     <div className="flex h-dvh bg-[#0B151C] overflow-hidden font-sans">
       {customProfileModal}
-      <ProfileManagerModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        userRoleLabel={userRole}
-      />
+      {isProfileModalOpen && (
+        <ProfileManagerModal
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          userRoleLabel={userRole}
+        />
+      )}
 
       {/* Subscription Locked Feature Modal */}
       <AnimatePresence>
@@ -206,8 +227,8 @@ export function DashboardLayout({
       )}
 
       {/* Sidebar */}
-      <motion.aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 h-dvh shrink-0 ${themeColors.sidebarBg} border-r border-white/10 flex flex-col transition-transform duration-300 lg:translate-x-0 lg:static ${
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 h-dvh shrink-0 ${themeColors.sidebarBg} border-r border-white/10 flex flex-col transition-transform duration-200 ease-out will-change-transform lg:translate-x-0 lg:static ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -223,7 +244,7 @@ export function DashboardLayout({
           </button>
         </div>
 
-        <nav className="flex-1 min-h-0 overflow-y-auto py-3 px-3 space-y-0.5 overscroll-contain">
+        <nav className="flex-1 min-h-0 overflow-y-auto rayons-scroll py-3 px-3 space-y-0.5 overscroll-contain">
           {menuItems.map((item, index) => {
             const isActive = item.active !== undefined 
               ? item.active 
@@ -320,7 +341,7 @@ export function DashboardLayout({
             </button>
           </div>
         </div>
-      </motion.aside>
+      </aside>
 
       {/* Main content wrapper */}
       <main className="flex-1 flex flex-col h-dvh overflow-hidden relative">
@@ -378,19 +399,8 @@ export function DashboardLayout({
               </div>
 
               {isNavSearchOpen && (
-                <div className="absolute right-0 mt-1.5 w-64 max-h-72 overflow-y-auto rounded-xl bg-[#12222E] border border-white/15 shadow-2xl py-1.5 z-50">
-                  {menuItems
-                    .filter((m) => {
-                      if (m.locked) return false;
-                      if (!navQuery.trim()) return true;
-                      const q = navQuery.toLowerCase();
-                      return (
-                        m.title.toLowerCase().includes(q) ||
-                        translateLabel(m.title).toLowerCase().includes(q) ||
-                        m.href.toLowerCase().includes(q)
-                      );
-                    })
-                    .map((m, idx) => {
+                <div className="absolute right-0 mt-1.5 w-64 max-h-72 overflow-y-auto rayons-scroll rounded-xl bg-[#12222E] border border-white/15 shadow-2xl py-1.5 z-50">
+                  {filteredQuickJumpItems.map((m, idx) => {
                       const ItemIcon = m.icon;
                       return (
                         <button
@@ -430,8 +440,7 @@ export function DashboardLayout({
               <div className="hidden md:block text-right">
                 <span className="text-sm font-medium text-gray-200 group-hover:text-white block leading-tight transition-colors">
                   {(() => {
-                    const currentHour = new Date().getHours();
-                    const greeting = currentHour >= 5 && currentHour < 18 ? t("dash.hello") : t("dash.goodEvening");
+                    const greeting = isDaytime ? t("dash.hello") : t("dash.goodEvening");
                     return (userName && userName !== "Fournisseur" && userName !== "Utilisateur")
                       ? `${greeting} ${userName}`
                       : userName;
@@ -458,7 +467,7 @@ export function DashboardLayout({
         </header>
         
         {/* Scrollable Content with Mobile-friendly spacing */}
-        <div className="flex-1 overflow-y-auto p-2.5 sm:p-5 md:p-8 pb-20 lg:pb-8">
+        <div className="flex-1 overflow-y-auto rayons-scroll overscroll-contain p-2.5 sm:p-5 md:p-8 pb-20 lg:pb-8">
           <div className="max-w-7xl mx-auto space-y-3.5 sm:space-y-6">
             {/* Bannière de communiqué officiel si non lu */}
             {unreadAnnouncement && (

@@ -35,7 +35,7 @@ import {
   Layers,
   FileText
 } from "lucide-react";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import ResponsiveModal from "@/modules/shared/components/ui/ResponsiveModal";
 
 interface FilleulData {
@@ -376,7 +376,6 @@ function PartnerDashboardContent() {
 
   return (
     <div className="space-y-6">
-      <Toaster position="top-right" />
 
       {/* Hero Banner */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0F1D27] via-[#162736] to-[#0F1D27] border border-white/10 p-6 sm:p-8 shadow-xl">

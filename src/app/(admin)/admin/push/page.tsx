@@ -21,7 +21,7 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 
 type CampaignType = "COMMUNIQUE" | "PROMO_CLIENT" | "PROMO_PRO_ADMIN" | "PERSONALIZED";
@@ -325,7 +325,6 @@ export default function AdminPushCenterPage() {
 
   return (
     <div className="space-y-6">
-      <Toaster position="top-right" />
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

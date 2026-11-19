@@ -15,9 +15,9 @@ const GOOGLE_TL_MAP: Record<SupportedLang, string> = {
   zh: "zh-CN",
 };
 
-// In-memory translation cache to keep backend broadcasts & chats instant and cost-free on repeats
+// Cache mémoire serveur pour des traductions instantanées sur les répétitions
 const translationCache = new Map<string, string>();
-const MAX_CACHE_SIZE = 3000;
+const MAX_CACHE_SIZE = 6000;
 
 function getCacheKey(text: string, targetLang: SupportedLang): string {
   return `${targetLang}::${text}`;
@@ -25,8 +25,12 @@ function getCacheKey(text: string, targetLang: SupportedLang): string {
 
 function setCache(key: string, value: string) {
   if (translationCache.size >= MAX_CACHE_SIZE) {
-    const firstKey = translationCache.keys().next().value;
-    if (firstKey) translationCache.delete(firstKey);
+    // Purger les 500 entrées les plus anciennes d'un coup
+    let removed = 0;
+    for (const k of translationCache.keys()) {
+      translationCache.delete(k);
+      if (++removed >= 500) break;
+    }
   }
   translationCache.set(key, value);
 }
@@ -42,21 +46,21 @@ export function normalizeLang(raw?: string | null): SupportedLang {
 }
 
 /**
- * Détecte rapidement si le texte contient majoritairement des caractères chinois.
+ * Détecte rapidement si le texte contient des caractères chinois.
  */
 function hasChineseChars(text: string): boolean {
   return /[\u4e00-\u9fff]/.test(text);
 }
 
 /**
- * Fallback rapide via Google Translate HTTPS endpoint (sans clé API requise).
+ * Traduction rapide via Google Translate HTTPS endpoint (sans clé API requise).
  */
 async function translateViaGooglePublic(text: string, targetLang: SupportedLang): Promise<string | null> {
   try {
     const tl = GOOGLE_TL_MAP[targetLang];
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(tl)}&dt=t&q=${encodeURIComponent(text)}`;
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
+    const timeout = setTimeout(() => controller.abort(), 3500);
     const res = await fetch(url, {
       method: "GET",
       signal: controller.signal,
@@ -130,14 +134,14 @@ export async function translateText(text: string, targetLang: SupportedLang): Pr
 }
 
 /**
- * Traduit un lot de textes en une seule passe optimisée vers targetLang.
+ * Traduit un lot de textes en parallèle avec déduplication et découpage optimal par saut de ligne.
+ * Beaucoup plus rapide et fiable en chinois/anglais que les séparateurs textuels altérés par Google.
  */
 export async function translateBatch(texts: string[], targetLang: SupportedLang): Promise<string[]> {
   if (!Array.isArray(texts) || texts.length === 0) return [];
 
   const results: string[] = new Array(texts.length);
-  const missingIndices: number[] = [];
-  const missingTexts: string[] = [];
+  const uniqueMissingMap = new Map<string, number[]>();
 
   for (let i = 0; i < texts.length; i++) {
     const clean = String(texts[i] || "").trim();
@@ -145,49 +149,110 @@ export async function translateBatch(texts: string[], targetLang: SupportedLang)
       results[i] = "";
       continue;
     }
+    if (
+      /^[\d\s$€£.,:+/%-]+$/.test(clean) ||
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean) ||
+      /^https?:\/\//i.test(clean) ||
+      (targetLang === "zh" && hasChineseChars(clean) && !/[a-zA-Z]{4,}/.test(clean))
+    ) {
+      results[i] = clean;
+      continue;
+    }
+
     const cached = translationCache.get(getCacheKey(clean, targetLang));
     if (cached) {
       results[i] = cached;
     } else {
-      missingIndices.push(i);
-      missingTexts.push(clean);
+      const existing = uniqueMissingMap.get(clean);
+      if (existing) {
+        existing.push(i);
+      } else {
+        uniqueMissingMap.set(clean, [i]);
+      }
     }
   }
 
-  if (missingTexts.length === 0) return results;
+  if (uniqueMissingMap.size === 0) return results;
 
-  // Traduire en lots parallèles (jusqu'à 8 simultanés via séparateur ou appels parallèles)
-  const CHUNK_SIZE = 12;
-  const DELIMITER = "\n[[[RAYONS_SEP]]]\n";
+  const singleLineEntries: Array<{ text: string; indices: number[] }> = [];
+  const multiLineEntries: Array<{ text: string; indices: number[] }> = [];
 
-  for (let start = 0; start < missingTexts.length; start += CHUNK_SIZE) {
-    const chunkTexts = missingTexts.slice(start, start + CHUNK_SIZE);
-    const chunkIndices = missingIndices.slice(start, start + CHUNK_SIZE);
-
-    if (chunkTexts.length === 1) {
-      const tr = await translateText(chunkTexts[0], targetLang);
-      results[chunkIndices[0]] = tr;
-      continue;
-    }
-
-    // Essayer la traduction groupée via séparateur unique pour minimiser les requêtes réseau
-    const joined = chunkTexts.join(DELIMITER);
-    const translatedJoined = await translateViaGooglePublic(joined, targetLang);
-    const parts = translatedJoined ? translatedJoined.split(/\s*\[\[\[RAYONS_SEP\]\]\]\s*/) : [];
-
-    if (parts.length === chunkTexts.length) {
-      for (let j = 0; j < chunkTexts.length; j++) {
-        const tr = (parts[j] || chunkTexts[j]).trim();
-        setCache(getCacheKey(chunkTexts[j], targetLang), tr);
-        results[chunkIndices[j]] = tr;
-      }
+  for (const [text, indices] of uniqueMissingMap.entries()) {
+    if (text.includes("\n")) {
+      multiLineEntries.push({ text, indices });
     } else {
-      // Repli en parallèle élément par élément si le séparateur a été altéré
-      const individual = await Promise.all(chunkTexts.map((txt) => translateText(txt, targetLang)));
-      for (let j = 0; j < chunkTexts.length; j++) {
-        results[chunkIndices[j]] = individual[j];
-      }
+      singleLineEntries.push({ text, indices });
     }
+  }
+
+  // Construire des paquets respectant une limite de caractères sûre pour GET (~1500 chars encodés, max 25 lignes)
+  const chunks: Array<Array<{ text: string; indices: number[] }>> = [];
+  let currentChunk: Array<{ text: string; indices: number[] }> = [];
+  let currentChars = 0;
+
+  for (const entry of singleLineEntries) {
+    const projected = currentChars + entry.text.length + 1;
+    if (currentChunk.length >= 25 || (currentChunk.length > 0 && projected > 1400)) {
+      chunks.push(currentChunk);
+      currentChunk = [];
+      currentChars = 0;
+    }
+    currentChunk.push(entry);
+    currentChars += entry.text.length + 1;
+  }
+  if (currentChunk.length > 0) chunks.push(currentChunk);
+
+  const assignResult = (entry: { text: string; indices: number[] }, translated: string) => {
+    const finalVal = (translated || entry.text).trim();
+    setCache(getCacheKey(entry.text, targetLang), finalVal);
+    for (const idx of entry.indices) {
+      results[idx] = finalVal;
+    }
+  };
+
+  // Exécuter les paquets en parallèle (jusqu'à 4 requêtes simultanées)
+  const CONCURRENCY = 4;
+  for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+    const wave = chunks.slice(i, i + CONCURRENCY);
+    await Promise.all(
+      wave.map(async (chunk) => {
+        if (chunk.length === 1) {
+          const tr = await translateText(chunk[0].text, targetLang);
+          assignResult(chunk[0], tr);
+          return;
+        }
+
+        // Le saut de ligne pur est préservé 1-pour-1 par Google Translate dans toutes les langues (FR/EN/ZH)
+        const joined = chunk.map((c) => c.text).join("\n");
+        const translatedJoined = await translateViaGooglePublic(joined, targetLang);
+        const lines = translatedJoined
+          ? translatedJoined.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0)
+          : [];
+
+        if (lines.length === chunk.length) {
+          for (let j = 0; j < chunk.length; j++) {
+            assignResult(chunk[j], lines[j]);
+          }
+          return;
+        }
+
+        // Repli en 2 sous-groupes parallèles si le découpage diffère (très rare)
+        const individual = await Promise.all(chunk.map((c) => translateText(c.text, targetLang)));
+        for (let j = 0; j < chunk.length; j++) {
+          assignResult(chunk[j], individual[j]);
+        }
+      })
+    );
+  }
+
+  // Traduire les éventuels textes multi-lignes en parallèle
+  if (multiLineEntries.length > 0) {
+    await Promise.all(
+      multiLineEntries.map(async (entry) => {
+        const tr = await translateText(entry.text, targetLang);
+        assignResult(entry, tr);
+      })
+    );
   }
 
   return results;

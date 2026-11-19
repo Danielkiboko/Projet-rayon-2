@@ -17,7 +17,7 @@ import {
   RefreshCw,
   Wallet,
 } from "lucide-react";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 
 export default function AdminReferralsPage() {
@@ -116,7 +116,6 @@ export default function AdminReferralsPage() {
 
   return (
     <div className="space-y-6 pb-12">
-      <Toaster position="top-right" />
 
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

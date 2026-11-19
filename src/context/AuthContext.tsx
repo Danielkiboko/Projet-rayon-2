@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useRef, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { onAuthStateChanged, User, signOut as firebaseSignOut, getIdTokenResult, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { doc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -169,10 +169,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     const warnAt = Math.max(timeoutMs - WARN_BEFORE_MS, 10000);
+    let lastResetAt = 0;
 
     const resetInactivity = () => {
       // Si la modal est déjà affichée, l'utilisateur doit cliquer explicitement sur "Rester connecté"
       if (showWarning) return;
+
+      // Throttle à 10s pour éviter de recréer un timer à chaque pixel de scroll/mousemove
+      const now = Date.now();
+      if (lastResetAt > 0 && now - lastResetAt < 10000) return;
+      lastResetAt = now;
 
       if (warningTimer.current) clearTimeout(warningTimer.current);
       warningTimer.current = setTimeout(() => {
@@ -264,8 +270,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(() => performSignOut("manual"), [performSignOut]);
 
+  const authValue = useMemo(
+    () => ({ user, userData, loading, signOut }),
+    [user, userData, loading, signOut]
+  );
+
   return (
-    <AuthContext.Provider value={{ user, userData, loading, signOut }}>
+    <AuthContext.Provider value={authValue}>
       {children}
 
       {/* Modal d'avertissement de session */}
