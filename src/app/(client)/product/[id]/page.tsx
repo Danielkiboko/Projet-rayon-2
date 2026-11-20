@@ -32,7 +32,7 @@ import { doc, getDoc, collection, getDocs, query, orderBy, limit } from "firebas
 import { db } from "@/lib/firebase";
 import { evaluateProductVerification } from "@/lib/productVerification";
 import { DirectBuyModal } from "@/modules/client/components/DirectBuyModal";
-import { ProductCard } from "@/modules/client/components/rayon/ProductCard";
+import { ProductCard } from "@/modules/rayons/shared/ProductCard";
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
 
 export default function ProductDetails({ params }: { params: Promise<{ id: string }> }) {

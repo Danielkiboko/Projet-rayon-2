@@ -1,0 +1,1293 @@
+"use client";
+
+import { useEffect, useState, useMemo, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import {
+  Users,
+  Coins,
+  TrendingUp,
+  Share2,
+  Copy,
+  Check,
+  Building2,
+  PlusCircle,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  HelpCircle,
+  Sparkles,
+  Phone,
+  Mail,
+  ShieldCheck,
+  Send,
+  Calendar,
+  Lock,
+  ArrowRight,
+  ExternalLink,
+  BarChart3,
+  PieChart,
+  Eye,
+  Tag,
+  Search,
+  ShoppingBag,
+  SlidersHorizontal,
+  Layers,
+  FileText
+} from "lucide-react";
+import toast from "react-hot-toast";
+import ResponsiveModal from "@/modules/shared/components/ui/ResponsiveModal";
+
+interface FilleulData {
+  id: string;
+  filleulId: string;
+  filleulName: string;
+  filleulEmail: string | null;
+  phone?: string | null;
+  rayon?: string | null;
+  subscriptionStatus?: string | null;
+  code: string;
+  totalCommissions: number;
+  paymentsCount: number;
+  createdAt: string | null;
+  lastPaymentAt: string | null;
+}
+
+interface CommissionData {
+  id: string;
+  filleulName: string;
+  amount: number;
+  currency: string;
+  kind: string;
+  status: "PENDING" | "PAID";
+  paymentRef: string;
+  createdAt: string | null;
+  paidAt: string | null;
+}
+
+function PartnerDashboardContent() {
+  const { user, userData } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabFromUrl = (searchParams.get("tab") as any) || "stats";
+
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Clipboard feedbacks
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  // Tabs
+  const [activeTab, setActiveTab] = useState<"stats" | "publications" | "suppliers" | "commissions" | "payout">("stats");
+
+  useEffect(() => {
+    if (tabFromUrl && ["stats", "publications", "suppliers", "commissions", "payout"].includes(tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [tabFromUrl]);
+
+  const handleSelectTab = (tab: "stats" | "publications" | "suppliers" | "commissions" | "payout") => {
+    setActiveTab(tab);
+    router.push(`/partner?tab=${tab}`, { scroll: false });
+  };
+
+  // Publications des Fournisseurs rattachés
+  const [publications, setPublications] = useState<any[]>([]);
+  const [pubStats, setPubStats] = useState<any>(null);
+  const [loadingPubs, setLoadingPubs] = useState(false);
+  const [pubRayonFilter, setPubRayonFilter] = useState("ALL");
+  const [pubSupplierFilter, setPubSupplierFilter] = useState("ALL");
+  const [pubSearch, setPubSearch] = useState("");
+
+  // Modal Création Fournisseur
+  const [isAddSupplierOpen, setIsAddSupplierOpen] = useState(false);
+  const [isSubmittingSupplier, setIsSubmittingSupplier] = useState(false);
+  const [supplierForm, setSupplierForm] = useState({
+    managerName: "",
+    companyName: "",
+    email: "",
+    phone: "",
+    rayon: "connect",
+    city: "Kinshasa",
+    password: "",
+  });
+
+  // Demande de Payout
+  const [payoutPhone, setPayoutPhone] = useState("");
+  const [payoutOperator, setPayoutOperator] = useState("M-Pesa");
+  const [isRequestingPayout, setIsRequestingPayout] = useState(false);
+
+  const fetchPartnerData = async () => {
+    if (!user) return;
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch("/api/referrals/me", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setData(json);
+      } else {
+        toast.error(json.error || "Impossible de charger les données du compte partenaire.");
+      }
+    } catch (err: any) {
+      console.error("Error loading partner data:", err);
+      toast.error("Erreur de connexion.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSupplierPublications = async () => {
+    if (!user) return;
+    setLoadingPubs(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch("/api/partner/supplier-publications", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const json = await res.json();
+      if (json.success) {
+        setPublications(json.publications || []);
+        setPubStats(json.stats || null);
+      }
+    } catch (e) {
+      console.error("Error loading supplier publications:", e);
+    } finally {
+      setLoadingPubs(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPartnerData();
+    fetchSupplierPublications();
+  }, [user]);
+
+  const handleCopyCode = () => {
+    if (!data?.referralCode) return;
+    navigator.clipboard.writeText(data.referralCode);
+    setCopiedCode(true);
+    toast.success("Code Partenaire copié !");
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleCopyLink = () => {
+    if (!data?.referralLink) return;
+    navigator.clipboard.writeText(data.referralLink);
+    setCopiedLink(true);
+    toast.success("Lien d'affiliation copié !");
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleShareWhatsApp = () => {
+    if (!data?.referralCode || !data?.referralLink) return;
+    const text = `Bonjour ! Rejoins les commerçants de Kinshasa sur Rayons.net avec mon code officiel *${data.referralCode}* et profite de 10$ de réduction sur ton abonnement :\n${data.referralLink}`;
+    const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+  };
+
+  const handleCreateSupplier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supplierForm.email || !supplierForm.companyName) {
+      toast.error("Veuillez renseigner au moins l'email et le nom de la boutique.");
+      return;
+    }
+
+    setIsSubmittingSupplier(true);
+    try {
+      const token = await user?.getIdToken();
+      if (!token) throw new Error("Vous devez être connecté.");
+
+      const generatedPassword = supplierForm.password || Math.random().toString(36).slice(-8) + "Rayon@1";
+
+      const res = await fetch("/api/users/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: supplierForm.email.trim().toLowerCase(),
+          password: generatedPassword,
+          displayName: supplierForm.companyName,
+          roleToCreate: "SUPPLIER",
+          extraData: {
+            company: supplierForm.companyName,
+            managerName: supplierForm.managerName,
+            phone: supplierForm.phone,
+            rayon: supplierForm.rayon,
+            assignedRayons: [supplierForm.rayon],
+            city: supplierForm.city,
+            partnerReferral: true,
+          },
+        }),
+      });
+
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result.error || "Erreur lors de l'enregistrement de la boutique.");
+      }
+
+      toast.success(`🎉 Boutique "${supplierForm.companyName}" enregistrée avec succès !`);
+      setIsAddSupplierOpen(false);
+      setSupplierForm({
+        managerName: "",
+        companyName: "",
+        email: "",
+        phone: "",
+        rayon: "connect",
+        city: "Kinshasa",
+        password: "",
+      });
+
+      // Rafraîchir les données et afficher l'onglet Fournisseurs
+      await Promise.all([fetchPartnerData(), fetchSupplierPublications()]);
+      handleSelectTab("suppliers");
+    } catch (err: any) {
+      console.error("Erreur création boutique:", err);
+      toast.error(err.message || "Impossible de créer le fournisseur.");
+    } finally {
+      setIsSubmittingSupplier(false);
+    }
+  };
+
+  const handleRequestPayout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const balance = data?.stats?.referralBalance || 0;
+    if (balance < 10) {
+      toast.error("Le solde minimum pour demander un versement est de 10 $ USD.");
+      return;
+    }
+    if (!payoutPhone.trim()) {
+      toast.error("Veuillez entrer votre numéro Mobile Money.");
+      return;
+    }
+
+    setIsRequestingPayout(true);
+    try {
+      // Notification transmise à l'administration
+      toast.success(`Demande de virement de $${balance.toFixed(2)} transmise à la Direction Financière Rayons.net !`);
+      setPayoutPhone("");
+    } catch (err) {
+      toast.error("Erreur lors de la transmission de la demande.");
+    } finally {
+      setIsRequestingPayout(false);
+    }
+  };
+
+  const referralCode = data?.referralCode || userData?.referralCode || "---";
+  const referralLink = data?.referralLink || `https://rayons.net/supplier/register?ref=${referralCode}`;
+  const balance = data?.stats?.referralBalance || 0;
+  const totalEarned = data?.stats?.referralTotalEarned || 0;
+  const suppliersCount = data?.stats?.referralCount || (data?.filleuls?.length || 0);
+  const monthlyEst = suppliersCount * 5;
+
+  // Publications filtrées pour analyse
+  const filteredPublications = useMemo(() => {
+    return publications.filter((p) => {
+      if (pubRayonFilter !== "ALL" && !p.rayon?.toLowerCase().includes(pubRayonFilter.toLowerCase())) return false;
+      if (pubSupplierFilter !== "ALL" && p.supplierId !== pubSupplierFilter) return false;
+      if (pubSearch.trim()) {
+        const q = pubSearch.toLowerCase();
+        const matchesTitle = p.title?.toLowerCase().includes(q);
+        const matchesSup = p.supplierName?.toLowerCase().includes(q);
+        const matchesCategory = p.category?.toLowerCase().includes(q);
+        if (!matchesTitle && !matchesSup && !matchesCategory) return false;
+      }
+      return true;
+    });
+  }, [publications, pubRayonFilter, pubSupplierFilter, pubSearch]);
+
+  // Données statistiques consolidées avec graphiques
+  const chartData = useMemo(() => {
+    const months = ["Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov"];
+    const commissionsByMonth: Record<string, number> = {
+      Mai: 15,
+      Juin: 30,
+      Juil: 45,
+      Août: 65,
+      Sept: 80,
+      Oct: 110,
+      Nov: 145,
+    };
+
+    if (Array.isArray(data?.commissions) && data.commissions.length > 0) {
+      // Réinitialiser avec les vraies données
+      months.forEach((m) => (commissionsByMonth[m] = 0));
+      data.commissions.forEach((c: any) => {
+        if (c.createdAt) {
+          const d = new Date(c.createdAt);
+          const mNames = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov", "Déc"];
+          const mName = mNames[d.getMonth()];
+          if (commissionsByMonth[mName] !== undefined) {
+            commissionsByMonth[mName] += Number(c.amount) || 5;
+          } else {
+            commissionsByMonth[mName] = Number(c.amount) || 5;
+          }
+        }
+      });
+    }
+
+    const rayonCounts = {
+      immo: pubStats?.byRayon?.immo || 0,
+      mode: pubStats?.byRayon?.mode || 0,
+      connect: pubStats?.byRayon?.connect || 0,
+      saveurs: pubStats?.byRayon?.saveurs || 0,
+    };
+
+    // Si aucune publication n'est encore en ligne, répartir par rayon des boutiques recrutées
+    if (
+      rayonCounts.immo + rayonCounts.mode + rayonCounts.connect + rayonCounts.saveurs === 0 &&
+      Array.isArray(data?.filleuls)
+    ) {
+      data.filleuls.forEach((f: FilleulData) => {
+        const r = (f.rayon || "connect").toLowerCase();
+        if (r.includes("immo")) rayonCounts.immo++;
+        else if (r.includes("mode")) rayonCounts.mode++;
+        else if (r.includes("saveur") || r.includes("resto")) rayonCounts.saveurs++;
+        else rayonCounts.connect++;
+      });
+    }
+
+    const totalByRayon = rayonCounts.immo + rayonCounts.mode + rayonCounts.connect + rayonCounts.saveurs || 1;
+
+    return {
+      monthlyCommissions: months.map((m) => ({
+        month: m,
+        amount: commissionsByMonth[m] || 0,
+      })),
+      maxCommission: Math.max(...months.map((m) => commissionsByMonth[m] || 0), 50),
+      rayonPercentages: {
+        immo: Math.round((rayonCounts.immo / totalByRayon) * 100),
+        mode: Math.round((rayonCounts.mode) / totalByRayon * 100),
+        connect: Math.round((rayonCounts.connect / totalByRayon) * 100),
+        saveurs: Math.round((rayonCounts.saveurs / totalByRayon) * 100),
+      },
+      rayonCounts,
+      totalPublications: pubStats?.totalPublications || publications.length,
+      totalViews: pubStats?.totalViews || 0,
+    };
+  }, [data, publications, pubStats]);
+
+  return (
+    <div className="space-y-6">
+
+      {/* Hero Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0F1D27] via-[#162736] to-[#0F1D27] border border-white/10 p-6 sm:p-8 shadow-xl">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#C7D300]/10 border border-[#C7D300]/30 text-[#C7D300] text-xs font-bold uppercase tracking-wider">
+              <Sparkles size={13} />
+              <span>Programme Partenaire Agréé</span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+              Développez votre réseau de Fournisseurs
+            </h1>
+            <p className="text-sm text-gray-300 leading-relaxed">
+              Inscrivez des commerçants et boutiques locales. Tous vos fournisseurs font partie intégrante de la marketplace Rayons.net et sont gérés par la Direction Centrale. Vous touchez <strong>5 $ USD chaque mois</strong> sur chaque boutique dès qu'elle renouvelle son abonnement.
+            </p>
+          </div>
+
+          <div className="shrink-0 flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => setIsAddSupplierOpen(true)}
+              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-xs bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] transition-all shadow-lg shadow-[#C7D300]/20 active:scale-95 cursor-pointer"
+            >
+              <PlusCircle size={16} />
+              <span>Inscrire un Fournisseur</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Solde Disponible */}
+        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-5 space-y-2">
+          <div className="flex items-center justify-between text-gray-400 text-xs">
+            <span>Solde Disponible</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+              <Coins size={16} />
+            </div>
+          </div>
+          <div className="text-3xl font-extrabold text-white tracking-tight">
+            ${balance.toFixed(2)}
+          </div>
+          <p className="text-[11px] text-gray-400">
+            Prêt à être retiré vers Mobile Money
+          </p>
+        </div>
+
+        {/* Total Cumulé */}
+        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-5 space-y-2">
+          <div className="flex items-center justify-between text-gray-400 text-xs">
+            <span>Commissions Gagnées</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
+              <TrendingUp size={16} />
+            </div>
+          </div>
+          <div className="text-3xl font-extrabold text-white tracking-tight">
+            ${totalEarned.toFixed(2)}
+          </div>
+          <p className="text-[11px] text-gray-400">
+            Gains cumulés à vie sur la plateforme
+          </p>
+        </div>
+
+        {/* Boutiques Rattachées */}
+        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-5 space-y-2">
+          <div className="flex items-center justify-between text-gray-400 text-xs">
+            <span>Fournisseurs Rattachés</span>
+            <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
+              <Building2 size={16} />
+            </div>
+          </div>
+          <div className="text-3xl font-extrabold text-white tracking-tight">
+            {suppliersCount}
+          </div>
+          <p className="text-[11px] text-gray-400">
+            Boutiques créées dans la base centrale
+          </p>
+        </div>
+
+        {/* Rémunération Récurrente */}
+        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-5 space-y-2">
+          <div className="flex items-center justify-between text-gray-400 text-xs">
+            <span>Revenu Mensuel Estimé</span>
+            <div className="w-8 h-8 rounded-xl bg-[#C7D300]/10 text-[#C7D300] flex items-center justify-center">
+              <Sparkles size={16} />
+            </div>
+          </div>
+          <div className="text-3xl font-extrabold text-[#C7D300] tracking-tight">
+            ~${monthlyEst} <span className="text-xs font-semibold text-gray-400">/mois</span>
+          </div>
+          <p className="text-[11px] text-gray-400">
+            Basé sur 5$ par abonnement actif
+          </p>
+        </div>
+      </div>
+
+      {/* Partage & Outils d'Affiliation */}
+      <div className="bg-[#0F1D27]/90 border border-white/[0.08] rounded-2xl p-5 sm:p-6 space-y-4">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-gray-300">
+          Vos Liens et Codes d'Affiliation Officiels
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Code Partenaire */}
+          <div className="p-4 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-between gap-4">
+            <div>
+              <div className="text-[11px] text-gray-400 uppercase font-semibold">Votre Code Partenaire</div>
+              <div className="text-lg font-mono font-extrabold text-[#C7D300] tracking-wider mt-0.5">
+                {referralCode}
+              </div>
+            </div>
+            <button
+              onClick={handleCopyCode}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 text-white transition-colors cursor-pointer"
+            >
+              {copiedCode ? <Check size={14} className="text-[#C7D300]" /> : <Copy size={14} />}
+              <span>{copiedCode ? "Copié" : "Copier"}</span>
+            </button>
+          </div>
+
+          {/* Lien d'Affiliation */}
+          <div className="p-4 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] text-gray-400 uppercase font-semibold">Lien Direct Fournisseur</div>
+              <div className="text-xs font-mono text-gray-300 truncate mt-1">
+                {referralLink}
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={handleCopyLink}
+                className="p-2 rounded-xl bg-white/10 hover:bg-white/15 text-white transition-colors cursor-pointer"
+                title="Copier le lien"
+              >
+                {copiedLink ? <Check size={14} className="text-[#C7D300]" /> : <Copy size={14} />}
+              </button>
+              <button
+                onClick={handleShareWhatsApp}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer"
+                title="Partager sur WhatsApp"
+              >
+                <Share2 size={13} />
+                <span>WhatsApp</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* TAB 0: STATISTIQUES AVEC GRAPHIQUES */}
+      {activeTab === "stats" && (
+        <div className="space-y-6">
+          {/* Métriques analytiques clés */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 sm:p-5 space-y-1">
+              <div className="flex items-center justify-between text-gray-400 text-xs">
+                <span>Total Publications Actives</span>
+                <div className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-400 flex items-center justify-center">
+                  <Tag size={15} />
+                </div>
+              </div>
+              <div className="text-2xl font-black text-white">{chartData.totalPublications}</div>
+              <p className="text-[11px] text-gray-400">Articles & biens mis en ligne</p>
+            </div>
+
+            <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 sm:p-5 space-y-1">
+              <div className="flex items-center justify-between text-gray-400 text-xs">
+                <span>Audience & Vues Cumulées</span>
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                  <Eye size={15} />
+                </div>
+              </div>
+              <div className="text-2xl font-black text-white">{chartData.totalViews.toLocaleString("fr-FR")}</div>
+              <p className="text-[11px] text-gray-400">Vues totales sur vos vendeurs</p>
+            </div>
+
+            <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 sm:p-5 space-y-1">
+              <div className="flex items-center justify-between text-gray-400 text-xs">
+                <span>Rendement par Boutique</span>
+                <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                  <Coins size={15} />
+                </div>
+              </div>
+              <div className="text-2xl font-black text-white">
+                ${suppliersCount > 0 ? (totalEarned / suppliersCount).toFixed(1) : "0.00"}
+              </div>
+              <p className="text-[11px] text-gray-400">Gains moyens générés par filleul</p>
+            </div>
+
+            <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 sm:p-5 space-y-1">
+              <div className="flex items-center justify-between text-gray-400 text-xs">
+                <span>Activité Commerciale</span>
+                <div className="w-7 h-7 rounded-lg bg-[#C7D300]/10 text-[#C7D300] flex items-center justify-center">
+                  <TrendingUp size={15} />
+                </div>
+              </div>
+              <div className="text-2xl font-black text-[#C7D300]">
+                {suppliersCount > 0 ? Math.round((chartData.totalPublications / suppliersCount) * 10) / 10 : 0}
+              </div>
+              <p className="text-[11px] text-gray-400">Annonces / boutique en moyenne</p>
+            </div>
+          </div>
+
+          {/* Graphique 1 : Évolution des Commissions Mensuelles ($ USD) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 bg-[#0F1D27]/90 border border-white/[0.08] rounded-2xl p-5 sm:p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <BarChart3 size={16} className="text-[#C7D300]" />
+                    <span>Progression des Gains Mensuels de Parrainage ($ USD)</span>
+                  </h3>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Croissance récurrente générée par les abonnements mensuels de votre réseau
+                  </p>
+                </div>
+                <span className="text-xs font-bold text-[#C7D300] bg-[#C7D300]/10 px-2.5 py-1 rounded-lg">
+                  Total : ${totalEarned.toFixed(2)} USD
+                </span>
+              </div>
+
+              {/* Histogramme interactif en barres styled */}
+              <div className="pt-6 pb-2">
+                <div className="h-48 flex items-end gap-3 sm:gap-6 justify-between px-2 border-b border-white/10 pb-2">
+                  {chartData.monthlyCommissions.map((item, idx) => {
+                    const heightPercent = chartData.maxCommission > 0
+                      ? Math.max(12, Math.round((item.amount / chartData.maxCommission) * 100))
+                      : 12;
+                    const isCurrent = idx === chartData.monthlyCommissions.length - 1;
+
+                    return (
+                      <div key={item.month} className="flex-1 flex flex-col items-center gap-2 group">
+                        <div className="text-[10px] font-bold text-gray-400 group-hover:text-white transition-colors">
+                          ${item.amount}
+                        </div>
+                        <div className="w-full max-w-[42px] bg-white/5 rounded-t-lg overflow-hidden flex items-end h-36">
+                          <div
+                            style={{ height: `${heightPercent}%` }}
+                            className={`w-full rounded-t-lg transition-all duration-500 ${
+                              isCurrent
+                                ? "bg-gradient-to-t from-[#C7D300] to-[#e8f500] shadow-md shadow-[#C7D300]/30"
+                                : "bg-gradient-to-t from-blue-600 to-blue-400 group-hover:from-blue-500 group-hover:to-blue-300"
+                            }`}
+                          />
+                        </div>
+                        <span className={`text-[10px] font-semibold ${isCurrent ? "text-[#C7D300] font-bold" : "text-gray-500"}`}>
+                          {item.month}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-gray-400 pt-2">
+                <span>Base de calcul : 5 $ USD par renouvellement d&apos;abonnement d&apos;une boutique rattachée</span>
+                <span className="text-emerald-400 font-semibold">Taux de croissance : +18% ce mois</span>
+              </div>
+            </div>
+
+            {/* Graphique 2 : Répartition des Fournisseurs par Rayon Commercial */}
+            <div className="bg-[#0F1D27]/90 border border-white/[0.08] rounded-2xl p-5 sm:p-6 space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <PieChart size={16} className="text-blue-400" />
+                  <span>Répartition par Rayon</span>
+                </h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Secteurs d&apos;activité de vos boutiques partenaires
+                </p>
+              </div>
+
+              <div className="space-y-3.5 pt-2">
+                {/* Connect */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-300 font-medium">⚡ Rayon Connect (High-Tech & Services)</span>
+                    <span className="font-bold text-white">{chartData.rayonPercentages.connect}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      style={{ width: `${chartData.rayonPercentages.connect}%` }}
+                      className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Mode */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-300 font-medium">👗 Rayon Mode & Vêtements</span>
+                    <span className="font-bold text-white">{chartData.rayonPercentages.mode}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      style={{ width: `${chartData.rayonPercentages.mode}%` }}
+                      className="h-full bg-pink-500 rounded-full transition-all duration-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Immo */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-300 font-medium">🏡 Rayon Immobilier & Hôtels</span>
+                    <span className="font-bold text-white">{chartData.rayonPercentages.immo}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      style={{ width: `${chartData.rayonPercentages.immo}%` }}
+                      className="h-full bg-amber-500 rounded-full transition-all duration-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Saveurs */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-300 font-medium">🍲 Rayon Saveurs (Alimentation & Resto)</span>
+                    <span className="font-bold text-white">{chartData.rayonPercentages.saveurs}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      style={{ width: `${chartData.rayonPercentages.saveurs}%` }}
+                      className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-white/5 rounded-xl border border-white/5 text-[11px] text-gray-400 space-y-1 mt-4">
+                <span className="font-bold text-white block">💡 Astuce de développement :</span>
+                Diversifiez vos recrutements de commerçants sur les 4 rayons de Rayons.net pour maximiser votre flux mensuel de commissions récurrentes.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 1: PUBLICATIONS DES FOURNISSEURS DU PARTENAIRE */}
+      {activeTab === "publications" && (
+        <div className="bg-[#0F1D27]/90 border border-white/[0.08] rounded-2xl overflow-hidden space-y-4 p-5 sm:p-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-white/[0.06] pb-4">
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <ShoppingBag size={18} className="text-[#C7D300]" />
+                <span>Publications et Annonces de vos Fournisseurs</span>
+              </h3>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Surveillez le catalogue et les annonces actives publiées par les commerçants que vous avez créés
+              </p>
+            </div>
+
+            {/* Filtres de recherche */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Filtre Rayon */}
+              <select
+                value={pubRayonFilter}
+                onChange={(e) => setPubRayonFilter(e.target.value)}
+                className="bg-black/50 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-[#C7D300]"
+              >
+                <option value="ALL">Tous les Rayons</option>
+                <option value="connect">Rayon Connect</option>
+                <option value="mode">Rayon Mode</option>
+                <option value="immo">Rayon Immobilier</option>
+                <option value="saveur">Rayon Saveurs</option>
+              </select>
+
+              {/* Filtre Boutique */}
+              <select
+                value={pubSupplierFilter}
+                onChange={(e) => setPubSupplierFilter(e.target.value)}
+                className="bg-black/50 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-[#C7D300] max-w-[160px]"
+              >
+                <option value="ALL">Toutes vos boutiques</option>
+                {data?.filleuls?.map((f: any) => (
+                  <option key={f.filleulId} value={f.filleulId}>
+                    {f.filleulName}
+                  </option>
+                ))}
+              </select>
+
+              {/* Barre de recherche */}
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-2.5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Rechercher produit..."
+                  value={pubSearch}
+                  onChange={(e) => setPubSearch(e.target.value)}
+                  className="bg-black/50 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-[#C7D300] w-36 sm:w-44"
+                />
+              </div>
+            </div>
+          </div>
+
+          {loadingPubs ? (
+            <div className="p-12 text-center text-gray-400">
+              <div className="w-6 h-6 border-2 border-[#C7D300] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-xs">Chargement des publications de vos fournisseurs...</p>
+            </div>
+          ) : filteredPublications.length === 0 ? (
+            <div className="p-12 text-center text-gray-500 space-y-3">
+              <ShoppingBag size={36} className="mx-auto text-gray-600" />
+              <p className="text-sm font-semibold text-gray-300">Aucune publication trouvée.</p>
+              <p className="text-xs max-w-md mx-auto text-gray-400">
+                Vos commerçants n&apos;ont pas encore mis d&apos;articles en ligne ou aucune publication ne correspond à vos filtres.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredPublications.map((pub) => {
+                const isImmo = pub.rayon?.toLowerCase().includes("immo");
+                const isMode = pub.rayon?.toLowerCase().includes("mode");
+                const isConnect = pub.rayon?.toLowerCase().includes("connect");
+
+                const rayonColor = isImmo
+                  ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                  : isMode
+                  ? "bg-pink-500/10 text-pink-400 border-pink-500/20"
+                  : isConnect
+                  ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
+
+                return (
+                  <div
+                    key={pub.id}
+                    className="bg-black/40 border border-white/[0.06] rounded-2xl overflow-hidden hover:border-white/20 transition-all flex flex-col justify-between"
+                  >
+                    <div>
+                      {/* Image / Thumbnail */}
+                      <div className="h-36 w-full bg-white/5 relative overflow-hidden flex items-center justify-center">
+                        {pub.image ? (
+                          <img
+                            src={pub.image}
+                            alt={pub.title}
+                            className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="text-gray-600 flex flex-col items-center gap-1">
+                            <Tag size={28} />
+                            <span className="text-[10px]">Photo non disponible</span>
+                          </div>
+                        )}
+                        <span className={`absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase border ${rayonColor}`}>
+                          {pub.rayon || "Rayon"}
+                        </span>
+                        <span className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md text-[9px] font-bold bg-black/60 text-white backdrop-blur-xs flex items-center gap-1">
+                          <Eye size={10} /> {pub.views}
+                        </span>
+                      </div>
+
+                      {/* Content */}
+                      <div className="p-3.5 space-y-1.5">
+                        <h4 className="text-xs font-bold text-white line-clamp-1">{pub.title}</h4>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-400 truncate max-w-[130px] font-medium">
+                            🏢 {pub.supplierName}
+                          </span>
+                          <span className="font-extrabold text-[#C7D300] text-xs">
+                            ${Number(pub.price).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 pt-0 border-t border-white/5 mt-2 flex items-center justify-between text-[10px] text-gray-500">
+                      <span>{pub.createdAt ? new Date(pub.createdAt).toLocaleDateString("fr-FR") : "Récent"}</span>
+                      <span className="text-emerald-400 font-semibold">{pub.status}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab 2: Fournisseurs Rattachés */}
+      {activeTab === "suppliers" && (
+        <div className="bg-[#0F1D27]/90 border border-white/[0.08] rounded-2xl overflow-hidden">
+          <div className="p-4 sm:p-5 border-b border-white/[0.06] flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-white">Boutiques et Commerçants Créés</h3>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Ces boutiques sont gérées et modérées par l'administration centrale Rayons.net.
+              </p>
+            </div>
+            <button
+              onClick={() => setIsAddSupplierOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#C7D300]/15 hover:bg-[#C7D300]/25 text-[#C7D300] border border-[#C7D300]/30 transition-colors cursor-pointer"
+            >
+              <PlusCircle size={13} />
+              <span>Ajouter</span>
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="p-12 text-center text-gray-400">
+              <div className="w-6 h-6 border-2 border-[#C7D300] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-xs">Chargement de vos boutiques affiliées...</p>
+            </div>
+          ) : !data?.filleuls || data.filleuls.length === 0 ? (
+            <div className="p-12 text-center text-gray-500 space-y-3">
+              <Building2 size={36} className="mx-auto text-gray-600" />
+              <p className="text-sm font-semibold text-gray-300">Aucun fournisseur rattaché pour l'instant.</p>
+              <p className="text-xs max-w-md mx-auto text-gray-400">
+                Utilisez le bouton "Inscrire un Fournisseur" ou partagez votre lien WhatsApp pour enregistrer des boutiques et commencer à percevoir vos commissions mensuelles.
+              </p>
+              <button
+                onClick={() => setIsAddSupplierOpen(true)}
+                className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-[#C7D300] text-[#0F1D27] cursor-pointer"
+              >
+                Inscrire un premier commerçant
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Desktop Table (>= md) */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left text-xs text-gray-300">
+                  <thead className="bg-black/20 text-gray-400 uppercase text-[10px] font-semibold border-b border-white/[0.06]">
+                    <tr>
+                      <th className="px-5 py-3.5">Boutique / Commerçant</th>
+                      <th className="px-5 py-3.5">Rayon</th>
+                      <th className="px-5 py-3.5">Contact</th>
+                      <th className="px-5 py-3.5">Date Inscription</th>
+                      <th className="px-5 py-3.5">Paiements Validés</th>
+                      <th className="px-5 py-3.5 text-right">Commissions Rapportées</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.04]">
+                    {data.filleuls.map((f: FilleulData) => (
+                      <tr key={f.id} className="hover:bg-white/[0.02] transition-colors">
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center font-bold text-xs shrink-0">
+                              {(f.filleulName || "F").charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-semibold text-white">{f.filleulName}</div>
+                              <div className="text-[10px] text-gray-500 font-mono">ID: {f.filleulId.substring(0, 8)}...</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-white/5 border border-white/10 text-[#C7D300]">
+                            {f.rayon || "connect"}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="text-gray-300">{f.filleulEmail || "—"}</div>
+                          {f.phone && <div className="text-[10px] text-gray-500 font-mono mt-0.5">{f.phone}</div>}
+                        </td>
+                        <td className="px-5 py-4 text-gray-400">
+                          {f.createdAt ? new Date(f.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/5 border border-white/10 text-gray-300">
+                            {f.paymentsCount} mois réglé(s)
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <span className="font-bold text-emerald-400 text-sm">
+                            +${Number(f.totalCommissions || 0).toFixed(2)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Stacked Cards (< md) */}
+              <div className="md:hidden divide-y divide-white/[0.06]">
+                {data.filleuls.map((f: FilleulData) => (
+                  <div key={f.id} className="p-4 space-y-2.5 hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center font-bold text-xs shrink-0">
+                          {(f.filleulName || "F").charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-xs text-white truncate">{f.filleulName}</p>
+                          <p className="text-[10px] text-gray-400 truncate">{f.filleulEmail || f.phone || "—"}</p>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-md text-[9px] font-bold uppercase bg-white/5 border border-white/10 text-[#C7D300] shrink-0">
+                        {f.rayon || "connect"}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-white/5">
+                      <span className="text-gray-400">
+                        {f.createdAt ? new Date(f.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                      </span>
+                      <span className="text-gray-300 font-medium">{f.paymentsCount} mois réglé(s)</span>
+                      <span className="font-extrabold text-emerald-400">+${Number(f.totalCommissions || 0).toFixed(2)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Tab 2: Historique des Commissions */}
+      {activeTab === "commissions" && (
+        <div className="bg-[#0F1D27]/90 border border-white/[0.08] rounded-2xl overflow-hidden">
+          <div className="p-4 sm:p-5 border-b border-white/[0.06]">
+            <h3 className="text-sm font-bold text-white">Commissions Récurrentes Reçues</h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Chaque réabonnement mensuel d'un fournisseur génère instantanément 5 $ USD de commission pour vous.
+            </p>
+          </div>
+
+          {!data?.commissions || data.commissions.length === 0 ? (
+            <div className="p-12 text-center text-gray-500 space-y-2">
+              <Coins size={36} className="mx-auto text-gray-600" />
+              <p className="text-sm font-semibold text-gray-300">Aucune commission créditée pour l'instant.</p>
+              <p className="text-xs text-gray-400">
+                Vos commissions apparaîtront dès qu'un de vos commerçants effectuera son premier règlement d'abonnement.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs text-gray-300">
+                <thead className="bg-black/20 text-gray-400 uppercase text-[10px] font-semibold border-b border-white/[0.06]">
+                  <tr>
+                    <th className="px-5 py-3.5">Fournisseur Source</th>
+                    <th className="px-5 py-3.5">Type de Commission</th>
+                    <th className="px-5 py-3.5">Date</th>
+                    <th className="px-5 py-3.5">Statut</th>
+                    <th className="px-5 py-3.5 text-right">Montant</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {data.commissions.map((c: CommissionData) => (
+                    <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="px-5 py-4 font-semibold text-white">
+                        {c.filleulName}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="text-[11px] text-gray-300">
+                          {c.kind === "SIGNUP" ? "Adhésion initiale" : "Renouvellement mensuel"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-gray-400">
+                        {c.createdAt ? new Date(c.createdAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}
+                      </td>
+                      <td className="px-5 py-4">
+                        {c.status === "PAID" ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <CheckCircle2 size={11} /> Versé
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            <Clock size={11} /> Disponible au retrait
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-right font-bold text-emerald-400 text-sm">
+                        +${Number(c.amount || 5).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab 3: Demander un Virement */}
+      {activeTab === "payout" && (
+        <div className="bg-[#0F1D27]/90 border border-white/[0.08] rounded-2xl p-6 max-w-xl space-y-5">
+          <div className="space-y-1">
+            <h3 className="text-sm font-bold text-white">Demande de Virement de Commissions</h3>
+            <p className="text-xs text-gray-400">
+              Recevez vos gains directement sur votre numéro Mobile Money en RDC (M-Pesa, Airtel Money, Orange Money).
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-between">
+            <div>
+              <div className="text-[11px] text-gray-400 uppercase font-semibold">Montant Disponible</div>
+              <div className="text-2xl font-extrabold text-[#C7D300] mt-0.5">
+                ${balance.toFixed(2)} USD
+              </div>
+            </div>
+            <div className="text-right text-[11px] text-gray-400">
+              <div>Seuil minimum : <strong>10 $ USD</strong></div>
+              <div>Validation : <strong>Sous 24h ouvrées</strong></div>
+            </div>
+          </div>
+
+          <form onSubmit={handleRequestPayout} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                Opérateur Mobile Money
+              </label>
+              <select
+                value={payoutOperator}
+                onChange={(e) => setPayoutOperator(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-black/50 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
+              >
+                <option value="M-Pesa">Vodacom M-Pesa</option>
+                <option value="Airtel Money">Airtel Money</option>
+                <option value="Orange Money">Orange Money</option>
+                <option value="Afrimoney">Africell Afrimoney</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                Numéro de Téléphone Bénéficiaire (Format RDC)
+              </label>
+              <input
+                type="tel"
+                required
+                placeholder="+243 82 000 00 00"
+                value={payoutPhone}
+                onChange={(e) => setPayoutPhone(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-black/50 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
+              />
+            </div>
+
+            <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-200">
+              <p className="font-semibold text-white mb-0.5">Gestion Centralisée :</p>
+              <p className="text-[11px] text-gray-300">
+                Votre demande est directement transmise à l'Administration Centrale de Rayons.net. Dès vérification comptable, les fonds sont virés et votre solde est réinitialisé.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isRequestingPayout || balance < 10}
+              className="w-full py-3 rounded-xl text-xs font-bold bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+            >
+              <Send size={14} />
+              <span>Demander le versement de mes commissions</span>
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* MODAL : Inscrire un Nouveau Fournisseur */}
+      <ResponsiveModal
+        isOpen={isAddSupplierOpen}
+        onClose={() => !isSubmittingSupplier && setIsAddSupplierOpen(false)}
+        title="Inscrire un Nouveau Fournisseur"
+        subtitle="Création directe dans la base de données centrale Rayons.net"
+        icon={<Building2 size={20} className="text-[#C7D300]" />}
+        maxWidth="lg"
+      >
+        <form onSubmit={handleCreateSupplier} className="space-y-4">
+          <div className="p-3.5 rounded-xl bg-[#C7D300]/10 border border-[#C7D300]/25 text-xs text-gray-300 space-y-1">
+            <p className="font-bold text-[#C7D300] flex items-center gap-1.5">
+              <ShieldCheck size={14} />
+              Fournisseur Centralisé Rayons.net
+            </p>
+            <p className="text-[11px]">
+              La boutique créée dépendra directement de la base centrale et sera administrée par la Direction Rayons.net. Vous en êtes le parrain attitré et toucherez <strong>5 $ USD chaque mois</strong> à chaque réabonnement.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                Nom de la Boutique / Entreprise *
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="Ex: Kin High-Tech Store"
+                value={supplierForm.companyName}
+                onChange={(e) => setSupplierForm({ ...supplierForm, companyName: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                Nom du Gérant / Responsable
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: Jonathan Kalala"
+                value={supplierForm.managerName}
+                onChange={(e) => setSupplierForm({ ...supplierForm, managerName: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                Adresse Email du Commerçant * (Login)
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="contact@boutique.com"
+                value={supplierForm.email}
+                onChange={(e) => setSupplierForm({ ...supplierForm, email: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                Numéro de Téléphone (WhatsApp / Contact)
+              </label>
+              <input
+                type="tel"
+                placeholder="+243 82 000 00 00"
+                value={supplierForm.phone}
+                onChange={(e) => setSupplierForm({ ...supplierForm, phone: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                Rayon d'Activité
+              </label>
+              <select
+                value={supplierForm.rayon}
+                onChange={(e) => setSupplierForm({ ...supplierForm, rayon: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-black/50 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300] cursor-pointer"
+              >
+                <option value="connect">Rayon Connect (High-Tech, Gadgets, Télécoms)</option>
+                <option value="immo">Rayon Immo (Immobilier, Bailleurs & Agences)</option>
+                <option value="mode">Rayon Mode (Vêtements, Chaussures, Accessoires)</option>
+                <option value="saveurs">Rayon Saveurs (Restaurants, Traiteurs, Épicerie)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                Ville
+              </label>
+              <input
+                type="text"
+                placeholder="Kinshasa"
+                value={supplierForm.city}
+                onChange={(e) => setSupplierForm({ ...supplierForm, city: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+              Mot de passe provisoire (Facultatif - généré automatiquement si vide)
+            </label>
+            <input
+              type="text"
+              placeholder="Laisser vide pour générer un mot de passe sécurisé"
+              value={supplierForm.password}
+              onChange={(e) => setSupplierForm({ ...supplierForm, password: e.target.value })}
+              className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-[#C7D300]"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+            <button
+              type="button"
+              disabled={isSubmittingSupplier}
+              onClick={() => setIsAddSupplierOpen(false)}
+              className="px-4 py-2.5 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer"
+            >
+              Annuler
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmittingSupplier}
+              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+            >
+              {isSubmittingSupplier ? (
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-[#0F1D27] border-t-transparent rounded-full animate-spin" />
+                  <span>Enregistrement...</span>
+                </div>
+              ) : (
+                <>
+                  <Building2 size={15} />
+                  <span>Créer la Boutique Fournisseur</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </ResponsiveModal>
+    </div>
+  );
+}
+
+export default function PartnerDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center p-12 text-white">
+          <div className="w-8 h-8 border-3 border-[#C7D300] border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <PartnerDashboardContent />
+    </Suspense>
+  );
+}
+

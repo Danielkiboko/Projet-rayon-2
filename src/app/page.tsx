@@ -24,7 +24,7 @@ import { LanguageSelector } from "@/modules/shared/components/LanguageSelector";
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
 import { UniversalSearchBar } from "@/modules/client/components/home/UniversalSearchBar";
 import NotificationBell from "@/modules/shared/components/notifications/NotificationBell";
-import { ProductCard } from "@/modules/client/components/rayon/ProductCard";
+import { ProductCard } from "@/modules/rayons/shared/ProductCard";
 import { DirectBuyModal } from "@/modules/client/components/DirectBuyModal";
 import AlibabaClientBottomNav from "@/modules/client/components/AlibabaClientBottomNav";
 

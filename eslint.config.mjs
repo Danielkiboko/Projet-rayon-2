@@ -15,7 +15,72 @@ const eslintConfig = defineConfig([
           patterns: [
             {
               group: ["@/modules/admin/*", "@/modules/supplier/*", "@/modules/partner/*", "@/modules/driver/*", "@/server/*"],
-              message: "Violation de compartiment : l'espace Client ne peut importer que domain/, lib/, context/, modules/client/, modules/shared/ ou modules/tickets/.",
+              message: "Violation de compartiment : l'espace Client ne peut importer que domain/, lib/, context/, modules/client/, modules/rayons/, modules/shared/ ou modules/tickets/.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // ── Isolation stricte entre les 4 Rayons (Connect / Immo / Mode / Saveurs) ──
+  {
+    files: ["src/modules/rayons/connect/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/modules/rayons/immo/*", "@/modules/rayons/mode/*", "@/modules/rayons/saveurs/*", "@/modules/admin/*", "@/modules/supplier/*", "@/modules/partner/*", "@/modules/driver/*", "@/server/*"],
+              message: "Violation d'isolation Rayon : Connect ne peut pas importer un autre rayon ou un module interne.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/modules/rayons/immo/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/modules/rayons/connect/*", "@/modules/rayons/mode/*", "@/modules/rayons/saveurs/*", "@/modules/admin/*", "@/modules/supplier/*", "@/modules/partner/*", "@/modules/driver/*", "@/server/*"],
+              message: "Violation d'isolation Rayon : Immo ne peut pas importer un autre rayon ou un module interne.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/modules/rayons/mode/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/modules/rayons/connect/*", "@/modules/rayons/immo/*", "@/modules/rayons/saveurs/*", "@/modules/admin/*", "@/modules/supplier/*", "@/modules/partner/*", "@/modules/driver/*", "@/server/*"],
+              message: "Violation d'isolation Rayon : Mode ne peut pas importer un autre rayon ou un module interne.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/modules/rayons/saveurs/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/modules/rayons/connect/*", "@/modules/rayons/immo/*", "@/modules/rayons/mode/*", "@/modules/admin/*", "@/modules/supplier/*", "@/modules/partner/*", "@/modules/driver/*", "@/server/*"],
+              message: "Violation d'isolation Rayon : Saveurs ne peut pas importer un autre rayon ou un module interne.",
             },
           ],
         },
@@ -46,8 +111,8 @@ const eslintConfig = defineConfig([
         {
           patterns: [
             {
-              group: ["@/modules/admin/*", "@/modules/supplier/*", "@/modules/client/*", "@/modules/driver/*", "@/server/*"],
-              message: "Violation de compartiment : l'espace Partenaire est isolé (sans rayon) et ne peut importer que modules/shared/ ou domain/.",
+              group: ["@/modules/admin/*", "@/modules/supplier/*", "@/modules/client/*", "@/modules/rayons/*", "@/modules/driver/*", "@/server/*"],
+              message: "Violation de compartiment : l'espace Partenaire est isolé (sans rayon) et ne peut importer que modules/partner/, modules/shared/ ou domain/.",
             },
           ],
         },
@@ -62,8 +127,8 @@ const eslintConfig = defineConfig([
         {
           patterns: [
             {
-              group: ["@/modules/admin/*", "@/modules/supplier/*", "@/modules/client/*", "@/modules/partner/*", "@/server/*"],
-              message: "Violation de compartiment : l'espace Livreur ne peut pas importer depuis Admin, Fournisseur, Client, Partenaire ou Server.",
+              group: ["@/modules/admin/*", "@/modules/supplier/*", "@/modules/client/*", "@/modules/rayons/*", "@/modules/partner/*", "@/server/*"],
+              message: "Violation de compartiment : l'espace Livreur ne peut pas importer depuis Admin, Fournisseur, Client, Rayons, Partenaire ou Server.",
             },
           ],
         },
@@ -78,8 +143,8 @@ const eslintConfig = defineConfig([
         {
           patterns: [
             {
-              group: ["@/modules/supplier/*", "@/modules/client/*", "@/server/*"],
-              message: "Violation de compartiment : l'interface Admin doit utiliser modules/admin/, modules/shared/ ou modules/tickets/ (pas les composants internes Fournisseur/Client).",
+              group: ["@/modules/supplier/*", "@/modules/client/*", "@/modules/partner/*", "@/modules/driver/*", "@/server/*"],
+              message: "Violation de compartiment : l'interface Admin doit utiliser modules/admin/, modules/shared/ ou modules/tickets/ (pas les composants internes Fournisseur/Client/Partenaire/Livreur).",
             },
           ],
         },
