@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerCaller } from "@/lib/serverAuth";
+import { requireAnyStaffPermission } from "@/server/guards";
 import { payoutReferrerCommissions } from "@/lib/referrals";
 import { adminDb } from "@/lib/firebase-admin";
 
 export async function GET(req: NextRequest) {
   try {
-    const caller = await getServerCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
-    }
+    const guard = await requireAnyStaffPermission(req, ["finance.view", "partners.view"]);
+    if (!guard.ok) return guard.errorResponse!;
 
     // Get all referral relationships
     const referralsSnap = await adminDb.collection("referrals").get();
@@ -98,10 +96,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const caller = await getServerCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
-    }
+    const guard = await requireAnyStaffPermission(req, ["finance.cash", "partners.payout"]);
+    if (!guard.ok || !guard.caller) return guard.errorResponse!;
+    const caller = guard.caller;
 
     const body = await req.json();
     const { action, referrerId, paymentMethod } = body;

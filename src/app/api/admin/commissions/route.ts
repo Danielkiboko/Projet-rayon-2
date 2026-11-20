@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { getServerCaller } from "@/lib/serverAuth";
+import { requireAnyStaffPermission } from "@/server/guards";
 import { dispatchAccountNotification } from "@/lib/pushNotifications";
 
 function generateEntryNumber(): string {
@@ -12,10 +12,8 @@ function generateEntryNumber(): string {
 
 export async function GET(req: NextRequest) {
   try {
-    const caller = await getServerCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
-    }
+    const guard = await requireAnyStaffPermission(req, ["finance.view", "partners.view", "partners.payout"]);
+    if (!guard.ok) return guard.errorResponse!;
 
     // Récupérer tous les partenaires enregistrés
     const partnersSnap = await adminDb
@@ -47,10 +45,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const caller = await getServerCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
-    }
+    const guard = await requireAnyStaffPermission(req, ["finance.cash", "partners.payout"]);
+    if (!guard.ok || !guard.caller) return guard.errorResponse!;
+    const caller = guard.caller;
 
     const callerDoc = await adminDb.collection("users").doc(caller.uid).get();
     const callerData = callerDoc.exists ? callerDoc.data() : {};

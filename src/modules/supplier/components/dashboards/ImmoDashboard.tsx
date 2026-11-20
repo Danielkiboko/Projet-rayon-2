@@ -8,8 +8,8 @@ import RevenueAreaChart from "@/modules/shared/components/charts/RevenueAreaChar
 import StatusPieChart from "@/modules/shared/components/charts/StatusPieChart";
 import { collection, query, where, onSnapshot, getDocs, limit, orderBy, updateDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import KpiGrid from "./shared/KpiGrid";
-import ActionCard from "./shared/ActionCard";
+import KpiGrid from "@/modules/shared/components/dashboard/KpiGrid";
+import ActionCard from "@/modules/shared/components/dashboard/ActionCard";
 import GenericDashboard, { KpiConfig, ActionConfig } from "./shared/GenericDashboard";
 import { groupPaymentsByDate } from "@/lib/dateUtils";
 import HotelBookingsManager from "@/modules/shared/components/hotels/HotelBookingsManager";
@@ -182,9 +182,13 @@ export default function ImmoDashboard() {
     if (confirm("Confirmer et valider cette visite ?")) {
       try {
         await updateDoc(doc(db, "visits", visit.id), { status: "APPROVED" });
+        const visitToken = await user?.getIdToken().catch(() => null);
         await fetch('/api/notifications', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(visitToken ? { Authorization: `Bearer ${visitToken}` } : {}),
+          },
           body: JSON.stringify({
             action: 'VISIT_VALIDATED',
             data: {

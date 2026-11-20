@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
-import { getServerCaller, SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
+import { SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
+import { requireAnyStaffPermission } from "@/server/guards";
 
 function isStaffOrAdminDoc(data: any): boolean {
   if (!data) return false;
@@ -24,10 +25,8 @@ function isStaffOrAdminDoc(data: any): boolean {
  */
 export async function GET(req: NextRequest) {
   try {
-    const caller = await getServerCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
-    }
+    const guard = await requireAnyStaffPermission(req, ["suppliers.view", "suppliers.manage", "finance.view", "products.moderate"]);
+    if (!guard.ok) return guard.errorResponse!;
 
     const supplierRoles1 = [
       "SUPPLIER", "FOURNISSEUR", "SUB_SUPPLIER",

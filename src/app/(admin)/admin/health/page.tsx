@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import { collection, query, orderBy, onSnapshot, updateDoc, doc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { ShieldAlert, Bug, RefreshCw, CheckCircle, Activity, BrainCircuit } from "lucide-react";
-import ActionCard from "@/modules/supplier/components/dashboards/shared/ActionCard";
-import KpiGrid from "@/modules/supplier/components/dashboards/shared/KpiGrid";
+import ActionCard from "@/modules/shared/components/dashboard/ActionCard";
+import KpiGrid from "@/modules/shared/components/dashboard/KpiGrid";
 
 export default function HealthDashboard() {
   const [logs, setLogs] = useState<any[]>([]);

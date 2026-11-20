@@ -525,14 +525,19 @@ export default function PropertyManager({ isAdmin }: PropertyManagerProps) {
       }
 
       if (isSuccess && property.supplierId) {
-        fetch("/api/notifications", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "PROPERTY_APPROVED",
-            supplierId: property.supplierId
+        auth.currentUser?.getIdToken().then((notifToken: string) =>
+          fetch("/api/notifications", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${notifToken}`,
+            },
+            body: JSON.stringify({
+              action: "PROPERTY_APPROVED",
+              supplierId: property.supplierId
+            })
           })
-        }).catch(console.error);
+        ).catch(console.error);
       }
     }
   };

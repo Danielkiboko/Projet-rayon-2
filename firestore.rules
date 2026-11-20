@@ -1,472 +1,1101 @@
 rules_version = '2';
 
+// ===============================================================
+// Assumed Data Model & Authority Compartmentalization (Rayons.net)
+// ===============================================================
+//
+// Authority Tiers (Strict Role Compartmentalization):
+//   - Super Admin: Hardcoded bootstrap emails or SUPER_ADMIN / isSuperAdmin == true.
+//     Full platform authority. Protected from modification by lower tiers.
+//   - General Admin (isGeneralAdmin): Super Admin, ADMIN, SUB_ADMIN, SOUS_ADMIN_GENERAL,
+//     or staffProfile.positions contains 'SUB_ADMIN'. Full operational management except
+//     cannot create, elevate to, modify, or delete Super Admin accounts.
+//   - Finance Staff (isFinanceStaff): General Admin, ADMIN_FINANCE, RESPONSABLE_FINANCIER,
+//     or staffProfile.positions contains 'RESPONSABLE_FINANCIER'.
+//     Owns accounting_ledger, transactions, supplier_transactions, referrals/commissions,
+//     invoices, payments, settings/financial, and read-only access to orders/drivers.
+//   - Catalog Staff (isCatalogStaff): General Admin, ADMIN_DB, ADMIN_TECH,
+//     RESPONSABLE_CATALOGUE, GESTIONNAIRE_ADMIN, or staffProfile.positions hasAny
+//     ['RESPONSABLE_CATALOGUE', 'GESTIONNAIRE_ADMIN'].
+//     Owns categories, products, properties, visits/hotel_bookings moderation, error_logs,
+//     and non-privilege supplier KYC/profile updates on users/suppliers.
+//   - Logistics Staff (isLogisticsStaff): General Admin, ADMIN_OPS, RESPONSABLE_LOGISTIQUE,
+//     or staffProfile.positions contains 'RESPONSABLE_LOGISTIQUE'.
+//     Owns orders, drivers, and driver status activation on users.
+//   - Support Staff (isSupportStaff): General Admin, SUPPORT_CLIENT, GESTIONNAIRE_ADMIN,
+//     or staffProfile.positions hasAny ['SUPPORT_CLIENT', 'GESTIONNAIRE_ADMIN'].
+//     Owns tickets, ticket messages, chats moderation, and visit/booking assistance.
+//   - Any Staff (isAnyStaff): Read-only baseline for internal staff where required
+//     (e.g. users directory, inapp_notifications). NEVER used for unrestricted writes.
+//
+// Key Collections:
+//   - users/{userId}: User/supplier/driver/staff profiles (PII protected; self/staff/parent read).
+//   - suppliers/{supplierId}: Supplier public/sync metadata.
+//   - drivers/{driverId}: Delivery drivers scoped by supplierId/parentSupplierId.
+//   - orders/{orderId}: Marketplace orders (clientId, supplierId, supplierIds, driverId, status).
+//   - products/{productId} & properties/{propertyId} (+ reviews subcollection): Public catalog.
+//   - categories/{catId}: Public marketplace categories/rayons.
+//   - settings/{docId}: Public platform/financial configuration (exchange rates, language).
+//   - accounting_ledger/{entryId} & transactions/{transactionId}: Internal finance records.
+//   - supplier_transactions/{transactionId}, invoices/{invoiceId}, payments/{paymentId}: Supplier finance.
+//   - tenants/{tenantId}, maintenance_tickets/{ticketId}, relances/{relanceId}: Immo tenant management.
+//   - visits/{visitId} & hotel_bookings/{bookingId}: Publicly creatable booking/visit requests.
+//   - referrals, referral_commissions, referral_invites, referral_codes: Referral program.
+//   - tickets/{ticketId} (+ messages): Support desk.
+//   - chats/{chatId} (+ messages): Client-supplier messaging.
+//   - inapp_notifications/{notifId} & notifications/{notifId}: User & staff notifications.
+//   - push_campaigns/{campaignId}, push_devices/{deviceId}, cron_runs/{runId}: System ops.
+//   - error_logs/{logId}: Client/server bug telemetry.
+//
+// ===============================================================
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions within database scope
-    function isSuperAdmin() {
-      return request.auth != null && (
-        request.auth.token.email in ['danielkiboko218@gmail.com', 'danielKIBOKO218@gmail.com', 'admin@rayons.net'] ||
-        request.auth.token.role == 'superAdmin' ||
-        request.auth.token.role == 'SUPER_ADMIN' ||
-        request.auth.token.role == 'SUPERADMIN' ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superAdmin' ||
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isSuperAdmin == true))
+
+    // ===============================================================
+    // Core Authentication & User Lookup Helpers (Lean get() Budget)
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function userDocExists() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    // Always guard calls to getUserData() with userDocExists()
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasStaffPositionInData(data, allowedPositions) {
+      return data != null &&
+        data.get('staffProfile', null) is map &&
+        data.staffProfile.get('positions', null) is list &&
+        data.staffProfile.positions.hasAny(allowedPositions);
+    }
+
+    function isSuperAdminData(data) {
+      return data != null && (
+        data.get('role', '') in ['SUPER_ADMIN', 'superAdmin', 'SUPERADMIN'] ||
+        data.get('isSuperAdmin', false) == true ||
+        data.get('email', '') in [
+          'danielkiboko218@gmail.com',
+          'danielKIBOKO218@gmail.com',
+          'admin@rayons.net'
+        ]
       );
     }
 
-    function isAdmin() {
+    // ===============================================================
+    // Granular Admin / Staff Authority Tiers
+    // ===============================================================
+
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.get('email', '') in [
+          'danielkiboko218@gmail.com',
+          'danielKIBOKO218@gmail.com',
+          'admin@rayons.net'
+        ] ||
+        request.auth.token.get('role', '') in ['SUPER_ADMIN', 'superAdmin', 'SUPERADMIN'] ||
+        request.auth.token.get('isSuperAdmin', false) == true ||
+        (userDocExists() && (
+          getUserData().get('role', '') in ['SUPER_ADMIN', 'superAdmin', 'SUPERADMIN'] ||
+          getUserData().get('isSuperAdmin', false) == true
+        ))
+      );
+    }
+
+    function isGeneralAdmin() {
       return isSuperAdmin() || (
-        request.auth != null && (
-          request.auth.token.role in [
+        isAuthenticated() && (
+          request.auth.token.get('role', '') in [
             'admin', 'ADMIN', 'SUB_ADMIN', 'sub_admin',
-            'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS',
-            'SOUS_ADMIN_GENERAL', 'sous_admin_general',
-            'STAFF', 'GESTIONNAIRE_ADMIN', 'RESPONSABLE_LOGISTIQUE',
-            'RESPONSABLE_FINANCIER', 'RESPONSABLE_CATALOGUE', 'SUPPORT_CLIENT'
+            'SUBADMIN', 'SOUS_ADMIN_GENERAL', 'sous_admin_general'
           ] ||
-          (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && (
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in [
+          (userDocExists() && (
+            getUserData().get('role', '') in [
               'admin', 'ADMIN', 'SUB_ADMIN', 'sub_admin',
-              'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS',
-              'SUPER_ADMIN', 'SOUS_ADMIN_GENERAL', 'sous_admin_general',
-              'STAFF', 'GESTIONNAIRE_ADMIN', 'RESPONSABLE_LOGISTIQUE',
-              'RESPONSABLE_FINANCIER', 'RESPONSABLE_CATALOGUE', 'SUPPORT_CLIENT'
+              'SUBADMIN', 'SOUS_ADMIN_GENERAL', 'sous_admin_general'
             ] ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
-            get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isInternalStaff == true
+            hasStaffPositionInData(getUserData(), ['SUB_ADMIN'])
           ))
         )
       );
     }
 
+    function isFinanceStaff() {
+      return isGeneralAdmin() || (
+        isAuthenticated() && (
+          request.auth.token.get('role', '') in ['ADMIN_FINANCE', 'RESPONSABLE_FINANCIER'] ||
+          (userDocExists() && (
+            getUserData().get('role', '') in ['ADMIN_FINANCE', 'RESPONSABLE_FINANCIER'] ||
+            hasStaffPositionInData(getUserData(), ['RESPONSABLE_FINANCIER'])
+          ))
+        )
+      );
+    }
+
+    function isCatalogStaff() {
+      return isGeneralAdmin() || (
+        isAuthenticated() && (
+          request.auth.token.get('role', '') in [
+            'ADMIN_DB', 'ADMIN_TECH', 'RESPONSABLE_CATALOGUE', 'GESTIONNAIRE_ADMIN'
+          ] ||
+          (userDocExists() && (
+            getUserData().get('role', '') in [
+              'ADMIN_DB', 'ADMIN_TECH', 'RESPONSABLE_CATALOGUE', 'GESTIONNAIRE_ADMIN'
+            ] ||
+            hasStaffPositionInData(getUserData(), ['RESPONSABLE_CATALOGUE', 'GESTIONNAIRE_ADMIN'])
+          ))
+        )
+      );
+    }
+
+    function isLogisticsStaff() {
+      return isGeneralAdmin() || (
+        isAuthenticated() && (
+          request.auth.token.get('role', '') in ['ADMIN_OPS', 'RESPONSABLE_LOGISTIQUE'] ||
+          (userDocExists() && (
+            getUserData().get('role', '') in ['ADMIN_OPS', 'RESPONSABLE_LOGISTIQUE'] ||
+            hasStaffPositionInData(getUserData(), ['RESPONSABLE_LOGISTIQUE'])
+          ))
+        )
+      );
+    }
+
+    function isSupportStaff() {
+      return isGeneralAdmin() || (
+        isAuthenticated() && (
+          request.auth.token.get('role', '') in ['SUPPORT_CLIENT', 'GESTIONNAIRE_ADMIN'] ||
+          (userDocExists() && (
+            getUserData().get('role', '') in ['SUPPORT_CLIENT', 'GESTIONNAIRE_ADMIN'] ||
+            hasStaffPositionInData(getUserData(), ['SUPPORT_CLIENT', 'GESTIONNAIRE_ADMIN'])
+          ))
+        )
+      );
+    }
+
+    function isGestionnaireAdmin() {
+      return isGeneralAdmin() || (
+        isAuthenticated() && (
+          request.auth.token.get('role', '') == 'GESTIONNAIRE_ADMIN' ||
+          (userDocExists() && (
+            getUserData().get('role', '') == 'GESTIONNAIRE_ADMIN' ||
+            hasStaffPositionInData(getUserData(), ['GESTIONNAIRE_ADMIN'])
+          ))
+        )
+      );
+    }
+
+    // General internal staff read-only helper (NEVER use for unrestricted sensitive writes)
+    function isAnyStaff() {
+      return isGeneralAdmin() || (
+        isAuthenticated() && (
+          request.auth.token.get('role', '') in [
+            'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS',
+            'STAFF', 'GESTIONNAIRE_ADMIN', 'RESPONSABLE_LOGISTIQUE',
+            'RESPONSABLE_FINANCIER', 'RESPONSABLE_CATALOGUE', 'SUPPORT_CLIENT'
+          ] ||
+          (userDocExists() && (
+            getUserData().get('role', '') in [
+              'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS',
+              'STAFF', 'GESTIONNAIRE_ADMIN', 'RESPONSABLE_LOGISTIQUE',
+              'RESPONSABLE_FINANCIER', 'RESPONSABLE_CATALOGUE', 'SUPPORT_CLIENT'
+            ] ||
+            getUserData().get('isAdmin', false) == true ||
+            getUserData().get('isInternalStaff', false) == true ||
+            hasStaffPositionInData(getUserData(), [
+              'SUB_ADMIN', 'GESTIONNAIRE_ADMIN', 'RESPONSABLE_LOGISTIQUE',
+              'RESPONSABLE_FINANCIER', 'RESPONSABLE_CATALOGUE', 'SUPPORT_CLIENT'
+            ])
+          ))
+        )
+      );
+    }
+
+    // ===============================================================
+    // Business Role Helpers (Suppliers, Sub-Suppliers, Drivers)
+    // ===============================================================
+
     function isSupplier() {
-      return request.auth != null && (
-        request.auth.token.role in ['supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT', 'fournisseur', 'FOURNISSEUR'] ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT', 'fournisseur', 'FOURNISSEUR'])
+      return isAuthenticated() && (
+        request.auth.token.get('role', '') in [
+          'supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS',
+          'SUPPLIER_MODE', 'SUPPLIER_CONNECT', 'fournisseur', 'FOURNISSEUR'
+        ] ||
+        (userDocExists() && getUserData().get('role', '') in [
+          'supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS',
+          'SUPPLIER_MODE', 'SUPPLIER_CONNECT', 'fournisseur', 'FOURNISSEUR'
+        ])
       );
     }
 
     function isSubSupplier() {
-      return request.auth != null && (
-        request.auth.token.role in ['SUB_SUPPLIER', 'sub_supplier'] ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['SUB_SUPPLIER', 'sub_supplier'])
+      return isAuthenticated() && (
+        request.auth.token.get('role', '') in ['SUB_SUPPLIER', 'sub_supplier'] ||
+        (userDocExists() && getUserData().get('role', '') in ['SUB_SUPPLIER', 'sub_supplier'])
       );
     }
 
+    function getParentSupplierId() {
+      return request.auth.token.get('parentSupplierId', '') != ''
+        ? request.auth.token.get('parentSupplierId', '')
+        : (userDocExists() ? getUserData().get('parentSupplierId', '') : '');
+    }
+
     function ownsSupplierData(supplierId) {
-      return request.auth != null && supplierId != null && (
+      return isAuthenticated() && supplierId is string && supplierId.size() > 0 && (
         (isSupplier() && request.auth.uid == supplierId) ||
-        (isSubSupplier() && request.auth.token.parentSupplierId == supplierId) ||
-        (isSubSupplier() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.parentSupplierId == supplierId)
+        (isSubSupplier() && getParentSupplierId() == supplierId)
       );
     }
 
     function isDriver() {
-      return request.auth != null && (
-        request.auth.token.role in ['driver', 'DRIVER', 'livreur', 'LIVREUR', 'chauffeur', 'CHAUFFEUR'] ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['driver', 'DRIVER', 'livreur', 'LIVREUR', 'chauffeur', 'CHAUFFEUR'])
+      return isAuthenticated() && (
+        request.auth.token.get('role', '') in [
+          'driver', 'DRIVER', 'livreur', 'LIVREUR', 'chauffeur', 'CHAUFFEUR'
+        ] ||
+        (userDocExists() && getUserData().get('role', '') in [
+          'driver', 'DRIVER', 'livreur', 'LIVREUR', 'chauffeur', 'CHAUFFEUR'
+        ])
       );
     }
 
-    // Suppliers can manage their own supplier document
+    // ===============================================================
+    // Data Validation & Domain Validator Helpers
+    // ===============================================================
+
+    function areImmutableFieldsUnchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    function validOptionalText(data, field, maxLen) {
+      return !(field in data) || data[field] == null ||
+        (data[field] is string && data[field].size() <= maxLen);
+    }
+
+    function validOptionalList(data, field, maxLen) {
+      return !(field in data) || data[field] == null ||
+        (data[field] is list && data[field].size() <= maxLen);
+    }
+
+    function validOptionalNonNegativeNumber(data, field) {
+      return !(field in data) || data[field] == null ||
+        (data[field] is number && data[field] >= 0);
+    }
+
+    function isValidUserPayload(data) {
+      return data.keys().size() <= 100 &&
+        validOptionalText(data, 'displayName', 150) &&
+        validOptionalText(data, 'name', 150) &&
+        validOptionalText(data, 'businessName', 200) &&
+        validOptionalText(data, 'email', 254) &&
+        validOptionalText(data, 'phone', 40) &&
+        validOptionalText(data, 'phoneNumber', 40) &&
+        validOptionalText(data, 'address', 500) &&
+        validOptionalText(data, 'city', 120) &&
+        validOptionalText(data, 'country', 120) &&
+        validOptionalText(data, 'bio', 2000) &&
+        validOptionalText(data, 'description', 4000) &&
+        validOptionalText(data, 'logoUrl', 350000) &&
+        validOptionalText(data, 'photoURL', 350000) &&
+        validOptionalText(data, 'preferredLanguage', 16) &&
+        validOptionalText(data, 'language', 16) &&
+        validOptionalList(data, 'assignedRayons', 20);
+    }
+
+    function isValidSupplierDoc(data) {
+      return data.keys().size() <= 80 &&
+        validOptionalText(data, 'name', 200) &&
+        validOptionalText(data, 'businessName', 200) &&
+        validOptionalText(data, 'description', 4000) &&
+        validOptionalText(data, 'address', 500) &&
+        validOptionalText(data, 'phone', 40) &&
+        validOptionalText(data, 'status', 60) &&
+        validOptionalText(data, 'kycStatus', 60);
+    }
+
+    function isValidDriverDoc(data) {
+      return data.keys().size() <= 60 &&
+        validOptionalText(data, 'name', 150) &&
+        validOptionalText(data, 'phone', 40) &&
+        validOptionalText(data, 'vehicleType', 80) &&
+        validOptionalText(data, 'licensePlate', 60) &&
+        validOptionalText(data, 'status', 60) &&
+        validOptionalText(data, 'supplierId', 128) &&
+        validOptionalText(data, 'parentSupplierId', 128);
+    }
+
+    function isValidOrderDoc(data) {
+      return data.keys().size() <= 100 &&
+        validOptionalText(data, 'clientId', 128) &&
+        validOptionalText(data, 'supplierId', 128) &&
+        validOptionalText(data, 'driverId', 128) &&
+        validOptionalText(data, 'status', 60) &&
+        validOptionalText(data, 'paymentStatus', 60) &&
+        validOptionalText(data, 'notes', 2000) &&
+        validOptionalText(data, 'deliveryAddress', 500) &&
+        validOptionalList(data, 'items', 150) &&
+        validOptionalList(data, 'supplierIds', 50) &&
+        validOptionalNonNegativeNumber(data, 'totalAmount') &&
+        validOptionalNonNegativeNumber(data, 'subtotal');
+    }
+
+    function isValidCatalogItem(data) {
+      return data.keys().size() <= 100 &&
+        validOptionalText(data, 'supplierId', 128) &&
+        validOptionalText(data, 'name', 250) &&
+        validOptionalText(data, 'title', 250) &&
+        validOptionalText(data, 'description', 10000) &&
+        validOptionalText(data, 'category', 120) &&
+        validOptionalText(data, 'status', 60) &&
+        validOptionalList(data, 'images', 30) &&
+        validOptionalList(data, 'tags', 30) &&
+        validOptionalNonNegativeNumber(data, 'price');
+    }
+
+    function isValidReview(data) {
+      return data.keys().size() <= 25 &&
+        validOptionalText(data, 'clientId', 128) &&
+        validOptionalText(data, 'authorName', 150) &&
+        validOptionalText(data, 'clientName', 150) &&
+        validOptionalText(data, 'comment', 2000) &&
+        validOptionalText(data, 'text', 2000) &&
+        (!('rating' in data) || (data.rating is number && data.rating >= 1 && data.rating <= 5));
+    }
+
+    function isValidCategory(data) {
+      return data.keys().size() <= 40 &&
+        validOptionalText(data, 'name', 150) &&
+        validOptionalText(data, 'slug', 150) &&
+        validOptionalText(data, 'description', 1000) &&
+        validOptionalText(data, 'icon', 100);
+    }
+
+    function isValidFinanceDoc(data) {
+      return data.keys().size() <= 80 &&
+        validOptionalText(data, 'supplierId', 128) &&
+        validOptionalText(data, 'type', 80) &&
+        validOptionalText(data, 'status', 60) &&
+        validOptionalText(data, 'currency', 16) &&
+        validOptionalText(data, 'description', 2000) &&
+        validOptionalText(data, 'reference', 200);
+    }
+
+    function isValidVisitDoc(data) {
+      return data.keys().size() <= 30 &&
+        data.get('supplierId', '') is string &&
+        data.get('supplierId', '').size() > 0 &&
+        data.get('supplierId', '').size() <= 128 &&
+        data.get('propertyId', '') is string &&
+        data.get('propertyId', '').size() > 0 &&
+        data.get('propertyId', '').size() <= 128 &&
+        validOptionalText(data, 'clientId', 128) &&
+        validOptionalText(data, 'propertyTitle', 300) &&
+        validOptionalText(data, 'visitorName', 150) &&
+        validOptionalText(data, 'visitorPhone', 40) &&
+        validOptionalText(data, 'requestedDate', 60) &&
+        validOptionalText(data, 'notes', 1500) &&
+        validOptionalText(data, 'status', 60);
+    }
+
+    function isValidHotelBookingDoc(data) {
+      return data.keys().size() <= 30 &&
+        data.get('supplierId', '') is string &&
+        data.get('supplierId', '').size() > 0 &&
+        data.get('supplierId', '').size() <= 128 &&
+        data.get('propertyId', '') is string &&
+        data.get('propertyId', '').size() > 0 &&
+        data.get('propertyId', '').size() <= 128 &&
+        validOptionalText(data, 'clientId', 128) &&
+        validOptionalText(data, 'propertyTitle', 300) &&
+        validOptionalText(data, 'guestName', 150) &&
+        validOptionalText(data, 'guestPhone', 40) &&
+        validOptionalText(data, 'checkInDate', 60) &&
+        validOptionalText(data, 'checkOutDate', 60) &&
+        validOptionalText(data, 'roomType', 120) &&
+        validOptionalText(data, 'status', 60);
+    }
+
+    function isValidErrorLogDoc(data) {
+      return data.keys().size() <= 20 &&
+        validOptionalText(data, 'message', 5000) &&
+        validOptionalText(data, 'stack', 15000) &&
+        validOptionalText(data, 'context', 10000) &&
+        validOptionalText(data, 'userId', 128) &&
+        validOptionalText(data, 'source', 120) &&
+        validOptionalText(data, 'severity', 32) &&
+        validOptionalText(data, 'status', 40);
+    }
+
+    function isValidInAppNotification(data) {
+      return data.keys().size() <= 25 &&
+        data.keys().hasAll(['title', 'message']) &&
+        data.title is string && data.title.size() > 0 && data.title.size() <= 200 &&
+        data.message is string && data.message.size() > 0 && data.message.size() <= 1000 &&
+        validOptionalText(data, 'userId', 128) &&
+        validOptionalText(data, 'clientId', 128) &&
+        validOptionalText(data, 'supplierId', 128) &&
+        validOptionalText(data, 'type', 60) &&
+        validOptionalText(data, 'link', 1000);
+    }
+
+    function isValidTicketDoc(data) {
+      return data.keys().size() <= 50 &&
+        validOptionalText(data, 'creatorId', 128) &&
+        validOptionalText(data, 'clientId', 128) &&
+        validOptionalText(data, 'supplierId', 128) &&
+        validOptionalText(data, 'subject', 300) &&
+        validOptionalText(data, 'title', 300) &&
+        validOptionalText(data, 'description', 5000) &&
+        validOptionalText(data, 'status', 60) &&
+        validOptionalText(data, 'priority', 40);
+    }
+
+    function isValidMessageDoc(data) {
+      return data.keys().size() <= 40 &&
+        validOptionalText(data, 'senderId', 128) &&
+        validOptionalText(data, 'senderName', 150) &&
+        validOptionalText(data, 'text', 5000) &&
+        validOptionalText(data, 'content', 5000) &&
+        validOptionalText(data, 'message', 5000) &&
+        validOptionalText(data, 'imageUrl', 350000);
+    }
+
+    function isParentOfUser(userData) {
+      return ownsSupplierData(userData.get('parentSupplierId', '')) ||
+        ownsSupplierData(userData.get('createdBy', '')) ||
+        ownsSupplierData(userData.get('supplierId', ''));
+    }
+
+    // Restricted user fields that regular users and parent suppliers can NEVER set or modify
+    function restrictedUserFields() {
+      return [
+        'role', 'accountType', 'isPartner', 'isSupplier', 'isInternalStaff',
+        'isSuperAdmin', 'isAdmin', 'isBlocked', 'subscriptionStatus',
+        'subscriptionEndDate', 'staffProfile', 'partnerProfile',
+        'assignedRayons', 'serviceAttached', 'rayon', 'depositAmount',
+        'trialPeriodDays', 'adminCustomTrial', 'creatorRole', 'createdBy',
+        'parentSupplierId', 'supplierId', 'referredByPartnerId',
+        'partnerBalance', 'partnerTotalEarned', 'referralBalance',
+        'referralTotalEarned', 'referralPaidTotal', 'referralCount',
+        'referralDiscountPending', 'kycStatus', 'kycVerifiedAt',
+        'kycVerifiedBy', 'profileUpdateStatus'
+      ];
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    // Suppliers collection
     match /suppliers/{supplierId} {
-      allow read, write: if isSuperAdmin() || isAdmin() || ownsSupplierData(supplierId);
+      allow read: if isAnyStaff() || ownsSupplierData(supplierId);
+      allow create: if (isGeneralAdmin() || isCatalogStaff() || ownsSupplierData(supplierId)) &&
+        isValidSupplierDoc(request.resource.data);
+      allow update: if (
+        isGeneralAdmin() ||
+        isCatalogStaff() ||
+        (ownsSupplierData(supplierId) && areImmutableFieldsUnchanged([
+          'kycStatus', 'isBlocked', 'subscriptionStatus', 'subscriptionEndDate'
+        ]))
+      ) && isValidSupplierDoc(request.resource.data);
+      allow delete: if isGeneralAdmin();
     }
 
-    // Drivers collection – top‑level with supplierId field
+    // Drivers collection – top-level with supplierId / parentSupplierId
     match /drivers/{driverId} {
-      allow create: if isSuperAdmin() || isAdmin() || ownsSupplierData(request.resource.data.supplierId);
-      allow read, update, delete: if (
-        isSuperAdmin() || isAdmin() || (
-          ownsSupplierData(resource.data.supplierId) ||
-          (resource.data.keys().hasAll(['parentSupplierId']) && ownsSupplierData(resource.data.parentSupplierId))
-        ) || (
-          request.auth != null && request.auth.uid == driverId
-        ) || (
-          isDriver() && request.auth.uid == driverId
-        )
-      );
+      allow read: if isLogisticsStaff() || isFinanceStaff() ||
+        ownsSupplierData(resource.data.get('supplierId', '')) ||
+        ownsSupplierData(resource.data.get('parentSupplierId', '')) ||
+        isOwner(driverId);
+
+      allow create: if (
+        isLogisticsStaff() ||
+        ownsSupplierData(request.resource.data.get('supplierId', ''))
+      ) && isValidDriverDoc(request.resource.data);
+
+      allow update: if (
+        isLogisticsStaff() ||
+        ownsSupplierData(resource.data.get('supplierId', '')) ||
+        ownsSupplierData(resource.data.get('parentSupplierId', '')) ||
+        (isOwner(driverId) && areImmutableFieldsUnchanged(['supplierId', 'parentSupplierId', 'role']))
+      ) && isValidDriverDoc(request.resource.data);
+
+      allow delete: if isLogisticsStaff() ||
+        ownsSupplierData(resource.data.get('supplierId', '')) ||
+        ownsSupplierData(resource.data.get('parentSupplierId', ''));
     }
 
-    // Orders collection – each order contains supplierId, optional driverId, and clientId
+    // Orders collection – compartmentalized to Logistics (R/W) and Finance (R) on staff side
     match /orders/{orderId} {
-      allow create: if request.auth != null && (
-        request.resource.data.clientId == request.auth.uid ||
-        request.resource.data.clientId == 'GUEST' ||
-        isSuperAdmin() || isAdmin() || 
-        ownsSupplierData(request.resource.data.supplierId)
+      allow create: if isAuthenticated() && isValidOrderDoc(request.resource.data) && (
+        request.resource.data.get('clientId', '') == request.auth.uid ||
+        request.resource.data.get('clientId', '') == 'GUEST' ||
+        isLogisticsStaff() ||
+        ownsSupplierData(request.resource.data.get('supplierId', ''))
       );
 
-      allow get: if (
-        resource.data.clientId == 'GUEST' || (
-          request.auth != null && (
-            resource.data.clientId == request.auth.uid ||
-            isSuperAdmin() || isAdmin() || 
-            resource.data.supplierId == request.auth.uid ||
-            ownsSupplierData(resource.data.supplierId) ||
-            (resource.data.keys().hasAll(['supplierIds']) && (
-              (isSupplier() && request.auth.uid in resource.data.supplierIds) || 
-              (isSubSupplier() && request.auth.token.parentSupplierId in resource.data.supplierIds)
-            )) ||
-            (isDriver() && (
-              resource.data.status in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver'] || 
-              resource.data.driverId == request.auth.uid
-            ))
-          )
+      // Guest tracking links (/order/[id]/tracking) require single-doc get when clientId == 'GUEST'
+      allow get: if resource.data.get('clientId', '') == 'GUEST' || (
+        isAuthenticated() && (
+          resource.data.get('clientId', '') == request.auth.uid ||
+          isLogisticsStaff() ||
+          isFinanceStaff() ||
+          resource.data.get('supplierId', '') == request.auth.uid ||
+          ownsSupplierData(resource.data.get('supplierId', '')) ||
+          (resource.data.get('supplierIds', null) is list && (
+            (isSupplier() && request.auth.uid in resource.data.supplierIds) ||
+            (isSubSupplier() && getParentSupplierId() in resource.data.supplierIds)
+          )) ||
+          (isDriver() && (
+            resource.data.get('status', '') in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver'] ||
+            resource.data.get('driverId', '') == request.auth.uid
+          ))
         )
       );
 
-      allow list: if request.auth != null && (
-        resource.data.clientId == request.auth.uid ||
-        isSuperAdmin() || isAdmin() || 
-        resource.data.supplierId == request.auth.uid ||
-        ownsSupplierData(resource.data.supplierId) ||
-        (resource.data.keys().hasAll(['supplierIds']) && (
-          (isSupplier() && request.auth.uid in resource.data.supplierIds) || 
-          (isSubSupplier() && request.auth.token.parentSupplierId in resource.data.supplierIds)
+      // List queries are strictly authenticated (never allow unauthenticated collection listing)
+      allow list: if isAuthenticated() && (
+        resource.data.get('clientId', '') == request.auth.uid ||
+        isLogisticsStaff() ||
+        isFinanceStaff() ||
+        resource.data.get('supplierId', '') == request.auth.uid ||
+        ownsSupplierData(resource.data.get('supplierId', '')) ||
+        (resource.data.get('supplierIds', null) is list && (
+          (isSupplier() && request.auth.uid in resource.data.supplierIds) ||
+          (isSubSupplier() && getParentSupplierId() in resource.data.supplierIds)
         )) ||
         (isDriver() && (
-          resource.data.status in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver'] || 
-          resource.data.driverId == request.auth.uid
+          resource.data.get('status', '') in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver'] ||
+          resource.data.get('driverId', '') == request.auth.uid
         ))
       );
 
-      allow update: if request.auth != null && (
-        isSuperAdmin() || isAdmin() || 
-        ownsSupplierData(resource.data.supplierId) ||
-        (resource.data.clientId == request.auth.uid &&
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+      allow update: if isAuthenticated() && isValidOrderDoc(request.resource.data) && (
+        isLogisticsStaff() ||
+        (ownsSupplierData(resource.data.get('supplierId', '')) &&
+          areImmutableFieldsUnchanged(['supplierId', 'clientId'])) ||
+        (resource.data.get('clientId', '') == request.auth.uid &&
+          areImmutableFieldsUnchanged([
             'totalAmount', 'subtotal', 'remainingBalance', 'paidAmount',
             'paymentStatus', 'paymentReference', 'cashCollectedByDriver',
             'cashHandedOverToSupplier', 'collectedAmount', 'supplierId',
             'supplierIds', 'items', 'clientId', 'driverId'
           ]) &&
-          (request.resource.data.status == resource.data.status ||
-           (request.resource.data.status == 'CANCELLED' && resource.data.status in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver']))
+          (request.resource.data.get('status', '') == resource.data.get('status', '') ||
+           (request.resource.data.get('status', '') == 'CANCELLED' &&
+            resource.data.get('status', '') in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver']))
         ) ||
         (isDriver() &&
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          areImmutableFieldsUnchanged([
             'totalAmount', 'subtotal', 'supplierId', 'supplierIds', 'clientId', 'items'
           ]) && (
-            (request.resource.data.driverId == request.auth.uid && resource.data.status in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver']) ||
-            (resource.data.driverId == request.auth.uid && request.resource.data.driverId == request.auth.uid)
+            (request.resource.data.get('driverId', '') == request.auth.uid &&
+             resource.data.get('status', '') in ['CONFIRMED_AWAITING_DRIVER', 'pending_driver']) ||
+            (resource.data.get('driverId', '') == request.auth.uid &&
+             request.resource.data.get('driverId', '') == request.auth.uid)
           )
         )
       );
 
-      allow delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
+      allow delete: if isLogisticsStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
     }
 
-    // Users collection
+    // Users collection – strict anti-privilege-escalation & SuperAdmin protection
     match /users/{userId} {
-      allow read: if request.auth != null && (
+      allow read: if isAuthenticated() && (
         request.auth.uid == userId ||
-        isSuperAdmin() ||
-        isAdmin() ||
-        (resource.data.keys().hasAll(['parentSupplierId']) && ownsSupplierData(resource.data.parentSupplierId)) ||
-        (resource.data.keys().hasAll(['createdBy']) && ownsSupplierData(resource.data.createdBy)) ||
-        (resource.data.keys().hasAll(['supplierId']) && ownsSupplierData(resource.data.supplierId))
+        isAnyStaff() ||
+        isParentOfUser(resource.data)
       );
 
-      // Update by parent supplier on sub-users (sub-suppliers, drivers, staff) without privilege escalation
-      allow update: if request.auth != null && request.auth.uid != userId && (
-        (resource.data.keys().hasAll(['parentSupplierId']) && ownsSupplierData(resource.data.parentSupplierId)) ||
-        (resource.data.keys().hasAll(['createdBy']) && ownsSupplierData(resource.data.createdBy)) ||
-        (resource.data.keys().hasAll(['supplierId']) && ownsSupplierData(resource.data.supplierId))
-      ) && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-        'role', 'accountType', 'isPartner', 'isSupplier', 'isInternalStaff',
-        'isSuperAdmin', 'isAdmin', 'subscriptionStatus', 'subscriptionEndDate',
-        'staffProfile', 'partnerProfile', 'depositAmount', 'trialPeriodDays',
-        'adminCustomTrial', 'creatorRole', 'createdBy', 'parentSupplierId',
-        'supplierId', 'referredByPartnerId', 'partnerBalance', 'partnerTotalEarned',
-        'referralBalance', 'referralTotalEarned', 'referralPaidTotal',
-        'referralCount', 'referralDiscountPending', 'kycStatus', 'kycVerifiedAt',
-        'kycVerifiedBy', 'profileUpdateStatus'
-      ]);
+      // Create:
+      //  1) SuperAdmin can create any user document
+      //  2) GeneralAdmin can create non-SuperAdmin user documents
+      //  3) Self-registration: strictly limited to client role with zero privileged fields
+      allow create: if isValidUserPayload(request.resource.data) && (
+        isSuperAdmin() ||
+        (isGeneralAdmin() && !isSuperAdminData(request.resource.data)) ||
+        (isOwner(userId) &&
+          (!('role' in request.resource.data) || request.resource.data.role in ['client', 'CLIENT']) &&
+          (!('accountType' in request.resource.data) || request.resource.data.accountType in ['client', 'CLIENT']) &&
+          !request.resource.data.keys().hasAny(restrictedUserFields())
+        )
+      );
 
-      // Create by user themselves (e.g. self-registration): cannot set privileged roles or sensitive fields
-      allow create: if request.auth != null && request.auth.uid == userId &&
-        (!('role' in request.resource.data) || request.resource.data.role in ['client', 'CLIENT']) &&
-        (!('accountType' in request.resource.data) || request.resource.data.accountType in ['client', 'CLIENT']) &&
-        !request.resource.data.keys().hasAny([
-          'isPartner', 'isSupplier', 'isInternalStaff', 'isSuperAdmin', 'isAdmin',
-          'isBlocked', 'subscriptionStatus', 'subscriptionEndDate', 'staffProfile',
-          'partnerProfile', 'assignedRayons', 'serviceAttached', 'rayon',
-          'depositAmount', 'trialPeriodDays', 'adminCustomTrial', 'creatorRole',
-          'createdBy', 'parentSupplierId', 'supplierId', 'referredByPartnerId',
-          'partnerBalance', 'partnerTotalEarned', 'referralBalance',
-          'referralTotalEarned', 'referralPaidTotal', 'referralCount',
-          'referralDiscountPending', 'kycStatus', 'kycVerifiedAt',
-          'kycVerifiedBy', 'profileUpdateStatus'
-        ]);
+      // Update:
+      //  1) SuperAdmin has full update privileges
+      //  2) GeneralAdmin can update non-SuperAdmin accounts, and CANNOT elevate anyone to SuperAdmin
+      //  3) CatalogStaff (incl. Gestionnaire Admin) can update non-staff supplier/client KYC/profile fields,
+      //     strictly blocked from touching role, accountType, isSuperAdmin, isAdmin, isInternalStaff, staffProfile, or balances
+      //  4) LogisticsStaff can activate/update driver status only
+      //  5) Self-update: user can update profile/preferences (preferredLanguage, phone, address, etc.)
+      //     but cannot modify roles, privileges, or system/financial metadata
+      //  6) Parent supplier update on sub-users without privilege escalation
+      allow update: if isValidUserPayload(request.resource.data) && (
+        isSuperAdmin() ||
+        (isGeneralAdmin() &&
+          !isSuperAdminData(resource.data) &&
+          !isSuperAdminData(request.resource.data)
+        ) ||
+        (isCatalogStaff() &&
+          !isSuperAdminData(resource.data) &&
+          !isSuperAdminData(request.resource.data) &&
+          resource.data.get('isInternalStaff', false) != true &&
+          areImmutableFieldsUnchanged([
+            'role', 'accountType', 'isSuperAdmin', 'isAdmin',
+            'isInternalStaff', 'staffProfile',
+            'partnerBalance', 'partnerTotalEarned',
+            'referralBalance', 'referralTotalEarned', 'referralPaidTotal'
+          ])
+        ) ||
+        (isLogisticsStaff() &&
+          resource.data.get('role', '') in [
+            'driver', 'DRIVER', 'livreur', 'LIVREUR', 'chauffeur', 'CHAUFFEUR'
+          ] &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+        ) ||
+        (isOwner(userId) && areImmutableFieldsUnchanged(restrictedUserFields())) ||
+        (isAuthenticated() && request.auth.uid != userId &&
+          isParentOfUser(resource.data) &&
+          areImmutableFieldsUnchanged(restrictedUserFields())
+        )
+      );
 
-      // Update by user themselves: strictly prevent modifying privileges or sensitive system metadata
-      allow update: if request.auth != null && request.auth.uid == userId &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'role', 'accountType', 'isPartner', 'isSupplier', 'isInternalStaff',
-          'isSuperAdmin', 'isAdmin', 'isBlocked', 'subscriptionStatus',
-          'subscriptionEndDate', 'staffProfile', 'partnerProfile',
-          'assignedRayons', 'serviceAttached', 'rayon', 'depositAmount',
-          'trialPeriodDays', 'adminCustomTrial', 'creatorRole', 'createdBy',
-          'parentSupplierId', 'supplierId', 'referredByPartnerId',
-          'partnerBalance', 'partnerTotalEarned', 'referralBalance',
-          'referralTotalEarned', 'referralPaidTotal', 'referralCount',
-          'referralDiscountPending', 'kycStatus', 'kycVerifiedAt',
-          'kycVerifiedBy', 'profileUpdateStatus'
-        ]);
-
-      // SuperAdmin and Admin have full write privileges
-      allow write: if isSuperAdmin() || isAdmin();
+      // Delete: SuperAdmin, or GeneralAdmin on non-SuperAdmin accounts only
+      allow delete: if isSuperAdmin() ||
+        (isGeneralAdmin() && !isSuperAdminData(resource.data));
     }
 
-    // Chats collection
+    // Chats collection (Client <-> Supplier messaging, Support moderation)
     match /chats/{chatId} {
-      allow create: if request.auth != null && (
-        request.resource.data.clientId == request.auth.uid ||
-        request.resource.data.supplierId == request.auth.uid ||
-        ownsSupplierData(request.resource.data.supplierId) ||
-        isSuperAdmin() || isAdmin()
+      allow create: if isAuthenticated() && request.resource.data.keys().size() <= 40 && (
+        request.resource.data.get('clientId', '') == request.auth.uid ||
+        request.resource.data.get('supplierId', '') == request.auth.uid ||
+        ownsSupplierData(request.resource.data.get('supplierId', '')) ||
+        isSupportStaff()
       );
-      allow read, update: if request.auth != null && (
-        resource.data.clientId == request.auth.uid || 
-        resource.data.supplierId == request.auth.uid ||
-        ownsSupplierData(resource.data.supplierId) ||
-        isSuperAdmin() || isAdmin()
+      allow read: if isAuthenticated() && (
+        resource.data.get('clientId', '') == request.auth.uid ||
+        resource.data.get('supplierId', '') == request.auth.uid ||
+        ownsSupplierData(resource.data.get('supplierId', '')) ||
+        isSupportStaff()
       );
+      allow update: if isAuthenticated() && request.resource.data.keys().size() <= 40 && (
+        isSupportStaff() ||
+        ((resource.data.get('clientId', '') == request.auth.uid ||
+          resource.data.get('supplierId', '') == request.auth.uid ||
+          ownsSupplierData(resource.data.get('supplierId', ''))) &&
+          areImmutableFieldsUnchanged(['clientId', 'supplierId']))
+      );
+      allow delete: if isGeneralAdmin();
 
       match /messages/{messageId} {
-        allow read: if request.auth != null && (
-          !exists(/databases/$(database)/documents/chats/$(chatId)) ||
-          get(/databases/$(database)/documents/chats/$(chatId)).data.clientId == request.auth.uid ||
-          get(/databases/$(database)/documents/chats/$(chatId)).data.supplierId == request.auth.uid ||
-          ownsSupplierData(get(/databases/$(database)/documents/chats/$(chatId)).data.supplierId) ||
-          isSuperAdmin() || isAdmin()
+        function chatExists() {
+          return exists(/databases/$(database)/documents/chats/$(chatId));
+        }
+        function chatData() {
+          return get(/databases/$(database)/documents/chats/$(chatId)).data;
+        }
+        function isChatParticipant() {
+          return !chatExists() ||
+            chatData().get('clientId', '') == request.auth.uid ||
+            chatData().get('supplierId', '') == request.auth.uid ||
+            ownsSupplierData(chatData().get('supplierId', ''));
+        }
+
+        allow read: if isAuthenticated() && (isSupportStaff() || isChatParticipant());
+        allow create: if isAuthenticated() && isValidMessageDoc(request.resource.data) && (
+          isSupportStaff() ||
+          (isChatParticipant() && (
+            request.resource.data.get('senderId', '') == request.auth.uid ||
+            ownsSupplierData(request.resource.data.get('senderId', ''))
+          ))
         );
-        allow create, write: if request.auth != null && (
-          isSuperAdmin() || isAdmin() || (
-            (
-              !exists(/databases/$(database)/documents/chats/$(chatId)) ||
-              get(/databases/$(database)/documents/chats/$(chatId)).data.clientId == request.auth.uid ||
-              get(/databases/$(database)/documents/chats/$(chatId)).data.supplierId == request.auth.uid ||
-              ownsSupplierData(get(/databases/$(database)/documents/chats/$(chatId)).data.supplierId)
-            ) && (
-              request.resource.data.senderId == request.auth.uid ||
-              ownsSupplierData(request.resource.data.senderId)
-            )
-          )
+        allow update: if isAuthenticated() && isValidMessageDoc(request.resource.data) && (
+          isSupportStaff() ||
+          (isChatParticipant() &&
+            (resource.data.get('senderId', '') == request.auth.uid ||
+             ownsSupplierData(resource.data.get('senderId', ''))) &&
+            areImmutableFieldsUnchanged(['senderId', 'createdAt']))
         );
+        allow delete: if isSupportStaff();
       }
     }
 
-    // Products collection: Admins and owners can create, update, delete
+    // Products collection: Public read, Catalog Staff & Owner Supplier writes
     match /products/{productId} {
       allow read: if true;
-      allow create: if isSuperAdmin() || isAdmin() || ownsSupplierData(request.resource.data.supplierId);
-      allow update, delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
+      allow create: if (isCatalogStaff() || ownsSupplierData(request.resource.data.get('supplierId', ''))) &&
+        isValidCatalogItem(request.resource.data);
+      allow update: if (
+        isCatalogStaff() ||
+        (ownsSupplierData(resource.data.get('supplierId', '')) && areImmutableFieldsUnchanged(['supplierId']))
+      ) && isValidCatalogItem(request.resource.data);
+      allow delete: if isCatalogStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
 
       match /reviews/{reviewId} {
         allow read: if true;
-        allow create: if request.auth != null && request.resource.data.clientId == request.auth.uid;
-        allow update, delete: if isSuperAdmin() || isAdmin();
+        allow create: if isAuthenticated() &&
+          request.resource.data.get('clientId', '') == request.auth.uid &&
+          isValidReview(request.resource.data);
+        allow update: if (isCatalogStaff() || isSupportStaff()) && isValidReview(request.resource.data);
+        allow delete: if isCatalogStaff() || isSupportStaff();
       }
     }
 
-    match /invoices/{invoiceId} {
-      allow create: if isSuperAdmin() || isAdmin() || ownsSupplierData(request.resource.data.supplierId);
-      allow read, update, delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
-    }
-
+    // Properties collection (Real Estate & Hotels): Public read, Catalog Staff & Owner Supplier writes
     match /properties/{propertyId} {
-      allow read: if true; // Public can see properties
-      allow create: if isSuperAdmin() || isAdmin() || ownsSupplierData(request.resource.data.supplierId);
-      allow update, delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
+      allow read: if true;
+      allow create: if (isCatalogStaff() || ownsSupplierData(request.resource.data.get('supplierId', ''))) &&
+        isValidCatalogItem(request.resource.data);
+      allow update: if (
+        isCatalogStaff() ||
+        (ownsSupplierData(resource.data.get('supplierId', '')) && areImmutableFieldsUnchanged(['supplierId']))
+      ) && isValidCatalogItem(request.resource.data);
+      allow delete: if isCatalogStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
 
       match /reviews/{reviewId} {
         allow read: if true;
-        allow create: if request.auth != null && request.resource.data.clientId == request.auth.uid;
-        allow update, delete: if isSuperAdmin() || isAdmin();
+        allow create: if isAuthenticated() &&
+          request.resource.data.get('clientId', '') == request.auth.uid &&
+          isValidReview(request.resource.data);
+        allow update: if (isCatalogStaff() || isSupportStaff()) && isValidReview(request.resource.data);
+        allow delete: if isCatalogStaff() || isSupportStaff();
       }
     }
 
-    match /tenants/{tenantId} {
-      allow create: if isSuperAdmin() || isAdmin() || ownsSupplierData(request.resource.data.supplierId);
-      allow read, update, delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
+    // Supplier Invoices & Payments (Finance Staff + Owner Supplier)
+    match /invoices/{invoiceId} {
+      allow create: if (isFinanceStaff() || ownsSupplierData(request.resource.data.get('supplierId', ''))) &&
+        isValidFinanceDoc(request.resource.data);
+      allow read: if isFinanceStaff() ||
+        ownsSupplierData(resource.data.get('supplierId', '')) ||
+        (isAuthenticated() && resource.data.get('clientId', '') == request.auth.uid);
+      allow update: if (
+        isFinanceStaff() ||
+        (ownsSupplierData(resource.data.get('supplierId', '')) && areImmutableFieldsUnchanged(['supplierId']))
+      ) && isValidFinanceDoc(request.resource.data);
+      allow delete: if isFinanceStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
     }
 
     match /payments/{paymentId} {
-      allow create: if isSuperAdmin() || isAdmin() || ownsSupplierData(request.resource.data.supplierId);
-      allow read, update, delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
+      allow create: if (isFinanceStaff() || ownsSupplierData(request.resource.data.get('supplierId', ''))) &&
+        isValidFinanceDoc(request.resource.data);
+      allow read: if isFinanceStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
+      allow update: if (
+        isFinanceStaff() ||
+        (ownsSupplierData(resource.data.get('supplierId', '')) && areImmutableFieldsUnchanged(['supplierId']))
+      ) && isValidFinanceDoc(request.resource.data);
+      allow delete: if isFinanceStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
     }
 
+    // Immo Tenants, Maintenance Tickets & Payment Reminders (Owner Supplier + Catalog/Finance Staff)
+    match /tenants/{tenantId} {
+      allow create: if (isCatalogStaff() || isFinanceStaff() || ownsSupplierData(request.resource.data.get('supplierId', ''))) &&
+        request.resource.data.keys().size() <= 60;
+      allow read: if isCatalogStaff() || isFinanceStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
+      allow update: if (
+        isCatalogStaff() || isFinanceStaff() ||
+        (ownsSupplierData(resource.data.get('supplierId', '')) && areImmutableFieldsUnchanged(['supplierId']))
+      ) && request.resource.data.keys().size() <= 60;
+      allow delete: if isCatalogStaff() || isFinanceStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
+    }
+
+    match /maintenance_tickets/{ticketId} {
+      allow create: if (isCatalogStaff() || isSupportStaff() || ownsSupplierData(request.resource.data.get('supplierId', ''))) &&
+        request.resource.data.keys().size() <= 40;
+      allow read: if isCatalogStaff() || isSupportStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
+      allow update: if (
+        isCatalogStaff() || isSupportStaff() ||
+        (ownsSupplierData(resource.data.get('supplierId', '')) && areImmutableFieldsUnchanged(['supplierId']))
+      ) && request.resource.data.keys().size() <= 40;
+      allow delete: if isCatalogStaff() || isSupportStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
+    }
+
+    match /relances/{relanceId} {
+      allow create: if (isFinanceStaff() || ownsSupplierData(request.resource.data.get('supplierId', ''))) &&
+        request.resource.data.keys().size() <= 40;
+      allow read: if isFinanceStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
+      allow update: if (
+        isFinanceStaff() ||
+        (ownsSupplierData(resource.data.get('supplierId', '')) && areImmutableFieldsUnchanged(['supplierId']))
+      ) && request.resource.data.keys().size() <= 40;
+      allow delete: if isFinanceStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
+    }
+
+    // Property Visits (Publicly creatable with payload & size validation)
     match /visits/{visitId} {
-      allow create: if true; // Public can request a visit
-      // Le client peut consulter (lecture seule) ses propres demandes de visite
-      allow read: if request.auth != null && resource.data.clientId == request.auth.uid;
-      allow read, update, delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
+      allow create: if isValidVisitDoc(request.resource.data) &&
+        (!('status' in request.resource.data) || request.resource.data.status == 'PENDING') &&
+        (!('clientId' in request.resource.data) || request.resource.data.clientId == null ||
+         (isAuthenticated() && request.resource.data.clientId == request.auth.uid));
+
+      allow read: if isCatalogStaff() || isSupportStaff() ||
+        ownsSupplierData(resource.data.get('supplierId', '')) ||
+        (isAuthenticated() && resource.data.get('clientId', '') == request.auth.uid);
+
+      allow update: if isValidVisitDoc(request.resource.data) && (
+        isCatalogStaff() || isSupportStaff() ||
+        (ownsSupplierData(resource.data.get('supplierId', '')) &&
+          areImmutableFieldsUnchanged(['supplierId', 'propertyId']))
+      );
+
+      allow delete: if isCatalogStaff() || isSupportStaff() ||
+        ownsSupplierData(resource.data.get('supplierId', ''));
     }
 
-    match /error_logs/{logId} {
-      allow create: if true; // Anyone can generate an error log
-      allow read, update, delete: if isSuperAdmin() || isAdmin();
-    }
-
-    match /accounting_ledger/{entryId} {
-      allow read, write: if isSuperAdmin() || isAdmin();
-    }
-
+    // Hotel Bookings (Publicly creatable with payload & size validation)
     match /hotel_bookings/{bookingId} {
-      allow create: if true;
-      allow read, update, delete: if ownsSupplierData(resource.data.supplierId) || 
-                                     isSuperAdmin() || 
-                                     isAdmin() || 
-                                     (request.auth != null && resource.data.clientId == request.auth.uid);
+      allow create: if isValidHotelBookingDoc(request.resource.data) &&
+        (!('status' in request.resource.data) || request.resource.data.status == 'PENDING') &&
+        (!('clientId' in request.resource.data) || request.resource.data.clientId == null ||
+         (isAuthenticated() && request.resource.data.clientId == request.auth.uid));
+
+      allow read: if isCatalogStaff() || isSupportStaff() ||
+        ownsSupplierData(resource.data.get('supplierId', '')) ||
+        (isAuthenticated() && resource.data.get('clientId', '') == request.auth.uid);
+
+      allow update: if isValidHotelBookingDoc(request.resource.data) && (
+        isCatalogStaff() || isSupportStaff() ||
+        (ownsSupplierData(resource.data.get('supplierId', '')) &&
+          areImmutableFieldsUnchanged(['supplierId', 'propertyId'])) ||
+        (isAuthenticated() && resource.data.get('clientId', '') == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+          request.resource.data.get('status', '') == 'CANCELLED')
+      );
+
+      allow delete: if isCatalogStaff() || isSupportStaff() ||
+        ownsSupplierData(resource.data.get('supplierId', ''));
+    }
+
+    // Error Logs (Public creation with strict anti-spam key/size limits; Admin/Catalog reads & triage)
+    match /error_logs/{logId} {
+      allow create: if isValidErrorLogDoc(request.resource.data);
+      allow read, delete: if isGeneralAdmin() || isCatalogStaff();
+      allow update: if (isGeneralAdmin() || isCatalogStaff()) && isValidErrorLogDoc(request.resource.data);
+    }
+
+    // Strictly Compartmentalized Financial Collections (ONLY Finance Staff / GeneralAdmin / SuperAdmin)
+    // Explicitly blocks SUPPORT_CLIENT, RESPONSABLE_LOGISTIQUE, RESPONSABLE_CATALOGUE
+    match /accounting_ledger/{entryId} {
+      allow read, delete: if isFinanceStaff();
+      allow create, update: if isFinanceStaff() && isValidFinanceDoc(request.resource.data);
     }
 
     match /transactions/{transactionId} {
-      allow read, write: if isSuperAdmin() || isAdmin();
+      allow read, delete: if isFinanceStaff();
+      allow create, update: if isFinanceStaff() && isValidFinanceDoc(request.resource.data);
     }
 
     match /supplier_transactions/{transactionId} {
-      allow create: if isSuperAdmin() || isAdmin() || ownsSupplierData(request.resource.data.supplierId);
-      allow read, update, delete: if isSuperAdmin() || isAdmin() || ownsSupplierData(resource.data.supplierId);
-      allow read, write: if isSuperAdmin() || isAdmin();
+      allow create: if (isFinanceStaff() || ownsSupplierData(request.resource.data.get('supplierId', ''))) &&
+        isValidFinanceDoc(request.resource.data);
+      allow read: if isFinanceStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
+      allow update: if (
+        isFinanceStaff() ||
+        (ownsSupplierData(resource.data.get('supplierId', '')) && areImmutableFieldsUnchanged(['supplierId']))
+      ) && isValidFinanceDoc(request.resource.data);
+      allow delete: if isFinanceStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
     }
 
+    // System Notifications
     match /notifications/{notifId} {
-      allow create: if isSuperAdmin() || isAdmin();
-      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if (
+        isGeneralAdmin() || isSupportStaff() || isCatalogStaff() ||
+        isFinanceStaff() || isLogisticsStaff()
+      ) && request.resource.data.keys().size() <= 25;
+      allow read, delete: if isAnyStaff() ||
+        (isAuthenticated() && resource.data.get('userId', '') == request.auth.uid);
+      allow update: if (
+        isAnyStaff() ||
+        (isAuthenticated() && resource.data.get('userId', '') == request.auth.uid &&
+          areImmutableFieldsUnchanged(['userId']))
+      ) && request.resource.data.keys().size() <= 25;
     }
 
+    // In-App Notifications – CRITICAL anti-spoofing fix (blocks regular users from setting sentByAdmin: true)
     match /inapp_notifications/{notifId} {
-      allow create: if request.auth != null;
-      allow read, update, delete: if isSuperAdmin() || isAdmin() || (
-        ownsSupplierData(resource.data.supplierId)
-      ) || (
-        request.auth != null && (resource.data.userId == request.auth.uid || resource.data.clientId == request.auth.uid)
+      allow create: if isValidInAppNotification(request.resource.data) && (
+        isGeneralAdmin() || isSupportStaff() || isCatalogStaff() ||
+        isFinanceStaff() || isLogisticsStaff() ||
+        (isAuthenticated() &&
+          (!('sentByAdmin' in request.resource.data) || request.resource.data.sentByAdmin == false) &&
+          request.resource.data.keys().size() <= 20
+        )
+      );
+
+      allow read, delete: if isAnyStaff() ||
+        ownsSupplierData(resource.data.get('supplierId', '')) ||
+        (isAuthenticated() && (
+          resource.data.get('userId', '') == request.auth.uid ||
+          resource.data.get('clientId', '') == request.auth.uid
+        ));
+
+      allow update: if isValidInAppNotification(request.resource.data) && (
+        isAnyStaff() ||
+        ((ownsSupplierData(resource.data.get('supplierId', '')) ||
+          (isAuthenticated() && (
+            resource.data.get('userId', '') == request.auth.uid ||
+            resource.data.get('clientId', '') == request.auth.uid
+          ))) &&
+          areImmutableFieldsUnchanged(['sentByAdmin', 'userId', 'clientId', 'supplierId', 'title', 'message'])
+        )
       );
     }
 
-    // Programme de parrainage (codes, filleuls, commissions, invitations)
+    // Referral Program (Finance Staff / General Admin writes)
     match /referral_codes/{code} {
-      allow read: if true; // Pour validation du code promo à l'inscription
-      allow write: if isSuperAdmin() || isAdmin();
+      allow read: if true; // Public validation of referral code during registration
+      allow create, update: if (isFinanceStaff() || isGeneralAdmin()) && request.resource.data.keys().size() <= 30;
+      allow delete: if isFinanceStaff() || isGeneralAdmin();
     }
 
     match /referrals/{filleulId} {
-      allow read: if request.auth != null && (
-        isSuperAdmin() || isAdmin() ||
-        resource.data.referrerId == request.auth.uid ||
-        ownsSupplierData(resource.data.referrerId) ||
-        resource.data.filleulId == request.auth.uid ||
-        ownsSupplierData(resource.data.filleulId)
+      allow read: if isAuthenticated() && (
+        isFinanceStaff() || isGeneralAdmin() ||
+        resource.data.get('referrerId', '') == request.auth.uid ||
+        ownsSupplierData(resource.data.get('referrerId', '')) ||
+        resource.data.get('filleulId', '') == request.auth.uid ||
+        ownsSupplierData(resource.data.get('filleulId', ''))
       );
-      allow write: if isSuperAdmin() || isAdmin();
+      allow create, update: if (isFinanceStaff() || isGeneralAdmin()) && request.resource.data.keys().size() <= 50;
+      allow delete: if isFinanceStaff() || isGeneralAdmin();
     }
 
     match /referral_commissions/{commissionId} {
-      allow read: if request.auth != null && (
-        isSuperAdmin() || isAdmin() ||
-        resource.data.referrerId == request.auth.uid ||
-        ownsSupplierData(resource.data.referrerId)
+      allow read: if isAuthenticated() && (
+        isFinanceStaff() || isGeneralAdmin() ||
+        resource.data.get('referrerId', '') == request.auth.uid ||
+        ownsSupplierData(resource.data.get('referrerId', ''))
       );
-      allow write: if isSuperAdmin() || isAdmin();
+      allow create, update: if (isFinanceStaff() || isGeneralAdmin()) && isValidFinanceDoc(request.resource.data);
+      allow delete: if isFinanceStaff() || isGeneralAdmin();
     }
 
     match /referral_invites/{inviteId} {
-      allow read: if request.auth != null && (
-        isSuperAdmin() || isAdmin() ||
-        resource.data.referrerId == request.auth.uid ||
-        ownsSupplierData(resource.data.referrerId)
+      allow read: if isAuthenticated() && (
+        isFinanceStaff() || isGeneralAdmin() ||
+        resource.data.get('referrerId', '') == request.auth.uid ||
+        ownsSupplierData(resource.data.get('referrerId', ''))
       );
-      allow write: if isSuperAdmin() || isAdmin();
+      allow create, update: if (isFinanceStaff() || isGeneralAdmin()) && request.resource.data.keys().size() <= 40;
+      allow delete: if isFinanceStaff() || isGeneralAdmin();
     }
 
-    // Platform Settings & Configuration (Multi-devise, Taux de change, etc.)
+    // Platform Settings & Configuration (Public read; ONLY SuperAdmin/GeneralAdmin, or FinanceStaff on 'financial')
     match /settings/{docId} {
-      allow read: if true; // Public/clients can read exchange rates for live currency conversion
-      allow write: if isSuperAdmin() || isAdmin();
+      allow read: if true;
+      allow write: if isSuperAdmin() || isGeneralAdmin() || (docId == 'financial' && isFinanceStaff());
     }
 
     // Product Categories / Rayons
     match /categories/{catId} {
-      allow read: if true; // Anyone can read categories
-      allow write: if isSuperAdmin() || isAdmin();
+      allow read: if true;
+      allow create, update: if (isSuperAdmin() || isGeneralAdmin() || isCatalogStaff()) &&
+        isValidCategory(request.resource.data);
+      allow delete: if isSuperAdmin() || isGeneralAdmin() || isCatalogStaff();
     }
 
-    // Cron run records (idempotency logs — admin only)
+    // Cron Run Records (Idempotency logs – GeneralAdmin/SuperAdmin only)
     match /cron_runs/{runId} {
-      allow read, write: if isSuperAdmin() || isAdmin();
+      allow read, write: if isGeneralAdmin();
     }
 
-    // Push Notifications Campaigns & Devices
+    // Push Campaigns & Devices
     match /push_campaigns/{campaignId} {
-      allow read, write: if isSuperAdmin() || isAdmin();
+      allow read, write: if isGeneralAdmin() || isGestionnaireAdmin();
     }
 
     match /push_devices/{deviceId} {
-      allow read, write: if isSuperAdmin() || isAdmin();
+      allow read, write: if isGeneralAdmin();
     }
 
-    // Tickets & Support Desk (Clients, Fournisseurs, Admins)
+    // Tickets & Support Desk (Support Staff + Ticket Creator/Client/Supplier)
     match /tickets/{ticketId} {
-      allow create: if request.auth != null && (
-        request.resource.data.creatorId == request.auth.uid ||
-        isSuperAdmin() || isAdmin()
+      allow create: if isAuthenticated() && isValidTicketDoc(request.resource.data) && (
+        request.resource.data.get('creatorId', '') == request.auth.uid ||
+        isSupportStaff()
       );
-      allow read: if isSuperAdmin() || isAdmin() || (
-        request.auth != null && (
-          resource.data.creatorId == request.auth.uid ||
-          resource.data.clientId == request.auth.uid ||
-          (resource.data.keys().hasAll(['supplierId']) && (resource.data.supplierId == request.auth.uid || ownsSupplierData(resource.data.supplierId)))
+
+      allow read: if isSupportStaff() || (
+        isAuthenticated() && (
+          resource.data.get('creatorId', '') == request.auth.uid ||
+          resource.data.get('clientId', '') == request.auth.uid ||
+          resource.data.get('supplierId', '') == request.auth.uid ||
+          ownsSupplierData(resource.data.get('supplierId', ''))
         )
       );
-      allow update: if isSuperAdmin() || isAdmin() || (
-        request.auth != null && (
-          resource.data.creatorId == request.auth.uid ||
-          resource.data.clientId == request.auth.uid ||
-          (resource.data.keys().hasAll(['supplierId']) && (resource.data.supplierId == request.auth.uid || ownsSupplierData(resource.data.supplierId)))
-        ) && (
-          // Seul l'administrateur peut modifier le statut ou archiver le ticket
-          request.resource.data.status == resource.data.status &&
-          request.resource.data.isArchived == resource.data.isArchived
+
+      allow update: if isValidTicketDoc(request.resource.data) && (
+        isSupportStaff() || (
+          isAuthenticated() && (
+            resource.data.get('creatorId', '') == request.auth.uid ||
+            resource.data.get('clientId', '') == request.auth.uid ||
+            resource.data.get('supplierId', '') == request.auth.uid ||
+            ownsSupplierData(resource.data.get('supplierId', ''))
+          ) &&
+          // Only support staff can alter ticket status, archival flag, or ownership fields
+          areImmutableFieldsUnchanged(['status', 'isArchived', 'creatorId', 'clientId', 'supplierId'])
         )
       );
-      allow delete: if isSuperAdmin() || isAdmin();
+
+      allow delete: if isSupportStaff();
 
       match /messages/{messageId} {
-        allow read: if request.auth != null && (
-          isSuperAdmin() || isAdmin() ||
-          !exists(/databases/$(database)/documents/tickets/$(ticketId)) ||
-          get(/databases/$(database)/documents/tickets/$(ticketId)).data.creatorId == request.auth.uid ||
-          get(/databases/$(database)/documents/tickets/$(ticketId)).data.clientId == request.auth.uid ||
-          (get(/databases/$(database)/documents/tickets/$(ticketId)).data.keys().hasAll(['supplierId']) && (
-            get(/databases/$(database)/documents/tickets/$(ticketId)).data.supplierId == request.auth.uid ||
-            ownsSupplierData(get(/databases/$(database)/documents/tickets/$(ticketId)).data.supplierId)
-          ))
+        function ticketExists() {
+          return exists(/databases/$(database)/documents/tickets/$(ticketId));
+        }
+        function ticketData() {
+          return get(/databases/$(database)/documents/tickets/$(ticketId)).data;
+        }
+        function isTicketParticipant() {
+          return ticketData().get('creatorId', '') == request.auth.uid ||
+            ticketData().get('clientId', '') == request.auth.uid ||
+            ticketData().get('supplierId', '') == request.auth.uid ||
+            ownsSupplierData(ticketData().get('supplierId', ''));
+        }
+        function isTicketOpen() {
+          return ticketExists() &&
+            ticketData().get('status', '') != 'closed' &&
+            ticketData().get('status', '') != 'resolved' &&
+            ticketData().get('isArchived', false) != true;
+        }
+
+        allow read: if isAuthenticated() && (
+          isSupportStaff() ||
+          !ticketExists() ||
+          isTicketParticipant()
         );
-        allow create, write: if request.auth != null && (
-          isSuperAdmin() || isAdmin() || (
-            // Personne ne peut écrire si le ticket est clôturé ou archivé
-            exists(/databases/$(database)/documents/tickets/$(ticketId)) &&
-            get(/databases/$(database)/documents/tickets/$(ticketId)).data.status != 'closed' &&
-            get(/databases/$(database)/documents/tickets/$(ticketId)).data.status != 'resolved' &&
-            (!get(/databases/$(database)/documents/tickets/$(ticketId)).data.keys().hasAll(['isArchived']) || !get(/databases/$(database)/documents/tickets/$(ticketId)).data.isArchived) && (
-              get(/databases/$(database)/documents/tickets/$(ticketId)).data.creatorId == request.auth.uid ||
-              get(/databases/$(database)/documents/tickets/$(ticketId)).data.clientId == request.auth.uid ||
-              (get(/databases/$(database)/documents/tickets/$(ticketId)).data.keys().hasAll(['supplierId']) && (
-                get(/databases/$(database)/documents/tickets/$(ticketId)).data.supplierId == request.auth.uid ||
-                ownsSupplierData(get(/databases/$(database)/documents/tickets/$(ticketId)).data.supplierId)
-              ))
-            )
-          )
+
+        allow create: if isAuthenticated() && isValidMessageDoc(request.resource.data) && (
+          isSupportStaff() ||
+          (isTicketOpen() && isTicketParticipant())
         );
+
+        allow update: if isAuthenticated() && isValidMessageDoc(request.resource.data) && (
+          isSupportStaff() ||
+          (isTicketOpen() && isTicketParticipant() &&
+            resource.data.get('senderId', '') == request.auth.uid &&
+            areImmutableFieldsUnchanged(['senderId', 'createdAt']))
+        );
+
+        allow delete: if isSupportStaff();
       }
+    }
+
+    // Explicit default deny for all unmatched paths
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

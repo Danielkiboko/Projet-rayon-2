@@ -1,3 +1,5 @@
+import { hasStaffPermission } from "@/domain/permissions";
+
 const superAdminEmailsEnv = (
   typeof process !== "undefined"
     ? process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS || process.env.SUPER_ADMIN_EMAILS || "danielkiboko218@gmail.com,admin@rayons.net"
@@ -63,30 +65,56 @@ export const hasAdminAccess = (user: any, userData: any): boolean => {
 };
 
 /**
- * Role-specific permissions for internal staff
+ * Role-specific permissions for internal staff.
+ * Délègue à la source de vérité unique `src/domain/permissions.ts` (`hasStaffPermission`)
+ * afin de couvrir à la fois les anciens rôles (ADMIN_FINANCE, ADMIN_OPS, ADMIN_DB)
+ * ET les postes fonctionnaires modernes (`staffProfile.positions`).
  */
+function buildPermissionSubject(user: any, userData: any) {
+  return {
+    ...(userData || {}),
+    email: user?.email || userData?.email || "",
+  };
+}
+
 export const canAccessFinance = (user: any, userData: any): boolean => {
-  const role = (userData?.role || "").toUpperCase();
-  return isSuperAdmin(user, userData) || role === "ADMIN_FINANCE" || role === "SUB_ADMIN" || role === "ADMIN";
+  if (isSuperAdmin(user, userData)) return true;
+  const subject = buildPermissionSubject(user, userData);
+  return (
+    hasStaffPermission(subject, "finance.view") ||
+    hasStaffPermission(subject, "finance.cash") ||
+    hasStaffPermission(subject, "subscriptions.manage")
+  );
 };
 
 export const canAccessDatabase = (user: any, userData: any): boolean => {
-  const role = (userData?.role || "").toUpperCase();
-  return isSuperAdmin(user, userData) || role === "ADMIN_DB" || role === "ADMIN_TECH" || role === "SUB_ADMIN" || role === "ADMIN";
+  if (isSuperAdmin(user, userData)) return true;
+  const subject = buildPermissionSubject(user, userData);
+  return (
+    hasStaffPermission(subject, "products.moderate") ||
+    hasStaffPermission(subject, "properties.moderate")
+  );
 };
 
 export const canAccessOperations = (user: any, userData: any): boolean => {
-  const role = (userData?.role || "").toUpperCase();
-  return isSuperAdmin(user, userData) || role === "ADMIN_OPS" || role === "SUB_ADMIN" || role === "ADMIN";
+  if (isSuperAdmin(user, userData)) return true;
+  const subject = buildPermissionSubject(user, userData);
+  return (
+    hasStaffPermission(subject, "drivers.manage") ||
+    hasStaffPermission(subject, "deliveries.dispatch") ||
+    hasStaffPermission(subject, "orders.manage")
+  );
 };
 
 export const getRoleTitle = (role?: string): string => {
   const r = (role || "").toUpperCase();
   if (r.includes("SUPER")) return "Directeur Général (Super Admin)";
   if (r === "SUB_ADMIN" || r === "SUBADMIN" || r === "ADMIN") return "Sous-Administrateur Général";
-  if (r.includes("FINANCE")) return "Gestionnaire Financier & Comptabilité";
-  if (r.includes("DB") || r.includes("TECH")) return "Gestionnaire Base de Données & Catalogue";
-  if (r.includes("OPS")) return "Gestionnaire des Opérations & Logistique";
+  if (r.includes("FINANCE") || r === "RESPONSABLE_FINANCIER") return "Responsable Financier & Caisse";
+  if (r.includes("DB") || r.includes("TECH") || r === "RESPONSABLE_CATALOGUE") return "Responsable Catalogue & BDD";
+  if (r.includes("OPS") || r === "RESPONSABLE_LOGISTIQUE") return "Responsable Logistique & Livraisons";
+  if (r === "SUPPORT_CLIENT" || r.includes("SUPPORT")) return "Support Client & Assistance";
+  if (r === "GESTIONNAIRE_ADMIN") return "Gestionnaire Administratif";
   return "Collaborateur";
 };
 

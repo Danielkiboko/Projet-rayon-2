@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { getServerCaller, SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
+import { SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
+import { requireAnyStaffPermission } from "@/server/guards";
 
 export async function GET(req: NextRequest) {
   try {
-    const caller = await getServerCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
-    }
+    const guard = await requireAnyStaffPermission(req, ["finance.view", "finance.cash", "settings.system"]);
+    if (!guard.ok) return guard.errorResponse!;
 
     const platformDoc = await adminDb.collection("settings").doc("platform").get();
     const data = platformDoc.exists ? platformDoc.data() : {};
@@ -53,10 +52,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const caller = await getServerCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
-    }
+    const guard = await requireAnyStaffPermission(req, ["finance.cash", "settings.system"]);
+    if (!guard.ok || !guard.caller) return guard.errorResponse!;
+    const caller = guard.caller;
 
     const body = await req.json();
     const { action, proposalData, rejectionReason } = body;

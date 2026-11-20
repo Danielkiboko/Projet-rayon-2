@@ -13,7 +13,7 @@ import { generateOrderInvoicePDF } from "@/lib/invoiceGenerator";
 import { useCurrency } from "@/context/CurrencyContext";
 
 // Dynamically import the map component so it doesn't break SSR
-const TrackingMap = dynamic(() => import("@/modules/client/components/TrackingMap"), {
+const TrackingMap = dynamic(() => import("@/modules/shared/components/maps/TrackingMap"), {
   ssr: false,
   loading: () => <div className="h-full w-full bg-gray-100 flex items-center justify-center">Chargement de la carte...</div>
 });

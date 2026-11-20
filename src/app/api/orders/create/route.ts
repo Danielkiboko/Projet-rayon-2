@@ -33,7 +33,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const clientId = authenticatedUid || body.clientId || "GUEST";
+    // Sécurité anti-usurpation : jamais faire confiance à body.clientId sans token Firebase vérifié
+    const clientId = authenticatedUid || "GUEST";
 
     // 2. Validation des coordonnées requises
     if (!clientName?.trim()) {

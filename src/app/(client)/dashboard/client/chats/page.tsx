@@ -3,7 +3,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { ClientChatsWidget } from "@/modules/supplier/components/ClientChatsWidget";
+import { ClientChatsWidget } from "@/modules/client/components/ClientChatsWidget";
 import AlibabaClientBottomNav from "@/modules/client/components/AlibabaClientBottomNav";
 
 export default function ClientChatsPage() {

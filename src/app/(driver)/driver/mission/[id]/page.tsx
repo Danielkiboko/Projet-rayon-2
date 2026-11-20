@@ -10,7 +10,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import dynamic from "next/dynamic";
 
-const TrackingMap = dynamic(() => import("@/modules/client/components/TrackingMap"), {
+const TrackingMap = dynamic(() => import("@/modules/shared/components/maps/TrackingMap"), {
   ssr: false,
   loading: () => (
     <div className="h-full w-full bg-[#101e29] flex items-center justify-center text-xs text-gray-400">
@@ -165,9 +165,13 @@ export default function MissionDetails({ params }: { params: Promise<{ id: strin
       // Envoi de la notification au client si transition vers ARRIVED_AWAITING_PAYMENT (pour COMPLETED confirm-delivery s'en charge)
       if (newStatus === "ARRIVED_AWAITING_PAYMENT") {
         const phone = order.clientPhone || (order.customerInfo && order.customerInfo.phone) || order.deliveryDetails?.recipientPhone || "";
+        const notifToken = await auth.currentUser?.getIdToken().catch(() => null);
         fetch("/api/notifications", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(notifToken ? { Authorization: `Bearer ${notifToken}` } : {}),
+          },
           body: JSON.stringify({
             action: "ORDER_STATUS_CHANGED",
             orderId: order.id,

@@ -10,6 +10,9 @@ import {
 import { adminDb } from "@/lib/firebase-admin";
 import { SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
 import { dispatchAccountNotification } from "@/lib/pushNotifications";
+import { requireAuthenticatedCaller, isOperationalCaller } from "@/server/guards";
+import { hasStaffPermission } from "@/domain/permissions";
+import { isSupplier, isSuperAdmin } from "@/domain/roles";
 
 const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
@@ -35,11 +38,40 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 });
     }
 
+    // Authentification obligatoire pour éviter tout abus de relais Email/SMS/Push
+    const guard = await requireAuthenticatedCaller(req);
+    if (!guard.ok || !guard.caller) return guard.errorResponse!;
+    const caller = guard.caller;
+    const callerSubject = { ...(caller.data || {}), email: caller.email, role: caller.role };
+
     const body = await req.json();
     const { action, orderId, category, status, supplierId, clientId, clientPhone: reqClientPhone } = body;
 
     if (!action) {
       return NextResponse.json({ error: "Missing required fields (action)" }, { status: 400 });
+    }
+
+    // Vérification stricte de l'autorité par type d'action
+    if (action === "PROPERTY_APPROVED") {
+      if (!isSuperAdmin(callerSubject) && !hasStaffPermission(callerSubject, "properties.moderate")) {
+        return NextResponse.json({ error: "Action réservée aux modérateurs catalogue / admin." }, { status: 403 });
+      }
+    }
+    if (action === "ORDER_STATUS_CHANGED") {
+      if (!isOperationalCaller(caller)) {
+        return NextResponse.json({ error: "Action réservée aux livreurs, fournisseurs ou administrateurs." }, { status: 403 });
+      }
+      if (!orderId) {
+        return NextResponse.json({ error: "orderId requis." }, { status: 400 });
+      }
+    }
+    if (action === "VISIT_VALIDATED") {
+      if (!caller.isAdmin && !isSupplier(callerSubject)) {
+        return NextResponse.json({ error: "Action réservée aux fournisseurs immobiliers ou administrateurs." }, { status: 403 });
+      }
+    }
+    if (action === "ORDER_CREATED" && !orderId) {
+      return NextResponse.json({ error: "orderId requis." }, { status: 400 });
     }
 
     // Verify order exists when orderId is provided to prevent open SMS/Email relay abuse
@@ -135,17 +167,20 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. NEW_VISIT_REQUEST : Notify Supplier
-    if (action === "NEW_VISIT_REQUEST") {
-      const propertyTitle = body.propertyTitle || "Un bien immobilier";
+    // 3. NEW_VISIT_REQUEST / NEW_HOTEL_BOOKING : Notify Supplier
+    if (action === "NEW_VISIT_REQUEST" || action === "NEW_HOTEL_BOOKING") {
+      const isHotel = action === "NEW_HOTEL_BOOKING";
+      const propertyTitle = body.propertyTitle || (isHotel ? "Un hôtel / hébergement" : "Un bien immobilier");
       if (effectiveSupplierId) {
         tasks.push(
           dispatchAccountNotification({
             userId: String(effectiveSupplierId),
             supplierId: String(effectiveSupplierId),
             type: "booking",
-            title: "🏡 Nouvelle demande de visite !",
-            message: `Un client souhaite visiter : ${propertyTitle}. Consultez vos messages.`,
+            title: isHotel ? "🏨 Nouvelle réservation hôtelière !" : "🏡 Nouvelle demande de visite !",
+            message: isHotel
+              ? `Un client souhaite réserver : ${propertyTitle}. Consultez vos messages.`
+              : `Un client souhaite visiter : ${propertyTitle}. Consultez vos messages.`,
             link: "/supplier/messages",
           })
         );
@@ -153,13 +188,31 @@ export async function POST(req: Request) {
       if (supplierEmail) {
         tasks.push(sendEmail(
           supplierEmail,
-          `Nouvelle demande de visite !`,
-          `Un client souhaite visiter votre bien : ${propertyTitle}. Connectez-vous sur votre tableau de bord (onglet Messages) pour lui répondre et organiser la visite.`
+          isHotel ? `Nouvelle réservation hôtelière !` : `Nouvelle demande de visite !`,
+          isHotel
+            ? `Un client souhaite réserver dans votre établissement : ${propertyTitle}. Connectez-vous sur votre tableau de bord (onglet Messages) pour confirmer la réservation.`
+            : `Un client souhaite visiter votre bien : ${propertyTitle}. Connectez-vous sur votre tableau de bord (onglet Messages) pour lui répondre et organiser la visite.`
         ));
       }
       if (supplierPhone) {
-        tasks.push(sendSMS(supplierPhone, `Rayon: Nouvelle demande de visite pour ${propertyTitle}. Vérifiez vos messages sur la plateforme.`));
+        tasks.push(sendSMS(
+          supplierPhone,
+          isHotel
+            ? `Rayon: Nouvelle reservation pour ${propertyTitle}. Verifiez vos messages sur la plateforme.`
+            : `Rayon: Nouvelle demande de visite pour ${propertyTitle}. Verifiez vos messages sur la plateforme.`
+        ));
       }
+    }
+
+    // 3b. VISIT_VALIDATED : Notify Visitor
+    if (action === "VISIT_VALIDATED" && body.data?.visitorPhone) {
+      const { visitorPhone, propertyTitle, requestedDate } = body.data;
+      tasks.push(
+        sendSMS(
+          String(visitorPhone),
+          `Rayons Immo: Votre visite pour ${propertyTitle || "le bien"} (${requestedDate || "date confirmée"}) a ete validee par l'agence.`
+        )
+      );
     }
 
     // 4. PROPERTY_APPROVED : Notify Supplier

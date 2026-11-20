@@ -1,16 +1,11 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
-import { getServerCaller } from "@/lib/serverAuth";
+import { requireSupplierOrAdminCaller } from "@/server/guards";
 
 export async function POST(req: Request) {
   try {
-    const caller = await getServerCaller(req);
-    if (!caller) {
-      return NextResponse.json(
-        { error: "Authentification requise pour envoyer un contrat de bail." },
-        { status: 401 }
-      );
-    }
+    const guard = await requireSupplierOrAdminCaller(req);
+    if (!guard.ok) return guard.errorResponse!;
 
     const body = await req.json();
     const {

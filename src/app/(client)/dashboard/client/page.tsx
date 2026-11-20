@@ -35,10 +35,10 @@ import {
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { generateOrderInvoicePDF, generateHotelBookingReceiptPDF } from "@/lib/invoiceGenerator";
-import { ClientChatsWidget } from "@/modules/supplier/components/ClientChatsWidget";
+import { ClientChatsWidget } from "@/modules/client/components/ClientChatsWidget";
 import { ClientTicketsWidget } from "@/modules/tickets/components/ClientTicketsWidget";
 import NotificationBell from "@/modules/shared/components/notifications/NotificationBell";
-import ProfileUpdateModal from "@/modules/supplier/components/ProfileUpdateModal";
+import ProfileUpdateModal from "@/modules/client/components/ProfileUpdateModal";
 import { useCurrency } from "@/context/CurrencyContext";
 
 // Alibaba Components

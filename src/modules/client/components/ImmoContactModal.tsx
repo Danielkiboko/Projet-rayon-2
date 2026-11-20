@@ -158,16 +158,21 @@ export function ImmoContactModal({ isOpen, onClose, property }: ImmoContactModal
           createdAt: serverTimestamp()
         });
 
-        // Notify Supplier via API
-        fetch("/api/notifications", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: isHotel ? "NEW_HOTEL_BOOKING" : "NEW_VISIT_REQUEST",
-            supplierId: property.supplierId,
-            propertyTitle: propertyTitle
+        // Notify Supplier via API (authentifié)
+        user.getIdToken().then((token) =>
+          fetch("/api/notifications", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              action: isHotel ? "NEW_HOTEL_BOOKING" : "NEW_VISIT_REQUEST",
+              supplierId: property.supplierId,
+              propertyTitle: propertyTitle
+            })
           })
-        }).catch(err => console.error("Error sending notification", err));
+        ).catch(err => console.error("Error sending notification", err));
       }
 
       setIsSubmitted(true);

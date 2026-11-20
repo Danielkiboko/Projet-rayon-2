@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
-import { getServerCaller, SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
+import { SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
+import { requireAnyStaffPermission } from "@/server/guards";
 import { creditReferralCommission } from "@/lib/referrals";
 import { dispatchAccountNotification } from "@/lib/pushNotifications";
 
@@ -32,10 +33,8 @@ const OVERVIEW_CACHE_TTL_MS = 20_000;
  */
 export async function GET(req: NextRequest) {
   try {
-    const caller = await getServerCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return NextResponse.json({ success: false, error: "Accès réservé à l'administration." }, { status: 403 });
-    }
+    const guard = await requireAnyStaffPermission(req, ["finance.view", "finance.cash", "subscriptions.manage"]);
+    if (!guard.ok) return guard.errorResponse!;
 
     const forceFresh = req.nextUrl.searchParams.get("fresh") === "1";
     if (!forceFresh && executiveOverviewCache && Date.now() < executiveOverviewCache.expiresAt) {
@@ -376,10 +375,9 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const caller = await getServerCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return NextResponse.json({ success: false, error: "Accès réservé à la Direction Financière." }, { status: 403 });
-    }
+    const guard = await requireAnyStaffPermission(req, ["finance.cash", "subscriptions.manage"]);
+    if (!guard.ok || !guard.caller) return guard.errorResponse!;
+    const caller = guard.caller;
 
     // Invalider le cache lors d'une écriture financière
     executiveOverviewCache = null;

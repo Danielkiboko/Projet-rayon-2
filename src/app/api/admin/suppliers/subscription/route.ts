@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerCaller } from "@/lib/serverAuth";
+import { requireAnyStaffPermission } from "@/server/guards";
 import { adminDb } from "@/lib/firebase-admin";
 
 export async function POST(req: NextRequest) {
   try {
-    const caller = await getServerCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
-    }
+    const guard = await requireAnyStaffPermission(req, ["suppliers.subscription", "subscriptions.manage", "finance.cash"]);
+    if (!guard.ok) return guard.errorResponse!;
 
     const body = await req.json();
     const { 

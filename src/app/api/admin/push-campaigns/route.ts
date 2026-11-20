@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMessaging } from "firebase-admin/messaging";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb, initFirebaseAdmin, adminInitError } from "@/lib/firebase-admin";
-import { getServerCaller, SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
+import { SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
+import { requireAnyStaffPermission } from "@/server/guards";
 import { normalizeLang, translateText, SupportedLang } from "@/lib/autoTranslate";
 
 function classifyUserRole(u: any): "ADMIN" | "SUPPLIER" | "PARTNER" | "DRIVER" | "CLIENT" {
@@ -58,10 +59,8 @@ function getUserRayons(u: any): string[] {
  */
 export async function GET(req: NextRequest) {
   try {
-    const caller = await getServerCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
-    }
+    const guard = await requireAnyStaffPermission(req, ["clients.manage", "suppliers.manage", "settings.system"]);
+    if (!guard.ok) return guard.errorResponse!;
 
     const [devicesSnap, usersSnap, driversSnap, campaignsSnap] = await Promise.all([
       adminDb.collection("push_devices").limit(500).get(),
@@ -210,10 +209,9 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const caller = await getServerCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
-    }
+    const guard = await requireAnyStaffPermission(req, ["clients.manage", "suppliers.manage", "settings.system"]);
+    if (!guard.ok || !guard.caller) return guard.errorResponse!;
+    const caller = guard.caller;
 
     const body = await req.json();
     const {

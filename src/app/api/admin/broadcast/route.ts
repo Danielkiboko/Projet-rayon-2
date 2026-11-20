@@ -1,34 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { adminDb, adminAuth } from "@/lib/firebase-admin";
+import { adminDb } from "@/lib/firebase-admin";
 import { sendEmail } from "@/lib/email";
 import { FieldValue } from "firebase-admin/firestore";
 import { SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
+import { requireAnyStaffPermission } from "@/server/guards";
 import { normalizeLang, translateText, SupportedLang } from "@/lib/autoTranslate";
 
 export async function POST(req: NextRequest) {
-  // 1. Vérification du token Firebase
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return NextResponse.json({ success: false, error: "Authentification requise." }, { status: 401 });
-  }
-
-  let callerUid = "";
-  let callerEmail = "";
-  try {
-    const decoded = await adminAuth.verifyIdToken(authHeader.split("Bearer ")[1]);
-    callerUid = decoded.uid;
-    callerEmail = (decoded.email || "").toLowerCase().trim();
-  } catch {
-    return NextResponse.json({ success: false, error: "Token invalide." }, { status: 401 });
-  }
-
-  // 2. Vérification du rôle admin
+  // 1. Vérification du token Firebase et des droits de diffusion (Direction / Gestionnaire Admin uniquement)
+  const guard = await requireAnyStaffPermission(req, ["clients.manage", "suppliers.manage", "settings.system"]);
+  if (!guard.ok || !guard.caller) return guard.errorResponse!;
+  const callerUid = guard.caller.uid;
+  const callerEmail = guard.caller.email;
   const callerDoc = await adminDb.collection("users").doc(callerUid).get();
-  const callerRole = (callerDoc.data()?.role || "").toUpperCase();
-  const isAdmin = SUPER_ADMIN_EMAILS.includes(callerEmail) || ADMIN_ROLES.includes(callerRole);
-  if (!isAdmin) {
-    return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
-  }
 
   // 3. Lecture du corps de la requête
   const body = await req.json();

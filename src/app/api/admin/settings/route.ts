@@ -1,17 +1,13 @@
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { initFirebaseAdmin, adminDb } from "@/lib/firebase-admin";
-import { getServerCaller } from "@/lib/serverAuth";
+import { requireFullAdminCaller } from "@/server/guards";
 
 export async function POST(req: Request) {
   try {
-    const caller = await getServerCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return NextResponse.json(
-        { success: false, error: "Accès réservé aux administrateurs." },
-        { status: 403 }
-      );
-    }
+    const guard = await requireFullAdminCaller(req);
+    if (!guard.ok || !guard.caller) return guard.errorResponse!;
+    const caller = guard.caller;
 
     const body = await req.json();
     const { settings } = body;

@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerCaller } from "@/lib/serverAuth";
+import { requireAnyStaffPermission } from "@/server/guards";
 import { adminDb } from "@/lib/firebase-admin";
 
 export async function GET(req: NextRequest) {
   try {
-    const caller = await getServerCaller(req);
-    if (!caller || !caller.isAdmin) {
-      return NextResponse.json({ success: false, error: "Accès réservé aux administrateurs." }, { status: 403 });
-    }
+    const guard = await requireAnyStaffPermission(req, ["partners.view", "partners.manage", "finance.view"]);
+    if (!guard.ok) return guard.errorResponse!;
 
     // 1. Fetch partners from Firestore using adminDb
     const [pSnap1, pSnap2] = await Promise.all([
