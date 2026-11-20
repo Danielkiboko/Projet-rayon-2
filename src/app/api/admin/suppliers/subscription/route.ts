@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAnyStaffPermission } from "@/server/guards";
+import { recordAuditLog } from "@/server/auditLog";
 import { adminDb } from "@/lib/firebase-admin";
 
 export async function POST(req: NextRequest) {
   try {
     const guard = await requireAnyStaffPermission(req, ["suppliers.subscription", "subscriptions.manage", "finance.cash"]);
-    if (!guard.ok) return guard.errorResponse!;
+    if (!guard.ok || !guard.caller) return guard.errorResponse!;
+    const caller = guard.caller;
 
     const body = await req.json();
-    const { 
-      supplierId, 
-      subscriptionStatus = "TRIAL", 
-      daysToAdd = 15, 
+    const {
+      supplierId,
+      subscriptionStatus = "TRIAL",
+      daysToAdd = 15,
       customExpiryDate,
-      action // "REACTIVATE" or "UPDATE_SUB"
+      action, // "REACTIVATE" or "UPDATE_SUB"
     } = body;
 
     if (!supplierId) {
@@ -42,8 +44,8 @@ export async function POST(req: NextRequest) {
     } else {
       let baseDate = new Date();
       if (currentData.subscriptionEndDate) {
-        const existing = currentData.subscriptionEndDate.toDate 
-          ? currentData.subscriptionEndDate.toDate() 
+        const existing = currentData.subscriptionEndDate.toDate
+          ? currentData.subscriptionEndDate.toDate()
           : new Date(currentData.subscriptionEndDate);
         if (existing > baseDate && action !== "REACTIVATE") {
           baseDate = existing;
@@ -78,17 +80,29 @@ export async function POST(req: NextRequest) {
 
     // 2. Mettre à jour / synchroniser dans la collection suppliers
     const supplierRef = adminDb.collection("suppliers").doc(supplierId);
-    await supplierRef.set({
-      subscriptionStatus: targetSubStatus,
-      subscriptionEndDate: newEndDate,
-      isBlocked: !isUnblocking,
-      status: isUnblocking ? "active" : "suspended",
-      updatedAt: new Date(),
-    }, { merge: true });
+    await supplierRef.set(
+      {
+        subscriptionStatus: targetSubStatus,
+        subscriptionEndDate: newEndDate,
+        isBlocked: !isUnblocking,
+        status: isUnblocking ? "active" : "suspended",
+        updatedAt: new Date(),
+      },
+      { merge: true }
+    );
+
+    recordAuditLog({
+      action: "SUBSCRIPTION_UPDATED",
+      caller,
+      targetType: "supplier",
+      targetId: supplierId,
+      summary: `Abonnement fournisseur ${currentData.company || currentData.displayName || supplierId} passé à ${targetSubStatus} (échéance ${newEndDate.toISOString().slice(0, 10)}).`,
+      metadata: { targetSubStatus, daysToAdd, action: action || "UPDATE_SUB" },
+    });
 
     return NextResponse.json({
       success: true,
-      message: isUnblocking 
+      message: isUnblocking
         ? `Fournisseur réactivé avec succès (${targetSubStatus === "TRIAL" ? "Essai" : "Abonnement Actif"}). Échéance : ${newEndDate.toLocaleDateString("fr-FR")}`
         : "Compte fournisseur suspendu.",
       newEndDate: newEndDate.toISOString(),
@@ -101,4 +115,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
   }
 }
-

@@ -46,6 +46,9 @@ rules_version = '2';
 //   - inapp_notifications/{notifId} & notifications/{notifId}: User & staff notifications.
 //   - push_campaigns/{campaignId}, push_devices/{deviceId}, cron_runs/{runId}: System ops.
 //   - error_logs/{logId}: Client/server bug telemetry.
+//   - audit_logs/{logId}: Immutable server-side security audit trail (Admin SDK write only;
+//     General Admin read only). Fields: action, actorUid, actorEmail, actorRole, targetType,
+//     targetId, summary, metadata, createdAt, timestampMs.
 //
 // ===============================================================
 
@@ -1091,6 +1094,12 @@ service cloud.firestore {
 
         allow delete: if isSupportStaff();
       }
+    }
+
+    // Security Audit Logs (Strictly immutable server-side Admin SDK writes; General Admin read only)
+    match /audit_logs/{logId} {
+      allow read: if isGeneralAdmin();
+      allow write: if false;
     }
 
     // Explicit default deny for all unmatched paths

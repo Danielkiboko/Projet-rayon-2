@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase";
 import { ShieldAlert, Bug, RefreshCw, CheckCircle, Activity, BrainCircuit } from "lucide-react";
 import ActionCard from "@/modules/shared/components/dashboard/ActionCard";
 import KpiGrid from "@/modules/shared/components/dashboard/KpiGrid";
+import AuditLogPanel from "@/modules/admin/components/AuditLogPanel";
 
 export default function HealthDashboard() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -150,6 +151,8 @@ export default function HealthDashboard() {
           </div>
         )}
       </div>
+
+      <AuditLogPanel />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
          <ActionCard 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { requireAnyStaffPermission } from "@/server/guards";
+import { recordAuditLog } from "@/server/auditLog";
 import { dispatchAccountNotification } from "@/lib/pushNotifications";
 
 function generateEntryNumber(): string {
@@ -129,6 +130,15 @@ export async function POST(req: NextRequest) {
         message: `L'administration centrale Rayons.net vous a crédité une commission directe de ${numAmount} $ USD (${reason || "Bonus partenaire"}). Votre nouveau solde est de ${updatedBalance.toFixed(2)} $ USD.`,
         link: "/partner",
         tag: `comm-credit-${refPiece}`,
+      });
+
+      recordAuditLog({
+        action: "COMMISSION_CREDITED",
+        caller,
+        targetType: "partner",
+        targetId: partnerId,
+        summary: `Crédit de +$${numAmount.toFixed(2)} USD accordé au partenaire ${partnerName} (${refPiece}).`,
+        metadata: { amount: numAmount, refPiece, reason: reason || null },
       });
 
       return NextResponse.json({

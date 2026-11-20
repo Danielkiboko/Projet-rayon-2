@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { SUPER_ADMIN_EMAILS } from '@/lib/serverAuth';
 import { ensureReferralCode } from '@/lib/referrals';
+import { recordAuditLog } from '@/server/auditLog';
 
 export async function POST(req: Request) {
   try {
@@ -214,6 +215,15 @@ export async function POST(req: Request) {
     }
 
     await adminDb.collection('users').doc(uid).set(updatePayload, { merge: true });
+
+    recordAuditLog({
+      action: "USER_ROLE_PROMOTED",
+      caller: { uid: callerUid, email: callerEmail, role: rawRole },
+      targetType: "user",
+      targetId: uid,
+      summary: `Compte ${targetEmail || uid} converti/promu en ${newRole}.`,
+      metadata: { targetEmail, previousRole: targetData.role || "CLIENT", newRole },
+    });
 
     return NextResponse.json({ 
       success: true, 

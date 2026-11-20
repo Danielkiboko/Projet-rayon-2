@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAnyStaffPermission } from "@/server/guards";
+import { recordAuditLog } from "@/server/auditLog";
 import { payoutReferrerCommissions } from "@/lib/referrals";
 import { adminDb } from "@/lib/firebase-admin";
 
@@ -112,6 +113,15 @@ export async function POST(req: NextRequest) {
         referrerId,
         adminUid: caller.uid,
         paymentMethod: paymentMethod || "Caisse centrale / Mobile Money",
+      });
+
+      recordAuditLog({
+        action: "REFERRAL_PAYOUT",
+        caller,
+        targetType: "partner",
+        targetId: referrerId,
+        summary: `Versement de $${result.paidAmount.toFixed(2)} USD (${result.count} commission(s)) via ${paymentMethod || "Caisse centrale"}.`,
+        metadata: { paidAmount: result.paidAmount, count: result.count, paymentMethod: paymentMethod || "Caisse centrale" },
       });
 
       return NextResponse.json({

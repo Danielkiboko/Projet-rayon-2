@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { initFirebaseAdmin, adminDb } from "@/lib/firebase-admin";
 import { requireFullAdminCaller } from "@/server/guards";
+import { recordAuditLog } from "@/server/auditLog";
 
 export async function POST(req: Request) {
   try {
@@ -35,6 +36,20 @@ export async function POST(req: Request) {
     };
 
     await db.collection("settings").doc("platform").set(dataToSave, { merge: true });
+
+    recordAuditLog({
+      action: "SETTINGS_UPDATED",
+      caller,
+      targetType: "settings",
+      targetId: "platform",
+      summary: `Paramètres globaux mis à jour (1 USD = ${dataToSave.usdToFcRate} FC, abo ${dataToSave.monthlySubscriptionPrice}, langue ${dataToSave.defaultLanguage}).`,
+      metadata: {
+        usdToFcRate: dataToSave.usdToFcRate,
+        usdToEurRate: dataToSave.usdToEurRate,
+        monthlySubscriptionPrice: dataToSave.monthlySubscriptionPrice,
+        defaultLanguage: dataToSave.defaultLanguage,
+      },
+    });
 
     return NextResponse.json({ success: true, settings: dataToSave });
   } catch (error: any) {

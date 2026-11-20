@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { SUPER_ADMIN_EMAILS } from '@/lib/serverAuth';
+import { recordAuditLog } from '@/server/auditLog';
 
 export async function POST(req: Request) {
   try {
@@ -123,6 +124,15 @@ export async function POST(req: Request) {
     }
 
     await batch.commit();
+
+    recordAuditLog({
+      action: "USER_DELETED",
+      caller: { uid: callerUid, email: callerEmail, role: rawRole },
+      targetType: "user",
+      targetId: uid,
+      summary: `Compte utilisateur supprimé (${targetDocSnap?.data()?.email || uid}).`,
+      metadata: { targetEmail: targetDocSnap?.data()?.email || null, collectionName: collectionName || "users" },
+    });
 
     return NextResponse.json({ message: 'User and associated data deleted successfully' }, { status: 200 });
   } catch (error: any) {
