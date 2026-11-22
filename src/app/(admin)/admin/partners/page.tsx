@@ -280,48 +280,48 @@ export default function AdminPartnersPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-5 space-y-1.5">
-          <div className="flex items-center justify-between text-gray-400 text-xs">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 space-y-1">
+          <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
             <span>Partenaires Agréés</span>
-            <div className="w-8 h-8 rounded-xl bg-[#C7D300]/10 text-[#C7D300] flex items-center justify-center">
-              <Briefcase size={16} />
+            <div className="w-7 h-7 rounded-lg bg-[#C7D300]/10 text-[#C7D300] flex items-center justify-center">
+              <Briefcase size={14} />
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-white tracking-tight">{totalPartners}</div>
-          <p className="text-[11px] text-gray-400">Comptes apporteurs d'affaires</p>
+          <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">{totalPartners}</div>
+          <p className="text-[11px] text-gray-400">Comptes apporteurs d&apos;affaires</p>
         </div>
 
-        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-5 space-y-1.5">
-          <div className="flex items-center justify-between text-gray-400 text-xs">
+        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 space-y-1">
+          <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
             <span>Boutiques Recrutées</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
-              <Building2 size={16} />
+            <div className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center">
+              <Building2 size={14} />
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-white tracking-tight">{totalRecruitedSuppliers}</div>
+          <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">{totalRecruitedSuppliers}</div>
           <p className="text-[11px] text-gray-400">Fournisseurs créés par les partenaires</p>
         </div>
 
-        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-5 space-y-1.5">
-          <div className="flex items-center justify-between text-gray-400 text-xs">
+        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 space-y-1">
+          <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
             <span>Commissions Cumulées</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
-              <TrendingUp size={16} />
+            <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+              <TrendingUp size={14} />
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-white tracking-tight">${totalEarnedCommissions.toFixed(2)}</div>
+          <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">${totalEarnedCommissions.toFixed(2)}</div>
           <p className="text-[11px] text-gray-400">Total généré à 5$ / réabonnement</p>
         </div>
 
-        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-5 space-y-1.5">
-          <div className="flex items-center justify-between text-gray-400 text-xs">
+        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 space-y-1">
+          <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
             <span>Commissions en Attente</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-              <Coins size={16} />
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+              <Coins size={14} />
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-emerald-400 tracking-tight">${totalPendingCommissions.toFixed(2)}</div>
+          <div className="text-xl sm:text-2xl font-bold text-emerald-400 tracking-tight tabular-nums">${totalPendingCommissions.toFixed(2)}</div>
           <p className="text-[11px] text-gray-400">Soldes prêts pour virement Mobile Money</p>
         </div>
       </div>

@@ -387,27 +387,27 @@ function PartnerDashboardContent() {
       {activeTab === "stats" && (
         <div className="space-y-6">
           {/* Hero Banner */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0F1D27] via-[#162736] to-[#0F1D27] border border-white/10 p-6 sm:p-8 shadow-xl">
-            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div className="space-y-2 max-w-2xl">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#C7D300]/10 border border-[#C7D300]/30 text-[#C7D300] text-xs font-bold uppercase tracking-wider">
-                  <Sparkles size={13} />
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0F1D27] via-[#162736] to-[#0F1D27] border border-white/10 p-5 sm:p-6 shadow-xl">
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1.5 max-w-2xl">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#C7D300]/10 border border-[#C7D300]/30 text-[#C7D300] text-[10px] font-bold uppercase tracking-wider">
+                  <Sparkles size={12} />
                   <span>Programme Partenaire Agréé</span>
                 </div>
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                   Développez votre réseau de Fournisseurs
                 </h1>
-                <p className="text-sm text-gray-300 leading-relaxed">
+                <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
                   Inscrivez des commerçants et boutiques locales. Tous vos fournisseurs font partie intégrante de la marketplace Rayons.net et sont gérés par la Direction Centrale. Vous touchez <strong>5 $ USD chaque mois</strong> sur chaque boutique dès qu&apos;elle renouvelle son abonnement.
                 </p>
               </div>
 
-              <div className="shrink-0 flex flex-col sm:flex-row gap-3">
+              <div className="shrink-0 flex flex-col sm:flex-row gap-2.5">
                 <button
                   onClick={() => setIsAddSupplierOpen(true)}
-                  className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-xs bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] transition-all shadow-lg shadow-[#C7D300]/20 active:scale-95 cursor-pointer"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] transition-all shadow-lg shadow-[#C7D300]/20 active:scale-95 cursor-pointer"
                 >
-                  <PlusCircle size={16} />
+                  <PlusCircle size={15} />
                   <span>Inscrire un Fournisseur</span>
                 </button>
               </div>
@@ -415,19 +415,19 @@ function PartnerDashboardContent() {
           </div>
 
           {/* KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* Solde Disponible */}
             <div
               onClick={() => handleSelectTab("payout")}
-              className="bg-[#0F1D27]/80 hover:border-white/20 border border-white/[0.08] rounded-2xl p-5 space-y-2 cursor-pointer transition-colors"
+              className="bg-[#0F1D27]/80 hover:border-white/20 border border-white/[0.08] rounded-2xl p-4 space-y-1.5 cursor-pointer transition-colors"
             >
-              <div className="flex items-center justify-between text-gray-400 text-xs">
+              <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
                 <span>Solde Disponible</span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-                  <Coins size={16} />
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                  <Coins size={14} />
                 </div>
               </div>
-              <div className="text-3xl font-extrabold text-white tracking-tight">
+              <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">
                 ${balance.toFixed(2)}
               </div>
               <p className="text-[11px] text-gray-400">
@@ -438,15 +438,15 @@ function PartnerDashboardContent() {
             {/* Total Cumulé */}
             <div
               onClick={() => handleSelectTab("commissions")}
-              className="bg-[#0F1D27]/80 hover:border-white/20 border border-white/[0.08] rounded-2xl p-5 space-y-2 cursor-pointer transition-colors"
+              className="bg-[#0F1D27]/80 hover:border-white/20 border border-white/[0.08] rounded-2xl p-4 space-y-1.5 cursor-pointer transition-colors"
             >
-              <div className="flex items-center justify-between text-gray-400 text-xs">
+              <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
                 <span>Commissions Gagnées</span>
-                <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
-                  <TrendingUp size={16} />
+                <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                  <TrendingUp size={14} />
                 </div>
               </div>
-              <div className="text-3xl font-extrabold text-white tracking-tight">
+              <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">
                 ${totalEarned.toFixed(2)}
               </div>
               <p className="text-[11px] text-gray-400">
@@ -457,15 +457,15 @@ function PartnerDashboardContent() {
             {/* Boutiques Rattachées */}
             <div
               onClick={() => handleSelectTab("suppliers")}
-              className="bg-[#0F1D27]/80 hover:border-white/20 border border-white/[0.08] rounded-2xl p-5 space-y-2 cursor-pointer transition-colors"
+              className="bg-[#0F1D27]/80 hover:border-white/20 border border-white/[0.08] rounded-2xl p-4 space-y-1.5 cursor-pointer transition-colors"
             >
-              <div className="flex items-center justify-between text-gray-400 text-xs">
+              <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
                 <span>Fournisseurs Rattachés</span>
-                <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
-                  <Building2 size={16} />
+                <div className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center">
+                  <Building2 size={14} />
                 </div>
               </div>
-              <div className="text-3xl font-extrabold text-white tracking-tight">
+              <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">
                 {suppliersCount}
               </div>
               <p className="text-[11px] text-gray-400">
@@ -474,14 +474,14 @@ function PartnerDashboardContent() {
             </div>
 
             {/* Rémunération Récurrente */}
-            <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-5 space-y-2">
-              <div className="flex items-center justify-between text-gray-400 text-xs">
+            <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 space-y-1.5">
+              <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
                 <span>Revenu Mensuel Estimé</span>
-                <div className="w-8 h-8 rounded-xl bg-[#C7D300]/10 text-[#C7D300] flex items-center justify-center">
-                  <Sparkles size={16} />
+                <div className="w-7 h-7 rounded-lg bg-[#C7D300]/10 text-[#C7D300] flex items-center justify-center">
+                  <Sparkles size={14} />
                 </div>
               </div>
-              <div className="text-3xl font-extrabold text-[#C7D300] tracking-tight">
+              <div className="text-xl sm:text-2xl font-bold text-[#C7D300] tracking-tight tabular-nums">
                 ~${monthlyEst} <span className="text-xs font-semibold text-gray-400">/mois</span>
               </div>
               <p className="text-[11px] text-gray-400">

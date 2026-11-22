@@ -53,8 +53,27 @@ canvas {
   max-width: 100%;
 }
 
-h1, h2, h3, h4, h5, h6, .font-heading {
+/* Titres vitrine (Montserrat) vs sous-titres & dashboards compacts (Inter) */
+h1, h2, .font-heading {
   font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+}
+
+h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+  letter-spacing: -0.01em;
+}
+
+/* Typographie SaaS compacte et nette pour tous les dashboards (Team, Fournisseur, Partenaire, Livreur) */
+.dashboard-shell h1,
+.dashboard-shell h2,
+.dashboard-shell h3,
+.dashboard-shell h4,
+.dashboard-shell h5,
+.dashboard-shell h6 {
+  font-family: var(--font-sans);
+  letter-spacing: -0.015em;
+  line-height: 1.25;
 }
 
 /* Couleurs personnalisées pour Tailwind v4 */

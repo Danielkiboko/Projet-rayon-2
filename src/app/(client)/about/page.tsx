@@ -121,10 +121,10 @@ export default function AboutPage() {
             <Sparkles size={14} />
             <span>La Marketplace Unifiée en RDC</span>
           </div>
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-white tracking-tight leading-tight mb-6">
+          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-tight mb-5">
             Construire la confiance dans le commerce numérique congolais.
           </h1>
-          <p className="text-base sm:text-xl text-gray-300 leading-relaxed max-w-3xl mx-auto">
+          <p className="text-sm sm:text-base md:text-lg text-gray-300 leading-relaxed max-w-3xl mx-auto">
             Rayons.net réunit en un seul endroit les meilleurs fournisseurs de technologies, d&apos;immobilier, de mode et de restauration de Kinshasa, Lubumbashi et des grandes villes de la RDC.
           </p>
 
@@ -208,7 +208,7 @@ export default function AboutPage() {
         <section className="px-4 sm:px-8 py-20 max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <span className="text-[#C7D300] text-xs font-bold uppercase tracking-widest">Organisation</span>
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-white mt-2">Nos 4 Départements Spécialisés</h2>
+            <h2 className="text-xl sm:text-3xl font-extrabold text-white mt-2">Nos 4 Départements Spécialisés</h2>
             <p className="text-gray-400 text-sm max-w-xl mx-auto mt-2">
               Chaque rayon répond à des exigences techniques et logistiques adaptées aux réalités du marché.
             </p>
@@ -247,7 +247,7 @@ export default function AboutPage() {
           <div className="max-w-5xl mx-auto">
             <div className="text-center mb-12">
               <span className="text-[#C7D300] text-xs font-bold uppercase tracking-widest">Nos Engagements</span>
-              <h2 className="text-2xl sm:text-4xl font-extrabold text-white mt-2">La Sécurité au Cœur de Chaque Transaction</h2>
+              <h2 className="text-xl sm:text-3xl font-extrabold text-white mt-2">La Sécurité au Cœur de Chaque Transaction</h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

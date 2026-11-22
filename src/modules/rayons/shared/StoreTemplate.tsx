@@ -190,7 +190,7 @@ function StoreTemplateContent({ category, heroImage, dict }: StoreTemplateProps)
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="text-2xl sm:text-4xl md:text-5xl font-extrabold text-white tracking-tight leading-tight mb-1 sm:mb-3"
+              className="text-xl sm:text-3xl md:text-4xl font-extrabold text-white tracking-tight leading-tight mb-1 sm:mb-2.5"
             >
               {t.title}
             </motion.h1>

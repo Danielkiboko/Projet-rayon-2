@@ -357,8 +357,8 @@ export default function InvoiceManager() {
               Module Comptable Formalisé
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-heading font-extrabold text-white tracking-tight">
-            Proformas & Factures Professionnelles
+          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+            Proformas &amp; Factures Professionnelles
           </h1>
           <p className="text-sm text-gray-400 mt-1">
             Émettez et exportez des devis proformas, quittances de loyer et factures certifiées pour vos clients.

@@ -170,7 +170,7 @@ export function DashboardLayout({
     !pathname.startsWith("/admin/tickets");
 
   return (
-    <div className="flex h-dvh bg-[#0B151C] overflow-hidden font-sans">
+    <div className="dashboard-shell flex h-dvh bg-[#0B151C] overflow-hidden font-sans">
       {customProfileModal}
       {isProfileModalOpen && (
         <ProfileManagerModal
@@ -473,8 +473,8 @@ export function DashboardLayout({
         </header>
         
         {/* Scrollable Content with Mobile-friendly spacing */}
-        <div ref={contentScrollRef} className="flex-1 overflow-y-auto rayons-scroll overscroll-contain p-2.5 sm:p-5 md:p-8 pb-20 lg:pb-8">
-          <div className="max-w-7xl mx-auto space-y-3.5 sm:space-y-6">
+        <div ref={contentScrollRef} className="flex-1 overflow-y-auto rayons-scroll overscroll-contain p-3 sm:p-4 md:p-6 pb-20 lg:pb-6">
+          <div className="max-w-7xl mx-auto space-y-4 sm:space-y-5">
             {/* Bannière de communiqué officiel si non lu */}
             {unreadAnnouncement && (
               <div className="bg-gradient-to-r from-[#0F1D27] via-[#162a38] to-[#0F1D27] border border-[#C7D300]/40 rounded-xl sm:rounded-2xl p-3 sm:p-5 shadow-xl shadow-black/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">

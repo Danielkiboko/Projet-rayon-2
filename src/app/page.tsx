@@ -507,7 +507,7 @@ export default function Home() {
             </div>
 
             {/* Original main headline */}
-            <h1 className="font-heading text-4xl sm:text-5xl md:text-6xl font-extrabold text-white leading-[1.08] mb-6 tracking-tight">
+            <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl font-extrabold text-white leading-[1.12] mb-5 tracking-tight">
               {t("home.heroTitle1")}{" "}
               <span className="text-[#C7D300] relative">
                 {t("home.heroTitle2")}
@@ -518,7 +518,7 @@ export default function Home() {
             </h1>
 
             {/* Original subheadline */}
-            <p className="text-gray-300 text-lg sm:text-xl mb-8 max-w-xl leading-relaxed">
+            <p className="text-gray-300 text-sm sm:text-base md:text-lg mb-7 max-w-xl leading-relaxed">
               {t("home.heroSubtitle")}
             </p>
 

@@ -161,8 +161,8 @@ export default function HelpPage() {
             <span>Centre d'Assistance Rayons.net</span>
           </div>
 
-          <h1 className="text-2xl sm:text-4xl font-heading font-black tracking-tight">
-            Comment pouvons-nous vous aider aujourd'hui ?
+          <h1 className="text-xl sm:text-3xl font-heading font-extrabold tracking-tight">
+            Comment pouvons-nous vous aider aujourd&apos;hui ?
           </h1>
           <p className="text-gray-300 text-xs sm:text-sm max-w-xl mx-auto leading-relaxed">
             Consultez nos réponses fréquentes sur les livraisons à Kinshasa, les paiements sécurisés et la garantie acheteur, ou discutez directement avec notre équipe.

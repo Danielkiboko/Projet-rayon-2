@@ -21,14 +21,18 @@ import {
   ShieldAlert,
   ArrowRightCircle,
   AlertTriangle,
-  UserPlus
+  UserPlus,
+  Eye,
+  ShoppingBag,
+  Star,
 } from "lucide-react";
 import { db, auth } from "@/lib/firebase";
 import { collection, query, limit, onSnapshot, addDoc, serverTimestamp } from "firebase/firestore";
-import { isSupplier, isTeamMember, hasAdminAccess, SUPER_ADMIN_EMAILS } from "@/lib/permissions";
+import { SUPER_ADMIN_EMAILS } from "@/lib/permissions";
 import { getAccountType } from "@/domain/roles";
 import ResponsiveModal from "@/modules/shared/components/ui/ResponsiveModal";
 import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
+import ClientCrmDrawer from "@/modules/admin/clients/ClientCrmDrawer";
 import toast from "react-hot-toast";
 
 interface ClientData {
@@ -42,6 +46,9 @@ interface ClientData {
   lastConnection: Date | null;
   role?: string;
   createdAt: Date | null;
+  crmTags: string[];
+  crmNote: string;
+  isSuspended: boolean;
 }
 
 /**
@@ -78,10 +85,12 @@ function isExcludedFromClients(data: any): boolean {
 
 export default function ClientsPage() {
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState<"ALL" | "NEW" | "ONLINE" | "WITH_PHONE">("ALL");
-  const [sortBy, setSortBy] = useState<"NEWEST" | "ONLINE" | "NAME">("NEWEST");
+  const [filterType, setFilterType] = useState<"ALL" | "NEW" | "ONLINE" | "WITH_PHONE" | "BUYERS" | "VIP" | "SUSPENDED">("ALL");
+  const [sortBy, setSortBy] = useState<"NEWEST" | "ONLINE" | "NAME" | "SPENT">("NEWEST");
   const [clients, setClients] = useState<ClientData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [orderStatsByClient, setOrderStatsByClient] = useState<Record<string, { ordersCount: number; totalSpentUSD: number; lastOrderAt: string | null }>>({});
+  const [selectedCrmClient, setSelectedCrmClient] = useState<ClientData | null>(null);
 
   // Copied feedback
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -149,6 +158,9 @@ export default function ClientsPage() {
             lastConnection: lastConn,
             role: data.role || "CLIENT",
             createdAt: created,
+            crmTags: Array.isArray(data.crmTags) ? data.crmTags : [],
+            crmNote: typeof data.crmNote === "string" ? data.crmNote : "",
+            isSuspended: Boolean(data.isSuspended || String(data.status || "").toUpperCase() === "SUSPENDED"),
           });
         });
 
@@ -163,6 +175,30 @@ export default function ClientsPage() {
 
     return () => unsubscribe();
   }, []);
+
+  // Charger les statistiques d'achats (commandes & total dépensé par client)
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) return;
+        const res = await fetch("/api/admin/clients/crm", {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        const json = await res.json();
+        if (active && json.success && json.statsByClient) {
+          setOrderStatsByClient(json.statsByClient);
+        }
+      } catch (err) {
+        console.warn("Clients CRM stats warning:", err);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [clients.length]);
 
   const copyToClipboard = (text: string, id: string) => {
     if (!text) return;
@@ -330,10 +366,19 @@ export default function ClientsPage() {
       if (filterType === "NEW") return isRecentClient(c.createdAt);
       if (filterType === "ONLINE") return c.isOnline;
       if (filterType === "WITH_PHONE") return !!c.phone && c.phone.trim().length > 3;
+      if (filterType === "BUYERS") return (orderStatsByClient[c.id]?.ordersCount || 0) > 0;
+      if (filterType === "VIP") return c.crmTags.includes("VIP") || (orderStatsByClient[c.id]?.totalSpentUSD || 0) >= 100;
+      if (filterType === "SUSPENDED") return c.isSuspended;
 
       return true;
     })
     .sort((a, b) => {
+      if (sortBy === "SPENT") {
+        const spentA = orderStatsByClient[a.id]?.totalSpentUSD || 0;
+        const spentB = orderStatsByClient[b.id]?.totalSpentUSD || 0;
+        if (spentA !== spentB) return spentB - spentA;
+        return (orderStatsByClient[b.id]?.ordersCount || 0) - (orderStatsByClient[a.id]?.ordersCount || 0);
+      }
       if (sortBy === "NEWEST") {
         const timeA = a.createdAt ? a.createdAt.getTime() : 0;
         const timeB = b.createdAt ? b.createdAt.getTime() : 0;
@@ -366,104 +411,110 @@ export default function ClientsPage() {
 
   const recentCount = clients.filter((c) => isRecentClient(c.createdAt)).length;
   const activeClientsCount = clients.filter((c) => c.isOnline).length;
-  const withPhoneCount = clients.filter((c) => !!c.phone && c.phone.trim().length > 3).length;
+  const buyersCount = clients.filter((c) => (orderStatsByClient[c.id]?.ordersCount || 0) > 0).length;
+  const vipCount = clients.filter((c) => c.crmTags.includes("VIP") || (orderStatsByClient[c.id]?.totalSpentUSD || 0) >= 100).length;
+  const suspendedCount = clients.filter((c) => c.isSuspended).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* En-tête */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">Répertoire & Nouveaux Clients</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30">
-              Coordonnées Acheteurs
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">CRM &amp; Gestion Clientèle</h1>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30">
+              Fiche 360°
             </span>
           </div>
-          <p className="text-sm text-gray-400 mt-1 max-w-2xl">
-            Suivi des clients enregistrés sur Rayon.net. Récupérez leurs coordonnées (nom, email, téléphone) pour votre CRM, vos actions marketing et votre base de données.
+          <p className="text-xs sm:text-sm text-gray-400 mt-0.5 max-w-2xl">
+            Suivi des clients Rayons.net : historique d&apos;achats, segmentation VIP, notes internes, notifications directes et export CRM.
           </p>
         </div>
 
         {/* Boutons d'actions Admin */}
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={exportClientsCSV}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all border border-white/10 shadow-sm"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all border border-white/10 shadow-sm cursor-pointer"
             title="Télécharger la liste sous format Excel/CSV"
           >
-            <Download size={15} />
-            <span>Exporter Coordonnées (CSV)</span>
+            <Download size={14} />
+            <span>Exporter CSV</span>
           </button>
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] rounded-xl text-xs font-bold transition-all shadow-md"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
           >
-            <Plus size={16} />
+            <Plus size={15} />
             <span>Enregistrer un Client</span>
           </button>
         </div>
       </div>
 
-      {/* Cartes statistiques */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* Cartes statistiques CRM */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <button
           onClick={() => { setFilterType("ALL"); setSortBy("NEWEST"); }}
-          className={`bg-[#0F1A23] border p-3.5 rounded-2xl flex items-center justify-between transition-all text-left ${
+          className={`bg-[#0F1A23] border p-3.5 rounded-2xl flex items-center justify-between transition-all text-left cursor-pointer ${
             filterType === "ALL" ? "border-blue-500/50 shadow-md shadow-blue-950/20" : "border-white/[0.08] hover:border-white/20"
           }`}
         >
           <div>
-            <p className="text-[11px] text-gray-400 uppercase font-semibold">Total Base</p>
-            <p className="text-2xl font-bold text-white mt-0.5">{clients.length}</p>
+            <p className="text-[10px] text-gray-400 uppercase font-semibold">Total Clients</p>
+            <p className="text-xl sm:text-2xl font-bold text-white tabular-nums mt-0.5">{clients.length}</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">{recentCount} nouveau(x) (7j)</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0">
-            <UsersIcon size={18} />
-          </div>
-        </button>
-
-        <button
-          onClick={() => { setFilterType("NEW"); setSortBy("NEWEST"); }}
-          className={`bg-[#0F1A23] border p-3.5 rounded-2xl flex items-center justify-between transition-all text-left ${
-            filterType === "NEW" ? "border-[#C7D300]/50 shadow-md shadow-[#C7D300]/10" : "border-white/[0.08] hover:border-white/20"
-          }`}
-        >
-          <div>
-            <p className="text-[11px] text-gray-400 uppercase font-semibold">Nouveaux (7j)</p>
-            <p className="text-2xl font-bold text-[#C7D300] mt-0.5">{recentCount}</p>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-[#C7D300]/10 text-[#C7D300] border border-[#C7D300]/20 flex items-center justify-center shrink-0">
-            <Sparkles size={18} />
+          <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0">
+            <UsersIcon size={16} />
           </div>
         </button>
 
         <button
-          onClick={() => setFilterType("WITH_PHONE")}
-          className={`bg-[#0F1A23] border p-3.5 rounded-2xl flex items-center justify-between transition-all text-left ${
-            filterType === "WITH_PHONE" ? "border-purple-500/50 shadow-md" : "border-white/[0.08] hover:border-white/20"
+          onClick={() => { setFilterType("BUYERS"); setSortBy("SPENT"); }}
+          className={`bg-[#0F1A23] border p-3.5 rounded-2xl flex items-center justify-between transition-all text-left cursor-pointer ${
+            filterType === "BUYERS" ? "border-[#C7D300]/50 shadow-md shadow-[#C7D300]/10" : "border-white/[0.08] hover:border-white/20"
           }`}
         >
           <div>
-            <p className="text-[11px] text-gray-400 uppercase font-semibold">Avec Téléphone</p>
-            <p className="text-2xl font-bold text-purple-400 mt-0.5">{withPhoneCount}</p>
+            <p className="text-[10px] text-gray-400 uppercase font-semibold">Acheteurs Actifs</p>
+            <p className="text-xl sm:text-2xl font-bold text-[#C7D300] tabular-nums mt-0.5">{buyersCount}</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">Ont déjà commandé</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20 flex items-center justify-center shrink-0">
-            <Phone size={18} />
+          <div className="w-9 h-9 rounded-xl bg-[#C7D300]/10 text-[#C7D300] border border-[#C7D300]/20 flex items-center justify-center shrink-0">
+            <ShoppingBag size={16} />
+          </div>
+        </button>
+
+        <button
+          onClick={() => { setFilterType("VIP"); setSortBy("SPENT"); }}
+          className={`bg-[#0F1A23] border p-3.5 rounded-2xl flex items-center justify-between transition-all text-left cursor-pointer ${
+            filterType === "VIP" ? "border-amber-500/50 shadow-md" : "border-white/[0.08] hover:border-white/20"
+          }`}
+        >
+          <div>
+            <p className="text-[10px] text-gray-400 uppercase font-semibold">Clients VIP</p>
+            <p className="text-xl sm:text-2xl font-bold text-amber-400 tabular-nums mt-0.5">{vipCount}</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">Tag VIP ou ≥ $100</p>
+          </div>
+          <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center shrink-0">
+            <Star size={16} />
           </div>
         </button>
 
         <button
           onClick={() => setFilterType("ONLINE")}
-          className={`bg-[#0F1A23] border p-3.5 rounded-2xl flex items-center justify-between transition-all text-left ${
+          className={`bg-[#0F1A23] border p-3.5 rounded-2xl flex items-center justify-between transition-all text-left cursor-pointer ${
             filterType === "ONLINE" ? "border-emerald-500/50 shadow-md" : "border-white/[0.08] hover:border-white/20"
           }`}
         >
           <div>
-            <p className="text-[11px] text-gray-400 uppercase font-semibold">En Ligne</p>
-            <p className="text-2xl font-bold text-emerald-400 mt-0.5">{activeClientsCount}</p>
+            <p className="text-[10px] text-gray-400 uppercase font-semibold">En Ligne</p>
+            <p className="text-xl sm:text-2xl font-bold text-emerald-400 tabular-nums mt-0.5">{activeClientsCount}</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">{suspendedCount} suspendu(s)</p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0">
-            <UserCheck size={18} />
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0">
+            <UserCheck size={16} />
           </div>
         </button>
       </div>
@@ -499,38 +550,54 @@ export default function ClientsPage() {
                 onChange={(e: any) => setSortBy(e.target.value)}
                 className="bg-black/30 border border-white/[0.08] text-white text-xs rounded-xl px-2.5 py-1.5 focus:outline-none"
               >
-                <option value="NEWEST">Plus récents d'abord</option>
+                <option value="NEWEST">Plus récents d&apos;abord</option>
+                <option value="SPENT">Meilleurs acheteurs ($)</option>
                 <option value="ONLINE">Présence (En ligne)</option>
                 <option value="NAME">Nom (A-Z)</option>
               </select>
             </div>
 
             {/* Filtres tabs */}
-            <div className="flex items-center gap-1 p-1 bg-black/30 border border-white/[0.06] rounded-xl text-xs">
+            <div className="flex flex-wrap items-center gap-1 p-1 bg-black/30 border border-white/[0.06] rounded-xl text-xs">
               <button
                 onClick={() => setFilterType("ALL")}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
+                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
                   filterType === "ALL" ? "bg-white text-gray-900 font-bold" : "text-gray-400 hover:text-white"
                 }`}
               >
                 Tous ({clients.length})
               </button>
               <button
+                onClick={() => setFilterType("BUYERS")}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                  filterType === "BUYERS" ? "bg-[#C7D300] text-[#0F1D27] font-bold" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Acheteurs ({buyersCount})
+              </button>
+              <button
+                onClick={() => setFilterType("VIP")}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                  filterType === "VIP" ? "bg-amber-500 text-[#0F1D27] font-bold" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                VIP ({vipCount})
+              </button>
+              <button
                 onClick={() => setFilterType("NEW")}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1 ${
-                  filterType === "NEW" ? "bg-[#C7D300] text-[#0F1D27] font-bold" : "text-gray-400 hover:text-white"
+                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                  filterType === "NEW" ? "bg-sky-500 text-white font-bold" : "text-gray-400 hover:text-white"
                 }`}
               >
                 Nouveaux ({recentCount})
               </button>
               <button
-                onClick={() => setFilterType("ONLINE")}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-all flex items-center gap-1 ${
-                  filterType === "ONLINE" ? "bg-emerald-600 text-white font-bold" : "text-gray-400 hover:text-white"
+                onClick={() => setFilterType("SUSPENDED")}
+                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                  filterType === "SUSPENDED" ? "bg-red-600 text-white font-bold" : "text-gray-400 hover:text-white"
                 }`}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                <span>En ligne ({activeClientsCount})</span>
+                Suspendus ({suspendedCount})
               </button>
             </div>
           </div>
@@ -541,12 +608,12 @@ export default function ClientsPage() {
           <table className="w-full min-w-[760px] text-left text-sm text-gray-300">
             <thead className="text-[11px] uppercase bg-black/20 text-gray-400 font-semibold border-b border-white/[0.06]">
               <tr>
-                <th className="px-6 py-4">Client Enregistré</th>
-                <th className="px-6 py-4">Téléphone</th>
-                <th className="px-6 py-4">Email</th>
-                <th className="px-6 py-4">Inscription</th>
-                <th className="px-6 py-4">Statut</th>
-                <th className="px-6 py-4 text-right">Actions rapides</th>
+                <th className="px-4 py-3.5">Client &amp; Tags CRM</th>
+                <th className="px-4 py-3.5">Téléphone</th>
+                <th className="px-4 py-3.5">Email</th>
+                <th className="px-4 py-3.5">Achats</th>
+                <th className="px-4 py-3.5">Statut</th>
+                <th className="px-4 py-3.5 text-right">Actions rapides</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.04]">
@@ -574,28 +641,44 @@ export default function ClientsPage() {
                 filteredAndSortedClients.map((client) => {
                   const initial = (client.name || "C").charAt(0).toUpperCase();
                   const isNew = isRecentClient(client.createdAt);
+                  const cStats = orderStatsByClient[client.id] || { ordersCount: 0, totalSpentUSD: 0 };
 
                   return (
                     <tr key={client.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-3.5">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600/30 to-indigo-600/30 border border-blue-500/30 flex items-center justify-center text-blue-200 font-bold text-sm shrink-0 shadow-sm">
+                      <td className="px-4 py-3.5">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600/30 to-indigo-600/30 border border-blue-500/30 flex items-center justify-center text-blue-200 font-bold text-xs shrink-0 shadow-sm">
                             {initial}
                           </div>
                           <div>
-                            <div className="font-semibold text-white tracking-tight text-sm flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedCrmClient(client)}
+                              className="font-semibold text-white hover:text-[#C7D300] tracking-tight text-sm flex items-center gap-1.5 flex-wrap text-left cursor-pointer transition-colors"
+                            >
                               <span>{client.name}</span>
                               {isNew && (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30 animate-pulse">NOUVEAU</span>
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30">NOUVEAU</span>
                               )}
+                              {client.isSuspended && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-bold bg-red-500/15 text-red-400 border border-red-500/30">SUSPENDU</span>
+                              )}
+                              {client.crmTags.map((tag) => (
+                                <span key={tag} className="text-[9px] px-1.5 py-0.5 rounded-md font-bold bg-amber-500/15 text-amber-300 border border-amber-500/25">
+                                  {tag}
+                                </span>
+                              ))}
+                            </button>
+                            <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-2">
+                              <span className="font-mono">ID: {client.id.substring(0, 8)}</span>
+                              {client.crmNote && <span className="text-gray-400 truncate max-w-[180px]">· {client.crmNote}</span>}
                             </div>
-                            <div className="text-[11px] text-gray-500 font-mono mt-0.5">ID: {client.id.substring(0, 8)}...</div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3.5">
                         {client.phone ? (
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             <span className="font-mono text-xs text-gray-200 font-semibold">{client.phone}</span>
                             <button onClick={() => copyToClipboard(client.phone, `phone-${client.id}`)} className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors" title="Copier">
                               {copiedId === `phone-${client.id}` ? <Check size={12} className="text-[#C7D300]" /> : <Copy size={12} />}
@@ -605,58 +688,60 @@ export default function ClientsPage() {
                           </div>
                         ) : <span className="text-xs text-gray-600 italic">Non renseigné</span>}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3.5">
                         {client.email ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-300">{client.email}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-gray-300 truncate max-w-[180px]">{client.email}</span>
                             <button onClick={() => copyToClipboard(client.email, `email-${client.id}`)} className="p-1 rounded-md text-gray-400 hover:text-white hover:bg-white/10 transition-colors" title="Copier">{copiedId === `email-${client.id}` ? <Check size={12} className="text-[#C7D300]" /> : <Copy size={12} />}</button>
-                            <a href={`mailto:${client.email}`} className="p-1 rounded-md text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors" title="Email"><Mail size={12} /></a>
                           </div>
                         ) : <span className="text-xs text-gray-600 italic">Non renseigné</span>}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-1.5 text-xs text-gray-300">
-                          <Calendar size={13} className="text-gray-500 shrink-0" />
-                          <span>{formatDate(client.createdAt)}</span>
+                      <td className="px-4 py-3.5">
+                        <div className="text-xs">
+                          <div className="font-bold text-[#C7D300] tabular-nums">
+                            ${Math.round(cStats.totalSpentUSD).toLocaleString("fr-FR")}
+                          </div>
+                          <div className="text-[10px] text-gray-400">
+                            {cStats.ordersCount} commande{cStats.ordersCount > 1 ? "s" : ""}
+                          </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-4 py-3.5">
                         {client.isOnline ? (
-                          <span className="inline-flex items-center space-x-2 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full text-xs font-semibold">
+                          <span className="inline-flex items-center space-x-1.5 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full text-[11px] font-semibold">
                             <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
                             <span>En Ligne</span>
                           </span>
                         ) : (
-                          <span className="inline-flex items-center space-x-1 text-gray-400 bg-white/5 border border-white/5 px-2.5 py-1 rounded-full text-xs font-medium">
-                            <Clock size={11} className="text-gray-500" />
-                            <span>{client.lastConnection ? formatDate(client.lastConnection) : "Déconnecté"}</span>
+                          <span className="inline-flex items-center space-x-1 text-gray-400 bg-white/5 border border-white/5 px-2 py-0.5 rounded-full text-[11px] font-medium">
+                            <Clock size={10} className="text-gray-500" />
+                            <span>{client.createdAt ? client.createdAt.toLocaleDateString("fr-FR") : "—"}</span>
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-4 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
+                            onClick={() => setSelectedCrmClient(client)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#C7D300]/15 hover:bg-[#C7D300]/25 text-[#C7D300] rounded-lg text-xs font-bold transition-colors border border-[#C7D300]/30 cursor-pointer"
+                            title="Ouvrir la Fiche Client 360° (Achats, Tags, Notes, Push)"
+                          >
+                            <Eye size={13} />
+                            <span>Fiche 360°</span>
+                          </button>
+                          <button
                             onClick={() => { setClientToPromote(client); setPromoteStoreName(client.name || ""); }}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 rounded-lg text-xs font-semibold transition-colors border border-blue-500/20 cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 hover:text-blue-300 rounded-lg text-xs font-semibold transition-colors border border-blue-500/20 cursor-pointer"
                             title="Convertir ce compte en Admin ou Fournisseur"
                           >
                             <ArrowRightCircle size={13} />
-                            <span>Convertir</span>
                           </button>
                           <button
                             onClick={() => setClientToDelete(client)}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-lg text-xs font-semibold transition-colors border border-red-500/20 cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 rounded-lg text-xs font-semibold transition-colors border border-red-500/20 cursor-pointer"
                             title="Supprimer définitivement ce compte client pour libérer son email"
                           >
                             <Trash2 size={13} />
-                            <span>Supprimer</span>
-                          </button>
-                          <button
-                            onClick={() => { const d = `Client : ${client.name}\nTél : ${client.phone || "—"}\nEmail : ${client.email || "—"}\nInscrit le : ${formatDate(client.createdAt)}`; navigator.clipboard.writeText(d); toast.success("📋 Fiche copiée !"); }}
-                            className="p-1.5 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white rounded-lg text-xs font-medium transition-colors border border-white/5 cursor-pointer"
-                            title="Copier la fiche complète"
-                          >
-                            <Copy size={13} />
                           </button>
                         </div>
                       </td>
@@ -757,20 +842,27 @@ export default function ClientsPage() {
                         Copier fiche
                       </button>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="grid grid-cols-3 gap-2 pt-1">
+                      <button
+                        onClick={() => setSelectedCrmClient(client)}
+                        className="flex items-center justify-center gap-1 py-2 px-2 bg-[#C7D300]/15 hover:bg-[#C7D300]/25 text-[#C7D300] rounded-xl text-xs font-bold border border-[#C7D300]/30 cursor-pointer"
+                      >
+                        <Eye size={13} />
+                        <span>Fiche 360°</span>
+                      </button>
                       <button
                         onClick={() => { setClientToPromote(client); setPromoteStoreName(client.name || ""); }}
-                        className="flex items-center justify-center gap-1.5 py-2 px-3 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl text-xs font-semibold border border-blue-500/20 cursor-pointer"
+                        className="flex items-center justify-center gap-1 py-2 px-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 rounded-xl text-xs font-semibold border border-blue-500/20 cursor-pointer"
                       >
                         <ArrowRightCircle size={13} />
                         <span>Convertir</span>
                       </button>
                       <button
                         onClick={() => setClientToDelete(client)}
-                        className="flex items-center justify-center gap-1.5 py-2 px-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-xs font-semibold border border-red-500/20 cursor-pointer"
+                        className="flex items-center justify-center gap-1 py-2 px-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl text-xs font-semibold border border-red-500/20 cursor-pointer"
                       >
                         <Trash2 size={13} />
-                        <span>Supprimer</span>
+                        <span>Suppr.</span>
                       </button>
                     </div>
                   </div>
@@ -1061,6 +1153,12 @@ export default function ClientsPage() {
           </div>
         )}
       </ResponsiveModal>
+
+      {/* DRAWER : Fiche Client 360° (CRM) */}
+      <ClientCrmDrawer
+        client={selectedCrmClient}
+        onClose={() => setSelectedCrmClient(null)}
+      />
     </div>
   );
 }

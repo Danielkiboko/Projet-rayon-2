@@ -81,7 +81,7 @@ export default function ContactPage() {
             <Sparkles size={14} />
             <span>Support &amp; Relations Clients</span>
           </div>
-          <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight mb-4">
+          <h1 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight mb-3">
             Contactez notre équipe locale
           </h1>
           <p className="text-sm sm:text-base text-gray-300 leading-relaxed">

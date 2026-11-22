@@ -285,8 +285,8 @@ export default function SupplierSettingsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2.5">
-            <Building2 className="text-[#C7D300]" size={28} />
+          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+            <Building2 className="text-[#C7D300]" size={22} />
             <span>Paramètres du Profil Fournisseur</span>
           </h1>
           <p className="text-sm text-gray-400 mt-1">

@@ -77,11 +77,11 @@ export default function HealthDashboard() {
     <div className="space-y-6 animate-fade-in pb-20">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-400 to-orange-500 flex items-center gap-3">
-            <ShieldAlert size={32} className="text-red-500" />
+          <h1 className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-400 to-orange-500 flex items-center gap-2.5">
+            <ShieldAlert size={24} className="text-red-500 shrink-0" />
             Agent Détecteur de Bugs
           </h1>
-          <p className="text-gray-400 mt-1">Surveillance de la santé de l'application et analyse IA des erreurs.</p>
+          <p className="text-xs sm:text-sm text-gray-400 mt-1">Surveillance de la santé de l&apos;application et analyse IA des erreurs.</p>
         </div>
       </div>
 

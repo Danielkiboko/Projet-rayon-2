@@ -359,16 +359,16 @@ export default function AdminPushCenterPage() {
       </div>
 
       {/* KPI Cards — Téléchargements & Audiences Push */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* 1. Applications Téléchargées / Installées */}
-        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-5 space-y-1.5">
-          <div className="flex items-center justify-between text-gray-400 text-xs">
+        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 space-y-1">
+          <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
             <span>Applications Téléchargées</span>
-            <div className="w-8 h-8 rounded-xl bg-white/[0.06] text-[#C7D300] flex items-center justify-center">
-              <Download size={16} />
+            <div className="w-7 h-7 rounded-lg bg-white/[0.06] text-[#C7D300] flex items-center justify-center">
+              <Download size={14} />
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-white tracking-tight">
+          <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">
             {telemetry.installedAppsCount}
           </div>
           <p className="text-[11px] text-gray-400">
@@ -379,14 +379,14 @@ export default function AdminPushCenterPage() {
         </div>
 
         {/* 2. Appareils Joignables par Push */}
-        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-5 space-y-1.5">
-          <div className="flex items-center justify-between text-gray-400 text-xs">
+        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 space-y-1">
+          <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
             <span>Appareils Push Actifs</span>
-            <div className="w-8 h-8 rounded-xl bg-white/[0.06] text-gray-200 flex items-center justify-center">
-              <Smartphone size={16} />
+            <div className="w-7 h-7 rounded-lg bg-white/[0.06] text-gray-200 flex items-center justify-center">
+              <Smartphone size={14} />
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-white tracking-tight">
+          <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">
             {telemetry.pushEnabledDevicesCount}
           </div>
           <p className="text-[11px] text-gray-400">
@@ -395,14 +395,14 @@ export default function AdminPushCenterPage() {
         </div>
 
         {/* 3. Répartition des Comptes (Clients vs Pros) */}
-        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-5 space-y-1.5">
-          <div className="flex items-center justify-between text-gray-400 text-xs">
+        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 space-y-1">
+          <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
             <span>Audiences Enregistrées</span>
-            <div className="w-8 h-8 rounded-xl bg-white/[0.06] text-gray-200 flex items-center justify-center">
-              <UserCheck size={16} />
+            <div className="w-7 h-7 rounded-lg bg-white/[0.06] text-gray-200 flex items-center justify-center">
+              <UserCheck size={14} />
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-white tracking-tight">
+          <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">
             {telemetry.byAudience.clients +
               telemetry.byAudience.suppliers +
               telemetry.byAudience.partners +
@@ -415,14 +415,14 @@ export default function AdminPushCenterPage() {
         </div>
 
         {/* 4. Campagnes Diffusées */}
-        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-5 space-y-1.5">
-          <div className="flex items-center justify-between text-gray-400 text-xs">
+        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 space-y-1">
+          <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
             <span>Campagnes Push Envoyées</span>
-            <div className="w-8 h-8 rounded-xl bg-white/[0.06] text-gray-200 flex items-center justify-center">
-              <Megaphone size={16} />
+            <div className="w-7 h-7 rounded-lg bg-white/[0.06] text-gray-200 flex items-center justify-center">
+              <Megaphone size={14} />
             </div>
           </div>
-          <div className="text-3xl font-extrabold text-white tracking-tight">
+          <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">
             {campaigns.length}
           </div>
           <p className="text-[11px] text-gray-400">

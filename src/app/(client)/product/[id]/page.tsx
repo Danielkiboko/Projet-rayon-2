@@ -535,12 +535,12 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
               })()}
             </div>
 
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-3 leading-tight">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-2.5 leading-snug">
               {productTitle}
             </h1>
 
             <div className="flex items-baseline gap-3 mb-5">
-              <span className="text-2xl sm:text-3xl font-heading font-black text-[#C7D300]">
+              <span className="text-xl sm:text-2xl font-bold tabular-nums text-[#C7D300]">
                 {formatPrice(productData.price)}
               </span>
               {Number(productData.stock) > 0 && (
