@@ -541,7 +541,15 @@ export default function SuppliersPage() {
         }),
       });
 
-      const data = await response.json();
+      const rawText = await response.text();
+      let data: any = {};
+      try {
+        data = rawText ? JSON.parse(rawText) : {};
+      } catch {
+        throw new Error(
+          `Le serveur a mis trop de temps à répondre (HTTP ${response.status}). Rafraîchis la liste des fournisseurs pour vérifier si le compte a bien été créé.`
+        );
+      }
 
       if (!response.ok) {
         throw new Error(data.error || "Erreur lors de la création du fournisseur.");

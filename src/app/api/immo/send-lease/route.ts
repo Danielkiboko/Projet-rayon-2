@@ -39,11 +39,15 @@ export async function POST(req: Request) {
       );
     }
 
-    // Setup nodemailer with official SMTP
+    // Setup nodemailer with official SMTP (strict timeouts to prevent proxy 504)
+    const smtpPort = Number(process.env.SMTP_PORT) || 465;
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || "smtp.hostinger.com",
-      port: Number(process.env.SMTP_PORT) || 465,
-      secure: Number(process.env.SMTP_PORT || 465) === 465,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      connectionTimeout: 6000,
+      greetingTimeout: 6000,
+      socketTimeout: 8000,
       auth: {
         user: process.env.SMTP_USER || "no-reply@rayons.net",
         pass: process.env.SMTP_PASS,

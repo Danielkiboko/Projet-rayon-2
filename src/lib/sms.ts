@@ -48,7 +48,7 @@ export async function sendMobiShastraSMS({ mobileNo, message, isUnicode = false,
   try {
     const response = await fetch(url, {
       method: "GET",
-      // MobiShastra APIs generally don't require specific headers for GET requests
+      signal: AbortSignal.timeout(8000),
     });
 
     if (!response.ok) {

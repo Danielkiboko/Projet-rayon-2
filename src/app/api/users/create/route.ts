@@ -319,47 +319,62 @@ export async function POST(req: Request) {
       console.warn('Could not generate reset link:', resetErr);
     }
 
-    // 8.5 Send Email with nodemailer
-    if (notificationMethod === 'email' || !notificationMethod || notificationMethod === 'both') {
-      try {
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST || 'smtp.hostinger.com',
-          port: parseInt(process.env.SMTP_PORT || '465'),
-          secure: true,
-          auth: {
-            user: process.env.SMTP_USER || 'no-reply@rayons.net',
-            pass: process.env.SMTP_PASS || ''
-          }
-        });
+    // 8.5 Send Email & SMS with strict timeouts (never block/timeout HTTP response on slow SMTP)
+    const runWithSoftTimeout = async <T,>(task: Promise<T>, ms = 4000): Promise<{ done: boolean; value?: T }> => {
+      return Promise.race([
+        task.then((value) => ({ done: true, value })).catch((err) => {
+          console.error('[users/create] Notification background error:', err);
+          return { done: true, value: undefined };
+        }),
+        new Promise<{ done: boolean }>((resolve) => setTimeout(() => resolve({ done: false }), ms)),
+      ]);
+    };
 
-        const rayonName = extraData?.rayonName || extraData?.rayon || 'Rayons.net';
-        const rayonLabels: Record<string, string> = {
-          immo: 'Rayon Immo — Immobilier & Hôtellerie',
-          mode: 'Rayon Mode — Vêtements & Accessoires',
-          connect: 'Rayon Connect — Services & Tech',
-          saveurs: 'Rayon Saveurs — Restauration & Traiteur',
-        };
-        const rayonDisplay = rayonLabels[rayonName] || rayonName;
+    const notificationTasks: Promise<any>[] = [];
 
-        const roleLabels: Record<string, string> = {
-          driver: 'Livreur',
-          supplier: 'Fournisseur',
-          SUPPLIER_IMMO: 'Fournisseur — Rayon Immo',
-          SUPPLIER_MODE: 'Fournisseur — Rayon Mode',
-          SUPPLIER_CONNECT: 'Fournisseur — Rayon Connect',
-          SUPPLIER_SAVEURS: 'Fournisseur — Rayon Saveurs',
-          SUB_SUPPLIER: 'Sous-Fournisseur',
-        };
-        const displayRole = roleLabels[roleToCreate] || roleToCreate;
+    if ((notificationMethod === 'email' || !notificationMethod || notificationMethod === 'both') && process.env.SMTP_PASS) {
+      const smtpPort = Number(process.env.SMTP_PORT) || 465;
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.hostinger.com',
+        port: smtpPort,
+        secure: smtpPort === 465,
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 7000,
+        auth: {
+          user: process.env.SMTP_USER || 'no-reply@rayons.net',
+          pass: process.env.SMTP_PASS || ''
+        }
+      });
 
-        const loginUrl = resetLink || 'https://rayons.net/login';
-        const driverApkUrl = getPermanentDriverApkUrl();
+      const rayonName = extraData?.rayonName || extraData?.rayon || 'Rayons.net';
+      const rayonLabels: Record<string, string> = {
+        immo: 'Rayon Immo — Immobilier & Hôtellerie',
+        mode: 'Rayon Mode — Vêtements & Accessoires',
+        connect: 'Rayon Connect — Services & Tech',
+        saveurs: 'Rayon Saveurs — Restauration & Traiteur',
+      };
+      const rayonDisplay = rayonLabels[rayonName] || rayonName;
 
-        const mailOptions = {
-          from: `"Rayons.net" <${process.env.SMTP_USER || 'no-reply@rayons.net'}>`,
-          to: email,
-          subject: `Bienvenue sur Rayons.net — Votre compte ${displayRole} est prêt !`,
-          html: `
+      const roleLabels: Record<string, string> = {
+        driver: 'Livreur',
+        supplier: 'Fournisseur',
+        SUPPLIER_IMMO: 'Fournisseur — Rayon Immo',
+        SUPPLIER_MODE: 'Fournisseur — Rayon Mode',
+        SUPPLIER_CONNECT: 'Fournisseur — Rayon Connect',
+        SUPPLIER_SAVEURS: 'Fournisseur — Rayon Saveurs',
+        SUB_SUPPLIER: 'Sous-Fournisseur',
+      };
+      const displayRole = roleLabels[roleToCreate] || roleToCreate;
+
+      const loginUrl = resetLink || 'https://rayons.net/login';
+      const driverApkUrl = getPermanentDriverApkUrl();
+
+      const mailOptions = {
+        from: `"Rayons.net" <${process.env.SMTP_USER || 'no-reply@rayons.net'}>`,
+        to: email,
+        subject: `Bienvenue sur Rayons.net — Votre compte ${displayRole} est prêt !`,
+        html: `
 <!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
@@ -368,16 +383,12 @@ export async function POST(req: Request) {
     <tr>
       <td align="center" style="padding:40px 20px;">
         <table role="presentation" width="600" style="max-width:600px;width:100%;background-color:#1a2d3d;border-radius:16px;overflow:hidden;border:1px solid rgba(199,211,0,0.2);">
-          
-          <!-- Header -->
           <tr>
             <td style="background:linear-gradient(135deg,#0F1D27 0%,#1a3040 100%);padding:40px 40px 30px;text-align:center;border-bottom:2px solid #C7D300;">
               <h1 style="margin:0;font-size:28px;font-weight:800;color:#C7D300;letter-spacing:2px;">RAYONS.NET</h1>
               <p style="margin:8px 0 0;font-size:13px;color:#8fa3b0;letter-spacing:1px;text-transform:uppercase;">La marketplace de référence</p>
             </td>
           </tr>
-
-          <!-- Welcome -->
           <tr>
             <td style="padding:40px 40px 20px;">
               <h2 style="margin:0 0 12px;font-size:22px;color:#ffffff;">Bienvenue, ${displayName || 'Nouveau Partenaire'} ! 👋</h2>
@@ -386,8 +397,6 @@ export async function POST(req: Request) {
               </p>
             </td>
           </tr>
-
-          <!-- Rayon Info -->
           <tr>
             <td style="padding:0 40px 20px;">
               <div style="background:rgba(199,211,0,0.08);border:1px solid rgba(199,211,0,0.25);border-radius:10px;padding:20px;">
@@ -396,9 +405,7 @@ export async function POST(req: Request) {
               </div>
             </td>
           </tr>
-
           ${roleToCreate === 'driver' ? `
-          <!-- Driver Mobile App Card -->
           <tr>
             <td style="padding:0 40px 20px;">
               <div style="background:linear-gradient(135deg, rgba(199,211,0,0.15) 0%, rgba(15,29,39,0.95) 100%);border:2px solid #C7D300;border-radius:12px;padding:24px;text-align:center;">
@@ -417,8 +424,6 @@ export async function POST(req: Request) {
             </td>
           </tr>
           ` : ''}
-
-          <!-- Login Info -->
           <tr>
             <td style="padding:0 40px 20px;">
               <h3 style="margin:0 0 16px;font-size:16px;color:#ffffff;font-weight:600;">🔐 Vos informations de connexion</h3>
@@ -439,8 +444,6 @@ export async function POST(req: Request) {
               </table>
             </td>
           </tr>
-
-          <!-- CTA Button -->
           <tr>
             <td style="padding:0 40px 40px;text-align:center;">
               <a href="${loginUrl}" style="display:inline-block;background-color:#C7D300;color:#0F1D27;padding:16px 40px;text-decoration:none;font-weight:800;font-size:15px;border-radius:8px;letter-spacing:0.5px;">
@@ -451,59 +454,62 @@ export async function POST(req: Request) {
               </p>
             </td>
           </tr>
-
-          <!-- Footer -->
           <tr>
             <td style="background:#0F1D27;padding:24px 40px;text-align:center;border-top:1px solid rgba(255,255,255,0.08);">
               <p style="margin:0 0 6px;font-size:13px;color:#8fa3b0;">Des questions ? Contactez-nous à <a href="mailto:admin@rayons.net" style="color:#C7D300;">admin@rayons.net</a></p>
               <p style="margin:0;font-size:12px;color:#4a6070;">© ${new Date().getFullYear()} Rayons.net — Tous droits réservés</p>
             </td>
           </tr>
-
         </table>
       </td>
     </tr>
   </table>
 </body>
 </html>
-          `
-        };
+        `
+      };
 
-        await transporter.sendMail(mailOptions);
-        console.log(`Welcome email sent successfully to ${email}`);
-      } catch (emailErr) {
-        console.error('Failed to send welcome email:', emailErr);
-      }
+      notificationTasks.push(
+        transporter
+          .sendMail(mailOptions)
+          .then(() => console.log(`Welcome email sent successfully to ${email}`))
+          .catch((emailErr) => console.error('Failed to send welcome email:', emailErr))
+      );
     }
-
 
     // 9. Send SMS if requested
     if ((notificationMethod === 'sms' || notificationMethod === 'both') && phoneNumber) {
-      try {
-        let customSenderId = undefined;
-        const callerDoc = await adminDb.collection('users').doc(callerUid).get();
-        if (callerDoc.exists) {
-          const callerData = callerDoc.data();
-          if (
-            callerData?.senderId ||
-            callerData?.customSenderId ||
-            callerData?.smsSenderId ||
-            (callerData?.displayName && (callerData.displayName.toLowerCase().includes('laurent') || callerData.displayName.toLowerCase().includes('mutamulis'))) ||
-            (callerData?.lastName && callerData.lastName.toLowerCase().includes('sumaili')) ||
-            callerData?.email === 'sumaililaurent4@gmail.com'
-          ) {
-            customSenderId = callerData?.senderId || callerData?.customSenderId || callerData?.smsSenderId || 'MUTAMULIS';
-          }
-        }
+      notificationTasks.push(
+        (async () => {
+          try {
+            let customSenderId = undefined;
+            const callerData = callerDocData;
+            if (
+              callerData?.senderId ||
+              callerData?.customSenderId ||
+              callerData?.smsSenderId ||
+              (callerData?.displayName && (callerData.displayName.toLowerCase().includes('laurent') || callerData.displayName.toLowerCase().includes('mutamulis'))) ||
+              (callerData?.lastName && callerData.lastName.toLowerCase().includes('sumaili')) ||
+              callerData?.email === 'sumaililaurent4@gmail.com'
+            ) {
+              customSenderId = callerData?.senderId || callerData?.customSenderId || callerData?.smsSenderId || 'MUTAMULIS';
+            }
 
-        const driverApkUrl = getPermanentDriverApkUrl();
-        const appLinkSms = roleToCreate === 'driver' ? `\nApp mobile Livreur: ${driverApkUrl}` : '';
-        const message = `Bonjour ${displayName || ''}, votre compte Rayons a été créé.\nEmail: ${email}\n${resetLink ? `Activez votre compte: ${resetLink}` : `Mot de passe temporaire: ${finalPassword}`}${appLinkSms}\nLien: https://rayons.net`;
-        await sendMobiShastraSMS({ mobileNo: phoneNumber, message, customSenderId });
-        console.log(`SMS sent successfully to ${phoneNumber} with senderId ${customSenderId || 'default'}`);
-      } catch (smsError) {
-        console.error('Failed to send SMS:', smsError);
-      }
+            const driverApkUrl = getPermanentDriverApkUrl();
+            const appLinkSms = roleToCreate === 'driver' ? `\nApp mobile Livreur: ${driverApkUrl}` : '';
+            const message = `Bonjour ${displayName || ''}, votre compte Rayons a été créé.\nEmail: ${email}\n${resetLink ? `Activez votre compte: ${resetLink}` : `Mot de passe temporaire: ${finalPassword}`}${appLinkSms}\nLien: https://rayons.net`;
+            await sendMobiShastraSMS({ mobileNo: phoneNumber, message, customSenderId });
+            console.log(`SMS sent successfully to ${phoneNumber} with senderId ${customSenderId || 'default'}`);
+          } catch (smsError) {
+            console.error('Failed to send SMS:', smsError);
+          }
+        })()
+      );
+    }
+
+    // Ne jamais dépasser 4 secondes d'attente pour les notifications afin d'éviter un 504 Gateway Timeout
+    if (notificationTasks.length > 0) {
+      await runWithSoftTimeout(Promise.allSettled(notificationTasks), 4000);
     }
 
     return NextResponse.json({ 
