@@ -1,9 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
+import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
-import { requireAdminCaller } from "@/server/guards";
+import { requireAdminCaller, requireFullAdminCaller } from "@/server/guards";
+import { recordAuditLog } from "@/server/auditLog";
 import { hasStaffPermission } from "@/domain/permissions";
 import { isSuperAdmin } from "@/domain/roles";
 import { SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
+
+type RangeDays = 7 | 30 | 90;
+
+export interface TeamGoals {
+  monthlyRevenueTargetUSD: number;
+  deliveryRateTargetPct: number;
+  supportResolutionTargetPct: number;
+  catalogueApprovalTargetPct: number;
+  monthlyNewSignupsTarget: number;
+}
+
+const DEFAULT_TEAM_GOALS: TeamGoals = {
+  monthlyRevenueTargetUSD: 1500,
+  deliveryRateTargetPct: 95,
+  supportResolutionTargetPct: 90,
+  catalogueApprovalTargetPct: 90,
+  monthlyNewSignupsTarget: 50,
+};
 
 function isStaffOrAdminDoc(data: any): boolean {
   if (!data) return false;
@@ -31,49 +51,131 @@ function toDateObj(raw: any): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-function buildDailyBuckets(daysCount: number) {
-  const buckets: { key: string; name: string; total: number }[] = [];
-  const map = new Map<string, { key: string; name: string; total: number }>();
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+interface TimeBucket {
+  startMs: number;
+  endMs: number;
+  name: string;
+  total: number;
+}
 
-  for (let i = daysCount - 1; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    const key = d.toISOString().slice(0, 10);
-    const name = d.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
-    const entry = { key, name, total: 0 };
-    buckets.push(entry);
-    map.set(key, entry);
+function buildTimeBuckets(rangeDays: RangeDays): TimeBucket[] {
+  const now = new Date();
+  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const buckets: TimeBucket[] = [];
+
+  if (rangeDays === 90) {
+    // 13 tranches hebdomadaires (7 jours chacune) pour une lecture fluide sur 90j
+    const weeks = 13;
+    for (let i = weeks - 1; i >= 0; i--) {
+      const end = new Date(endOfToday.getTime() - i * 7 * 86400000);
+      const start = new Date(end.getTime() - 7 * 86400000 + 1);
+      const label = start.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+      buckets.push({
+        startMs: start.getTime(),
+        endMs: end.getTime(),
+        name: label,
+        total: 0,
+      });
+    }
+    return buckets;
   }
-  return { buckets, map };
+
+  for (let i = rangeDays - 1; i >= 0; i--) {
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i, 0, 0, 0, 0);
+    const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i, 23, 59, 59, 999);
+    const label = dayStart.toLocaleDateString("fr-FR", { day: "2-digit", month: "short" });
+    buckets.push({
+      startMs: dayStart.getTime(),
+      endMs: dayEnd.getTime(),
+      name: label,
+      total: 0,
+    });
+  }
+  return buckets;
+}
+
+function addToBucket(buckets: TimeBucket[], timestampMs: number, value: number) {
+  for (let i = buckets.length - 1; i >= 0; i--) {
+    if (timestampMs >= buckets[i].startMs && timestampMs <= buckets[i].endMs) {
+      buckets[i].total += value;
+      return;
+    }
+  }
+}
+
+function computeTrend(current: number, previous: number) {
+  if (previous <= 0 && current <= 0) {
+    return { current, previous, deltaPct: 0, direction: "flat" as const };
+  }
+  if (previous <= 0 && current > 0) {
+    return { current, previous, deltaPct: 100, direction: "up" as const };
+  }
+  const raw = Math.round(((current - previous) / previous) * 100);
+  return {
+    current,
+    previous,
+    deltaPct: raw,
+    direction: raw > 0 ? ("up" as const) : raw < 0 ? ("down" as const) : ("flat" as const),
+  };
 }
 
 function classifyRayon(item: any): "saveurs" | "mode" | "connect" | "immo" {
   const cat = String(item.category || "").toLowerCase();
   const ray = String(item.rayon || "").toLowerCase();
   const combined = `${cat} ${ray}`;
-  if (combined.includes("saveur") || combined.includes("resto") || combined.includes("plat") || combined.includes("food") || combined.includes("cuisine")) {
+  if (
+    combined.includes("saveur") ||
+    combined.includes("resto") ||
+    combined.includes("plat") ||
+    combined.includes("food") ||
+    combined.includes("cuisine")
+  ) {
     return "saveurs";
   }
-  if (combined.includes("mode") || combined.includes("vetement") || combined.includes("vêtement") || combined.includes("chaussure") || combined.includes("habit")) {
+  if (
+    combined.includes("mode") ||
+    combined.includes("vetement") ||
+    combined.includes("vêtement") ||
+    combined.includes("chaussure") ||
+    combined.includes("habit")
+  ) {
     return "mode";
   }
-  if (combined.includes("immo") || combined.includes("hotel") || combined.includes("maison") || combined.includes("appart")) {
+  if (
+    combined.includes("immo") ||
+    combined.includes("hotel") ||
+    combined.includes("maison") ||
+    combined.includes("appart")
+  ) {
     return "immo";
   }
   return "connect";
 }
 
 /**
- * GET /api/admin/staff-dashboard
- * Retourne des statistiques, courbes d'évolution (14j/30j), prévoyances et listes récentes
- * strictement cloisonnées selon les permissions réelles du fonctionnaire connecté.
+ * GET /api/admin/staff-dashboard?range=7|30|90
+ * Retourne des statistiques, courbes d'évolution (7j/30j/90j), tendances % vs période précédente,
+ * jauges d'objectifs mensuels, prévoyances et listes récentes strictement cloisonnées selon les permissions du membre du Team.
  */
 export async function GET(req: NextRequest) {
   try {
     const guard = await requireAdminCaller(req);
     if (!guard.ok || !guard.caller) return guard.errorResponse!;
+
+    const rawRange = Number(req.nextUrl.searchParams.get("range") || 30);
+    const rangeDays: RangeDays = rawRange === 7 ? 7 : rawRange === 90 ? 90 : 30;
+
+    const nowMs = Date.now();
+    const rangeMs = rangeDays * 86400000;
+    const currentPeriodStartMs = nowMs - rangeMs;
+    const previousPeriodStartMs = nowMs - rangeMs * 2;
+
+    // Bornes du mois civil en cours (pour les objectifs mensuels MTD + projection fin de mois)
+    const nowDate = new Date(nowMs);
+    const monthStartMs = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1, 0, 0, 0, 0).getTime();
+    const daysInMonth = new Date(nowDate.getFullYear(), nowDate.getMonth() + 1, 0).getDate();
+    const dayOfMonth = Math.max(1, nowDate.getDate());
+    const monthElapsedPct = Math.round((dayOfMonth / daysInMonth) * 100);
 
     const caller = guard.caller;
     const subject = {
@@ -126,6 +228,7 @@ export async function GET(req: NextRequest) {
     const needUsers = scopes.finance || scopes.support || scopes.catalogue || scopes.growth;
 
     const [
+      goalsSnap,
       usersSnap,
       transactionsSnap,
       commissionsSnap,
@@ -138,27 +241,40 @@ export async function GET(req: NextRequest) {
       propertiesSnap,
       devicesSnap,
     ] = await Promise.all([
+      adminDb.collection("settings").doc("team_goals").get(),
       needUsers ? adminDb.collection("users").get() : Promise.resolve(null),
-      scopes.finance ? adminDb.collection("transactions").limit(500).get() : Promise.resolve(null),
+      scopes.finance ? adminDb.collection("transactions").limit(600).get() : Promise.resolve(null),
       scopes.finance ? adminDb.collection("referral_commissions").limit(400).get() : Promise.resolve(null),
       scopes.finance
         ? adminDb.collection("subscription_payment_requests").where("status", "==", "PENDING").limit(100).get()
         : Promise.resolve(null),
       scopes.finance ? adminDb.collection("settings").doc("financial").get() : Promise.resolve(null),
-      scopes.logistics ? adminDb.collection("orders").limit(500).get() : Promise.resolve(null),
+      scopes.logistics ? adminDb.collection("orders").limit(600).get() : Promise.resolve(null),
       scopes.logistics ? adminDb.collection("drivers").limit(300).get() : Promise.resolve(null),
-      scopes.support ? adminDb.collection("tickets").limit(300).get() : Promise.resolve(null),
-      scopes.catalogue ? adminDb.collection("products").limit(400).get() : Promise.resolve(null),
-      scopes.catalogue ? adminDb.collection("properties").limit(400).get() : Promise.resolve(null),
+      scopes.support ? adminDb.collection("tickets").limit(400).get() : Promise.resolve(null),
+      scopes.catalogue ? adminDb.collection("products").limit(500).get() : Promise.resolve(null),
+      scopes.catalogue ? adminDb.collection("properties").limit(500).get() : Promise.resolve(null),
       scopes.growth ? adminDb.collection("push_devices").limit(400).get() : Promise.resolve(null),
     ]);
 
-    // ── Parsing partagé de `users` si nécessaire ──
+    const rawGoals = goalsSnap.exists ? goalsSnap.data() || {} : {};
+    const goals: TeamGoals = {
+      monthlyRevenueTargetUSD: Number(rawGoals.monthlyRevenueTargetUSD) > 0 ? Number(rawGoals.monthlyRevenueTargetUSD) : DEFAULT_TEAM_GOALS.monthlyRevenueTargetUSD,
+      deliveryRateTargetPct: Number(rawGoals.deliveryRateTargetPct) > 0 ? Math.min(100, Number(rawGoals.deliveryRateTargetPct)) : DEFAULT_TEAM_GOALS.deliveryRateTargetPct,
+      supportResolutionTargetPct: Number(rawGoals.supportResolutionTargetPct) > 0 ? Math.min(100, Number(rawGoals.supportResolutionTargetPct)) : DEFAULT_TEAM_GOALS.supportResolutionTargetPct,
+      catalogueApprovalTargetPct: Number(rawGoals.catalogueApprovalTargetPct) > 0 ? Math.min(100, Number(rawGoals.catalogueApprovalTargetPct)) : DEFAULT_TEAM_GOALS.catalogueApprovalTargetPct,
+      monthlyNewSignupsTarget: Number(rawGoals.monthlyNewSignupsTarget) > 0 ? Number(rawGoals.monthlyNewSignupsTarget) : DEFAULT_TEAM_GOALS.monthlyNewSignupsTarget,
+    };
+
+    // ── Parsing partagé de `users` ──
     const partnersMap: Record<string, { id: string; name: string; code: string; balance: number; totalEarned: number }> = {};
     const supplierDocs: any[] = [];
     let totalClientsCount = 0;
     let pendingSuppliersKyc = 0;
-    const growthBuckets = buildDailyBuckets(14);
+    const growthBuckets = buildTimeBuckets(rangeDays);
+    let currentSignups = 0;
+    let previousSignups = 0;
+    let mtdSignups = 0;
 
     if (usersSnap) {
       usersSnap.forEach((docSnap: any) => {
@@ -166,12 +282,12 @@ export async function GET(req: NextRequest) {
         const r = String(d.role || "").toUpperCase();
         const created = toDateObj(d.createdAt);
 
-        if (created) {
-          const dayKey = created.toISOString().slice(0, 10);
-          const b = growthBuckets.map.get(dayKey);
-          if (b && !isStaffOrAdminDoc(d)) {
-            b.total += 1;
-          }
+        if (created && !isStaffOrAdminDoc(d)) {
+          const ms = created.getTime();
+          addToBucket(growthBuckets, ms, 1);
+          if (ms >= currentPeriodStartMs) currentSignups++;
+          else if (ms >= previousPeriodStartMs) previousSignups++;
+          if (ms >= monthStartMs) mtdSignups++;
         }
 
         if (d.isPartner === true || r === "PARTNER" || d.accountType === "PARTNER") {
@@ -215,9 +331,12 @@ export async function GET(req: NextRequest) {
       const promoDiscount = Number(finSettings.promoDiscountUSD) || 10;
       const partnerCommissionRate = Number(finSettings.referralCommissionUSD) || 5;
 
-      const revBuckets = buildDailyBuckets(14);
+      const revBuckets = buildTimeBuckets(rangeDays);
       const paidBySupplier: Record<string, { count: number; totalUSD: number; lastPaidAt: string | null }> = {};
       let collectedSubscriptionRevenueUSD = 0;
+      let currentPeriodRevenueUSD = 0;
+      let previousPeriodRevenueUSD = 0;
+      let mtdRevenueUSD = 0;
 
       transactionsSnap?.forEach((docSnap: any) => {
         const t = docSnap.data() || {};
@@ -226,12 +345,14 @@ export async function GET(req: NextRequest) {
           t.category === "Abonnement" ||
           String(t.description || "").toLowerCase().includes("abonnement");
         const amt = Number(t.amount) || 0;
-
         const created = toDateObj(t.createdAt);
+
         if (created && amt > 0 && (isSub || t.status === "COMPLETED")) {
-          const dayKey = created.toISOString().slice(0, 10);
-          const bucket = revBuckets.map.get(dayKey);
-          if (bucket) bucket.total += amt;
+          const ms = created.getTime();
+          addToBucket(revBuckets, ms, amt);
+          if (ms >= currentPeriodStartMs) currentPeriodRevenueUSD += amt;
+          else if (ms >= previousPeriodStartMs) previousPeriodRevenueUSD += amt;
+          if (ms >= monthStartMs) mtdRevenueUSD += amt;
         }
 
         if (isSub) {
@@ -279,7 +400,7 @@ export async function GET(req: NextRequest) {
         const partnerCommissionUSD = !isOfficial && isPartnerRecruited ? partnerCommissionRate : 0;
 
         const endDate = toDateObj(s.subscriptionEndDate);
-        const daysRemaining = endDate ? Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+        const daysRemaining = endDate ? Math.ceil((endDate.getTime() - nowMs) / 86400000) : 0;
         const rawStatus = String(s.subscriptionStatus || "TRIAL").toUpperCase();
         const paymentStats = paidBySupplier[s.id] || { count: 0, totalUSD: 0, lastPaidAt: null };
 
@@ -352,13 +473,10 @@ export async function GET(req: NextRequest) {
       const projected90dRevenue = projected30dNetRevenue * 3;
       const projectedAnnualARR = projected30dNetRevenue * 12;
 
-      // Courbe prévisionnelle M+1 -> M+6 basée sur le MRR réel + conversion prudente des essais & recouvrements
       const monthNames = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"];
-      const nowDate = new Date();
       const forecastProjectionSeries = Array.from({ length: 6 }, (_, i) => {
         const d = new Date(nowDate.getFullYear(), nowDate.getMonth() + i, 1);
         const label = `${monthNames[d.getMonth()]} ${String(d.getFullYear()).slice(-2)}`;
-        // Réalisé / acquis (MRR actuel), Prévu (MRR + conversion progressive des essais et recouvrement)
         const conversionFactor = Math.min(1, 0.4 + i * 0.12);
         const projected = Math.round(
           Math.max(
@@ -376,10 +494,19 @@ export async function GET(req: NextRequest) {
         };
       });
 
+      const revenueGoalPct = Math.min(100, Math.round((mtdRevenueUSD / Math.max(1, goals.monthlyRevenueTargetUSD)) * 100));
+      const projectedMonthEndRevenueUSD = Math.round((mtdRevenueUSD / dayOfMonth) * daysInMonth);
+      const commercialTotal = Math.max(1, paidActiveCount + unpaidExpiredCount);
+      const collectionRatePct = paidActiveCount + unpaidExpiredCount > 0
+        ? Math.round((paidActiveCount / commercialTotal) * 100)
+        : 100;
+
       financeData = {
         summary: {
           collectedSubscriptionRevenueUSD,
           netPlatformRevenueUSD,
+          periodRevenueUSD: currentPeriodRevenueUSD,
+          mtdRevenueUSD,
           paidActiveCount,
           trialCount,
           unpaidExpiredCount,
@@ -388,6 +515,18 @@ export async function GET(req: NextRequest) {
           pendingPartnerPayoutsUSD,
           paidPartnerPayoutsUSD,
           totalPartnerCommissionsEarnedUSD,
+        },
+        trends: {
+          revenue: computeTrend(currentPeriodRevenueUSD, previousPeriodRevenueUSD),
+        },
+        goalProgress: {
+          mtdRevenueUSD,
+          targetUSD: goals.monthlyRevenueTargetUSD,
+          pct: revenueGoalPct,
+          remainingUSD: Math.max(0, goals.monthlyRevenueTargetUSD - mtdRevenueUSD),
+          projectedMonthEndUSD: projectedMonthEndRevenueUSD,
+          onTrack: revenueGoalPct >= monthElapsedPct || projectedMonthEndRevenueUSD >= goals.monthlyRevenueTargetUSD,
+          collectionRatePct,
         },
         forecasts: {
           currentMRR,
@@ -400,7 +539,7 @@ export async function GET(req: NextRequest) {
           projectedAnnualARR,
           expiringIn7DaysCount,
         },
-        revenueSeries: revBuckets.buckets.map(({ name, total }) => ({ name, total })),
+        revenueSeries: revBuckets.map(({ name, total }) => ({ name, total })),
         forecastProjectionSeries,
         pie: [
           { name: "Payés actifs", value: paidActiveCount, color: "#C7D300" },
@@ -418,14 +557,19 @@ export async function GET(req: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════════
     let logisticsData: any = null;
     if (scopes.logistics) {
-      const orderBuckets = buildDailyBuckets(14);
+      const orderBuckets = buildTimeBuckets(rangeDays);
       let ordersAwaitingDriver = 0;
       let ordersInProgress = 0;
       let ordersCompleted = 0;
       let ordersCancelled = 0;
       let totalGMV = 0;
+      let currentPeriodOrders = 0;
+      let previousPeriodOrders = 0;
+      let currentPeriodGMV = 0;
+      let previousPeriodGMV = 0;
+      let mtdDeliveredOrders = 0;
       let last7dOrders = 0;
-      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const sevenDaysAgo = nowMs - 7 * 86400000;
       const recentOrders: any[] = [];
 
       ordersSnap?.forEach((docSnap: any) => {
@@ -435,9 +579,11 @@ export async function GET(req: NextRequest) {
         const created = toDateObj(o.createdAt);
 
         if (st !== "CANCELLED") totalGMV += amt;
+        const isDelivered = ["COMPLETED", "DELIVERED", "LIVRE"].includes(st);
+
         if (st === "CONFIRMED_AWAITING_DRIVER" || st === "PENDING_DRIVER" || st === "PENDING") {
           ordersAwaitingDriver++;
-        } else if (["COMPLETED", "DELIVERED", "LIVRE"].includes(st)) {
+        } else if (isDelivered) {
           ordersCompleted++;
         } else if (st === "CANCELLED") {
           ordersCancelled++;
@@ -446,10 +592,17 @@ export async function GET(req: NextRequest) {
         }
 
         if (created) {
-          if (created.getTime() >= sevenDaysAgo) last7dOrders++;
-          const dayKey = created.toISOString().slice(0, 10);
-          const b = orderBuckets.map.get(dayKey);
-          if (b) b.total += 1;
+          const ms = created.getTime();
+          if (ms >= sevenDaysAgo) last7dOrders++;
+          addToBucket(orderBuckets, ms, 1);
+          if (ms >= currentPeriodStartMs) {
+            currentPeriodOrders++;
+            if (st !== "CANCELLED") currentPeriodGMV += amt;
+          } else if (ms >= previousPeriodStartMs) {
+            previousPeriodOrders++;
+            if (st !== "CANCELLED") previousPeriodGMV += amt;
+          }
+          if (ms >= monthStartMs && isDelivered) mtdDeliveredOrders++;
         }
 
         recentOrders.push({
@@ -476,7 +629,7 @@ export async function GET(req: NextRequest) {
       const totalDrivers = driversSnap?.size ?? 0;
       const totalOrders = ordersSnap?.size ?? 0;
       const nonCancelled = Math.max(1, totalOrders - ordersCancelled);
-      const completionRate = totalOrders > 0 ? Math.round((ordersCompleted / nonCancelled) * 100) : 0;
+      const completionRate = totalOrders > 0 ? Math.round((ordersCompleted / nonCancelled) * 100) : 100;
       const avgDailyOrders = Number((last7dOrders / 7).toFixed(1));
       const projected7dOrders = Math.round(avgDailyOrders * 7);
       const activeWorkload = ordersAwaitingDriver + ordersInProgress;
@@ -491,8 +644,21 @@ export async function GET(req: NextRequest) {
           ordersCompleted,
           ordersCancelled,
           totalOrders,
+          periodOrders: currentPeriodOrders,
+          periodGMV: currentPeriodGMV,
           totalGMV,
           completionRate,
+          mtdDeliveredOrders,
+        },
+        trends: {
+          orders: computeTrend(currentPeriodOrders, previousPeriodOrders),
+          gmv: computeTrend(currentPeriodGMV, previousPeriodGMV),
+        },
+        goalProgress: {
+          currentRatePct: completionRate,
+          targetRatePct: goals.deliveryRateTargetPct,
+          onTrack: completionRate >= goals.deliveryRateTargetPct,
+          mtdDeliveredOrders,
         },
         forecasts: {
           avgDailyOrders,
@@ -506,7 +672,7 @@ export async function GET(req: NextRequest) {
               ? "TENDU"
               : "FLUIDE",
         },
-        ordersSeries: orderBuckets.buckets.map(({ name, total }) => ({ name, total })),
+        ordersSeries: orderBuckets.map(({ name, total }) => ({ name, total })),
         pie: [
           { name: "Livrées", value: ordersCompleted, color: "#22c55e" },
           { name: "En cours", value: ordersInProgress, color: "#38bdf8" },
@@ -522,11 +688,14 @@ export async function GET(req: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════════
     let supportData: any = null;
     if (scopes.support) {
-      const ticketBuckets = buildDailyBuckets(14);
+      const ticketBuckets = buildTimeBuckets(rangeDays);
       let openTickets = 0;
       let resolvedTickets = 0;
+      let currentPeriodTickets = 0;
+      let previousPeriodTickets = 0;
+      let mtdResolvedTickets = 0;
       let last7dTickets = 0;
-      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const sevenDaysAgo = nowMs - 7 * 86400000;
       const recentTickets: any[] = [];
 
       ticketsSnap?.forEach((docSnap: any) => {
@@ -537,10 +706,12 @@ export async function GET(req: NextRequest) {
 
         const created = toDateObj(t.createdAt);
         if (created) {
-          if (created.getTime() >= sevenDaysAgo) last7dTickets++;
-          const dayKey = created.toISOString().slice(0, 10);
-          const b = ticketBuckets.map.get(dayKey);
-          if (b) b.total += 1;
+          const ms = created.getTime();
+          if (ms >= sevenDaysAgo) last7dTickets++;
+          addToBucket(ticketBuckets, ms, 1);
+          if (ms >= currentPeriodStartMs) currentPeriodTickets++;
+          else if (ms >= previousPeriodStartMs) previousPeriodTickets++;
+          if (ms >= monthStartMs && isClosed) mtdResolvedTickets++;
         }
 
         recentTickets.push({
@@ -567,8 +738,19 @@ export async function GET(req: NextRequest) {
           openTickets,
           resolvedTickets,
           totalTickets,
+          periodTickets: currentPeriodTickets,
           resolutionRate,
           totalClients: totalClientsCount,
+          mtdResolvedTickets,
+        },
+        trends: {
+          tickets: computeTrend(currentPeriodTickets, previousPeriodTickets),
+        },
+        goalProgress: {
+          currentRatePct: resolutionRate,
+          targetRatePct: goals.supportResolutionTargetPct,
+          onTrack: resolutionRate >= goals.supportResolutionTargetPct,
+          mtdResolvedTickets,
         },
         forecasts: {
           avgDailyTickets,
@@ -576,7 +758,7 @@ export async function GET(req: NextRequest) {
           projected30dTickets: Math.round(avgDailyTickets * 30),
           backlogPressure: openTickets > 10 ? "ELEVEE" : openTickets > 3 ? "MODEREE" : "CALME",
         },
-        ticketsSeries: ticketBuckets.buckets.map(({ name, total }) => ({ name, total })),
+        ticketsSeries: ticketBuckets.map(({ name, total }) => ({ name, total })),
         pie: [
           { name: "Ouvertes", value: openTickets, color: "#f59e0b" },
           { name: "Résolues", value: resolvedTickets, color: "#22c55e" },
@@ -590,13 +772,16 @@ export async function GET(req: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════════
     let catalogueData: any = null;
     if (scopes.catalogue) {
-      const catBuckets = buildDailyBuckets(14);
+      const catBuckets = buildTimeBuckets(rangeDays);
       let pendingProducts = 0;
       let activeProducts = 0;
       let pendingProperties = 0;
       let activeProperties = 0;
+      let currentPeriodSubmissions = 0;
+      let previousPeriodSubmissions = 0;
+      let mtdSubmissions = 0;
       let last7dSubmissions = 0;
-      const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const sevenDaysAgo = nowMs - 7 * 86400000;
       const rayonCounts = { saveurs: 0, mode: 0, connect: 0, immo: 0 };
       const recentPendingItems: any[] = [];
 
@@ -608,10 +793,12 @@ export async function GET(req: NextRequest) {
         rayonCounts[r]++;
 
         if (created) {
-          if (created.getTime() >= sevenDaysAgo) last7dSubmissions++;
-          const dayKey = created.toISOString().slice(0, 10);
-          const b = catBuckets.map.get(dayKey);
-          if (b) b.total += 1;
+          const ms = created.getTime();
+          if (ms >= sevenDaysAgo) last7dSubmissions++;
+          addToBucket(catBuckets, ms, 1);
+          if (ms >= currentPeriodStartMs) currentPeriodSubmissions++;
+          else if (ms >= previousPeriodStartMs) previousPeriodSubmissions++;
+          if (ms >= monthStartMs) mtdSubmissions++;
         }
 
         if (st === "PENDING_APPROVAL") {
@@ -637,10 +824,12 @@ export async function GET(req: NextRequest) {
         rayonCounts.immo++;
 
         if (created) {
-          if (created.getTime() >= sevenDaysAgo) last7dSubmissions++;
-          const dayKey = created.toISOString().slice(0, 10);
-          const b = catBuckets.map.get(dayKey);
-          if (b) b.total += 1;
+          const ms = created.getTime();
+          if (ms >= sevenDaysAgo) last7dSubmissions++;
+          addToBucket(catBuckets, ms, 1);
+          if (ms >= currentPeriodStartMs) currentPeriodSubmissions++;
+          else if (ms >= previousPeriodStartMs) previousPeriodSubmissions++;
+          if (ms >= monthStartMs) mtdSubmissions++;
         }
 
         if (st === "PENDING_APPROVAL") {
@@ -676,13 +865,24 @@ export async function GET(req: NextRequest) {
           activeSuppliers: Math.max(0, supplierDocs.length - pendingSuppliersKyc),
           pendingSuppliersKyc,
           approvalRate,
+          periodSubmissions: currentPeriodSubmissions,
+          mtdSubmissions,
+        },
+        trends: {
+          submissions: computeTrend(currentPeriodSubmissions, previousPeriodSubmissions),
+        },
+        goalProgress: {
+          currentRatePct: approvalRate,
+          targetRatePct: goals.catalogueApprovalTargetPct,
+          onTrack: approvalRate >= goals.catalogueApprovalTargetPct,
+          mtdSubmissions,
         },
         forecasts: {
           last7dSubmissions,
           projected30dListings: Math.round((last7dSubmissions / 7) * 30),
           rayonCounts,
         },
-        catalogueSeries: catBuckets.buckets.map(({ name, total }) => ({ name, total })),
+        catalogueSeries: catBuckets.map(({ name, total }) => ({ name, total })),
         pie: [
           { name: "Saveurs", value: rayonCounts.saveurs, color: "#FF6B35" },
           { name: "Mode", value: rayonCounts.mode, color: "#D4B08C" },
@@ -698,7 +898,10 @@ export async function GET(req: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════════
     let growthData: any = null;
     if (scopes.growth) {
-      const last7dSignups = growthBuckets.buckets.slice(-7).reduce((acc, b) => acc + b.total, 0);
+      const last7dSignups = growthBuckets.slice(-7).reduce((acc, b) => acc + b.total, 0);
+      const signupsGoalPct = Math.min(100, Math.round((mtdSignups / Math.max(1, goals.monthlyNewSignupsTarget)) * 100));
+      const projectedMonthEndSignups = Math.round((mtdSignups / dayOfMonth) * daysInMonth);
+
       growthData = {
         summary: {
           totalClients: totalClientsCount,
@@ -707,13 +910,25 @@ export async function GET(req: NextRequest) {
           activeSuppliers: Math.max(0, supplierDocs.length - pendingSuppliersKyc),
           pendingSuppliersKyc,
           installedAppsCount: (devicesSnap?.size ?? 0) + (driversSnap?.size ?? 0),
+          periodSignups: currentSignups,
+          mtdSignups,
+        },
+        trends: {
+          signups: computeTrend(currentSignups, previousSignups),
+        },
+        goalProgress: {
+          mtdSignups,
+          targetSignups: goals.monthlyNewSignupsTarget,
+          pct: signupsGoalPct,
+          projectedMonthEndSignups,
+          onTrack: signupsGoalPct >= monthElapsedPct || projectedMonthEndSignups >= goals.monthlyNewSignupsTarget,
         },
         forecasts: {
           last7dSignups,
           avgDailySignups: Number((last7dSignups / 7).toFixed(1)),
           projected30dSignups: Math.round((last7dSignups / 7) * 30),
         },
-        growthSeries: growthBuckets.buckets.map(({ name, total }) => ({ name, total })),
+        growthSeries: growthBuckets.map(({ name, total }) => ({ name, total })),
         pie: [
           { name: "Clients", value: totalClientsCount, color: "#38bdf8" },
           { name: "Fournisseurs", value: supplierDocs.length, color: "#C7D300" },
@@ -725,6 +940,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       success: true,
       generatedAt: new Date().toISOString(),
+      rangeDays,
+      monthContext: {
+        dayOfMonth,
+        daysInMonth,
+        monthElapsedPct,
+        monthLabel: nowDate.toLocaleDateString("fr-FR", { month: "long", year: "numeric" }),
+      },
+      goals,
       isSuper,
       isFullAdmin,
       positions,
@@ -739,6 +962,61 @@ export async function GET(req: NextRequest) {
     console.error("[STAFF DASHBOARD GET ERROR]:", error);
     return NextResponse.json(
       { success: false, error: error.message || "Erreur serveur" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * PATCH /api/admin/staff-dashboard
+ * Permet à la Direction (Super Admin / Sous-Admin) d'ajuster les objectifs mensuels du Team (`settings/team_goals`).
+ */
+export async function PATCH(req: NextRequest) {
+  try {
+    const guard = await requireFullAdminCaller(req);
+    if (!guard.ok || !guard.caller) return guard.errorResponse!;
+
+    const body = await req.json();
+    const clamp = (val: any, min: number, max: number, fallback: number) => {
+      const n = Number(val);
+      if (!Number.isFinite(n)) return fallback;
+      return Math.min(max, Math.max(min, Math.round(n)));
+    };
+
+    const nextGoals: TeamGoals = {
+      monthlyRevenueTargetUSD: clamp(body.monthlyRevenueTargetUSD, 50, 1_000_000, DEFAULT_TEAM_GOALS.monthlyRevenueTargetUSD),
+      deliveryRateTargetPct: clamp(body.deliveryRateTargetPct, 50, 100, DEFAULT_TEAM_GOALS.deliveryRateTargetPct),
+      supportResolutionTargetPct: clamp(body.supportResolutionTargetPct, 50, 100, DEFAULT_TEAM_GOALS.supportResolutionTargetPct),
+      catalogueApprovalTargetPct: clamp(body.catalogueApprovalTargetPct, 50, 100, DEFAULT_TEAM_GOALS.catalogueApprovalTargetPct),
+      monthlyNewSignupsTarget: clamp(body.monthlyNewSignupsTarget, 5, 100_000, DEFAULT_TEAM_GOALS.monthlyNewSignupsTarget),
+    };
+
+    await adminDb
+      .collection("settings")
+      .doc("team_goals")
+      .set(
+        {
+          ...nextGoals,
+          updatedBy: guard.caller.email || guard.caller.uid,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+    recordAuditLog({
+      action: "SETTINGS_UPDATED",
+      caller: guard.caller,
+      targetType: "settings",
+      targetId: "team_goals",
+      summary: `Objectifs mensuels du Team mis à jour (Revenus: $${nextGoals.monthlyRevenueTargetUSD}, Livraison: ${nextGoals.deliveryRateTargetPct}%, SAV: ${nextGoals.supportResolutionTargetPct}%, Inscriptions: ${nextGoals.monthlyNewSignupsTarget})`,
+      metadata: nextGoals,
+    });
+
+    return NextResponse.json({ success: true, goals: nextGoals });
+  } catch (error: any) {
+    console.error("[STAFF DASHBOARD PATCH GOALS ERROR]:", error);
+    return NextResponse.json(
+      { success: false, error: error.message || "Impossible de sauvegarder les objectifs." },
       { status: 500 }
     );
   }

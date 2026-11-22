@@ -3,11 +3,13 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ShieldAlert,
   Wallet,
   TrendingUp,
+  TrendingDown,
+  Minus,
   Truck,
   LifeBuoy,
   Package,
@@ -30,6 +32,10 @@ import {
   Clock,
   UserCheck,
   Briefcase,
+  Target,
+  SlidersHorizontal,
+  X,
+  Save,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { hasAdminAccess } from "@/lib/permissions";
@@ -38,6 +44,14 @@ import StatusPieChart from "@/modules/shared/components/charts/StatusPieChart";
 import AdminBroadcastModal from "@/modules/admin/components/AdminBroadcastModal";
 
 type PoleId = "overview" | "finance" | "logistics" | "support" | "catalogue" | "growth";
+type RangeDays = 7 | 30 | 90;
+
+interface TrendInfo {
+  current: number;
+  previous: number;
+  deltaPct: number;
+  direction: "up" | "down" | "flat";
+}
 
 interface KpiCardItem {
   title: string;
@@ -47,7 +61,18 @@ interface KpiCardItem {
   icon: any;
   href?: string;
   alert?: boolean;
-  accent?: string;
+  trend?: TrendInfo;
+}
+
+interface GoalGaugeItem {
+  id: string;
+  label: string;
+  currentDisplay: string;
+  targetDisplay: string;
+  pct: number;
+  onTrack: boolean;
+  helper: string;
+  barColor: string;
 }
 
 interface ActionCardItem {
@@ -69,11 +94,38 @@ function formatMoney(v: number) {
   return `$${Math.round(Number(v || 0)).toLocaleString("fr-FR")}`;
 }
 
+function TrendBadge({ trend, rangeDays }: { trend?: TrendInfo; rangeDays: RangeDays }) {
+  if (!trend) return null;
+  const isUp = trend.direction === "up";
+  const isDown = trend.direction === "down";
+  const badgeClass = isUp
+    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/25"
+    : isDown
+    ? "bg-red-500/15 text-red-300 border-red-500/25"
+    : "bg-white/5 text-gray-400 border-white/10";
+  const Icon = isUp ? TrendingUp : isDown ? TrendingDown : Minus;
+  const sign = trend.deltaPct > 0 ? "+" : "";
+
+  return (
+    <span
+      title={`Comparé aux ${rangeDays} jours précédents`}
+      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-bold tabular-nums shrink-0 ${badgeClass}`}
+    >
+      <Icon size={10} />
+      <span>
+        {sign}
+        {trend.deltaPct}%
+      </span>
+    </span>
+  );
+}
+
 export default function StaffDashboardView() {
   const { user, userData, loading } = useAuth();
   const router = useRouter();
   const isAuthorized = hasAdminAccess(user, userData);
 
+  const [rangeDays, setRangeDays] = useState<RangeDays>(30);
   const [data, setData] = useState<any>(null);
   const [fetching, setFetching] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -82,15 +134,26 @@ export default function StaffDashboardView() {
   const [isBroadcastOpen, setIsBroadcastOpen] = useState(false);
   const [isSendingReports, setIsSendingReports] = useState(false);
 
+  // Modal objectifs mensuels (Direction uniquement)
+  const [isGoalsModalOpen, setIsGoalsModalOpen] = useState(false);
+  const [savingGoals, setSavingGoals] = useState(false);
+  const [goalsForm, setGoalsForm] = useState({
+    monthlyRevenueTargetUSD: 1500,
+    deliveryRateTargetPct: 95,
+    supportResolutionTargetPct: 90,
+    catalogueApprovalTargetPct: 90,
+    monthlyNewSignupsTarget: 50,
+  });
+
   const loadDashboard = useCallback(
-    async (isManual = false) => {
+    async (selectedRange: RangeDays, isSoftRefresh = false) => {
       if (!user) return;
-      if (isManual) setRefreshing(true);
+      if (isSoftRefresh) setRefreshing(true);
       else setFetching(true);
       setError(null);
       try {
         const token = await user.getIdToken();
-        const res = await fetch("/api/admin/staff-dashboard", {
+        const res = await fetch(`/api/admin/staff-dashboard?range=${selectedRange}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           cache: "no-store",
         });
@@ -99,6 +162,9 @@ export default function StaffDashboardView() {
           throw new Error(json.error || "Impossible de charger le tableau de bord.");
         }
         setData(json);
+        if (json.goals) {
+          setGoalsForm(json.goals);
+        }
       } catch (err: any) {
         console.error("[STAFF DASHBOARD]", err);
         setError(err.message || "Erreur lors du chargement des statistiques.");
@@ -117,12 +183,40 @@ export default function StaffDashboardView() {
       } else if (!isAuthorized) {
         router.push("/");
       } else {
-        loadDashboard(false);
+        loadDashboard(rangeDays, Boolean(data));
       }
     }
-  }, [user, loading, isAuthorized, router, loadDashboard]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, loading, isAuthorized, rangeDays]);
 
-  // Déterminer les pôles accessibles pour ce fonctionnaire
+  const handleSaveGoals = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setSavingGoals(true);
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch("/api/admin/staff-dashboard", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(goalsForm),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Impossible d'enregistrer les objectifs.");
+      }
+      setIsGoalsModalOpen(false);
+      await loadDashboard(rangeDays, true);
+    } catch (err: any) {
+      alert(err.message || "Erreur lors de la sauvegarde.");
+    } finally {
+      setSavingGoals(false);
+    }
+  };
+
+  // Déterminer les pôles accessibles pour ce membre du Team
   const availablePoles = useMemo<{ id: PoleId; label: string; icon: any }[]>(() => {
     if (!data?.scopes) return [];
     const list: { id: PoleId; label: string; icon: any }[] = [];
@@ -139,7 +233,6 @@ export default function StaffDashboardView() {
     return list;
   }, [data]);
 
-  // Positionner automatiquement le bon onglet initial selon le poste du fonctionnaire
   useEffect(() => {
     if (availablePoles.length === 0) return;
     if (!availablePoles.some((p) => p.id === activePole)) {
@@ -191,7 +284,7 @@ export default function StaffDashboardView() {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-gray-400">
         <div className="w-10 h-10 border-2 border-[#C7D300] border-t-transparent rounded-full animate-spin mb-3" />
-        <p className="text-sm font-medium animate-pulse">Chargement de vos statistiques et prévoyances...</p>
+        <p className="text-sm font-medium animate-pulse">Chargement de vos statistiques, objectifs et prévoyances...</p>
       </div>
     );
   }
@@ -204,7 +297,7 @@ export default function StaffDashboardView() {
         <p className="text-xs text-gray-400 mb-4">{error}</p>
         <button
           type="button"
-          onClick={() => loadDashboard(true)}
+          onClick={() => loadDashboard(rangeDays, false)}
           className="px-4 py-2 rounded-xl bg-[#C7D300] text-[#0F1D27] text-xs font-bold cursor-pointer"
         >
           Réessayer
@@ -213,36 +306,36 @@ export default function StaffDashboardView() {
     );
   }
 
-  // ═════════════════════════════════════════════════════════════════════════
-  // CONSTRUCTION DYNAMIQUE SELON LE PÔLE ACTIF (KPIs, Évolutions, Prévoyances,
-  // Répartition Donut, Alertes, Actions Rapides & Tableau d'activité)
-  // ═════════════════════════════════════════════════════════════════════════
   const fin = data?.finance;
   const log = data?.logistics;
   const sup = data?.support;
   const cat = data?.catalogue;
   const grw = data?.growth;
+  const monthCtx = data?.monthContext;
+
+  const rangeLabel =
+    rangeDays === 7 ? "7 derniers jours" : rangeDays === 90 ? "90 derniers jours (par semaine)" : "30 derniers jours";
 
   const poleHeaderMap: Record<PoleId, { badge: string; title: string; desc: string }> = {
     overview: {
       badge: "Direction Générale · Vue 360°",
       title: "Tableau de Bord Exécutif",
-      desc: "Pilotage en temps réel des revenus, évolutions, prévoyances financières et opérations de la plateforme.",
+      desc: "Pilotage en temps réel des revenus, objectifs mensuels, évolutions et prévoyances de la plateforme.",
     },
     finance: {
       badge: "Pôle Finances & Trésorerie",
       title: "Statistiques & Prévoyances Financières",
-      desc: "Suivi des encaissements d'abonnements, recouvrements impayés, commissions partenaires et projections 30j / 90j / ARR.",
+      desc: "Suivi des encaissements, objectifs mensuels, recouvrements impayés et projections 30j / 90j / ARR.",
     },
     logistics: {
       badge: "Pôle Logistique & Flotte",
       title: "Supervision Courses & Livraisons",
-      desc: "Suivi en direct des livreurs, évolution quotidienne des livraisons et prévoyance de charge flotte.",
+      desc: "Suivi en direct des livreurs, évolution des courses, objectif de livraison et prévoyance de charge.",
     },
     support: {
       badge: "Pôle Service Client & SAV",
       title: "Assistance & Requêtes Clients",
-      desc: "Suivi des tickets ouverts, taux de résolution, évolution des demandes et prévoyance de charge SAV.",
+      desc: "Suivi des tickets ouverts, taux de résolution cible, évolution des demandes et charge SAV.",
     },
     catalogue: {
       badge: "Pôle Catalogue & Modération",
@@ -252,69 +345,67 @@ export default function StaffDashboardView() {
     growth: {
       badge: "Gestion Administrative & KYC",
       title: "Croissance, KYC & Partenaires",
-      desc: "Suivi des nouvelles inscriptions, validations KYC fournisseurs et dynamique d'acquisition.",
+      desc: "Suivi des nouvelles inscriptions, objectifs d'acquisition mensuels et validations KYC fournisseurs.",
     },
   };
 
   const currentHeader = poleHeaderMap[activePole] || poleHeaderMap.overview;
 
-  // ── 1. TOP 4 KPI CARDS (Style Supplier GenericDashboard) ──
+  // ── 1. TOP 4 KPI CARDS (avec badges de tendance % vs période précédente) ──
   let kpis: KpiCardItem[] = [];
   if (activePole === "overview") {
     kpis = [
       {
-        title: "Revenus Abonnements",
-        value: formatMoney(fin?.summary?.collectedSubscriptionRevenueUSD ?? 0),
-        subtitle: `MRR actuel : ${formatMoney(fin?.forecasts?.currentMRR ?? 0)}/mois`,
+        title: `Revenus (${rangeDays}j)`,
+        value: formatMoney(fin?.summary?.periodRevenueUSD ?? 0),
+        subtitle: `Cumul total : ${formatMoney(fin?.summary?.collectedSubscriptionRevenueUSD ?? 0)}`,
         subInfo: `${fin?.summary?.paidActiveCount ?? 0} payés · ${fin?.summary?.unpaidExpiredCount ?? 0} impayés`,
         icon: Wallet,
         href: "/admin/finance",
+        trend: fin?.trends?.revenue,
         alert: (fin?.summary?.unpaidExpiredCount ?? 0) > 0 || (fin?.summary?.pendingMobileMoneyCount ?? 0) > 0,
       },
       {
-        title: "Logistique & GMV",
-        value: formatMoney(log?.summary?.totalGMV ?? 0),
-        subtitle: `${log?.summary?.totalDrivers ?? 0} livreur(s) · ${log?.summary?.completionRate ?? 0}% livrées`,
-        subInfo: `${log?.summary?.ordersAwaitingDriver ?? 0} en attente · ${log?.summary?.ordersInProgress ?? 0} en cours`,
+        title: `Volume GMV (${rangeDays}j)`,
+        value: formatMoney(log?.summary?.periodGMV ?? 0),
+        subtitle: `${log?.summary?.periodOrders ?? 0} commande(s) · ${log?.summary?.completionRate ?? 100}% livrées`,
+        subInfo: `${log?.summary?.ordersAwaitingDriver ?? 0} en attente · ${log?.summary?.totalDrivers ?? 0} livreur(s)`,
         icon: Truck,
         href: "/admin/orders",
+        trend: log?.trends?.gmv,
         alert: (log?.summary?.ordersAwaitingDriver ?? 0) > 0,
       },
       {
-        title: "Dossiers à Valider",
-        value:
-          (cat?.summary?.pendingSuppliersKyc ?? 0) +
-          (cat?.summary?.pendingProducts ?? 0) +
-          (cat?.summary?.pendingProperties ?? 0),
-        subtitle: `${cat?.summary?.activeSuppliers ?? 0} fournisseurs actifs`,
-        subInfo: `${cat?.summary?.pendingSuppliersKyc ?? 0} KYC · ${cat?.summary?.pendingProducts ?? 0} prod · ${cat?.summary?.pendingProperties ?? 0} immo`,
-        icon: Store,
+        title: `Nouveaux Comptes (${rangeDays}j)`,
+        value: grw?.summary?.periodSignups ?? 0,
+        subtitle: `${grw?.summary?.totalClients ?? 0} clients · ${grw?.summary?.activeSuppliers ?? 0} boutiques`,
+        subInfo: `${cat?.summary?.pendingSuppliersKyc ?? 0} KYC · ${cat?.summary?.totalPendingModeration ?? 0} annonces à valider`,
+        icon: Users,
         href: "/admin/suppliers",
-        alert:
-          (cat?.summary?.pendingSuppliersKyc ?? 0) +
-            (cat?.summary?.pendingProducts ?? 0) +
-            (cat?.summary?.pendingProperties ?? 0) >
-          0,
+        trend: grw?.trends?.signups,
+        alert: (cat?.summary?.pendingSuppliersKyc ?? 0) + (cat?.summary?.totalPendingModeration ?? 0) > 0,
       },
       {
-        title: "SAV & App Mobile",
-        value: `${sup?.summary?.openTickets ?? 0} ticket(s)`,
-        subtitle: `${grw?.summary?.installedAppsCount ?? 0} app(s) installées`,
-        subInfo: `${sup?.summary?.totalClients ?? 0} clients · ${sup?.summary?.resolutionRate ?? 100}% résolus`,
-        icon: Smartphone,
+        title: `Requêtes SAV (${rangeDays}j)`,
+        value: `${sup?.summary?.openTickets ?? 0} ouverte(s)`,
+        subtitle: `${sup?.summary?.periodTickets ?? 0} reçue(s) · ${sup?.summary?.resolutionRate ?? 100}% résolues`,
+        subInfo: `${grw?.summary?.installedAppsCount ?? 0} app(s) mobiles installées`,
+        icon: LifeBuoy,
         href: "/admin/tickets",
+        trend: sup?.trends?.tickets,
         alert: (sup?.summary?.openTickets ?? 0) > 0,
       },
     ];
   } else if (activePole === "finance") {
     kpis = [
       {
-        title: "Encaissements Totaux",
-        value: formatMoney(fin?.summary?.collectedSubscriptionRevenueUSD ?? 0),
-        subtitle: `Net plateforme : ${formatMoney(fin?.summary?.netPlatformRevenueUSD ?? 0)}`,
-        subInfo: `${fin?.summary?.paidActiveCount ?? 0} boutique(s) payée(s) active(s)`,
+        title: `Encaissé (${rangeDays}j)`,
+        value: formatMoney(fin?.summary?.periodRevenueUSD ?? 0),
+        subtitle: `Mois en cours : ${formatMoney(fin?.summary?.mtdRevenueUSD ?? 0)}`,
+        subInfo: `Cumul global : ${formatMoney(fin?.summary?.collectedSubscriptionRevenueUSD ?? 0)}`,
         icon: Wallet,
         href: "/admin/finance",
+        trend: fin?.trends?.revenue,
       },
       {
         title: "Prévision Nette (30j)",
@@ -346,6 +437,24 @@ export default function StaffDashboardView() {
   } else if (activePole === "logistics") {
     kpis = [
       {
+        title: `Courses (${rangeDays}j)`,
+        value: log?.summary?.periodOrders ?? 0,
+        subtitle: `Taux de réussite : ${log?.summary?.completionRate ?? 100}%`,
+        subInfo: `${log?.summary?.ordersCompleted ?? 0} livrées au total`,
+        icon: CheckCircle2,
+        href: "/admin/orders",
+        trend: log?.trends?.orders,
+      },
+      {
+        title: "Courses en Attente",
+        value: log?.summary?.ordersAwaitingDriver ?? 0,
+        subtitle: "À assigner rapidement",
+        subInfo: `${log?.summary?.ordersInProgress ?? 0} en cours d'acheminement`,
+        icon: Clock,
+        href: "/admin/orders",
+        alert: (log?.summary?.ordersAwaitingDriver ?? 0) > 0,
+      },
+      {
         title: "Flotte de Livreurs",
         value: log?.summary?.totalDrivers ?? 0,
         subtitle: `${log?.summary?.onlineDrivers ?? 0} en ligne actuellement`,
@@ -354,29 +463,13 @@ export default function StaffDashboardView() {
         href: "/admin/drivers",
       },
       {
-        title: "Courses en Attente",
-        value: log?.summary?.ordersAwaitingDriver ?? 0,
-        subtitle: "À assigner rapidement",
-        subInfo: `${log?.summary?.ordersInProgress ?? 0} course(s) en cours d'acheminement`,
-        icon: Clock,
-        href: "/admin/orders",
-        alert: (log?.summary?.ordersAwaitingDriver ?? 0) > 0,
-      },
-      {
-        title: "Courses Livrées",
-        value: log?.summary?.ordersCompleted ?? 0,
-        subtitle: `Taux de réussite : ${log?.summary?.completionRate ?? 0}%`,
-        subInfo: `Sur ${log?.summary?.totalOrders ?? 0} commande(s) suivies`,
-        icon: CheckCircle2,
-        href: "/admin/orders",
-      },
-      {
-        title: "Volume Transporté (GMV)",
-        value: formatMoney(log?.summary?.totalGMV ?? 0),
-        subtitle: "Valeur marchande cumulée",
+        title: `Volume GMV (${rangeDays}j)`,
+        value: formatMoney(log?.summary?.periodGMV ?? 0),
+        subtitle: `Total cumulé : ${formatMoney(log?.summary?.totalGMV ?? 0)}`,
         subInfo: `Prévision 7j : ~${log?.forecasts?.projected7dOrders ?? 0} course(s)`,
         icon: TrendingUp,
         href: "/admin/orders",
+        trend: log?.trends?.gmv,
       },
     ];
   } else if (activePole === "support") {
@@ -391,12 +484,13 @@ export default function StaffDashboardView() {
         alert: (sup?.summary?.openTickets ?? 0) > 0,
       },
       {
-        title: "Requêtes Résolues",
-        value: sup?.summary?.resolvedTickets ?? 0,
-        subtitle: `Taux résolution : ${sup?.summary?.resolutionRate ?? 100}%`,
-        subInfo: `Sur ${sup?.summary?.totalTickets ?? 0} correspondance(s)`,
+        title: `Reçues (${rangeDays}j)`,
+        value: sup?.summary?.periodTickets ?? 0,
+        subtitle: `${sup?.summary?.resolvedTickets ?? 0} résolues au total`,
+        subInfo: `Taux résolution : ${sup?.summary?.resolutionRate ?? 100}%`,
         icon: CheckCircle2,
         href: "/admin/tickets",
+        trend: sup?.trends?.tickets,
       },
       {
         title: "Annuaire Clients",
@@ -418,13 +512,14 @@ export default function StaffDashboardView() {
   } else if (activePole === "catalogue") {
     kpis = [
       {
-        title: "Produits E-Commerce",
-        value: cat?.summary?.totalProducts ?? 0,
-        subtitle: `${cat?.summary?.activeProducts ?? 0} publiés en ligne`,
-        subInfo: `${cat?.summary?.pendingProducts ?? 0} en attente de modération`,
+        title: `Publications (${rangeDays}j)`,
+        value: cat?.summary?.periodSubmissions ?? 0,
+        subtitle: `${cat?.summary?.totalProducts ?? 0} produits · ${cat?.summary?.totalProperties ?? 0} biens`,
+        subInfo: `${cat?.summary?.totalPendingModeration ?? 0} en attente de modération`,
         icon: Package,
         href: "/admin/products",
-        alert: (cat?.summary?.pendingProducts ?? 0) > 0,
+        trend: cat?.trends?.submissions,
+        alert: (cat?.summary?.totalPendingModeration ?? 0) > 0,
       },
       {
         title: "Biens Immobiliers",
@@ -447,15 +542,23 @@ export default function StaffDashboardView() {
       {
         title: "Taux d'Approbation",
         value: `${cat?.summary?.approvalRate ?? 100}%`,
-        subtitle: "Qualité du catalogue",
+        subtitle: `Cible : ${cat?.goalProgress?.targetRatePct ?? 90}%`,
         subInfo: `Prévision 30j : +${cat?.forecasts?.projected30dListings ?? 0} annonces`,
         icon: Sparkles,
         href: "/admin/products",
       },
     ];
   } else {
-    // growth / Gestionnaire Admin
     kpis = [
+      {
+        title: `Inscriptions (${rangeDays}j)`,
+        value: grw?.summary?.periodSignups ?? 0,
+        subtitle: `${grw?.summary?.mtdSignups ?? 0} ce mois-ci`,
+        subInfo: `Objectif mois : ${grw?.goalProgress?.targetSignups ?? 50} comptes`,
+        icon: Users,
+        href: "/admin/clients",
+        trend: grw?.trends?.signups,
+      },
       {
         title: "KYC Fournisseurs",
         value: grw?.summary?.pendingSuppliersKyc ?? 0,
@@ -464,14 +567,6 @@ export default function StaffDashboardView() {
         icon: Store,
         href: "/admin/suppliers",
         alert: (grw?.summary?.pendingSuppliersKyc ?? 0) > 0,
-      },
-      {
-        title: "Clients Inscrits",
-        value: grw?.summary?.totalClients ?? 0,
-        subtitle: "Base utilisateurs",
-        subInfo: `Prévision 30j : +${grw?.forecasts?.projected30dSignups ?? 0} comptes`,
-        icon: Users,
-        href: "/admin/clients",
       },
       {
         title: "Partenaires Affiliés",
@@ -492,12 +587,90 @@ export default function StaffDashboardView() {
     ];
   }
 
-  // ── 2. COURBE D'ÉVOLUTION PRINCIPALE (14 jours) ──
+  // ── 2. JAUGES D'OBJECTIFS MENSUELS (Adaptées au pôle actif) ──
+  const goalGauges: GoalGaugeItem[] = [];
+  if (fin && (activePole === "overview" || activePole === "finance")) {
+    goalGauges.push({
+      id: "fin-rev",
+      label: "Objectif Encaissements du Mois",
+      currentDisplay: formatMoney(fin.goalProgress.mtdRevenueUSD),
+      targetDisplay: formatMoney(fin.goalProgress.targetUSD),
+      pct: fin.goalProgress.pct,
+      onTrack: fin.goalProgress.onTrack,
+      helper:
+        fin.goalProgress.remainingUSD > 0
+          ? `Reste ${formatMoney(fin.goalProgress.remainingUSD)} · Fin de mois estimée : ${formatMoney(fin.goalProgress.projectedMonthEndUSD)}`
+          : `Objectif mensuel dépassé ! Fin de mois estimée : ${formatMoney(fin.goalProgress.projectedMonthEndUSD)}`,
+      barColor: "#C7D300",
+    });
+    if (activePole === "finance") {
+      goalGauges.push({
+        id: "fin-coll",
+        label: "Taux de Recouvrement Abonnements",
+        currentDisplay: `${fin.goalProgress.collectionRatePct}%`,
+        targetDisplay: "85%",
+        pct: fin.goalProgress.collectionRatePct,
+        onTrack: fin.goalProgress.collectionRatePct >= 85,
+        helper: `${fin.summary.paidActiveCount} boutique(s) à jour · ${fin.summary.unpaidExpiredCount} expirée(s)`,
+        barColor: "#38bdf8",
+      });
+    }
+  }
+  if (log && (activePole === "overview" || activePole === "logistics")) {
+    goalGauges.push({
+      id: "log-rate",
+      label: "Taux de Livraison Réussie",
+      currentDisplay: `${log.goalProgress.currentRatePct}%`,
+      targetDisplay: `${log.goalProgress.targetRatePct}%`,
+      pct: log.goalProgress.currentRatePct,
+      onTrack: log.goalProgress.onTrack,
+      helper: `${log.goalProgress.mtdDeliveredOrders} livraison(s) finalisée(s) ce mois-ci`,
+      barColor: "#38bdf8",
+    });
+  }
+  if (sup && (activePole === "overview" || activePole === "support")) {
+    goalGauges.push({
+      id: "sup-rate",
+      label: "Taux de Résolution Service Client",
+      currentDisplay: `${sup.goalProgress.currentRatePct}%`,
+      targetDisplay: `${sup.goalProgress.targetRatePct}%`,
+      pct: sup.goalProgress.currentRatePct,
+      onTrack: sup.goalProgress.onTrack,
+      helper: `${sup.goalProgress.mtdResolvedTickets} ticket(s) clôturé(s) ce mois-ci · ${sup.summary.openTickets} ouvert(s)`,
+      barColor: "#f59e0b",
+    });
+  }
+  if (cat && activePole === "catalogue") {
+    goalGauges.push({
+      id: "cat-rate",
+      label: "Taux d'Approbation Catalogue",
+      currentDisplay: `${cat.goalProgress.currentRatePct}%`,
+      targetDisplay: `${cat.goalProgress.targetRatePct}%`,
+      pct: cat.goalProgress.currentRatePct,
+      onTrack: cat.goalProgress.onTrack,
+      helper: `${cat.goalProgress.mtdSubmissions} nouvelle(s) annonce(s) soumise(s) ce mois-ci`,
+      barColor: "#00B5A5",
+    });
+  }
+  if (grw && (activePole === "overview" || activePole === "growth")) {
+    goalGauges.push({
+      id: "grw-signups",
+      label: "Objectif Nouvelles Inscriptions",
+      currentDisplay: `${grw.goalProgress.mtdSignups}`,
+      targetDisplay: `${grw.goalProgress.targetSignups}`,
+      pct: grw.goalProgress.pct,
+      onTrack: grw.goalProgress.onTrack,
+      helper: `Projection fin de mois : ~${grw.goalProgress.projectedMonthEndSignups} comptes`,
+      barColor: "#a855f7",
+    });
+  }
+
+  // ── 3. COURBE D'ÉVOLUTION PRINCIPALE (7j / 30j / 90j) ──
   const primaryChartConfig = (() => {
     if (activePole === "overview" || activePole === "finance") {
       return {
         data: fin?.revenueSeries || [],
-        title: "Évolution des Encaissements (14 derniers jours)",
+        title: `Évolution des Encaissements (${rangeLabel})`,
         subtitle: "Recettes réelles enregistrées sur la plateforme (USD)",
         color: "#C7D300",
         valuePrefix: "$",
@@ -509,8 +682,8 @@ export default function StaffDashboardView() {
     if (activePole === "logistics") {
       return {
         data: log?.ordersSeries || [],
-        title: "Évolution des Commandes & Courses (14 jours)",
-        subtitle: "Volume quotidien réel des commandes traitées",
+        title: `Évolution des Commandes & Courses (${rangeLabel})`,
+        subtitle: "Volume réel des commandes traitées sur la période",
         color: "#38bdf8",
         valuePrefix: "",
         valueSuffix: " cmd",
@@ -521,8 +694,8 @@ export default function StaffDashboardView() {
     if (activePole === "support") {
       return {
         data: sup?.ticketsSeries || [],
-        title: "Évolution des Requêtes SAV (14 jours)",
-        subtitle: "Tickets et correspondances reçus chaque jour",
+        title: `Évolution des Requêtes SAV (${rangeLabel})`,
+        subtitle: "Tickets et correspondances reçus sur la période",
         color: "#f59e0b",
         valuePrefix: "",
         valueSuffix: " req",
@@ -533,7 +706,7 @@ export default function StaffDashboardView() {
     if (activePole === "catalogue") {
       return {
         data: cat?.catalogueSeries || [],
-        title: "Évolution des Publications Catalogue (14 jours)",
+        title: `Évolution des Publications Catalogue (${rangeLabel})`,
         subtitle: "Nouveaux produits e-commerce et biens immobiliers soumis",
         color: "#00B5A5",
         valuePrefix: "",
@@ -544,7 +717,7 @@ export default function StaffDashboardView() {
     }
     return {
       data: grw?.growthSeries || [],
-      title: "Évolution des Nouvelles Inscriptions (14 jours)",
+      title: `Évolution des Nouvelles Inscriptions (${rangeLabel})`,
       subtitle: "Clients, fournisseurs et partenaires enregistrés",
       color: "#a855f7",
       valuePrefix: "",
@@ -554,7 +727,7 @@ export default function StaffDashboardView() {
     };
   })();
 
-  // ── 3. DONUT DE RÉPARTITION (Colonne Droite) ──
+  // ── 4. DONUT DE RÉPARTITION ──
   const pieConfig = (() => {
     if (activePole === "overview" || activePole === "finance") {
       return {
@@ -591,7 +764,7 @@ export default function StaffDashboardView() {
     };
   })();
 
-  // ── 4. ALERTES "À NE PAS OUBLIER" (Filtrées par périmètre) ──
+  // ── 5. ALERTES "À NE PAS OUBLIER" ──
   const alerts: AlertCardItem[] = [];
   if (fin && (activePole === "overview" || activePole === "finance")) {
     if (fin.summary.pendingMobileMoneyCount > 0) {
@@ -666,7 +839,7 @@ export default function StaffDashboardView() {
     });
   }
 
-  // ── 5. ACTIONS RAPIDES (Style Supplier GenericDashboard) ──
+  // ── 6. ACTIONS RAPIDES ──
   const actions: ActionCardItem[] = (() => {
     if (activePole === "finance") {
       return [
@@ -765,7 +938,6 @@ export default function StaffDashboardView() {
         },
       ];
     }
-    // Direction Générale (overview)
     return [
       {
         title: "Comptabilité & Caisse",
@@ -827,7 +999,7 @@ export default function StaffDashboardView() {
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => loadDashboard(true)}
+            onClick={() => loadDashboard(rangeDays, true)}
             disabled={refreshing}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 font-semibold text-xs transition-all cursor-pointer disabled:opacity-50"
           >
@@ -857,41 +1029,69 @@ export default function StaffDashboardView() {
         </div>
       </div>
 
-      {/* ── SÉLECTEUR DE PÔLE (Uniquement si le fonctionnaire accède à plusieurs pôles) ── */}
-      {availablePoles.length > 1 && (
-        <div className="flex items-center gap-1.5 bg-[#0F1A23] border border-white/[0.08] p-1.5 rounded-xl overflow-x-auto scrollbar-none w-full sm:w-fit max-w-full">
-          {availablePoles.map((pole) => {
-            const PoleIcon = pole.icon;
-            const isSelected = activePole === pole.id;
+      {/* ── BARRE DE FILTRES : SÉLECTEUR DE PÔLE + SÉLECTEUR DE PÉRIODE (7j / 30j / 90j) ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {availablePoles.length > 1 ? (
+          <div className="flex items-center gap-1.5 bg-[#0F1A23] border border-white/[0.08] p-1.5 rounded-xl overflow-x-auto scrollbar-none w-full sm:w-fit max-w-full">
+            {availablePoles.map((pole) => {
+              const PoleIcon = pole.icon;
+              const isSelected = activePole === pole.id;
+              return (
+                <button
+                  key={pole.id}
+                  type="button"
+                  onClick={() => setActivePole(pole.id)}
+                  className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-2 cursor-pointer ${
+                    isSelected
+                      ? "bg-[#C7D300] text-[#0F1D27] shadow-md"
+                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  <PoleIcon size={14} />
+                  <span>{pole.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div />
+        )}
+
+        {/* Sélecteur de période 7j / 30j / 90j */}
+        <div className="flex items-center gap-1 bg-[#0F1A23] border border-white/[0.08] p-1 rounded-xl w-fit shrink-0 self-end sm:self-auto">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 px-2.5 hidden sm:inline">
+            Période
+          </span>
+          {([7, 30, 90] as RangeDays[]).map((d) => {
+            const active = rangeDays === d;
             return (
               <button
-                key={pole.id}
+                key={d}
                 type="button"
-                onClick={() => setActivePole(pole.id)}
-                className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-2 cursor-pointer ${
-                  isSelected
-                    ? "bg-[#C7D300] text-[#0F1D27] shadow-md"
+                onClick={() => setRangeDays(d)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  active
+                    ? "bg-white text-[#0F1D27] shadow-sm"
                     : "text-gray-400 hover:text-white hover:bg-white/5"
                 }`}
               >
-                <PoleIcon size={14} />
-                <span>{pole.label}</span>
+                {d} jours
               </button>
             );
           })}
         </div>
-      )}
+      </div>
 
-      {/* ── RANGÉE 1 : 4 CARTES KPI (Design identique au Dashboard Fournisseur) ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
+      {/* ── RANGÉE 1 : 4 CARTES KPI AVEC TENDANCES % ── */}
+      <div className={`grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 transition-opacity ${refreshing ? "opacity-75" : "opacity-100"}`}>
         {kpis.map((kpi, idx) => {
           const Icon = kpi.icon;
           const cardContent = (
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.06, duration: 0.3 }}
-              className={`bg-gradient-to-b from-[#131E27] to-[#0D151D] border rounded-xl sm:rounded-2xl p-3.5 sm:p-5 flex flex-col justify-between min-h-[124px] sm:h-36 transition-all duration-200 shadow-md relative overflow-hidden group ${
+              transition={{ delay: idx * 0.05, duration: 0.25 }}
+              className={`bg-gradient-to-b from-[#131E27] to-[#0D151D] border rounded-xl sm:rounded-2xl p-3.5 sm:p-5 flex flex-col justify-between min-h-[132px] sm:h-40 transition-all duration-200 shadow-md relative overflow-hidden group ${
                 kpi.href ? "cursor-pointer hover:border-white/25 hover:scale-[1.01]" : ""
               } ${kpi.alert ? "border-amber-500/35" : "border-white/[0.08]"}`}
             >
@@ -913,12 +1113,15 @@ export default function StaffDashboardView() {
               </div>
 
               <div className="relative z-10 my-1">
-                <div
-                  className={`text-lg sm:text-2xl lg:text-[26px] font-extrabold tracking-tight tabular-nums truncate ${
-                    kpi.alert ? "text-amber-400" : "text-white"
-                  }`}
-                >
-                  {kpi.value}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div
+                    className={`text-lg sm:text-2xl lg:text-[26px] font-extrabold tracking-tight tabular-nums truncate ${
+                      kpi.alert ? "text-amber-400" : "text-white"
+                    }`}
+                  >
+                    {kpi.value}
+                  </div>
+                  <TrendBadge trend={kpi.trend} rangeDays={rangeDays} />
                 </div>
                 <div className="text-[10px] sm:text-[11px] text-gray-400 font-medium mt-0.5 truncate">
                   {kpi.subtitle}
@@ -947,11 +1150,11 @@ export default function StaffDashboardView() {
         })}
       </div>
 
-      {/* ── GRILLE PRINCIPALE : CENTRE (2/3 : ÉVOLUTIONS + PRÉVOYANCES + TABLEAU) & DROITE (1/3 : DONUT + ALERTES + ACTIONS) ── */}
+      {/* ── GRILLE PRINCIPALE : CENTRE (2/3) & DROITE (1/3) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ══════ COLONNE CENTRALE (2/3) ══════ */}
         <div className="lg:col-span-2 space-y-6">
-          {/* 1. COURBE D'ÉVOLUTION (14 JOURS) */}
+          {/* 1. COURBE D'ÉVOLUTION (7j / 30j / 90j) */}
           <div className="bg-[#0F1A23] border border-white/[0.08] rounded-2xl p-5 shadow-md">
             <RevenueAreaChart
               data={primaryChartConfig.data}
@@ -966,7 +1169,84 @@ export default function StaffDashboardView() {
             />
           </div>
 
-          {/* 2. MODULE PRÉVOYANCES & PROJECTIONS (Adapté au métier du fonctionnaire) */}
+          {/* 2. JAUGES D'OBJECTIFS MENSUELS (Targets & Rythme du mois) */}
+          {goalGauges.length > 0 && (
+            <div className="bg-[#0F1A23] border border-white/[0.08] rounded-2xl p-5 shadow-md space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/[0.08]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#C7D300]/15 border border-[#C7D300]/25 flex items-center justify-center text-[#C7D300]">
+                    <Target size={16} />
+                  </div>
+                  <div>
+                    <h2 className="text-sm sm:text-base font-bold text-white capitalize">
+                      Objectifs du Mois — {monthCtx?.monthLabel || "Mois en cours"}
+                    </h2>
+                    <p className="text-[11px] text-gray-400">
+                      Jour {monthCtx?.dayOfMonth ?? 1} / {monthCtx?.daysInMonth ?? 30} ({monthCtx?.monthElapsedPct ?? 0}% du mois écoulé)
+                    </p>
+                  </div>
+                </div>
+
+                {data?.isFullAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setIsGoalsModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-gray-200 transition-colors cursor-pointer self-start sm:self-auto"
+                  >
+                    <SlidersHorizontal size={13} className="text-[#C7D300]" />
+                    <span>Ajuster les objectifs</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {goalGauges.map((g) => (
+                  <div
+                    key={g.id}
+                    className="bg-black/25 border border-white/[0.06] rounded-xl p-4 space-y-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-bold text-white">{g.label}</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                          <span className="text-white font-extrabold tabular-nums">{g.currentDisplay}</span>{" "}
+                          / {g.targetDisplay}
+                        </p>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 border ${
+                          g.pct >= 100
+                            ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/25"
+                            : g.onTrack
+                            ? "bg-[#C7D300]/15 text-[#C7D300] border-[#C7D300]/25"
+                            : "bg-amber-500/15 text-amber-300 border-amber-500/25"
+                        }`}
+                      >
+                        {g.pct >= 100 ? "Atteint" : g.onTrack ? "Dans les temps" : "À accélérer"}
+                      </span>
+                    </div>
+
+                    <div className="relative h-2.5 w-full rounded-full bg-white/[0.06] overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(100, Math.max(2, g.pct))}%` }}
+                        transition={{ duration: 0.7, ease: "easeOut" }}
+                        className="h-full rounded-full"
+                        style={{ backgroundColor: g.barColor }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 text-[10px] text-gray-400">
+                      <span className="truncate">{g.helper}</span>
+                      <span className="font-extrabold text-white tabular-nums shrink-0">{g.pct}%</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 3. MODULE PRÉVOYANCES & PROJECTIONS */}
           {(activePole === "overview" || activePole === "finance") && fin && (
             <div className="bg-[#0F1A23] border border-white/[0.08] rounded-2xl p-5 shadow-md space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-white/[0.08]">
@@ -1046,7 +1326,6 @@ export default function StaffDashboardView() {
                 </div>
               </div>
 
-              {/* Courbe Prévisionnelle M+1 -> M+6 */}
               <div className="pt-2 border-t border-white/[0.06]">
                 <RevenueAreaChart
                   data={fin.forecastProjectionSeries || []}
@@ -1172,7 +1451,7 @@ export default function StaffDashboardView() {
             </div>
           )}
 
-          {/* 3. TABLEAU D'ACTIVITÉ RÉCENTE / PRIORITÉS (Design Supplier GenericDashboard) */}
+          {/* 4. TABLEAU D'ACTIVITÉ RÉCENTE / PRIORITÉS */}
           <div className="bg-[#0F1A23] border border-white/[0.08] rounded-2xl p-5 sm:p-6 shadow-md">
             {(activePole === "overview" || activePole === "finance") && fin && (
               <>
@@ -1401,16 +1680,14 @@ export default function StaffDashboardView() {
           </div>
         </div>
 
-        {/* ══════ COLONNE DROITE (1/3 : DONUT + ALERTES + ACTIONS RAPIDES) ══════ */}
+        {/* ══════ COLONNE DROITE (1/3) ══════ */}
         <div className="space-y-6">
-          {/* 1. DONUT RÉPARTITION */}
           <StatusPieChart
             data={pieConfig.data}
             title={pieConfig.title}
             subtitle={pieConfig.subtitle}
           />
 
-          {/* 2. À NE PAS OUBLIER (Alertes filtrées selon son poste) */}
           <div className="bg-[#0F1A23] rounded-2xl p-5 border border-white/[0.08] shadow-md">
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/[0.06]">
               <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400">
@@ -1447,7 +1724,6 @@ export default function StaffDashboardView() {
             </div>
           </div>
 
-          {/* 3. ACTIONS RAPIDES (Style exact Supplier GenericDashboard) */}
           <div className="bg-[#0F1A23] border border-white/[0.08] rounded-2xl p-5 shadow-md relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-[#C7D300]/[0.04] rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none" />
             <h3 className="text-sm font-bold text-white uppercase tracking-wide mb-4 relative z-10">
@@ -1477,7 +1753,6 @@ export default function StaffDashboardView() {
             </div>
           </div>
 
-          {/* 4. RAPPORT MATINAL 07h00 & DIFFUSION (Réservé Direction Générale) */}
           {data?.isFullAdmin && (
             <div className="bg-gradient-to-br from-[#0F1D27] to-[#12232E] rounded-2xl p-5 border border-[#C7D300]/25 shadow-md">
               <div className="flex items-center gap-2 mb-2">
@@ -1510,6 +1785,140 @@ export default function StaffDashboardView() {
           )}
         </div>
       </div>
+
+      {/* ── MODAL CONFIGURATION DES OBJECTIFS MENSUELS (Direction) ── */}
+      <AnimatePresence>
+        {isGoalsModalOpen && data?.isFullAdmin && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-[#0F1D27] border border-white/15 rounded-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <Target size={18} className="text-[#C7D300]" />
+                  <h3 className="text-base font-bold text-white">Objectifs Mensuels du Team</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsGoalsModalOpen(false)}
+                  className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-white/10 cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveGoals} className="p-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 mb-1">
+                    Objectif Encaissements du mois (USD)
+                  </label>
+                  <input
+                    type="number"
+                    min={50}
+                    step={50}
+                    value={goalsForm.monthlyRevenueTargetUSD}
+                    onChange={(e) =>
+                      setGoalsForm((f) => ({ ...f, monthlyRevenueTargetUSD: Number(e.target.value) }))
+                    }
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-black/30 border border-white/15 text-white text-sm font-bold focus:outline-hidden focus:border-[#C7D300]"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1">
+                      Cible Livraison (%)
+                    </label>
+                    <input
+                      type="number"
+                      min={50}
+                      max={100}
+                      value={goalsForm.deliveryRateTargetPct}
+                      onChange={(e) =>
+                        setGoalsForm((f) => ({ ...f, deliveryRateTargetPct: Number(e.target.value) }))
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/30 border border-white/15 text-white text-sm font-bold focus:outline-hidden focus:border-[#C7D300]"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1">
+                      Cible Résolution SAV (%)
+                    </label>
+                    <input
+                      type="number"
+                      min={50}
+                      max={100}
+                      value={goalsForm.supportResolutionTargetPct}
+                      onChange={(e) =>
+                        setGoalsForm((f) => ({ ...f, supportResolutionTargetPct: Number(e.target.value) }))
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/30 border border-white/15 text-white text-sm font-bold focus:outline-hidden focus:border-[#C7D300]"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1">
+                      Cible Approbation Cat. (%)
+                    </label>
+                    <input
+                      type="number"
+                      min={50}
+                      max={100}
+                      value={goalsForm.catalogueApprovalTargetPct}
+                      onChange={(e) =>
+                        setGoalsForm((f) => ({ ...f, catalogueApprovalTargetPct: Number(e.target.value) }))
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/30 border border-white/15 text-white text-sm font-bold focus:outline-hidden focus:border-[#C7D300]"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-300 mb-1">
+                      Objectif Inscriptions / mois
+                    </label>
+                    <input
+                      type="number"
+                      min={5}
+                      value={goalsForm.monthlyNewSignupsTarget}
+                      onChange={(e) =>
+                        setGoalsForm((f) => ({ ...f, monthlyNewSignupsTarget: Number(e.target.value) }))
+                      }
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/30 border border-white/15 text-white text-sm font-bold focus:outline-hidden focus:border-[#C7D300]"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsGoalsModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-gray-400 hover:text-white cursor-pointer"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingGoals}
+                    className="inline-flex items-center gap-1.5 px-5 py-2 rounded-xl bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-extrabold transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    <Save size={14} />
+                    <span>{savingGoals ? "Enregistrement..." : "Enregistrer"}</span>
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Modal Broadcast (Direction uniquement) */}
       {data?.isFullAdmin && (
