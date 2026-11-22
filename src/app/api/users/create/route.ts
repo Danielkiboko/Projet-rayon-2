@@ -169,6 +169,9 @@ export async function POST(req: Request) {
       additionalData.supplierId = callerUid;
       additionalData.createdBy = callerUid;
     } else if (roleToCreate === 'supplier' || roleToCreate === 'SUPPLIER_IMMO' || roleToCreate === 'SUPPLIER_SAVEURS' || roleToCreate === 'SUPPLIER_MODE' || roleToCreate === 'SUPPLIER_CONNECT' || roleToCreate === 'SUPPLIER') {
+      additionalData.accountType = 'SUPPLIER';
+      additionalData.isSupplier = true;
+      additionalData.companyName = additionalData.companyName || additionalData.company || displayName;
       if (isAdminCaller && (extraData?.isOfficialAdminStore || extraData?.isAdminSupplier)) {
         additionalData.subscriptionStatus = 'ACTIVE';
         additionalData.subscriptionEndDate = null;
@@ -228,29 +231,70 @@ export async function POST(req: Request) {
       delete additionalData.companyName;
     }
 
-    // 6. Save User Metadata in Firestore
-    const userDocRef = adminDb.collection('users').doc(userRecord.uid);
-    await userDocRef.set({
-      ...additionalData,
-      uid: userRecord.uid,
-      email,
-      displayName,
-      role: roleToCreate,
-      createdBy: claims.createdBy,
-      creatorRole: isPartnerCaller ? 'PARTNER' : (rawRole || 'superAdmin'),
-      createdAt: new Date(),
-      status: 'active',
-    }, { merge: true });
+    // 6. Save User Metadata in Firestore (bounded timeout so Firestore quota exhaustion never causes a 504 HTML gateway timeout)
+    const runWithTimeout = <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> =>
+      Promise.race([
+        promise,
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`FIRESTORE_TIMEOUT:${label}`)), ms)
+        ),
+      ]);
 
-    // 7. Route to specific collections (drivers, suppliers) if needed
+    const userDocRef = adminDb.collection('users').doc(userRecord.uid);
+    try {
+      await runWithTimeout(
+        userDocRef.set({
+          ...additionalData,
+          uid: userRecord.uid,
+          email,
+          displayName,
+          role: roleToCreate,
+          createdBy: claims.createdBy,
+          creatorRole: isPartnerCaller ? 'PARTNER' : (rawRole || 'superAdmin'),
+          createdAt: new Date(),
+          status: 'active',
+        }, { merge: true }),
+        10000,
+        'users.set'
+      );
+
+      // 7. Route to specific collections (drivers, suppliers) if needed
+      if (['supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT'].includes(roleToCreate)) {
+        await runWithTimeout(
+          adminDb.collection('suppliers').doc(userRecord.uid).set({
+            email,
+            displayName,
+            createdAt: new Date(),
+            status: 'active',
+            referredByPartnerId: isPartnerCaller ? callerUid : (additionalData.referredByPartnerId || null),
+          }, { merge: true }),
+          8000,
+          'suppliers.set'
+        );
+      }
+    } catch (fsWriteErr: any) {
+      const msg = String(fsWriteErr?.message || '');
+      const isQuota =
+        fsWriteErr?.code === 8 ||
+        msg.includes('RESOURCE_EXHAUSTED') ||
+        msg.includes('Quota exceeded') ||
+        msg.includes('FIRESTORE_TIMEOUT');
+      if (isQuota) {
+        console.error('Firestore write quota/timeout during user creation:', fsWriteErr);
+        return NextResponse.json(
+          {
+            error:
+              "Le quota quotidien d'écriture Firestore est saturé (RESOURCE_EXHAUSTED). Le compte d'authentification a été créé avec son rôle, mais le profil Firestore n'a pas pu être écrit. Passez votre projet Firebase au plan Blaze ou réessayez après réinitialisation du quota.",
+            code: 'FIRESTORE_QUOTA_EXCEEDED',
+            uid: userRecord.uid,
+          },
+          { status: 503 }
+        );
+      }
+      throw fsWriteErr;
+    }
+
     if (['supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT'].includes(roleToCreate)) {
-      await adminDb.collection('suppliers').doc(userRecord.uid).set({
-        email,
-        displayName,
-        createdAt: new Date(),
-        status: 'active',
-        referredByPartnerId: isPartnerCaller ? callerUid : (additionalData.referredByPartnerId || null),
-      }, { merge: true });
 
       // If created by partner, attach referral relation immediately
       if (isPartnerCaller) {

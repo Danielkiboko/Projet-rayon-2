@@ -3,6 +3,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 
 export let adminInitError: any = null;
+let firestoreConfigured = false;
 
 export function initFirebaseAdmin() {
   if (!getApps().length) {
@@ -81,6 +82,14 @@ export const adminDb = new Proxy({} as any, {
       throw adminInitError;
     }
     const firestore = getFirestore();
+    if (!firestoreConfigured) {
+      try {
+        firestore.settings({ preferRest: true, ignoreUndefinedProperties: true });
+      } catch {
+        // Already configured in this process
+      }
+      firestoreConfigured = true;
+    }
     const value = (firestore as any)[prop];
     if (typeof value === 'function') {
       return value.bind(firestore);

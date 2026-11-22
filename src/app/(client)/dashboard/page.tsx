@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { motion } from "framer-motion"
-import { isSupplier, isTeamMember, hasAdminAccess, SUPER_ADMIN_EMAILS } from "@/lib/permissions"
+import { isSupplier, isTeamMember, hasAdminAccess, isPartner, SUPER_ADMIN_EMAILS } from "@/lib/permissions"
 
 export default function DashboardRedirect() {
   const router = useRouter()
@@ -49,6 +49,11 @@ export default function DashboardRedirect() {
 
     if (hasAdminAccess(user, userData) || isTeamMember(userData)) {
       router.replace("/admin/dashboard");
+      return;
+    }
+
+    if (isPartner(userData)) {
+      router.replace("/partner");
       return;
     }
 

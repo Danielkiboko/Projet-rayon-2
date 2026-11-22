@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useChat } from "@/context/ChatContext";
 import { useRouter, useSearchParams } from "next/navigation";
 import { 
   collection, 
@@ -75,6 +76,7 @@ export function ClientChatsWidget({
   onSelectTab
 }: ClientChatsWidgetProps) {
   const { user } = useAuth();
+  const { activeProduct } = useChat();
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -88,6 +90,7 @@ export function ClientChatsWidget({
   const [chats, setChats] = useState<any[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const processedParamKeyRef = useRef<string | null>(null);
 
   // Alibaba search & filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -134,6 +137,40 @@ export function ClientChatsWidget({
   useEffect(() => {
     if (!user || isLoading) return;
 
+    const resolveProductImage = async (): Promise<string | null> => {
+      if (paramProductImage) return paramProductImage;
+      if (activeProduct && (!paramProductId || activeProduct.id === paramProductId) && activeProduct.image) {
+        return activeProduct.image;
+      }
+      try {
+        if (typeof window !== "undefined") {
+          const raw = sessionStorage.getItem("rayons_pending_chat_product");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed?.image && (!paramProductId || parsed.id === paramProductId)) {
+              sessionStorage.removeItem("rayons_pending_chat_product");
+              return parsed.image;
+            }
+          }
+        }
+      } catch {
+        // ignore storage errors
+      }
+      if (paramProductId) {
+        try {
+          const prodSnap = await getDoc(doc(db, "products", paramProductId));
+          if (prodSnap.exists()) {
+            const pData = prodSnap.data();
+            const img = pData.imageUrl || pData.image || (Array.isArray(pData.images) ? pData.images[0] : null);
+            if (typeof img === "string" && img.length < 350000) return img;
+          }
+        } catch {
+          // ignore fallback error
+        }
+      }
+      return null;
+    };
+
     const resolveChat = async () => {
       // Direct chatId provided
       if (paramChatId) {
@@ -143,24 +180,35 @@ export function ClientChatsWidget({
 
       // supplierId provided
       if (paramSupplierId) {
+        const paramKey = `${paramSupplierId}|${paramProductId || ""}|${paramProductName || ""}`;
         const existing = chats.find(c => c.supplierId === paramSupplierId);
         if (existing) {
           setActiveChatId(existing.id);
-          // If product context was provided, link it to the conversation
-          if (paramProductName || paramProductImage || paramProductId) {
+          // Sync product context ONCE per navigation to prevent snapshot update loops
+          if (processedParamKeyRef.current !== paramKey && (paramProductName || paramProductImage || paramProductId)) {
+            processedParamKeyRef.current = paramKey;
+            const resolvedImage = await resolveProductImage();
             updateDoc(doc(db, "chats", existing.id), {
               productName: paramProductName || existing.productName,
               productId: paramProductId || existing.productId || null,
-              productImage: paramProductImage || existing.productImage || null,
+              productImage: resolvedImage || existing.productImage || null,
               productPrice: paramProductPrice || existing.productPrice || null,
               propertyTitle: null, // clear old dummy propertyTitle
               updatedAt: serverTimestamp(),
             }).catch(() => {});
           }
-        } else {
+          // Clean up bulky query params (especially legacy base64 productImage URLs)
+          if (paramProductImage && paramProductImage.length > 300) {
+            router.replace(`/dashboard/client?tab=messages&chatId=${encodeURIComponent(existing.id)}`, { scroll: false });
+          }
+        } else if (processedParamKeyRef.current !== paramKey) {
+          processedParamKeyRef.current = paramKey;
           // Initialize a new chat with this supplier
           try {
-            const supplierDoc = await getDoc(doc(db, "users", paramSupplierId));
+            const [supplierDoc, resolvedImage] = await Promise.all([
+              getDoc(doc(db, "users", paramSupplierId)),
+              resolveProductImage(),
+            ]);
             const supplierData = supplierDoc.data() || {};
             const supplierName = supplierData.displayName || supplierData.businessName || supplierData.company || supplierData.name || "Fournisseur Rayons";
 
@@ -172,7 +220,7 @@ export function ClientChatsWidget({
               supplierName: supplierName,
               productName: paramProductName || null,
               productId: paramProductId || null,
-              productImage: paramProductImage || null,
+              productImage: resolvedImage || null,
               productPrice: paramProductPrice || null,
               propertyTitle: null,
               updatedAt: serverTimestamp(),
@@ -180,6 +228,9 @@ export function ClientChatsWidget({
             }, { merge: true });
 
             setActiveChatId(newChatId);
+            if (paramProductImage && paramProductImage.length > 300) {
+              router.replace(`/dashboard/client?tab=messages&chatId=${encodeURIComponent(newChatId)}`, { scroll: false });
+            }
           } catch (e) {
             console.warn("Error resolving supplier chat:", e);
           }
@@ -194,7 +245,7 @@ export function ClientChatsWidget({
     };
 
     resolveChat();
-  }, [paramChatId, paramSupplierId, paramProductId, paramProductName, paramProductImage, paramProductPrice, chats, isLoading, user, activeChatId]);
+  }, [paramChatId, paramSupplierId, paramProductId, paramProductName, paramProductImage, paramProductPrice, chats, isLoading, user, activeChatId, activeProduct, router]);
 
   // Mark all discussions as read (Sweep icon like Alibaba)
   const handleMarkAllAsRead = async () => {

@@ -227,32 +227,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
+        // Lire les custom claims du token en parallèle (filet de sécurité si le doc Firestore n'existe pas encore)
+        let claimRole: string | null = null;
+        try {
+          const tokenRes = await getIdTokenResult(currentUser);
+          if (typeof tokenRes?.claims?.role === "string" && tokenRes.claims.role.trim()) {
+            claimRole = tokenRes.claims.role.trim();
+          }
+        } catch {
+          // ignore
+        }
+
+        const fallbackRole = isSuper ? "SUPER_ADMIN" : claimRole || "CLIENT";
+        const fallbackRoleUpper = fallbackRole.toUpperCase();
+        const inferredRayon =
+          fallbackRoleUpper === "SUPPLIER_IMMO"
+            ? "immo"
+            : fallbackRoleUpper === "SUPPLIER_MODE"
+            ? "mode"
+            : fallbackRoleUpper === "SUPPLIER_SAVEURS"
+            ? "saveurs"
+            : fallbackRoleUpper === "SUPPLIER_CONNECT"
+            ? "connect"
+            : undefined;
+        const buildFallbackProfile = () => ({
+          uid: currentUser.uid,
+          role: fallbackRole,
+          email: currentUser.email,
+          displayName: currentUser.displayName || currentUser.email?.split("@")[0] || "Client",
+          ...(fallbackRoleUpper.startsWith("SUPPLIER")
+            ? {
+                accountType: "SUPPLIER",
+                isSupplier: true,
+                ...(inferredRayon ? { rayon: inferredRayon, assignedRayons: [inferredRayon] } : {}),
+              }
+            : {}),
+        });
+
         unsubscribeUserDoc = onSnapshot(
           doc(db, "users", currentUser.uid),
           (docSnap) => {
             if (docSnap.exists()) {
               const data = docSnap.data();
-              let role = data.role;
+              let role = data.role || claimRole;
               if (isSuper) {
                 role = role || "SUPER_ADMIN";
               }
-              setUserData({ ...data, role: role || (isSuper ? "SUPER_ADMIN" : "CLIENT") });
+              setUserData({ ...data, role: role || fallbackRole });
             } else {
-              setUserData({
-                role: isSuper ? "SUPER_ADMIN" : "CLIENT",
-                email: currentUser.email,
-                displayName: currentUser.displayName || currentUser.email?.split("@")[0] || "Client",
-              });
+              setUserData(buildFallbackProfile());
             }
             setLoading(false);
           },
           (error) => {
             console.warn("User data listener notice:", error?.message);
-            setUserData({
-              role: isSuper ? "SUPER_ADMIN" : "CLIENT",
-              email: currentUser.email,
-              displayName: currentUser.displayName || currentUser.email?.split("@")[0] || "Client",
-            });
+            setUserData(buildFallbackProfile());
             setLoading(false);
           }
         );

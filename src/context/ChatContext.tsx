@@ -55,12 +55,37 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const openChatForProduct = useCallback((product: ProductInfo) => {
     setActiveProduct(product);
 
+    // Keep full product payload (including base64 thumbnails if any) in sessionStorage
+    // so we NEVER bloat or break URLs with giant data:image/... query strings.
+    try {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(
+          "rayons_pending_chat_product",
+          JSON.stringify({
+            id: product.id,
+            supplierId: product.supplierId,
+            name: product.name,
+            price: product.price,
+            image: product.image,
+          })
+        );
+      }
+    } catch {
+      // Ignore storage quota / privacy mode errors; ClientChatsWidget will fetch from Firestore by productId
+    }
+
     const params = new URLSearchParams();
     params.set("tab", "messages");
     if (product.supplierId) params.set("supplierId", product.supplierId);
     if (product.id) params.set("productId", product.id);
     if (product.name) params.set("productName", product.name);
-    if (product.image) params.set("productImage", product.image);
+    if (
+      product.image &&
+      !product.image.startsWith("data:") &&
+      product.image.length <= 500
+    ) {
+      params.set("productImage", product.image);
+    }
     if (product.price) params.set("productPrice", product.price.toString());
 
     const targetUrl = `/dashboard/client?${params.toString()}`;

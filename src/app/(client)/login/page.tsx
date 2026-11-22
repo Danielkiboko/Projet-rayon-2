@@ -8,6 +8,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { hasAdminAccess, isSupplier, isPartner } from "@/lib/permissions";
 import { useEffect, Suspense } from "react";
 import { RayonsLogo } from "@/modules/shared/components/brand/RayonsLogo";
 import GoogleAuthButton from "@/modules/shared/components/auth/GoogleAuthButton";
@@ -40,13 +41,13 @@ function LoginContent() {
       }
       
       const role = (userData.role || "").toUpperCase();
-      if (role === "SUPER_ADMIN" || role === "ADMIN" || role === "SUB_ADMIN" || role.startsWith("ADMIN_")) {
+      if (hasAdminAccess(user, userData)) {
         router.replace("/admin/dashboard");
-      } else if (role === "SUPPLIER" || role === "FOURNISSEUR" || role.startsWith("SUPPLIER_") || role === "SUB_SUPPLIER") {
+      } else if (isSupplier(userData)) {
         router.replace("/supplier");
       } else if (role === "DRIVER" || role === "LIVREUR") {
         router.replace("/driver");
-      } else if (role === "PARTNER" || userData.isPartner === true) {
+      } else if (isPartner(userData)) {
         router.replace("/partner");
       } else {
         router.replace("/dashboard");
