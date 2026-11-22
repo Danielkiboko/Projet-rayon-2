@@ -34,12 +34,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Sécurité : seul le fournisseur lui-même (ou son sous-compte) ou un admin peut enregistrer un abonnement ──
+    // ── Sécurité : en production, seul un Administrateur Finance peut activer directement un abonnement.
+    // Les fournisseurs soumettent leur preuve Mobile Money via `/api/payments/mobile-money` pour vérification.
     const caller = await getServerCaller(req);
     if (!caller || !canActForSupplier(caller, supplierId)) {
       return NextResponse.json(
         { success: false, error: "Authentification requise pour enregistrer un abonnement." },
         { status: 401 }
+      );
+    }
+
+    const isProd = process.env.NODE_ENV === "production";
+    const allowSim = process.env.ALLOW_PAYMENT_SIMULATION === "true";
+    if (isProd && !allowSim && !caller.isAdmin) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Pour sécuriser votre compte, veuillez soumettre votre référence Mobile Money (M-Pesa, Airtel Money, Orange Money) depuis votre Espace Finances.",
+        },
+        { status: 403 }
       );
     }
 

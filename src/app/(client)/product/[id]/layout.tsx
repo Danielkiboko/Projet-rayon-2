@@ -30,12 +30,16 @@ export async function generateMetadata({
       return {
         title: `${title}${priceLabel} | Rayons.net`,
         description: String(description).slice(0, 180),
+        alternates: {
+          canonical: pageUrl,
+        },
         openGraph: {
           title: `${title}${priceLabel} | Rayons.net`,
           description: String(description).slice(0, 180),
           type: "website",
           url: pageUrl,
           siteName: "Rayons.net",
+          locale: "fr_FR",
           images: [
             {
               url: ogImageUrl,

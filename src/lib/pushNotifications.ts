@@ -8,7 +8,7 @@ export interface DispatchPushParams {
   userId: string;
   title: string;
   message: string;
-  type?: "order" | "booking" | "delivery" | "review" | "chat" | "system" | "COMMISSION_CREDITED";
+  type?: "order" | "booking" | "delivery" | "review" | "chat" | "system" | "COMMISSION_CREDITED" | "SUBSCRIPTION_PAYMENT_PROOF" | "SUBSCRIPTION_ACTIVATED" | "SUBSCRIPTION_REJECTED";
   link?: string;
   clientId?: string;
   supplierId?: string;

@@ -49,6 +49,9 @@ rules_version = '2';
 //   - audit_logs/{logId}: Immutable server-side security audit trail (Admin SDK write only;
 //     General Admin read only). Fields: action, actorUid, actorEmail, actorRole, targetType,
 //     targetId, summary, metadata, createdAt, timestampMs.
+//   - subscription_payment_requests/{reqId}: Mobile Money subscription payment requests
+//     (Admin SDK write only via /api/payments/mobile-money; Finance Staff and owning
+//     supplier/sub-supplier read only). Key scoping field: supplierId (string).
 //
 // ===============================================================
 
@@ -1099,6 +1102,14 @@ service cloud.firestore {
     // Security Audit Logs (Strictly immutable server-side Admin SDK writes; General Admin read only)
     match /audit_logs/{logId} {
       allow read: if isGeneralAdmin();
+      allow write: if false;
+    }
+
+    // Mobile Money Subscription Payment Requests
+    // Strictly managed server-side via /api/payments/mobile-money (Firebase Admin SDK)
+    // to prevent suppliers from self-approving or altering payment requests.
+    match /subscription_payment_requests/{reqId} {
+      allow read: if isFinanceStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
       allow write: if false;
     }
 

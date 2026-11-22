@@ -28,6 +28,7 @@ import {
 } from "@/lib/accountingLedger";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
 import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
+import MobileMoneyRequestsPanel from "./MobileMoneyRequestsPanel";
 
 interface Transaction {
   id: string;
@@ -712,6 +713,9 @@ export default function AdminFinancePage() {
           </button>
         </div>
       </div>
+
+      {/* Preuves Mobile Money en attente de validation 1 clic */}
+      <MobileMoneyRequestsPanel />
 
       {/* Période Comptable */}
       <DateRangeFilterPills filter={dateFilter} />

@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { getSupplierType } from "@/lib/permissions";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
 import { ADJUSTMENT_REASONS, recordCashAdjustment, recordSubscriptionDeposit, recordRentPayment } from "@/lib/accountingLedger";
+import MobileMoneyPaymentModal from "@/modules/supplier/components/MobileMoneyPaymentModal";
 
 interface Transaction {
   id: string;
@@ -68,8 +69,9 @@ export default function SupplierFinancePage() {
   const isImmo = getSupplierType(userData) === "immo";
   const subscriptionInfo = evaluateSupplierSubscription(userData);
 
-  // Cash Adjustment state
+  // Cash Adjustment & Mobile Money Subscription state
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
+  const [isMobileMoneyModalOpen, setIsMobileMoneyModalOpen] = useState(false);
   const [adjAmount, setAdjAmount] = useState("");
   const [adjType, setAdjType] = useState<"ADD" | "SUBTRACT">("ADD");
   const [adjReason, setAdjReason] = useState<string>(ADJUSTMENT_REASONS[0]);
@@ -528,46 +530,8 @@ export default function SupplierFinancePage() {
     }
   };
 
-  const handlePayDeposit = async () => {
-    const baseAmount = userData?.depositAmount || 50;
-    const pendingDiscount = Number(userData?.referralDiscountPending) || 0;
-    const effectiveToPay = Math.max(0, baseAmount - pendingDiscount);
-
-    const discountMsg = pendingDiscount > 0
-      ? `\n\n🎉 Réduction de parrainage appliquée : -$${pendingDiscount} USD !\nMontant effectif à régler : $${effectiveToPay} USD au lieu de $${baseAmount} USD.`
-      : "";
-
-    if (!confirm(`Confirmez-vous le paiement de votre dépôt mensuel de $${effectiveToPay} ?${discountMsg}\n\nCette action débloquera instantanément votre compte pour 30 jours supplémentaires.`)) {
-      return;
-    }
-    try {
-      const token = await user?.getIdToken();
-      const res = await fetch("/api/supplier/subscribe", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          supplierId: activeSupplierId,
-          supplierName: userData?.displayName || userData?.company || "Partenaire",
-          supplierEmail: user?.email || "",
-          amount: baseAmount,
-          currency: "USD",
-          paymentMethod: "Paiement direct en ligne",
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Erreur lors du paiement du dépôt.");
-      }
-      setFinanceNotice("Félicitations ! Votre dépôt mensuel a été régularisé. Vos publications et messageries sont débloquées.");
-      setTimeout(() => setFinanceNotice(""), 7000);
-      window.location.reload();
-    } catch (err: any) {
-      console.error("Error paying deposit:", err);
-      alert(err.message || "Erreur lors du paiement du dépôt.");
-    }
+  const handlePayDeposit = () => {
+    setIsMobileMoneyModalOpen(true);
   };
 
   const downloadCSV = () => {
@@ -1496,6 +1460,18 @@ export default function SupplierFinancePage() {
           </div>
         )}
       </AnimatePresence>
+
+      <MobileMoneyPaymentModal
+        isOpen={isMobileMoneyModalOpen}
+        onClose={() => setIsMobileMoneyModalOpen(false)}
+        supplierId={activeSupplierId || ""}
+        baseAmount={userData?.depositAmount || 50}
+        pendingDiscount={Number(userData?.referralDiscountPending) || 0}
+        onSubmitted={() => {
+          setFinanceNotice("Votre preuve de paiement Mobile Money a été envoyée à la caisse Rayons.net pour validation.");
+          setTimeout(() => setFinanceNotice(""), 8000);
+        }}
+      />
     </div>
   );
 }
