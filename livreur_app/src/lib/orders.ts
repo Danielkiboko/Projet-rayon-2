@@ -1,18 +1,47 @@
-import { doc, updateDoc, serverTimestamp, deleteField } from "firebase/firestore";
+import { doc, updateDoc, setDoc, serverTimestamp, deleteField } from "firebase/firestore";
 import { auth, db } from "./firebase";
 
 /**
- * Statuts alignés sur l'espace livreur web (src/app/(driver)) et les API Next.js :
- * CONFIRMED_AWAITING_DRIVER → ACCEPTED → ARRIVED_AWAITING_PAYMENT → COMPLETED
+ * Statuts canoniques alignés sur `src/domain/orderStates.ts`, l'espace livreur web et `firestore.rules` :
+ * CONFIRMED_AWAITING_DRIVER (ou pending_driver) → ACCEPTED → IN_TRANSIT → ARRIVED_AWAITING_PAYMENT → COMPLETED
  */
 export const ORDER_STATUS = {
   AWAITING_DRIVER: "CONFIRMED_AWAITING_DRIVER",
+  PENDING_DRIVER_LEGACY: "pending_driver",
   ACCEPTED: "ACCEPTED",
+  IN_TRANSIT: "IN_TRANSIT",
   ARRIVED: "ARRIVED_AWAITING_PAYMENT",
   COMPLETED: "COMPLETED",
+  CANCELLED: "CANCELLED",
 } as const;
 
-export const ACTIVE_STATUSES: string[] = [ORDER_STATUS.ACCEPTED, ORDER_STATUS.ARRIVED];
+export const AWAITING_DRIVER_STATUSES: string[] = [
+  ORDER_STATUS.AWAITING_DRIVER,
+  ORDER_STATUS.PENDING_DRIVER_LEGACY,
+];
+
+export const ACTIVE_STATUSES: string[] = [
+  ORDER_STATUS.ACCEPTED,
+  ORDER_STATUS.IN_TRANSIT,
+  ORDER_STATUS.ARRIVED,
+];
+
+export const COMPLETED_STATUSES: string[] = [
+  "COMPLETED",
+  "completed",
+  "DELIVERED",
+  "delivered",
+  "LIVRE",
+  "LIVRÉE",
+  "LIVREE",
+];
+
+export const isCompletedStatus = (status?: string) =>
+  COMPLETED_STATUSES.includes(String(status || "").trim()) ||
+  ["COMPLETED", "DELIVERED", "LIVRE", "LIVRÉE", "LIVREE"].includes(String(status || "").toUpperCase().trim());
+
+export const isCancelledStatus = (status?: string) =>
+  ["CANCELLED", "CANCELED", "ANNULÉE", "ANNULEE"].includes(String(status || "").toUpperCase().trim());
 
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL || "https://rayons.net").replace(/\/$/, "");
 
@@ -88,16 +117,20 @@ export const acceptMission = (orderId: string, driver: DriverProfile) =>
     driverVehicle: driver.vehicle,
   });
 
-/** Le livreur signale son arrivée : le client est notifié (SMS / email). */
+/** Le livreur signale son arrivée : le client est notifié (SMS / email / Push authentifié). */
 export async function markArrived(order: any) {
   await updateDoc(doc(db, "orders", order.id), {
     status: ORDER_STATUS.ARRIVED,
     arrivedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+  const token = await auth.currentUser?.getIdToken().catch(() => null);
   fetch(`${API_URL}/api/notifications`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({
       action: "ORDER_STATUS_CHANGED",
       orderId: order.id,
@@ -106,6 +139,24 @@ export async function markArrived(order: any) {
       clientPhone: getClientPhone(order),
     }),
   }).catch(() => {});
+}
+
+/** Met à jour la disponibilité en ligne/hors-ligne du livreur dans Firestore. */
+export async function updateDriverOnlineStatus(uid: string, isOnline: boolean) {
+  const payload = { isOnline, updatedAt: serverTimestamp() };
+  await Promise.allSettled([
+    updateDoc(doc(db, "drivers", uid), payload),
+    setDoc(doc(db, "users", uid), payload, { merge: true }),
+  ]);
+}
+
+/** Enregistre la langue préférée du livreur (FR / EN / ZH) pour la traduction automatique des notifications backend. */
+export async function updateDriverPreferredLanguage(uid: string, lang: "fr" | "en" | "zh") {
+  try {
+    await postJson("/api/users/profile", { preferredLanguage: lang });
+  } catch {
+    await setDoc(doc(db, "users", uid), { preferredLanguage: lang, language: lang }, { merge: true }).catch(() => {});
+  }
 }
 
 /** Livraison confirmée + encaissement : écritures de caisse et notifications gérées par le serveur. */

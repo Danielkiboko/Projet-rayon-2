@@ -26,7 +26,11 @@ export default function ActiveDeliveryScreen({ orderId, driver, onBack }: Props)
   const lastPublish = React.useRef(0);
 
   const isMine = order?.driverId === driver.uid;
-  const isActive = isMine && (order?.status === ORDER_STATUS.ACCEPTED || order?.status === ORDER_STATUS.ARRIVED);
+  const isActive = isMine && (
+    order?.status === ORDER_STATUS.ACCEPTED ||
+    order?.status === ORDER_STATUS.IN_TRANSIT ||
+    order?.status === ORDER_STATUS.ARRIVED
+  );
 
   // ── Écoute temps réel de la commande ──
   React.useEffect(() => {
@@ -252,7 +256,7 @@ export default function ActiveDeliveryScreen({ orderId, driver, onBack }: Props)
               <FontAwesome5 name="check-circle" size={18} color="#4ade80" />
               <Text style={styles.doneText}>Course terminée avec succès</Text>
             </View>
-          ) : order.status === ORDER_STATUS.ACCEPTED ? (
+          ) : order.status === ORDER_STATUS.ACCEPTED || order.status === ORDER_STATUS.IN_TRANSIT ? (
             <>
               <SwipeButton key="arrived" title="Je suis arrivé chez le client" onConfirm={handleArrived} />
               <TouchableOpacity onPress={handleRelease} style={styles.releaseBtn}>
@@ -269,7 +273,7 @@ export default function ActiveDeliveryScreen({ orderId, driver, onBack }: Props)
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0b061c' },
+  container: { flex: 1, backgroundColor: '#0F1D27' },
   center: { alignItems: 'center', justifyContent: 'center', padding: 24 },
   muted: { color: '#9ca3af', fontSize: 14, textAlign: 'center' },
   mapWrap: { flex: 1, minHeight: 260 },
@@ -315,7 +319,7 @@ const styles = StyleSheet.create({
   },
   mapBadgeText: { color: '#e5e7eb', fontSize: 12, fontWeight: '600', textAlign: 'center' },
   sheet: {
-    backgroundColor: '#0b061c',
+    backgroundColor: '#0F1D27',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     marginTop: -24,

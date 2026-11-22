@@ -6,7 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import { DriverProfile, formatMoney } from '../lib/orders';
+import {
+  DriverProfile,
+  COMPLETED_STATUSES,
+  updateDriverOnlineStatus,
+  updateDriverPreferredLanguage,
+} from '../lib/orders';
 
 type Props = {
   driver: DriverProfile;
@@ -23,15 +28,30 @@ export default function ProfileScreen({ driver, onLogout }: Props) {
   const [extraInfo, setExtraInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
+  const [preferredLang, setPreferredLang] = useState<'fr' | 'en' | 'zh'>('fr');
+  const [savingLang, setSavingLang] = useState(false);
 
   useEffect(() => {
     let alive = true;
     const fetchStatsAndInfo = async () => {
       try {
-        // 1. Lire doc livreur pour compléments
+        // 1. Lire doc livreur + préférence langue du compte
         try {
-          const dSnap = await getDoc(doc(db, 'drivers', driver.uid));
-          if (dSnap.exists() && alive) setExtraInfo(dSnap.data());
+          const [dSnap, uSnap] = await Promise.all([
+            getDoc(doc(db, 'drivers', driver.uid)),
+            getDoc(doc(db, 'users', driver.uid)),
+          ]);
+          if (dSnap.exists() && alive) {
+            const dData = dSnap.data();
+            setExtraInfo(dData);
+            if (typeof dData.isOnline === 'boolean') setIsOnline(dData.isOnline);
+          }
+          if (uSnap.exists() && alive) {
+            const uLang = String(uSnap.data()?.preferredLanguage || uSnap.data()?.language || 'fr').toLowerCase();
+            if (uLang === 'en' || uLang === 'zh' || uLang === 'fr') {
+              setPreferredLang(uLang);
+            }
+          }
         } catch {}
 
         // 2. Calculer les statistiques
@@ -41,7 +61,7 @@ export default function ProfileScreen({ driver, onLogout }: Props) {
         const q = query(
           collection(db, 'orders'),
           where('driverId', '==', driver.uid),
-          where('status', 'in', ['COMPLETED', 'completed', 'delivered', 'DELIVERED', 'LIVRE'])
+          where('status', 'in', COMPLETED_STATUSES)
         );
         const snap = await getDocs(q);
 
@@ -134,13 +154,17 @@ export default function ProfileScreen({ driver, onLogout }: Props) {
               {isExclusive ? '🔒 Livreur Exclusif Fournisseur' : '🌐 Livreur Plateforme Rayon'}
             </Text>
 
-            {/* Availability Toggle Button */}
+            {/* Availability Toggle Button (synchronisé en temps réel dans Firestore) */}
             <TouchableOpacity
               style={[
                 styles.availabilityBadge,
                 isOnline ? styles.badgeOnline : styles.badgeOffline,
               ]}
-              onPress={() => setIsOnline((prev) => !prev)}
+              onPress={() => {
+                const next = !isOnline;
+                setIsOnline(next);
+                updateDriverOnlineStatus(driver.uid, next).catch(() => {});
+              }}
               activeOpacity={0.8}
             >
               <View
@@ -222,6 +246,38 @@ export default function ProfileScreen({ driver, onLogout }: Props) {
           />
         </View>
 
+        {/* Langue de préférence du compte (Traduction automatique backend FR / EN / 中文) */}
+        <Text style={styles.sectionTitle}>Langue des notifications (FR / EN / 中文)</Text>
+        <View style={styles.langRow}>
+          {(
+            [
+              { code: 'fr', label: '🇫🇷 Français' },
+              { code: 'en', label: '🇬🇧 English' },
+              { code: 'zh', label: '🇨🇳 中文' },
+            ] as { code: 'fr' | 'en' | 'zh'; label: string }[]
+          ).map((item) => {
+            const active = preferredLang === item.code;
+            return (
+              <TouchableOpacity
+                key={item.code}
+                disabled={savingLang}
+                onPress={async () => {
+                  setPreferredLang(item.code);
+                  setSavingLang(true);
+                  await updateDriverPreferredLanguage(driver.uid, item.code);
+                  setSavingLang(false);
+                }}
+                style={[styles.langBtn, active && styles.langBtnActive]}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.langBtnText, active && styles.langBtnTextActive]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
         {/* Logout Full Button */}
         <TouchableOpacity
           style={styles.logoutButtonFull}
@@ -263,7 +319,7 @@ function InfoRow({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0b061c' },
+  container: { flex: 1, backgroundColor: '#0F1D27' },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -422,6 +478,33 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 16,
     gap: 10,
+  },
+  langRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 24,
+  },
+  langBtn: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+  },
+  langBtnActive: {
+    backgroundColor: '#C7D300',
+    borderColor: '#C7D300',
+  },
+  langBtnText: {
+    color: '#cbd5e1',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  langBtnTextActive: {
+    color: '#0F1D27',
+    fontWeight: '900',
   },
   logoutButtonText: { color: '#ef4444', fontSize: 15, fontWeight: '800' },
 });

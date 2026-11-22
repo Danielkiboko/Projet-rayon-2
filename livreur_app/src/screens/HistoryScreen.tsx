@@ -6,7 +6,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { DriverProfile, formatMoney, shortId, getClientAddress } from '../lib/orders';
+import {
+  DriverProfile,
+  formatMoney,
+  shortId,
+  getClientAddress,
+  isCompletedStatus,
+  isCancelledStatus,
+} from '../lib/orders';
 
 type Period = 'today' | 'week' | 'month' | 'all';
 
@@ -87,8 +94,7 @@ export default function HistoryScreen({ driver }: Props) {
     let sum = 0;
     let count = 0;
     filtered.forEach((o) => {
-      const s = (o.status || '').toUpperCase();
-      if (['COMPLETED', 'DELIVERED', 'LIVRE'].includes(s)) {
+      if (isCompletedStatus(o.status)) {
         count++;
         sum += Number(o.deliveryFee || o.driverFee || (o.totalAmount || 0) * 0.1 || 0);
       }
@@ -97,8 +103,8 @@ export default function HistoryScreen({ driver }: Props) {
   }, [filtered]);
 
   const renderItem = ({ item }: { item: any }) => {
-    const isCompleted = ['COMPLETED', 'DELIVERED', 'LIVRE'].includes((item.status || '').toUpperCase());
-    const isCancelled = ['CANCELLED'].includes((item.status || '').toUpperCase());
+    const isCompleted = isCompletedStatus(item.status);
+    const isCancelled = isCancelledStatus(item.status);
     const fee = Number(item.deliveryFee || item.driverFee || (item.totalAmount || 0) * 0.1 || 0);
     const date = item.completedAt?.toDate?.() || item.deliveredAt?.toDate?.() || item.createdAt?.toDate?.() || null;
     const addr = getClientAddress(item) || '—';
@@ -230,7 +236,7 @@ export default function HistoryScreen({ driver }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0b061c' },
+  container: { flex: 1, backgroundColor: '#0F1D27' },
   header: {
     paddingHorizontal: 20,
     paddingTop: 12,

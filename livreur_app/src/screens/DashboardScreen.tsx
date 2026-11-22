@@ -8,7 +8,7 @@ import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import SwipeButton from '../components/SwipeButton';
 import { db } from '../lib/firebase';
 import {
-  ORDER_STATUS, ACTIVE_STATUSES, DriverProfile, acceptMission, isOrderForDriver,
+  ORDER_STATUS, AWAITING_DRIVER_STATUSES, ACTIVE_STATUSES, COMPLETED_STATUSES, DriverProfile, acceptMission, isOrderForDriver,
   getClientName, getClientAddress, getAmountToCollect, formatMoney, shortId,
 } from '../lib/orders';
 
@@ -40,7 +40,7 @@ export default function DashboardScreen({ driver, onLogout, onOpenOrder, onOpenP
     const qToday = query(
       collection(db, 'orders'),
       where('driverId', '==', driver.uid),
-      where('status', 'in', ['COMPLETED', 'completed', 'delivered', 'DELIVERED', 'LIVRE'])
+      where('status', 'in', COMPLETED_STATUSES)
     );
     const unsub = onSnapshot(
       qToday,
@@ -63,7 +63,7 @@ export default function DashboardScreen({ driver, onLogout, onOpenOrder, onOpenP
   // ── Courses disponibles ──
   React.useEffect(() => {
     setError(null);
-    const q = query(collection(db, 'orders'), where('status', '==', ORDER_STATUS.AWAITING_DRIVER));
+    const q = query(collection(db, 'orders'), where('status', 'in', AWAITING_DRIVER_STATUSES));
     const unsub = onSnapshot(
       q,
       (snap) => {
@@ -248,7 +248,7 @@ export default function DashboardScreen({ driver, onLogout, onOpenOrder, onOpenP
                 </View>
                 <View style={styles.activeStatusPill}>
                   <Text style={styles.activeStatusText}>
-                    {o.status === ORDER_STATUS.ARRIVED ? 'ARRIVÉ' : 'EN ROUTE'}
+                    {o.status === ORDER_STATUS.ARRIVED ? 'ARRIVÉ' : o.status === ORDER_STATUS.IN_TRANSIT ? 'EN LIVRAISON' : 'EN ROUTE'}
                   </Text>
                 </View>
               </View>

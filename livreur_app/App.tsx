@@ -18,8 +18,9 @@ import HistoryScreen from './src/screens/HistoryScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import ActiveDeliveryScreen from './src/screens/ActiveDeliveryScreen';
 
-const DRIVER_ROLES = ['driver', 'livreur', 'chauffeur'];
-const ADMIN_ROLES = ['super_admin', 'superadmin', 'admin', 'sub_admin', 'subadmin'];
+const DRIVER_ROLES = ['driver', 'livreur', 'chauffeur', 'delivery', 'coursier'];
+const ADMIN_ROLES = ['super_admin', 'superadmin', 'admin', 'sub_admin', 'subadmin', 'admin_ops', 'responsable_logistique'];
+const SUPER_ADMIN_EMAILS = ['danielkiboko218@gmail.com', 'admin@rayons.net'];
 
 /** Charge le profil livreur ou admin (collection drivers puis users), même logique que l'espace livreur web. */
 async function loadDriverProfile(user: User): Promise<{ profile: DriverProfile; isDriver: boolean; isAdmin: boolean }> {
@@ -37,7 +38,7 @@ async function loadDriverProfile(user: User): Promise<{ profile: DriverProfile; 
   const userEmail = (user.email || '').toLowerCase().trim();
   const role = String(userData?.role || driverData?.role || '').toLowerCase();
   
-  const isAdmin = userEmail === 'danielkiboko218@gmail.com' || ADMIN_ROLES.includes(role);
+  const isAdmin = SUPER_ADMIN_EMAILS.includes(userEmail) || ADMIN_ROLES.includes(role);
   const isDriver = DRIVER_ROLES.includes(role) || !!driverData || isAdmin;
 
   let supplierId = driverData?.supplierId || 'admin';
@@ -447,10 +448,10 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#140b2e',
+    backgroundColor: '#162836',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.12)',
     marginBottom: 16,
     paddingHorizontal: 16,
     height: 56,
@@ -476,19 +477,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   button: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#C7D300',
     height: 56,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#ffffff',
+    shadowColor: '#C7D300',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 5,
   },
   buttonText: {
-    color: '#0b061c',
+    color: '#0F1D27',
     fontSize: 16,
     fontWeight: 'bold',
   },
