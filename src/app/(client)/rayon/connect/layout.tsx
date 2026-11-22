@@ -14,6 +14,13 @@ export const metadata: Metadata = {
     url: `${SITE_URL}/rayon/connect`,
     siteName: "Rayons.net",
     type: "website",
+    images: [{ url: "/supermarket-hero.jpg", width: 1200, height: 630, alt: "Rayons Connect" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Rayons Connect — Starlink & Tech en RDC",
+    description: "Kits Starlink, routeurs Pro, smartphones et audio vérifiés sur Rayons.net.",
+    images: ["/supermarket-hero.jpg"],
   },
 };
 

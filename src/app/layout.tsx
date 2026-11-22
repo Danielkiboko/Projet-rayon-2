@@ -20,15 +20,67 @@ export const viewport: Viewport = {
   themeColor: "#0F1D27",
 };
 
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://rayons.net").replace(/\/$/, "");
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://rayons.net"),
-  title: "Rayons.net | Tout ce dont vous avez besoin, en un seul endroit",
-  description: "Rayons est la marketplace de référence : Technologies & Objets connectés (Rayons Connect), Immobilier & Hôtels (Rayons Immo), Prêt-à-porter & Accessoires (Rayons Mode).",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: "Rayons.net | Marketplace Officielle RDC — Tech, Immo, Mode & Saveurs",
+    template: "%s | Rayons.net",
+  },
+  description:
+    "Rayons.net est la marketplace officielle de référence en RDC : Technologies & Starlink (Rayons Connect), Immobilier & Hôtels (Rayons Immo), Prêt-à-porter & Luxe (Rayons Mode), Restaurants & Cuisine (Rayons Saveurs). Paiement sécurisé à la livraison.",
+  keywords: [
+    "Rayons.net",
+    "marketplace RDC",
+    "achat en ligne Kinshasa",
+    "boutique en ligne Congo",
+    "Starlink Kinshasa",
+    "immobilier Kinshasa",
+    "location appartement Gombe",
+    "hôtel Kinshasa",
+    "mode Kinshasa",
+    "livraison Kinshasa",
+    "M-Pesa",
+    "Airtel Money",
+    "Orange Money",
+    "DRC marketplace",
+    "刚果金电商平台",
+    "金沙萨网上商城",
+  ],
+  alternates: {
+    canonical: SITE_URL,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }
+    : undefined,
   openGraph: {
     type: "website",
+    url: SITE_URL,
     siteName: "Rayons.net",
+    title: "Rayons.net | Tout ce dont vous avez besoin, en un seul endroit",
+    description:
+      "Technologies & Starlink, Immobilier & Hôtels, Mode et Gastronomie en RDC. Commandez auprès de boutiques vérifiées avec paiement sécurisé.",
     locale: "fr_FR",
-    images: [{ url: "/supermarket-hero.jpg", width: 1200, height: 630, alt: "Rayons.net" }],
+    alternateLocale: ["en_US", "zh_CN"],
+    images: [{ url: "/supermarket-hero.jpg", width: 1200, height: 630, alt: "Rayons.net — Marketplace Officielle RDC" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Rayons.net | Marketplace Officielle RDC",
+    description: "Tech, Immobilier & Hôtels, Mode et Saveurs en RDC avec paiement sécurisé à la livraison.",
+    images: ["/supermarket-hero.jpg"],
   },
   icons: {
     icon: [

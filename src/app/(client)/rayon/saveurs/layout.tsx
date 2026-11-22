@@ -14,6 +14,13 @@ export const metadata: Metadata = {
     url: `${SITE_URL}/rayon/saveurs`,
     siteName: "Rayons.net",
     type: "website",
+    images: [{ url: "/supermarket-hero.jpg", width: 1200, height: 630, alt: "Rayons Saveurs" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Rayons Saveurs — Restaurants & Cuisine en RDC",
+    description: "Plats préparés par des chefs et équipements culinaires livrés via Rayons.net.",
+    images: ["/supermarket-hero.jpg"],
   },
 };
 

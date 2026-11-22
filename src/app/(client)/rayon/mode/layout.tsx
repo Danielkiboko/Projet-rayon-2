@@ -14,6 +14,13 @@ export const metadata: Metadata = {
     url: `${SITE_URL}/rayon/mode`,
     siteName: "Rayons.net",
     type: "website",
+    images: [{ url: "/supermarket-hero.jpg", width: 1200, height: 630, alt: "Rayons Mode" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Rayons Mode — Prêt-à-Porter & Luxe en RDC",
+    description: "Collections mode, chaussures et accessoires de boutiques vérifiées sur Rayons.net.",
+    images: ["/supermarket-hero.jpg"],
   },
 };
 

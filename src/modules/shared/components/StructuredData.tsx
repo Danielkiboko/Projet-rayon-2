@@ -33,7 +33,7 @@ export function StructuredData() {
             "contactType": "customer service",
             "email": "contact@rayons.net",
             "areaServed": "CD",
-            "availableLanguage": ["French", "English", "Lingala", "Swahili"],
+            "availableLanguage": ["French", "English", "Chinese", "Lingala", "Swahili"],
             "hoursAvailable": "Mo-Su 08:00-21:00"
           }
         ],
@@ -70,7 +70,7 @@ export function StructuredData() {
           "@id": "https://rayons.net/#organization"
         },
         "description": "Place de marché en ligne proposant produits électroniques, biens immobiliers, mode et gastronomie en RDC.",
-        "currenciesAccepted": "USD, CDF",
+        "currenciesAccepted": "USD, CDF, EUR",
         "paymentAccepted": "Mobile Money, M-Pesa, Airtel Money, Orange Money, Carte Bancaire, Paiement Consigné",
         "priceRange": "$$",
         "hasOfferCatalog": {

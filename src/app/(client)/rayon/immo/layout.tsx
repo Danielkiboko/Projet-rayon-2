@@ -14,6 +14,13 @@ export const metadata: Metadata = {
     url: `${SITE_URL}/rayon/immo`,
     siteName: "Rayons.net",
     type: "website",
+    images: [{ url: "/supermarket-hero.jpg", width: 1200, height: 630, alt: "Rayons Immo" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Rayons Immo — Villas, Appartements & Hôtels en RDC",
+    description: "Biens immobiliers et hôtels certifiés à Kinshasa et en RDC sur Rayons.net.",
+    images: ["/supermarket-hero.jpg"],
   },
 };
 
