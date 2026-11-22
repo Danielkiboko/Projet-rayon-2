@@ -17,11 +17,10 @@ import AlibabaClientBottomNav from "@/modules/client/components/AlibabaClientBot
 interface StoreTemplateProps {
   category: "mode" | "connect" | "saveurs";
   heroImage: string;
-  dummyProducts: any[];
   dict: any;
 }
 
-function StoreTemplateContent({ category, heroImage, dummyProducts, dict }: StoreTemplateProps) {
+function StoreTemplateContent({ category, heroImage, dict }: StoreTemplateProps) {
   const { lang, setLang } = useLanguage();
   const t = dict[lang] || dict.fr;
   const { openChatForProduct } = useChat();
@@ -108,22 +107,18 @@ function StoreTemplateContent({ category, heroImage, dummyProducts, dict }: Stor
 
         const matchedProducts = allProducts.filter(isTargetRayon);
 
-        if (matchedProducts.length === 0) {
-          setProducts(dummyProducts);
-        } else {
-          setProducts(matchedProducts);
-        }
+        setProducts(matchedProducts);
         setIsLoading(false);
       },
       (error) => {
         console.error("Error listening to products:", error);
-        setProducts(dummyProducts);
+        setProducts([]);
         setIsLoading(false);
       }
     );
 
     return () => unsubscribe();
-  }, [category, dummyProducts]);
+  }, [category]);
 
   const handleChat = (product: any) => {
     openChatForProduct({
@@ -240,43 +235,66 @@ function StoreTemplateContent({ category, heroImage, dummyProducts, dict }: Stor
         </div>
 
         {/* Products Grid */}
-        {displayedProducts.length === 0 ? (
+        {isLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
+            <ProductSkeleton />
+            <ProductSkeleton />
+            <ProductSkeleton />
+            <ProductSkeleton />
+            <ProductSkeleton />
+            <ProductSkeleton />
+          </div>
+        ) : displayedProducts.length === 0 ? (
           <div className="bg-white rounded-2xl border border-gray-200 p-8 sm:p-12 text-center my-6 sm:my-8">
             <PackageSearch size={44} className="mx-auto text-gray-300 mb-3" />
-            <h3 className="text-sm sm:text-base font-bold text-gray-800 mb-1">Aucun résultat trouvé</h3>
-            <p className="text-xs text-gray-400 max-w-md mx-auto mb-4">
-              Aucun article dans ce rayon ne correspond à votre recherche "{searchQuery}". Essayez un autre mot-clé ou réinitialisez le filtre.
-            </p>
-            <button
-              onClick={() => setSearchQuery("")}
-              className="px-4 py-2 bg-[#0F1D27] hover:bg-[#1a2e3b] text-[#C7D300] text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
-            >
-              Afficher tous les articles
-            </button>
+            {searchQuery.trim() ? (
+              <>
+                <h3 className="text-sm sm:text-base font-bold text-gray-800 mb-1">
+                  {lang === "en" ? "No results found" : lang === "zh" ? "未找到相关商品" : "Aucun résultat trouvé"}
+                </h3>
+                <p className="text-xs text-gray-400 max-w-md mx-auto mb-4">
+                  {lang === "en"
+                    ? `No item in this department matches "${searchQuery}". Try another keyword or reset the filter.`
+                    : lang === "zh"
+                    ? `此分区中没有匹配 “${searchQuery}” 的商品。请尝试其他关键词或重置筛选。`
+                    : `Aucun article dans ce rayon ne correspond à votre recherche "${searchQuery}". Essayez un autre mot-clé ou réinitialisez le filtre.`}
+                </p>
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="px-4 py-2 bg-[#0F1D27] hover:bg-[#1a2e3b] text-[#C7D300] text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
+                >
+                  {lang === "en" ? "Show all items" : lang === "zh" ? "显示全部商品" : "Afficher tous les articles"}
+                </button>
+              </>
+            ) : (
+              <>
+                <h3 className="text-sm sm:text-base font-bold text-gray-800 mb-1">
+                  {lang === "en" ? "No items available yet" : lang === "zh" ? "暂无上架商品" : "Aucun article disponible pour le moment"}
+                </h3>
+                <p className="text-xs text-gray-400 max-w-md mx-auto">
+                  {lang === "en"
+                    ? "Verified sellers are updating this department. Check back soon to discover new arrivals."
+                    : lang === "zh"
+                    ? "认证商家正在更新此分区的商品，请稍后再来查看新品。"
+                    : "Les fournisseurs vérifiés mettent à jour ce rayon. Revenez bientôt pour découvrir les nouveaux articles."}
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
-            {isLoading ? (
-              <>
-                <ProductSkeleton />
-                <ProductSkeleton />
-                <ProductSkeleton />
-                <ProductSkeleton />
-              </>
-            ) : (
-              displayedProducts.map((product, idx) => (
-                <ProductCard 
-                  key={product.id}
-                  product={product}
-                  index={idx}
-                  category={category}
-                  lang={lang}
-                  t={t}
-                  handleChat={handleChat}
-                  onBuy={(p) => setSelectedBuyProduct(p)}
-                />
-              ))
-            )}
+            {displayedProducts.map((product, idx) => (
+              <ProductCard 
+                key={product.id}
+                product={product}
+                index={idx}
+                category={category}
+                lang={lang}
+                t={t}
+                handleChat={handleChat}
+                onBuy={(p) => setSelectedBuyProduct(p)}
+              />
+            ))}
           </div>
         )}
       </main>
