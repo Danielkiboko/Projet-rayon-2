@@ -139,14 +139,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AdSense />
         <Toaster position="top-center" />
         
-        {/* Google Analytics */}
+        {/* Google Analytics (GA4) — injecté dans le HTML SSR <head> pour détection immédiate Google */}
         <Script
-          strategy="afterInteractive"
-          src={`https://www.googletagmanager.com/gtag/js?id=G-HPP4V5XYSV`}
+          id="google-analytics-gtag"
+          strategy="beforeInteractive"
+          src="https://www.googletagmanager.com/gtag/js?id=G-HPP4V5XYSV"
         />
         <Script
           id="google-analytics"
-          strategy="afterInteractive"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               window.dataLayer = window.dataLayer || [];
