@@ -62,9 +62,11 @@ export const metadata: Metadata = {
       "max-video-preview": -1,
     },
   },
-  verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
-    ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }
-    : undefined,
+  verification: {
+    google:
+      process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION ||
+      "iunagOxvWrLmqwCOdJWj9lbggVHnoCoJxG7huh2hwAE",
+  },
   openGraph: {
     type: "website",
     url: SITE_URL,
