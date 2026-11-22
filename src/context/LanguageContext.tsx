@@ -349,7 +349,8 @@ const MENU_LABEL_MAP: Record<string, { en: string; zh: string }> = {
   "Tickets & Support": { en: "Tickets & Support", zh: "客服工单" },
   "Requêtes & Correspondances": { en: "Customer Requests", zh: "客户咨询与工单" },
   "Santé & Bugs": { en: "System Health", zh: "系统监控" },
-  "Équipe & Fonctionnaires": { en: "Staff & Team", zh: "内部团队" },
+  "Team": { en: "Team", zh: "内部团队" },
+  "Équipe & Fonctionnaires": { en: "Team", zh: "内部团队" },
   "Paramètres": { en: "Settings", zh: "系统设置" },
   "Commandes": { en: "Orders", zh: "订单管理" },
   "Messagerie": { en: "Messages", zh: "消息中心" },
@@ -360,7 +361,7 @@ const MENU_LABEL_MAP: Record<string, { en: string; zh: string }> = {
   "Boutique": { en: "Storefront", zh: "我的店铺" },
   "Direction Générale": { en: "Executive Board", zh: "总经理办公室" },
   "Direction Adjointe": { en: "Deputy Management", zh: "副总管理" },
-  "Fonctionnaire Rayons": { en: "Rayons Staff", zh: "平台工作人员" },
+  "Team Rayons": { en: "Rayons Team", zh: "平台团队" },
 };
 
 const LanguageContext = createContext<LanguageContextType>({

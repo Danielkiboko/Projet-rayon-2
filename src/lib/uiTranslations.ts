@@ -16,10 +16,11 @@ export const STATIC_UI_DICTIONARY: Record<string, { en: string; zh: string }> = 
   "Administration Centrale": { en: "Central Administration", zh: "中央管理后台" },
   "Direction Générale": { en: "Executive Board", zh: "总经理办公室" },
   "Direction Adjointe": { en: "Deputy Management", zh: "副总管理" },
-  "Fonctionnaire Rayons": { en: "Rayons Staff", zh: "平台工作人员" },
+  "Team Rayons": { en: "Rayons Team", zh: "平台团队" },
   "SUPER ADMIN": { en: "SUPER ADMIN", zh: "超级管理员" },
   "SOUS-ADMINISTRATEUR": { en: "SUB-ADMIN", zh: "副管理员" },
-  "FONCTIONNAIRE DÉLÉGUÉ": { en: "DELEGATED STAFF", zh: "授权工作人员" },
+  "MEMBRE DU TEAM": { en: "TEAM MEMBER", zh: "团队成员" },
+  "TEAM RAYONS": { en: "RAYONS TEAM", zh: "平台团队" },
   "Directeur Général (Super Admin)": { en: "Chief Executive (Super Admin)", zh: "总经理（超级管理员）" },
   "Push & App Mobile": { en: "Push & Mobile App", zh: "推送与移动应用" },
   "Clients": { en: "Customers", zh: "客户管理" },
@@ -37,7 +38,8 @@ export const STATIC_UI_DICTIONARY: Record<string, { en: string; zh: string }> = 
   "Tickets & Support": { en: "Tickets & Support", zh: "客服工单" },
   "Requêtes & Correspondances": { en: "Customer Requests", zh: "客户咨询与工单" },
   "Santé & Bugs": { en: "System Health", zh: "系统监控" },
-  "Équipe & Fonctionnaires": { en: "Staff & Team", zh: "内部团队" },
+  "Team": { en: "Team", zh: "内部团队" },
+  "Équipe & Fonctionnaires": { en: "Team", zh: "内部团队" },
   "Paramètres": { en: "Settings", zh: "系统设置" },
   "Paramètres de la Plateforme": { en: "Platform Settings", zh: "平台系统设置" },
   "Commandes": { en: "Orders", zh: "订单管理" },
@@ -265,9 +267,9 @@ export const STATIC_UI_DICTIONARY: Record<string, { en: string; zh: string }> = 
   "Aucun rayon configuré.": { en: "No department configured.", zh: "尚未配置频道。" },
 
   // Roles & Team
-  "Fonctionnaires & Collaborateurs internes": {
-    en: "Internal Staff & Collaborators",
-    zh: "内部工作人员与管理员",
+  "Team & Collaborateurs internes": {
+    en: "Internal Team & Collaborators",
+    zh: "内部团队与管理员",
   },
   "Sous-Administrateur Général": { en: "Deputy General Admin", zh: "副总管理员" },
   "Responsable Financier & Caisse": { en: "Finance & Treasury Manager", zh: "财务与出纳主管" },

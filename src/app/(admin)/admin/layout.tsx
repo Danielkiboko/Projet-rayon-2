@@ -7,9 +7,10 @@ import { useAuth } from "@/context/AuthContext";
 import { ShieldAlert, LayoutDashboard, Package, Users, Settings, UserCheck, Store, Truck, ShoppingCart, Building, Wallet, LifeBuoy, Gift, Briefcase, Bell } from "lucide-react";
 import DashboardLayout from "@/modules/shared/components/layouts/DashboardLayout";
 import { hasAdminAccess, isSuperAdmin } from "@/lib/permissions";
+import { hasStaffPermission } from "@/domain/permissions";
 
 const ADMIN_MENU = [
-  { title: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+  { title: "Tableau de bord", href: "/admin/dashboard", icon: LayoutDashboard },
   { title: "Push & App Mobile", href: "/admin/push", icon: Bell, colorClass: { bg: "bg-[#C7D300]/10", text: "text-[#C7D300]" } },
   { title: "Clients", href: "/admin/clients", icon: UserCheck, colorClass: { bg: "bg-blue-600/10", text: "text-blue-500" } },
   { title: "Partenaires", href: "/admin/partners", icon: Briefcase, colorClass: { bg: "bg-[#C7D300]/10", text: "text-[#C7D300]" } },
@@ -22,7 +23,7 @@ const ADMIN_MENU = [
   { title: "Parrainages", href: "/admin/referrals", icon: Gift, colorClass: { bg: "bg-amber-600/10", text: "text-amber-500" } },
   { title: "Tickets & Support", href: "/admin/tickets", icon: LifeBuoy, colorClass: { bg: "bg-amber-600/10", text: "text-amber-500" } },
   { title: "Santé & Bugs", href: "/admin/health", icon: ShieldAlert },
-  { title: "Équipe & Fonctionnaires", href: "/admin/team", icon: Users, colorClass: { bg: "bg-indigo-600/10", text: "text-indigo-400" } },
+  { title: "Team", href: "/admin/team", icon: Users, colorClass: { bg: "bg-indigo-600/10", text: "text-indigo-400" } },
   { title: "Paramètres", href: "/admin/settings", icon: Settings },
 ];
 
@@ -210,39 +211,75 @@ export default function AdminLayout({
     (positions.includes("RESPONSABLE_FINANCIER") || positions.includes("ADMIN_FINANCE") || userRole === "ADMIN_FINANCE" || userRole === "RESPONSABLE_FINANCIER");
 
   // Construire les routes strictement autorisées par poste fonctionnaire
-  const allowedHrefs = new Set<string>();
+  // Chaque fonctionnaire dispose désormais de son propre Tableau de bord (/admin/dashboard) adapté à son poste
+  const allowedHrefs = new Set<string>(["/admin/dashboard"]);
+  const permSubject = { ...(userData || {}), email: user?.email || userData?.email, role: userData?.role };
+
   if (isFullAdmin) {
     ADMIN_MENU.forEach((m) => allowedHrefs.add(m.href));
   } else {
-    if (positions.includes("RESPONSABLE_FINANCIER") || positions.includes("ADMIN_FINANCE") || userRole.includes("FINANCE")) {
-      // Finance : uniquement ce que l'application génère (Abonnements, Caisse, Commissions Partenaires & Parrainages)
+    if (
+      positions.includes("RESPONSABLE_FINANCIER") ||
+      positions.includes("ADMIN_FINANCE") ||
+      userRole.includes("FINANCE") ||
+      hasStaffPermission(permSubject, "finance.view") ||
+      hasStaffPermission(permSubject, "finance.cash") ||
+      hasStaffPermission(permSubject, "subscriptions.manage")
+    ) {
       allowedHrefs.add("/admin/finance");
       allowedHrefs.add("/admin/partners");
       allowedHrefs.add("/admin/referrals");
     }
-    if (positions.includes("SUPPORT_CLIENT") || userRole.includes("SUPPORT")) {
-      // Service Client : uniquement les requêtes/correspondances clients et l'annuaire clients
+    if (
+      positions.includes("SUPPORT_CLIENT") ||
+      userRole.includes("SUPPORT") ||
+      hasStaffPermission(permSubject, "tickets.handle") ||
+      hasStaffPermission(permSubject, "clients.view")
+    ) {
       allowedHrefs.add("/admin/tickets");
       allowedHrefs.add("/admin/clients");
     }
-    if (positions.includes("RESPONSABLE_LOGISTIQUE") || positions.includes("ADMIN_OPS") || userRole.includes("OPS") || userRole.includes("LOGISTIQUE")) {
-      // Logistique : uniquement la flotte de livreurs et les courses/livraisons
+    if (
+      positions.includes("RESPONSABLE_LOGISTIQUE") ||
+      positions.includes("ADMIN_OPS") ||
+      userRole.includes("OPS") ||
+      userRole.includes("LOGISTIQUE") ||
+      hasStaffPermission(permSubject, "drivers.view") ||
+      hasStaffPermission(permSubject, "orders.view") ||
+      hasStaffPermission(permSubject, "deliveries.dispatch")
+    ) {
       allowedHrefs.add("/admin/drivers");
       allowedHrefs.add("/admin/orders");
     }
-    if (positions.includes("RESPONSABLE_CATALOGUE") || positions.includes("ADMIN_DB") || positions.includes("ADMIN_TECH") || userRole.includes("DB") || userRole.includes("CATALOGUE")) {
-      // Catalogue : uniquement modération produits, immobilier et consultation fournisseurs
+    if (
+      positions.includes("RESPONSABLE_CATALOGUE") ||
+      positions.includes("ADMIN_DB") ||
+      positions.includes("ADMIN_TECH") ||
+      userRole.includes("DB") ||
+      userRole.includes("CATALOGUE") ||
+      hasStaffPermission(permSubject, "products.moderate") ||
+      hasStaffPermission(permSubject, "properties.moderate")
+    ) {
       allowedHrefs.add("/admin/products");
       allowedHrefs.add("/admin/properties");
       allowedHrefs.add("/admin/suppliers");
     }
-    if (positions.includes("GESTIONNAIRE_ADMIN") || userRole === "GESTIONNAIRE_ADMIN") {
-      // Gestionnaire Admin : KYC fournisseurs, partenaires, clients, tickets et push
+    if (
+      positions.includes("GESTIONNAIRE_ADMIN") ||
+      userRole === "GESTIONNAIRE_ADMIN" ||
+      hasStaffPermission(permSubject, "suppliers.validate_kyc")
+    ) {
       allowedHrefs.add("/admin/suppliers");
       allowedHrefs.add("/admin/partners");
       allowedHrefs.add("/admin/clients");
       allowedHrefs.add("/admin/tickets");
       allowedHrefs.add("/admin/push");
+    }
+    if (hasStaffPermission(permSubject, "staff.manage")) {
+      allowedHrefs.add("/admin/team");
+    }
+    if (hasStaffPermission(permSubject, "settings.system")) {
+      allowedHrefs.add("/admin/settings");
     }
   }
 
@@ -273,9 +310,7 @@ export default function AdminLayout({
     });
   }, [isFullAdmin, allowedHrefsList, isLogisticsOnly, isSupportOnly, isFinanceOnly]);
 
-  const primaryRoute = isFullAdmin
-    ? "/admin/dashboard"
-    : allowedHrefsList[0] || "/admin/tickets";
+  const primaryRoute = "/admin/dashboard";
 
   useEffect(() => {
     if (loading || !hasAccess || isFullAdmin) return;
@@ -326,8 +361,8 @@ export default function AdminLayout({
     : userRole === "SUB_ADMIN" || userRole === "SUBADMIN" || userRole === "ADMIN"
     ? "SOUS-ADMINISTRATEUR"
     : userData?.staffProfile?.positions?.length
-    ? "FONCTIONNAIRE DÉLÉGUÉ"
-    : "ADMIN DÉLÉGUÉ";
+    ? "MEMBRE DU TEAM"
+    : "TEAM RAYONS";
 
   const userRoleTitle = isSuper 
     ? "Directeur Général (Super Admin)" 
@@ -340,13 +375,13 @@ export default function AdminLayout({
         ? "Gestionnaire Catalogue & BDD"
         : userRole === "ADMIN_OPS"
         ? "Responsable Opérations & Logistique"
-        : "Collaborateur Administratif");
+        : "Membre du Team");
 
   const roleBadgeTitle = isSuper
     ? "Direction Générale"
     : userRole === "SUB_ADMIN" || userRole === "SUBADMIN" || userRole === "ADMIN"
     ? "Direction Adjointe"
-    : "Fonctionnaire Rayons";
+    : "Team Rayons";
 
   return (
     <DashboardLayout

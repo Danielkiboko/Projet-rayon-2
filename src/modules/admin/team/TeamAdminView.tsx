@@ -250,7 +250,7 @@ export default function AdminTeamPage() {
 
     const normalizedSearchEmail = searchEmail.trim().toLowerCase();
     if (SUPER_ADMIN_EMAILS.includes(normalizedSearchEmail) || normalizedSearchEmail === "admin@rayons.net") {
-      setSearchError("Ce compte appartient à la Direction Générale (Super Administrateur). Il ne peut pas être affecté à un poste de fonctionnaire subalterne.");
+      setSearchError("Ce compte appartient à la Direction Générale (Super Administrateur). Il ne peut pas être affecté à un poste subalterne du Team.");
       setIsSearching(false);
       return;
     }
@@ -278,7 +278,7 @@ export default function AdminTeamPage() {
     if (!newEmail.trim()) return;
     const normalizedNewEmail = newEmail.trim().toLowerCase();
     if (SUPER_ADMIN_EMAILS.includes(normalizedNewEmail) || normalizedNewEmail === "admin@rayons.net") {
-      setErrorMessage("Cette adresse email appartient au Super Administrateur (Direction Générale) et ne peut pas être utilisée pour un fonctionnaire.");
+      setErrorMessage("Cette adresse email appartient au Super Administrateur (Direction Générale) et ne peut pas être utilisée pour un membre du Team.");
       return;
     }
     setIsCreating(true);
@@ -329,7 +329,7 @@ export default function AdminTeamPage() {
         throw new Error(data.error || "Erreur lors de la création du collaborateur.");
       }
 
-      setSuccessMessage(`Le compte fonctionnaire "${displayName}" a été créé avec les attributions : ${roleTitles}.`);
+      setSuccessMessage(`Le compte Team "${displayName}" a été créé avec les attributions : ${roleTitles}.`);
       setIsCreateModalOpen(false);
       setNewFirstName("");
       setNewLastName("");
@@ -620,7 +620,7 @@ export default function AdminTeamPage() {
     return (
       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30 uppercase tracking-wider">
         <ShieldCheck size={14} className="text-indigo-400" />
-        <span>Collaborateur / Fonctionnaire</span>
+        <span>Membre du Team</span>
       </span>
     );
   };
@@ -645,10 +645,10 @@ export default function AdminTeamPage() {
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
             <Users className="text-indigo-400" /> 
-            <span>Équipe Interne & Fonctionnaires</span>
+            <span>Gestion du Team Rayons</span>
           </h1>
           <p className="text-sm text-gray-400 mt-1">
-            Gérez vos collaborateurs internes (Finance, Base de données, Modération). Ces membres sont des fonctionnaires de la plateforme : <strong>ils ne paient aucun abonnement et n'apparaissent pas dans les fournisseurs</strong>.
+            Gérez les membres de votre Team interne (Finance, Logistique, Support, Catalogue). Ces membres appartiennent au Team de la plateforme : <strong>ils ne paient aucun abonnement et n&apos;apparaissent pas dans les fournisseurs</strong>.
           </p>
         </div>
         {isSuper && (
@@ -678,7 +678,7 @@ export default function AdminTeamPage() {
         <ValidationSuccessView
           title="C'est fait !"
           message={successMessage}
-          badgeLabel="Équipe & Fonctionnaires Mis à Jour"
+          badgeLabel="Team Mis à Jour"
           onDone={() => setSuccessMessage("")}
         />
       ) : (
@@ -737,7 +737,7 @@ export default function AdminTeamPage() {
           }`}
         >
           <Users size={16} />
-          <span>Fonctionnaires Rayons ({teamMembers.length})</span>
+          <span>Team Rayons ({teamMembers.length})</span>
         </button>
         <button
           onClick={() => setActiveTeamTab("sub_agents")}
@@ -757,7 +757,7 @@ export default function AdminTeamPage() {
         <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold text-white">
-              {activeTeamTab === "internal" ? "Fonctionnaires & Collaborateurs Internes" : "Sous-Agents & Délégués des Fournisseurs"}
+              {activeTeamTab === "internal" ? "Team & Collaborateurs Internes" : "Sous-Agents & Délégués des Fournisseurs"}
             </h2>
             <p className="text-xs text-gray-400 mt-0.5">
               {activeTeamTab === "internal" 
@@ -1304,7 +1304,7 @@ export default function AdminTeamPage() {
           <div>
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <UserCheck className="text-indigo-400" size={18} />
-              <span>Promouvoir un utilisateur existant en fonctionnaire interne</span>
+              <span>Promouvoir un utilisateur existant dans le Team</span>
             </h2>
             <p className="text-xs text-gray-400 mt-1">
               Recherchez un compte déjà inscrit sur Rayon par son adresse email pour lui confier une fonction administrative (Finance, BDD, etc.).
@@ -1438,7 +1438,7 @@ export default function AdminTeamPage() {
                 <div>
                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
                     <Users size={20} className="text-indigo-400" />
-                    <span>Créer un Fonctionnaire Interne</span>
+                    <span>Ajouter un Membre du Team</span>
                   </h2>
                   <p className="text-xs text-gray-400 mt-1">
                     Ce membre intégrera votre équipe administrative sans aucun abonnement commercial.
@@ -1567,7 +1567,7 @@ export default function AdminTeamPage() {
                     disabled={isCreating}
                     className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm rounded-xl transition-all shadow-md disabled:opacity-50 flex items-center gap-2 cursor-pointer"
                   >
-                    {isCreating ? "Création en cours..." : "Créer le compte fonctionnaire"}
+                    {isCreating ? "Création en cours..." : "Créer le compte Team"}
                   </button>
                 </div>
               </form>
@@ -1606,7 +1606,7 @@ export default function AdminTeamPage() {
 
               <div className="p-6 space-y-4">
                 <p className="text-xs text-gray-300">
-                  Cochez ou décochez les fonctions de ce fonctionnaire. Une même personne peut cumuler plusieurs postes selon ses attributions au sein de la plateforme :
+                  Cochez ou décochez les fonctions de ce membre du Team. Une même personne peut cumuler plusieurs postes selon ses attributions au sein de la plateforme :
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">

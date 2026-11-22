@@ -605,7 +605,7 @@ export default function AdminPushCenterPage() {
                         Partenaires &amp; Apporteurs d&apos;affaires ({telemetry.byAudience.partners})
                       </option>
                       <option value="ADMINS">
-                        Administration &amp; Fonctionnaires ({telemetry.byAudience.admins})
+                        Administration &amp; Team ({telemetry.byAudience.admins})
                       </option>
                     </>
                   )}
