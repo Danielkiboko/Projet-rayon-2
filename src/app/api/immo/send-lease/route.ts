@@ -45,7 +45,7 @@ export async function POST(req: Request) {
       port: Number(process.env.SMTP_PORT) || 465,
       secure: Number(process.env.SMTP_PORT || 465) === 465,
       auth: {
-        user: process.env.SMTP_USER || "admin@rayons.net",
+        user: process.env.SMTP_USER || "no-reply@rayons.net",
         pass: process.env.SMTP_PASS,
       },
     });
@@ -90,7 +90,7 @@ export async function POST(req: Request) {
     `;
 
     const info = await transporter.sendMail({
-      from: `"${cleanAgency}" <${process.env.SMTP_USER || "admin@rayons.net"}>`,
+      from: `"${cleanAgency}" <${process.env.SMTP_USER || "no-reply@rayons.net"}>`,
       replyTo: agencyEmail || undefined,
       to: cleanEmail,
       subject: `Votre Contrat de Bail Officiel — ${propertyName} [${cleanAgency}]`,

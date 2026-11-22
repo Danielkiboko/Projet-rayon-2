@@ -7,13 +7,13 @@ export const sendEmail = async ({ to, subject, html }: { to: string; subject: st
       port: Number(process.env.SMTP_PORT) || 465,
       secure: Number(process.env.SMTP_PORT || 465) === 465,
       auth: {
-        user: process.env.SMTP_USER || 'admin@rayons.net',
+        user: process.env.SMTP_USER || 'no-reply@rayons.net',
         pass: process.env.SMTP_PASS || '',
       },
     });
 
     const info = await transporter.sendMail({
-      from: `"Rayons.net" <${process.env.SMTP_USER || 'admin@rayons.net'}>`,
+      from: `"Rayons.net" <${process.env.SMTP_USER || 'no-reply@rayons.net'}>`,
       to,
       subject,
       html,

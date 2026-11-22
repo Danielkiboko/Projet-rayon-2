@@ -327,7 +327,7 @@ export async function POST(req: Request) {
           port: parseInt(process.env.SMTP_PORT || '465'),
           secure: true,
           auth: {
-            user: process.env.SMTP_USER || 'admin@rayons.net',
+            user: process.env.SMTP_USER || 'no-reply@rayons.net',
             pass: process.env.SMTP_PASS || ''
           }
         });
@@ -356,7 +356,7 @@ export async function POST(req: Request) {
         const driverApkUrl = getPermanentDriverApkUrl();
 
         const mailOptions = {
-          from: '"Rayons.net" <admin@rayons.net>',
+          from: `"Rayons.net" <${process.env.SMTP_USER || 'no-reply@rayons.net'}>`,
           to: email,
           subject: `Bienvenue sur Rayons.net — Votre compte ${displayRole} est prêt !`,
           html: `
