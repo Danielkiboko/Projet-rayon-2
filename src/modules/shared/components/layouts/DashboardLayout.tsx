@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -115,11 +115,16 @@ export function DashboardLayout({
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<any | null>(null);
   const [lockedModalItem, setLockedModalItem] = useState<MenuItem | null>(null);
   const [isDaytime, setIsDaytime] = useState(true);
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const h = new Date().getHours();
     setIsDaytime(h >= 5 && h < 18);
   }, []);
+
+  useEffect(() => {
+    contentScrollRef.current?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
+  }, [pathname]);
 
   const filteredQuickJumpItems = useMemo(() => {
     const q = navQuery.trim().toLowerCase();
@@ -282,6 +287,7 @@ export function DashboardLayout({
                 href={item.href} 
                 onClick={() => {
                   setIsSidebarOpen(false);
+                  contentScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
                   if (item.onClick) {
                     item.onClick();
                   }
@@ -467,7 +473,7 @@ export function DashboardLayout({
         </header>
         
         {/* Scrollable Content with Mobile-friendly spacing */}
-        <div className="flex-1 overflow-y-auto rayons-scroll overscroll-contain p-2.5 sm:p-5 md:p-8 pb-20 lg:pb-8">
+        <div ref={contentScrollRef} className="flex-1 overflow-y-auto rayons-scroll overscroll-contain p-2.5 sm:p-5 md:p-8 pb-20 lg:pb-8">
           <div className="max-w-7xl mx-auto space-y-3.5 sm:space-y-6">
             {/* Bannière de communiqué officiel si non lu */}
             {unreadAnnouncement && (

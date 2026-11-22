@@ -69,7 +69,13 @@ function PartnerDashboardContent() {
   const { user, userData } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const tabFromUrl = (searchParams.get("tab") as any) || "stats";
+  const tabParam = searchParams.get("tab");
+  const validTabs = ["stats", "publications", "suppliers", "commissions", "payout"] as const;
+  type PartnerTab = (typeof validTabs)[number];
+  const activeTab: PartnerTab =
+    tabParam && (validTabs as readonly string[]).includes(tabParam)
+      ? (tabParam as PartnerTab)
+      : "stats";
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -78,17 +84,7 @@ function PartnerDashboardContent() {
   const [copiedCode, setCopiedCode] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Tabs
-  const [activeTab, setActiveTab] = useState<"stats" | "publications" | "suppliers" | "commissions" | "payout">("stats");
-
-  useEffect(() => {
-    if (tabFromUrl && ["stats", "publications", "suppliers", "commissions", "payout"].includes(tabFromUrl)) {
-      setActiveTab(tabFromUrl);
-    }
-  }, [tabFromUrl]);
-
-  const handleSelectTab = (tab: "stats" | "publications" | "suppliers" | "commissions" | "payout") => {
-    setActiveTab(tab);
+  const handleSelectTab = (tab: PartnerTab) => {
     router.push(`/partner?tab=${tab}`, { scroll: false });
   };
 
@@ -303,35 +299,47 @@ function PartnerDashboardContent() {
     });
   }, [publications, pubRayonFilter, pubSupplierFilter, pubSearch]);
 
-  // Données statistiques consolidées avec graphiques
+  // Données statistiques consolidées avec graphiques (100 % données réelles sur les 7 derniers mois)
   const chartData = useMemo(() => {
-    const months = ["Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov"];
-    const commissionsByMonth: Record<string, number> = {
-      Mai: 15,
-      Juin: 30,
-      Juil: 45,
-      Août: 65,
-      Sept: 80,
-      Oct: 110,
-      Nov: 145,
-    };
+    const mNames = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov", "Déc"];
+    const now = new Date();
+    const months: { key: string; label: string }[] = [];
+    const commissionsByMonth: Record<string, number> = {};
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      months.push({ key, label: mNames[d.getMonth()] });
+      commissionsByMonth[key] = 0;
+    }
 
     if (Array.isArray(data?.commissions) && data.commissions.length > 0) {
-      // Réinitialiser avec les vraies données
-      months.forEach((m) => (commissionsByMonth[m] = 0));
       data.commissions.forEach((c: any) => {
         if (c.createdAt) {
           const d = new Date(c.createdAt);
-          const mNames = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sept", "Oct", "Nov", "Déc"];
-          const mName = mNames[d.getMonth()];
-          if (commissionsByMonth[mName] !== undefined) {
-            commissionsByMonth[mName] += Number(c.amount) || 5;
-          } else {
-            commissionsByMonth[mName] = Number(c.amount) || 5;
+          if (!Number.isNaN(d.getTime())) {
+            const key = `${d.getFullYear()}-${d.getMonth()}`;
+            if (commissionsByMonth[key] !== undefined) {
+              commissionsByMonth[key] += Number(c.amount) || 5;
+            }
           }
         }
       });
     }
+
+    const monthlyCommissions = months.map((m) => ({
+      month: m.label,
+      amount: commissionsByMonth[m.key] || 0,
+    }));
+
+    const currMonthAmt = monthlyCommissions[monthlyCommissions.length - 1]?.amount || 0;
+    const prevMonthAmt = monthlyCommissions[monthlyCommissions.length - 2]?.amount || 0;
+    const monthlyGrowthPct =
+      prevMonthAmt > 0
+        ? Math.round(((currMonthAmt - prevMonthAmt) / prevMonthAmt) * 100)
+        : currMonthAmt > 0
+        ? 100
+        : 0;
 
     const rayonCounts = {
       immo: pubStats?.byRayon?.immo || 0,
@@ -357,14 +365,12 @@ function PartnerDashboardContent() {
     const totalByRayon = rayonCounts.immo + rayonCounts.mode + rayonCounts.connect + rayonCounts.saveurs || 1;
 
     return {
-      monthlyCommissions: months.map((m) => ({
-        month: m,
-        amount: commissionsByMonth[m] || 0,
-      })),
-      maxCommission: Math.max(...months.map((m) => commissionsByMonth[m] || 0), 50),
+      monthlyCommissions,
+      monthlyGrowthPct,
+      maxCommission: Math.max(...monthlyCommissions.map((m) => m.amount), 20),
       rayonPercentages: {
         immo: Math.round((rayonCounts.immo / totalByRayon) * 100),
-        mode: Math.round((rayonCounts.mode) / totalByRayon * 100),
+        mode: Math.round((rayonCounts.mode / totalByRayon) * 100),
         connect: Math.round((rayonCounts.connect / totalByRayon) * 100),
         saveurs: Math.round((rayonCounts.saveurs / totalByRayon) * 100),
       },
@@ -377,156 +383,165 @@ function PartnerDashboardContent() {
   return (
     <div className="space-y-6">
 
-      {/* Hero Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0F1D27] via-[#162736] to-[#0F1D27] border border-white/10 p-6 sm:p-8 shadow-xl">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#C7D300]/10 border border-[#C7D300]/30 text-[#C7D300] text-xs font-bold uppercase tracking-wider">
-              <Sparkles size={13} />
-              <span>Programme Partenaire Agréé</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Développez votre réseau de Fournisseurs
-            </h1>
-            <p className="text-sm text-gray-300 leading-relaxed">
-              Inscrivez des commerçants et boutiques locales. Tous vos fournisseurs font partie intégrante de la marketplace Rayons.net et sont gérés par la Direction Centrale. Vous touchez <strong>5 $ USD chaque mois</strong> sur chaque boutique dès qu'elle renouvelle son abonnement.
-            </p>
-          </div>
-
-          <div className="shrink-0 flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={() => setIsAddSupplierOpen(true)}
-              className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-xs bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] transition-all shadow-lg shadow-[#C7D300]/20 active:scale-95 cursor-pointer"
-            >
-              <PlusCircle size={16} />
-              <span>Inscrire un Fournisseur</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Solde Disponible */}
-        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-5 space-y-2">
-          <div className="flex items-center justify-between text-gray-400 text-xs">
-            <span>Solde Disponible</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-              <Coins size={16} />
-            </div>
-          </div>
-          <div className="text-3xl font-extrabold text-white tracking-tight">
-            ${balance.toFixed(2)}
-          </div>
-          <p className="text-[11px] text-gray-400">
-            Prêt à être retiré vers Mobile Money
-          </p>
-        </div>
-
-        {/* Total Cumulé */}
-        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-5 space-y-2">
-          <div className="flex items-center justify-between text-gray-400 text-xs">
-            <span>Commissions Gagnées</span>
-            <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
-              <TrendingUp size={16} />
-            </div>
-          </div>
-          <div className="text-3xl font-extrabold text-white tracking-tight">
-            ${totalEarned.toFixed(2)}
-          </div>
-          <p className="text-[11px] text-gray-400">
-            Gains cumulés à vie sur la plateforme
-          </p>
-        </div>
-
-        {/* Boutiques Rattachées */}
-        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-5 space-y-2">
-          <div className="flex items-center justify-between text-gray-400 text-xs">
-            <span>Fournisseurs Rattachés</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
-              <Building2 size={16} />
-            </div>
-          </div>
-          <div className="text-3xl font-extrabold text-white tracking-tight">
-            {suppliersCount}
-          </div>
-          <p className="text-[11px] text-gray-400">
-            Boutiques créées dans la base centrale
-          </p>
-        </div>
-
-        {/* Rémunération Récurrente */}
-        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-5 space-y-2">
-          <div className="flex items-center justify-between text-gray-400 text-xs">
-            <span>Revenu Mensuel Estimé</span>
-            <div className="w-8 h-8 rounded-xl bg-[#C7D300]/10 text-[#C7D300] flex items-center justify-center">
-              <Sparkles size={16} />
-            </div>
-          </div>
-          <div className="text-3xl font-extrabold text-[#C7D300] tracking-tight">
-            ~${monthlyEst} <span className="text-xs font-semibold text-gray-400">/mois</span>
-          </div>
-          <p className="text-[11px] text-gray-400">
-            Basé sur 5$ par abonnement actif
-          </p>
-        </div>
-      </div>
-
-      {/* Partage & Outils d'Affiliation */}
-      <div className="bg-[#0F1D27]/90 border border-white/[0.08] rounded-2xl p-5 sm:p-6 space-y-4">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-gray-300">
-          Vos Liens et Codes d'Affiliation Officiels
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Code Partenaire */}
-          <div className="p-4 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-between gap-4">
-            <div>
-              <div className="text-[11px] text-gray-400 uppercase font-semibold">Votre Code Partenaire</div>
-              <div className="text-lg font-mono font-extrabold text-[#C7D300] tracking-wider mt-0.5">
-                {referralCode}
-              </div>
-            </div>
-            <button
-              onClick={handleCopyCode}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 text-white transition-colors cursor-pointer"
-            >
-              {copiedCode ? <Check size={14} className="text-[#C7D300]" /> : <Copy size={14} />}
-              <span>{copiedCode ? "Copié" : "Copier"}</span>
-            </button>
-          </div>
-
-          {/* Lien d'Affiliation */}
-          <div className="p-4 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <div className="text-[11px] text-gray-400 uppercase font-semibold">Lien Direct Fournisseur</div>
-              <div className="text-xs font-mono text-gray-300 truncate mt-1">
-                {referralLink}
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <button
-                onClick={handleCopyLink}
-                className="p-2 rounded-xl bg-white/10 hover:bg-white/15 text-white transition-colors cursor-pointer"
-                title="Copier le lien"
-              >
-                {copiedLink ? <Check size={14} className="text-[#C7D300]" /> : <Copy size={14} />}
-              </button>
-              <button
-                onClick={handleShareWhatsApp}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer"
-                title="Partager sur WhatsApp"
-              >
-                <Share2 size={13} />
-                <span>WhatsApp</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* TAB 0: STATISTIQUES AVEC GRAPHIQUES */}
+      {/* TAB 0: TABLEAU DE BORD & STATISTIQUES (Hero + KPIs + Liens d'affiliation + Graphiques) */}
       {activeTab === "stats" && (
         <div className="space-y-6">
+          {/* Hero Banner */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0F1D27] via-[#162736] to-[#0F1D27] border border-white/10 p-6 sm:p-8 shadow-xl">
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="space-y-2 max-w-2xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#C7D300]/10 border border-[#C7D300]/30 text-[#C7D300] text-xs font-bold uppercase tracking-wider">
+                  <Sparkles size={13} />
+                  <span>Programme Partenaire Agréé</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                  Développez votre réseau de Fournisseurs
+                </h1>
+                <p className="text-sm text-gray-300 leading-relaxed">
+                  Inscrivez des commerçants et boutiques locales. Tous vos fournisseurs font partie intégrante de la marketplace Rayons.net et sont gérés par la Direction Centrale. Vous touchez <strong>5 $ USD chaque mois</strong> sur chaque boutique dès qu&apos;elle renouvelle son abonnement.
+                </p>
+              </div>
+
+              <div className="shrink-0 flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => setIsAddSupplierOpen(true)}
+                  className="flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-xs bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] transition-all shadow-lg shadow-[#C7D300]/20 active:scale-95 cursor-pointer"
+                >
+                  <PlusCircle size={16} />
+                  <span>Inscrire un Fournisseur</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Solde Disponible */}
+            <div
+              onClick={() => handleSelectTab("payout")}
+              className="bg-[#0F1D27]/80 hover:border-white/20 border border-white/[0.08] rounded-2xl p-5 space-y-2 cursor-pointer transition-colors"
+            >
+              <div className="flex items-center justify-between text-gray-400 text-xs">
+                <span>Solde Disponible</span>
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                  <Coins size={16} />
+                </div>
+              </div>
+              <div className="text-3xl font-extrabold text-white tracking-tight">
+                ${balance.toFixed(2)}
+              </div>
+              <p className="text-[11px] text-gray-400">
+                Prêt à être retiré vers Mobile Money
+              </p>
+            </div>
+
+            {/* Total Cumulé */}
+            <div
+              onClick={() => handleSelectTab("commissions")}
+              className="bg-[#0F1D27]/80 hover:border-white/20 border border-white/[0.08] rounded-2xl p-5 space-y-2 cursor-pointer transition-colors"
+            >
+              <div className="flex items-center justify-between text-gray-400 text-xs">
+                <span>Commissions Gagnées</span>
+                <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                  <TrendingUp size={16} />
+                </div>
+              </div>
+              <div className="text-3xl font-extrabold text-white tracking-tight">
+                ${totalEarned.toFixed(2)}
+              </div>
+              <p className="text-[11px] text-gray-400">
+                Gains cumulés à vie sur la plateforme
+              </p>
+            </div>
+
+            {/* Boutiques Rattachées */}
+            <div
+              onClick={() => handleSelectTab("suppliers")}
+              className="bg-[#0F1D27]/80 hover:border-white/20 border border-white/[0.08] rounded-2xl p-5 space-y-2 cursor-pointer transition-colors"
+            >
+              <div className="flex items-center justify-between text-gray-400 text-xs">
+                <span>Fournisseurs Rattachés</span>
+                <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
+                  <Building2 size={16} />
+                </div>
+              </div>
+              <div className="text-3xl font-extrabold text-white tracking-tight">
+                {suppliersCount}
+              </div>
+              <p className="text-[11px] text-gray-400">
+                Boutiques créées dans la base centrale
+              </p>
+            </div>
+
+            {/* Rémunération Récurrente */}
+            <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-5 space-y-2">
+              <div className="flex items-center justify-between text-gray-400 text-xs">
+                <span>Revenu Mensuel Estimé</span>
+                <div className="w-8 h-8 rounded-xl bg-[#C7D300]/10 text-[#C7D300] flex items-center justify-center">
+                  <Sparkles size={16} />
+                </div>
+              </div>
+              <div className="text-3xl font-extrabold text-[#C7D300] tracking-tight">
+                ~${monthlyEst} <span className="text-xs font-semibold text-gray-400">/mois</span>
+              </div>
+              <p className="text-[11px] text-gray-400">
+                Basé sur 5$ par abonnement actif
+              </p>
+            </div>
+          </div>
+
+          {/* Partage & Outils d'Affiliation */}
+          <div className="bg-[#0F1D27]/90 border border-white/[0.08] rounded-2xl p-5 sm:p-6 space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-gray-300">
+              Vos Liens et Codes d&apos;Affiliation Officiels
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Code Partenaire */}
+              <div className="p-4 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-[11px] text-gray-400 uppercase font-semibold">Votre Code Partenaire</div>
+                  <div className="text-lg font-mono font-extrabold text-[#C7D300] tracking-wider mt-0.5">
+                    {referralCode}
+                  </div>
+                </div>
+                <button
+                  onClick={handleCopyCode}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/15 text-white transition-colors cursor-pointer"
+                >
+                  {copiedCode ? <Check size={14} className="text-[#C7D300]" /> : <Copy size={14} />}
+                  <span>{copiedCode ? "Copié" : "Copier"}</span>
+                </button>
+              </div>
+
+              {/* Lien d'Affiliation */}
+              <div className="p-4 rounded-xl bg-black/40 border border-white/[0.06] flex items-center justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] text-gray-400 uppercase font-semibold">Lien Direct Fournisseur</div>
+                  <div className="text-xs font-mono text-gray-300 truncate mt-1">
+                    {referralLink}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    onClick={handleCopyLink}
+                    className="p-2 rounded-xl bg-white/10 hover:bg-white/15 text-white transition-colors cursor-pointer"
+                    title="Copier le lien"
+                  >
+                    {copiedLink ? <Check size={14} className="text-[#C7D300]" /> : <Copy size={14} />}
+                  </button>
+                  <button
+                    onClick={handleShareWhatsApp}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors cursor-pointer"
+                    title="Partager sur WhatsApp"
+                  >
+                    <Share2 size={13} />
+                    <span>WhatsApp</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Métriques analytiques clés */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 sm:p-5 space-y-1">
@@ -631,7 +646,9 @@ function PartnerDashboardContent() {
 
               <div className="flex items-center justify-between text-[11px] text-gray-400 pt-2">
                 <span>Base de calcul : 5 $ USD par renouvellement d&apos;abonnement d&apos;une boutique rattachée</span>
-                <span className="text-emerald-400 font-semibold">Taux de croissance : +18% ce mois</span>
+                <span className={`font-semibold ${chartData.monthlyGrowthPct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                  Évolution mensuelle : {chartData.monthlyGrowthPct > 0 ? "+" : ""}{chartData.monthlyGrowthPct}%
+                </span>
               </div>
             </div>
 
