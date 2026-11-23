@@ -72,6 +72,20 @@ interface Supplier {
 
 export default function SuppliersPage() {
   const { user, userData } = useAuth();
+  const callerEmailLower = (user?.email || "").toLowerCase().trim();
+  const callerRoleUpper = String(userData?.role || "").toUpperCase();
+  const callerPositionsUpper: string[] = Array.isArray(userData?.staffProfile?.positions)
+    ? userData.staffProfile.positions.map((p: any) => String(p).toUpperCase())
+    : [];
+  const STRICT_DELETE_ADMIN_ROLES = ["SUB_ADMIN", "SUBADMIN", "SOUS_ADMIN", "SOUS_ADMIN_GENERAL", "ADMIN"];
+  const canDeleteSupplier =
+    SUPER_ADMIN_EMAILS.includes(callerEmailLower) ||
+    callerRoleUpper === "SUPER_ADMIN" ||
+    callerRoleUpper === "SUPERADMIN" ||
+    userData?.isSuperAdmin === true ||
+    userData?.isAdmin === true ||
+    STRICT_DELETE_ADMIN_ROLES.includes(callerRoleUpper) ||
+    callerPositionsUpper.some((p) => STRICT_DELETE_ADMIN_ROLES.includes(p));
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubModalOpen, setIsSubModalOpen] = useState(false);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -1243,13 +1257,19 @@ export default function SuppliersPage() {
 
                         {/* 6. Actions */}
                         <td className="px-5 py-3.5 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteSupplier(supplier.id)}
-                            className="text-gray-400 hover:text-red-400 hover:bg-red-500/10 px-2.5 py-1 rounded-lg transition-colors text-xs font-medium cursor-pointer"
-                          >
-                            Supprimer
-                          </button>
+                          {canDeleteSupplier ? (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSupplier(supplier.id)}
+                              className="text-gray-400 hover:text-red-400 hover:bg-red-500/10 px-2.5 py-1 rounded-lg transition-colors text-xs font-medium cursor-pointer"
+                            >
+                              Supprimer
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-gray-600" title="Réservé à l'Admin principal ou au statut Admin">
+                              —
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -1366,12 +1386,14 @@ export default function SuppliersPage() {
                         )}
                       </div>
 
-                      <button
-                        onClick={() => handleDeleteSupplier(supplier.id)}
-                        className="text-gray-400 hover:text-red-400 text-xs cursor-pointer"
-                      >
-                        Supprimer
-                      </button>
+                      {canDeleteSupplier && (
+                        <button
+                          onClick={() => handleDeleteSupplier(supplier.id)}
+                          className="text-gray-400 hover:text-red-400 text-xs cursor-pointer"
+                        >
+                          Supprimer
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

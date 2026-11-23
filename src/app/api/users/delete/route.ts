@@ -60,19 +60,18 @@ export async function POST(req: Request) {
     const callerPositions: string[] = Array.isArray(callerData?.staffProfile?.positions)
       ? callerData.staffProfile.positions.map((p: any) => String(p).toUpperCase())
       : [];
-    const callerPermissions: string[] = Array.isArray(callerData?.staffProfile?.permissions)
-      ? callerData.staffProfile.permissions
-      : [];
 
+    // Règle stricte : seuls l'Admin Principal (Super Admin) ou un membre Team ayant explicitement le statut d'Admin (SUB_ADMIN / ADMIN) peuvent supprimer un fournisseur.
+    const STRICT_ADMIN_STATUS_ROLES = ['SUB_ADMIN', 'SUBADMIN', 'SOUS_ADMIN', 'SOUS_ADMIN_GENERAL', 'ADMIN'];
     const isSuperAdminCaller =
       isSuperAdminEmail ||
       rawRole === 'SUPER_ADMIN' ||
       rawRole === 'SUPERADMIN' ||
       callerData?.isSuperAdmin === true;
     const isSubAdminCaller =
-      ['SUB_ADMIN', 'SUBADMIN', 'SOUS_ADMIN', 'SOUS_ADMIN_GENERAL', 'ADMIN', 'GESTIONNAIRE_ADMIN'].includes(rawRole) ||
-      callerPositions.some((p) => ['SUB_ADMIN', 'SUBADMIN', 'ADMIN', 'GESTIONNAIRE_ADMIN'].includes(p)) ||
-      callerPermissions.includes('suppliers.manage');
+      STRICT_ADMIN_STATUS_ROLES.includes(rawRole) ||
+      callerPositions.some((p) => STRICT_ADMIN_STATUS_ROLES.includes(p)) ||
+      callerData?.isAdmin === true;
     const isAuthorizedAdmin = isSuperAdminCaller || isSubAdminCaller;
     const isSupplierCaller = [
       'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT', 'SUPPLIER_SAVEURS', 'SUB_SUPPLIER', 'FOURNISSEUR'
@@ -111,7 +110,10 @@ export async function POST(req: Request) {
           return NextResponse.json({ error: 'Forbidden: You can only delete your own sub-agents' }, { status: 403 });
         }
       } else {
-        return NextResponse.json({ error: 'Forbidden: Insufficient permissions to delete users' }, { status: 403 });
+        return NextResponse.json(
+          { error: "Action réservée : seul l'Administrateur Principal ou un membre Team disposant du statut Admin peut supprimer un fournisseur." },
+          { status: 403 }
+        );
       }
     }
 
