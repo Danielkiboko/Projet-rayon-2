@@ -199,14 +199,35 @@ export default function Home() {
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch real products & properties from Firebase
+  // Fetch real products & properties from Firebase (avec cache sessionStorage 5 min pour affichage instantané)
   useEffect(() => {
+    const HOME_CACHE_KEY = "rayons_home_catalog_v1";
+    const HOME_CACHE_TTL = 5 * 60 * 1000;
+    let hadCache = false;
+
+    try {
+      const raw = sessionStorage.getItem(HOME_CACHE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Date.now() - Number(parsed.ts || 0) < HOME_CACHE_TTL) {
+          if (Array.isArray(parsed.products)) setDbProducts(parsed.products);
+          if (Array.isArray(parsed.properties)) setDbProperties(parsed.properties);
+          setLoading(false);
+          hadCache = true;
+          return;
+        }
+      }
+    } catch {}
+
+    let cancelled = false;
     const fetchData = async () => {
       try {
         const [prodSnap, propSnap] = await Promise.all([
-          getDocs(query(collection(db, "products"), limit(24))),
+          getDocs(query(collection(db, "products"), limit(16))),
           getDocs(query(collection(db, "properties"), where("status", "==", "Disponible"), limit(6)))
         ]);
+
+        if (cancelled) return;
 
         const prods: any[] = [];
         prodSnap.forEach(doc => {
@@ -222,13 +243,24 @@ export default function Home() {
           props.push({ id: doc.id, ...doc.data() });
         });
         setDbProperties(props);
+
+        try {
+          // Ne mettre en cache que si la charge reste légère (< 1.5 Mo)
+          const serialized = JSON.stringify({ products: prods, properties: props, ts: Date.now() });
+          if (serialized.length < 1_500_000) {
+            sessionStorage.setItem(HOME_CACHE_KEY, serialized);
+          }
+        } catch {}
       } catch (error) {
         console.error("Erreur de chargement des données d'accueil:", error);
       } finally {
-        setLoading(false);
+        if (!cancelled && !hadCache) setLoading(false);
       }
     };
     fetchData();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const s0 = useCounter(stats[0].value, 1800, statsInView);

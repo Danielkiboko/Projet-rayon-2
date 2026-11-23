@@ -6,11 +6,13 @@ import "./globals.css";
 const montserrat = Montserrat({
   variable: "--font-montserrat",
   subsets: ["latin"],
+  display: "swap",
 });
 
 const inter = Inter({
   variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const viewport: Viewport = {
@@ -103,11 +105,8 @@ import { LanguageProvider } from "@/context/LanguageContext";
 import { ChatProvider } from "@/context/ChatContext";
 import { CartProvider } from "@/context/CartContext";
 import { ThemeProvider } from "@/modules/shared/components/ThemeProvider";
-import AdSense from "@/modules/shared/components/shared/AdSense";
-import { CartDrawer } from "@/modules/client/components/cart/CartDrawer";
 import { StructuredData } from "@/modules/shared/components/StructuredData";
-import MobilePushManager from "@/modules/shared/components/notifications/MobilePushManager";
-import GlobalUiTranslator from "@/modules/shared/components/GlobalUiTranslator";
+import { DeferredGlobalWidgets } from "@/modules/shared/components/DeferredGlobalWidgets";
 
 import { Toaster } from "react-hot-toast";
 
@@ -126,9 +125,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <ChatProvider>
                   <CartProvider>
                     {children}
-                    <CartDrawer />
-                    <MobilePushManager />
-                    <GlobalUiTranslator />
+                    <DeferredGlobalWidgets />
                   </CartProvider>
                 </ChatProvider>
               </CurrencyProvider>
@@ -136,18 +133,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </AuthProvider>
         </ThemeProvider>
         <StructuredData />
-        <AdSense />
         <Toaster position="top-center" />
         
-        {/* Google Analytics (GA4) — injecté dans le HTML SSR <head> pour détection immédiate Google */}
+        {/* Google Analytics (GA4) — non bloquant pour ne pas ralentir l'affichage initial */}
         <Script
           id="google-analytics-gtag"
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
           src="https://www.googletagmanager.com/gtag/js?id=G-HPP4V5XYSV"
         />
         <Script
           id="google-analytics"
-          strategy="beforeInteractive"
+          strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               window.dataLayer = window.dataLayer || [];

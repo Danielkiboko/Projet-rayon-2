@@ -5,6 +5,9 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   turbopack: {},
+  experimental: {
+    optimizePackageImports: ['lucide-react', 'framer-motion', 'recharts'],
+  },
   webpack: (config) => {
     return config;
   },
@@ -31,6 +34,24 @@ const nextConfig = {
   },
   async headers() {
     return [
+      {
+        source: '/_next/static/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        source: '/brand/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+        ],
+      },
+      {
+        source: '/:file(supermarket-hero\\.jpg|icon\\.png|icon-512\\.png|apple-touch-icon\\.png|favicon\\.ico)',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+        ],
+      },
       {
         source: '/(.*)',
         headers: [

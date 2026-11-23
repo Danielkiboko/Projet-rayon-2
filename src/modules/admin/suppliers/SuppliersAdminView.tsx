@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Plus, X, Search, Store, Shield, Home, ShoppingBag, Zap, 
-  CheckCircle2, Users, ArrowRight, Building, Filter, Sparkles 
+import {
+  Plus, X, Search, Store, Shield, Home, ShoppingBag, Zap,
+  CheckCircle2, Users, ArrowRight, Building, Filter, Sparkles
 } from "lucide-react";
 import { auth, db } from "@/lib/firebase";
 import { collection, getDocs, query, where, doc, updateDoc, setDoc, onSnapshot, orderBy, limit } from "firebase/firestore";
@@ -84,7 +84,7 @@ export default function SuppliersPage() {
   const [daysToAdd, setDaysToAdd] = useState<number>(15);
   const [selectedSubStatus, setSelectedSubStatus] = useState<"TRIAL" | "ACTIVE" | "SUSPENDED_PAYMENT">("TRIAL");
   const [customExpiryDate, setCustomExpiryDate] = useState<string>("");
-  
+
   // Filters state: dropdowns for Rayon, Source/Partner, and Subscription Status
   const [selectedRayonFilter, setSelectedRayonFilter] = useState<"all" | "immo" | "mode" | "connect" | "saveurs" | "pending">("all");
   const [selectedSourceFilter, setSelectedSourceFilter] = useState<string>("all");
@@ -97,7 +97,7 @@ export default function SuppliersPage() {
   const [approvalDays, setApprovalDays] = useState<number>(30);
   const [approvalNote, setApprovalNote] = useState<string>("");
   const [isApprovingApp, setIsApprovingApp] = useState<boolean>(false);
-  
+
   const [search, setSearch] = useState("");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -163,7 +163,7 @@ export default function SuppliersPage() {
                 partnersList: apiData.partnersList || [],
               })
             );
-          } catch {}
+          } catch { }
           setIsLoading(false);
           return;
         }
@@ -171,7 +171,7 @@ export default function SuppliersPage() {
 
       // 2. Fallback: client SDK queries if API is unavailable
       const supplierRoles1 = [
-        "SUPPLIER", "FOURNISSEUR", "SUB_SUPPLIER", 
+        "SUPPLIER", "FOURNISSEUR", "SUB_SUPPLIER",
         "SUPPLIER_IMMO", "SUPPLIER_MODE", "SUPPLIER_CONNECT", "SUPPLIER_SAVEURS"
       ];
       const supplierRoles2 = [
@@ -186,7 +186,7 @@ export default function SuppliersPage() {
       const qPartners2 = query(collection(db, "users"), where("role", "==", "PARTNER"));
 
       const [snap1, snap2, snap3, snapPartners1, snapPartners2] = await Promise.all([
-        getDocs(q1), 
+        getDocs(q1),
         getDocs(q2),
         getDocs(q3),
         getDocs(qPartners1),
@@ -218,7 +218,7 @@ export default function SuppliersPage() {
         if (seenIds.has(docSnap.id)) return;
         seenIds.add(docSnap.id);
         const data = docSnap.data();
-        
+
         // Skip internal staff / fonctionnaires from commercial suppliers list
         if (data.isInternalStaff || isTeamMember(data)) {
           return;
@@ -512,7 +512,7 @@ export default function SuppliersPage() {
     if (!confirm("Voulez-vous vraiment supprimer ce fournisseur ? Cette action effacera toutes ses données (produits, propriétés, accès).")) {
       return;
     }
-    
+
     setIsLoading(true);
     setError("");
     setSuccessMessage("");
@@ -596,9 +596,9 @@ export default function SuppliersPage() {
           password: randomPassword,
           displayName: displayName,
           roleToCreate: roleToCreate,
-          extraData: { 
-            rayon: primaryRayon, 
-            firstName, 
+          extraData: {
+            rayon: primaryRayon,
+            firstName,
             lastName,
             assignedRayons: [primaryRayon],
             serviceAttached: primaryRayon,
@@ -641,8 +641,8 @@ export default function SuppliersPage() {
       setIsOfficialAdminStore(false);
       setIsModalOpen(false);
 
-      const methodMsg = notificationMethod === 'email' 
-        ? `Un e-mail a été envoyé à ${email} pour qu'il configure son mot de passe.` 
+      const methodMsg = notificationMethod === 'email'
+        ? `Un e-mail a été envoyé à ${email} pour qu'il configure son mot de passe.`
         : `Un SMS a été envoyé au ${phoneNumber} avec le mot de passe.`;
       setSuccessMessage(`Le compte fournisseur (${supplierCategory === 'immo' ? 'Immobilier & Hôtels' : supplierCategory === 'mode' ? 'Mode' : supplierCategory === 'connect' ? 'Connect' : supplierCategory === 'saveurs' ? 'Saveurs & Resto' : 'Sous-Admin'}) a été créé avec succès. ${methodMsg}`);
       fetchSuppliers(true);
@@ -815,12 +815,12 @@ export default function SuppliersPage() {
               {selectedRayonFilter === "immo"
                 ? "Nouveau Fournisseur Immo"
                 : selectedRayonFilter === "mode"
-                ? "Nouveau Fournisseur Mode"
-                : selectedRayonFilter === "connect"
-                ? "Nouveau Fournisseur Connect"
-                : selectedRayonFilter === "saveurs"
-                ? "Nouveau Fournisseur Saveurs"
-                : "Nouveau Fournisseur"}
+                  ? "Nouveau Fournisseur Mode"
+                  : selectedRayonFilter === "connect"
+                    ? "Nouveau Fournisseur Connect"
+                    : selectedRayonFilter === "saveurs"
+                      ? "Nouveau Fournisseur Saveurs"
+                      : "Nouveau Fournisseur"}
             </span>
           </button>
         </div>
@@ -851,7 +851,7 @@ export default function SuppliersPage() {
           </button>
         </div>
       )}
-      
+
       {successMessage ? (
         <ValidationSuccessView
           title="C'est fait !"
@@ -860,525 +860,525 @@ export default function SuppliersPage() {
           onDone={() => setSuccessMessage("")}
         />
       ) : (
-      /* Main Table Card with Clean Dropdown Filters */
-      <div className="bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
-        {/* Unified Filter Bar (Search + Dropdowns) */}
-        <div className="p-4 border-b border-white/10 bg-black/20 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
-            {/* 1. Search Input */}
-            <div className="lg:col-span-4">
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                Recherche
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
-                <input
-                  type="text"
-                  placeholder="Nom de boutique, email, téléphone..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 bg-[#142430] border border-white/10 rounded-xl focus:outline-none focus:border-white/30 text-white text-xs transition-all"
-                />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch("")}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
+        /* Main Table Card with Clean Dropdown Filters */
+        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+          {/* Unified Filter Bar (Search + Dropdowns) */}
+          <div className="p-4 border-b border-white/10 bg-black/20 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+              {/* 1. Search Input */}
+              <div className="lg:col-span-4">
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                  Recherche
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+                  <input
+                    type="text"
+                    placeholder="Nom de boutique, email, téléphone..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 bg-[#142430] border border-white/10 rounded-xl focus:outline-none focus:border-white/30 text-white text-xs transition-all"
+                  />
+                  {search && (
+                    <button
+                      type="button"
+                      onClick={() => setSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Rayon Dropdown */}
+              <div className="lg:col-span-3">
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                  Rayon commercial
+                </label>
+                <select
+                  value={selectedRayonFilter}
+                  onChange={(e) => setSelectedRayonFilter(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-[#142430] border border-white/10 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-white/30 cursor-pointer"
+                >
+                  <option value="all">Tous les rayons ({suppliers.length})</option>
+                  <option value="immo">Immobilier &amp; Hôtels ({immoSuppliersCount})</option>
+                  <option value="mode">Mode &amp; Vêtements ({modeSuppliersCount})</option>
+                  <option value="connect">Matériel &amp; Connect ({connectSuppliersCount})</option>
+                  <option value="saveurs">Saveurs &amp; Restauration ({saveursSuppliersCount})</option>
+                  {pendingProfilesCount > 0 && (
+                    <option value="pending">À valider KYC ({pendingProfilesCount})</option>
+                  )}
+                </select>
+              </div>
+
+              {/* 3. Origine / Partenaire Dropdown */}
+              <div className="lg:col-span-3">
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                  Origine / Partenaire
+                </label>
+                <select
+                  value={selectedSourceFilter}
+                  onChange={(e) => setSelectedSourceFilter(e.target.value)}
+                  className="w-full px-3 py-2 bg-[#142430] border border-white/10 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-white/30 cursor-pointer"
+                >
+                  <option value="all">Toutes les origines ({suppliers.length})</option>
+                  <option value="direct">Direction Centrale ({directSuppliersCount})</option>
+                  <option value="partner">Tous les Partenaires ({partnerSuppliersCount})</option>
+                  {partnersList.length > 0 && (
+                    <optgroup label="Filtrer par Partenaire">
+                      {partnersList.map((p) => {
+                        const count = suppliers.filter((s) => s.referredByPartnerId === p.id).length;
+                        return (
+                          <option key={p.id} value={`partner:${p.id}`}>
+                            {p.name} ({p.code}) — {count}
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+                  )}
+                </select>
+              </div>
+
+              {/* 4. Subscription Status Dropdown */}
+              <div className="lg:col-span-2">
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
+                  Abonnement
+                </label>
+                <select
+                  value={selectedStatusFilter}
+                  onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
+                  className="w-full px-3 py-2 bg-[#142430] border border-white/10 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-white/30 cursor-pointer"
+                >
+                  <option value="all">Tous les statuts</option>
+                  <option value="trial">En période d&apos;essai</option>
+                  <option value="active">Abonnement actif</option>
+                  <option value="expired">Expiré</option>
+                  <option value="official">Boutiques Officielles</option>
+                </select>
               </div>
             </div>
 
-            {/* 2. Rayon Dropdown */}
-            <div className="lg:col-span-3">
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                Rayon commercial
-              </label>
-              <select
-                value={selectedRayonFilter}
-                onChange={(e) => setSelectedRayonFilter(e.target.value as any)}
-                className="w-full px-3 py-2 bg-[#142430] border border-white/10 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-white/30 cursor-pointer"
-              >
-                <option value="all">Tous les rayons ({suppliers.length})</option>
-                <option value="immo">Immobilier &amp; Hôtels ({immoSuppliersCount})</option>
-                <option value="mode">Mode &amp; Vêtements ({modeSuppliersCount})</option>
-                <option value="connect">Matériel &amp; Connect ({connectSuppliersCount})</option>
-                <option value="saveurs">Saveurs &amp; Restauration ({saveursSuppliersCount})</option>
-                {pendingProfilesCount > 0 && (
-                  <option value="pending">À valider KYC ({pendingProfilesCount})</option>
-                )}
-              </select>
-            </div>
-
-            {/* 3. Origine / Partenaire Dropdown */}
-            <div className="lg:col-span-3">
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                Origine / Partenaire
-              </label>
-              <select
-                value={selectedSourceFilter}
-                onChange={(e) => setSelectedSourceFilter(e.target.value)}
-                className="w-full px-3 py-2 bg-[#142430] border border-white/10 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-white/30 cursor-pointer"
-              >
-                <option value="all">Toutes les origines ({suppliers.length})</option>
-                <option value="direct">Direction Centrale ({directSuppliersCount})</option>
-                <option value="partner">Tous les Partenaires ({partnerSuppliersCount})</option>
-                {partnersList.length > 0 && (
-                  <optgroup label="Filtrer par Partenaire">
-                    {partnersList.map((p) => {
-                      const count = suppliers.filter((s) => s.referredByPartnerId === p.id).length;
-                      return (
-                        <option key={p.id} value={`partner:${p.id}`}>
-                          {p.name} ({p.code}) — {count}
-                        </option>
-                      );
-                    })}
-                  </optgroup>
-                )}
-              </select>
-            </div>
-
-            {/* 4. Subscription Status Dropdown */}
-            <div className="lg:col-span-2">
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">
-                Abonnement
-              </label>
-              <select
-                value={selectedStatusFilter}
-                onChange={(e) => setSelectedStatusFilter(e.target.value as any)}
-                className="w-full px-3 py-2 bg-[#142430] border border-white/10 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-white/30 cursor-pointer"
-              >
-                <option value="all">Tous les statuts</option>
-                <option value="trial">En période d&apos;essai</option>
-                <option value="active">Abonnement actif</option>
-                <option value="expired">Expiré</option>
-                <option value="official">Boutiques Officielles</option>
-              </select>
+            {/* Summary & Reset Row */}
+            <div className="flex items-center justify-between pt-1 text-xs text-gray-400">
+              <span>
+                <strong className="text-white">{filteredSuppliers.length}</strong> fournisseur{filteredSuppliers.length > 1 ? "s" : ""} affiché{filteredSuppliers.length > 1 ? "s" : ""}
+              </span>
+              {(selectedRayonFilter !== "all" || selectedSourceFilter !== "all" || selectedStatusFilter !== "all" || search.trim() !== "") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedRayonFilter("all");
+                    setSelectedSourceFilter("all");
+                    setSelectedStatusFilter("all");
+                    setSearch("");
+                  }}
+                  className="text-xs text-gray-300 hover:text-white underline cursor-pointer"
+                >
+                  Réinitialiser les filtres
+                </button>
+              )}
             </div>
           </div>
 
-          {/* Summary & Reset Row */}
-          <div className="flex items-center justify-between pt-1 text-xs text-gray-400">
-            <span>
-              <strong className="text-white">{filteredSuppliers.length}</strong> fournisseur{filteredSuppliers.length > 1 ? "s" : ""} affiché{filteredSuppliers.length > 1 ? "s" : ""}
-            </span>
-            {(selectedRayonFilter !== "all" || selectedSourceFilter !== "all" || selectedStatusFilter !== "all" || search.trim() !== "") && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedRayonFilter("all");
-                  setSelectedSourceFilter("all");
-                  setSelectedStatusFilter("all");
-                  setSearch("");
-                }}
-                className="text-xs text-gray-300 hover:text-white underline cursor-pointer"
-              >
-                Réinitialiser les filtres
-              </button>
+          {/* Desktop Table (>= md) — Sober & Compartmentalized */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full min-w-[900px] text-left text-xs text-gray-300">
+              <thead className="text-[11px] uppercase bg-black/30 text-gray-400 tracking-wider border-b border-white/10">
+                <tr>
+                  <th className="px-5 py-3.5 font-semibold">Fournisseur / Boutique</th>
+                  <th className="px-5 py-3.5 font-semibold">Origine / Partenaire</th>
+                  <th className="px-5 py-3.5 font-semibold">Rayon</th>
+                  <th className="px-5 py-3.5 font-semibold">Abonnement</th>
+                  <th className="px-5 py-3.5 font-semibold">Dossier KYC</th>
+                  <th className="px-5 py-3.5 font-semibold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.06]">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-6 h-6 border-2 border-white/40 border-t-transparent rounded-full animate-spin" />
+                        <span>Chargement des fournisseurs...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredSuppliers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <div className="max-w-md mx-auto flex flex-col items-center">
+                        <h3 className="text-sm font-semibold text-white mb-1">Aucun fournisseur trouvé</h3>
+                        <p className="text-xs text-gray-400 mb-4">
+                          Aucun compte ne correspond aux filtres sélectionnés.
+                        </p>
+                        <button
+                          onClick={() => {
+                            setSelectedRayonFilter("all");
+                            setSelectedSourceFilter("all");
+                            setSelectedStatusFilter("all");
+                            setSearch("");
+                          }}
+                          className="px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs font-medium transition-colors cursor-pointer"
+                        >
+                          Afficher toute la liste
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredSuppliers.map((supplier) => {
+                    const supplierRayons = getSupplierRayons(supplier);
+                    const isImmo = supplierRayons.includes("immo");
+                    const isMode = supplierRayons.includes("mode");
+                    const isConnect = supplierRayons.includes("connect");
+                    const isOfficial = Boolean(supplier.isOfficialAdminStore || supplier.isAdminSupplier);
+
+                    const rayonLabel = isImmo
+                      ? "Immobilier & Hôtels"
+                      : isMode
+                        ? "Mode & Vêtements"
+                        : isConnect
+                          ? "Matériel & Connect"
+                          : "Saveurs & Resto";
+
+                    const status = supplier.subscriptionStatus || "TRIAL";
+                    const endDate = supplier.subscriptionEndDate
+                      ? new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate)
+                      : null;
+                    const daysLeft = endDate ? Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+                    const isExpired = !isOfficial && daysLeft <= 0;
+
+                    const subCount = suppliers.filter(
+                      (s) => s.parentSupplierId === supplier.id || (s.role === "SUB_SUPPLIER" && s.createdBy === supplier.id)
+                    ).length;
+
+                    return (
+                      <tr key={supplier.id} className="hover:bg-white/[0.03] transition-colors">
+                        {/* 1. Fournisseur / Boutique */}
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/10 text-gray-300 flex items-center justify-center shrink-0">
+                              {isImmo ? (
+                                <Home size={15} />
+                              ) : isMode ? (
+                                <ShoppingBag size={15} />
+                              ) : isConnect ? (
+                                <Zap size={15} />
+                              ) : (
+                                <Store size={15} />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-semibold text-white text-sm truncate">{supplier.name}</span>
+                                {isOfficial && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-200 border border-white/15 font-medium shrink-0">
+                                    Officiel
+                                  </span>
+                                )}
+                                {supplier.role === "SUB_SUPPLIER" && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400 border border-white/10 shrink-0">
+                                    Sous-agent
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-gray-400 truncate mt-0.5">
+                                {supplier.email}
+                                {supplier.phone ? ` · ${supplier.phone}` : ""}
+                              </div>
+                              {subCount > 0 && (
+                                <div className="text-[10px] text-gray-500 mt-0.5">
+                                  {subCount} sous-agent{subCount > 1 ? "s" : ""} rattaché{subCount > 1 ? "s" : ""}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* 2. Origine / Partenaire (Dedicated Column) */}
+                        <td className="px-5 py-3.5">
+                          {supplier.partnerName || supplier.partnerReferral ? (
+                            <div className="flex flex-col">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (supplier.referredByPartnerId) {
+                                    setSelectedSourceFilter(`partner:${supplier.referredByPartnerId}`);
+                                  } else {
+                                    setSelectedSourceFilter("partner");
+                                  }
+                                }}
+                                className="text-left group cursor-pointer"
+                                title="Filtrer les fournisseurs de ce partenaire"
+                              >
+                                <span className="font-semibold text-gray-200 group-hover:text-white group-hover:underline block">
+                                  {supplier.partnerName || "Partenaire affilié"}
+                                </span>
+                                <span className="text-[11px] text-gray-500 font-mono">
+                                  {supplier.partnerCode || supplier.referralCodeUsed || "Partenaire"}
+                                </span>
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-500">Direction Centrale</span>
+                          )}
+                        </td>
+
+                        {/* 3. Rayon Commercial */}
+                        <td className="px-5 py-3.5">
+                          {supplier.role === "SUB_SUPPLIER" ? (
+                            <span className="text-xs text-gray-500 italic">Hérité</span>
+                          ) : (
+                            <div className="flex flex-col items-start gap-1">
+                              <span className="px-2.5 py-1 rounded-md bg-white/[0.05] border border-white/10 text-gray-200 text-xs font-medium">
+                                {rayonLabel}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => openAccessModal(supplier)}
+                                className="text-[11px] text-gray-400 hover:text-white underline cursor-pointer"
+                              >
+                                Modifier le rayon
+                              </button>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* 4. Abonnement */}
+                        <td className="px-5 py-3.5">
+                          {isOfficial ? (
+                            <div>
+                              <span className="text-xs text-gray-300 font-medium block">Exempté</span>
+                              <span className="text-[11px] text-gray-500">Boutique plateforme</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-start gap-0.5">
+                              {isExpired ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-400">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                                    Expiré
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickReactivate(supplier)}
+                                    className="text-[11px] px-2 py-0.5 rounded bg-white/10 hover:bg-white/15 text-white font-medium cursor-pointer"
+                                  >
+                                    Réactiver 15j
+                                  </button>
+                                </div>
+                              ) : status === "TRIAL" ? (
+                                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                                  Essai ({daysLeft}j restants)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                  Actif ({daysLeft}j restants)
+                                </span>
+                              )}
+                              {endDate && (
+                                <span className="text-[11px] text-gray-500">
+                                  Échéance : {endDate.toLocaleDateString("fr-FR")}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => openSubModal(supplier)}
+                                className="text-[11px] text-gray-400 hover:text-white underline mt-0.5 cursor-pointer"
+                              >
+                                Gérer l&apos;échéance
+                              </button>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* 5. Dossier KYC / Projet */}
+                        <td className="px-5 py-3.5">
+                          {supplier.supplierApplicationStatus === "PENDING_APPROVAL" ? (
+                            <div className="flex flex-col items-start gap-1">
+                              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-300">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                                Projet à évaluer
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => openReviewModal(supplier)}
+                                className="text-[11px] px-2.5 py-1 rounded-lg bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold cursor-pointer"
+                              >
+                                Évaluer &amp; attribuer rayon
+                              </button>
+                            </div>
+                          ) : supplier.profileUpdateStatus === "PENDING_APPROVAL" || supplier.status === "PENDING_APPROVAL" ? (
+                            <div className="flex flex-col items-start gap-1">
+                              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-300">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                                En attente
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => openReviewModal(supplier)}
+                                className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold cursor-pointer"
+                              >
+                                Vérifier &amp; valider
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-start gap-1">
+                              <span className="text-xs text-gray-400">
+                                {supplier.idDocumentNumber || supplier.idDocumentFrontUrl ? "Vérifié / Renseigné" : "Non renseigné"}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => openReviewModal(supplier)}
+                                className="text-[11px] text-gray-400 hover:text-white underline cursor-pointer"
+                              >
+                                Consulter le dossier
+                              </button>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* 6. Actions */}
+                        <td className="px-5 py-3.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSupplier(supplier.id)}
+                            className="text-gray-400 hover:text-red-400 hover:bg-red-500/10 px-2.5 py-1 rounded-lg transition-colors text-xs font-medium cursor-pointer"
+                          >
+                            Supprimer
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Supplier Cards (< md) — Sober & Clean */}
+          <div className="md:hidden divide-y divide-white/[0.06]">
+            {isLoading ? (
+              <div className="p-8 text-center text-gray-400">
+                <div className="w-6 h-6 border-2 border-white/40 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                <p className="text-xs">Chargement des fournisseurs...</p>
+              </div>
+            ) : filteredSuppliers.length === 0 ? (
+              <div className="p-8 text-center text-gray-400">
+                <p className="text-sm font-semibold text-white">Aucun fournisseur trouvé</p>
+              </div>
+            ) : (
+              filteredSuppliers.map((supplier) => {
+                const supplierRayons = getSupplierRayons(supplier);
+                const isImmo = supplierRayons.includes("immo");
+                const isMode = supplierRayons.includes("mode");
+                const isConnect = supplierRayons.includes("connect");
+                const isOfficial = Boolean(supplier.isOfficialAdminStore || supplier.isAdminSupplier);
+
+                const rayonLabel = isImmo
+                  ? "Immobilier & Hôtels"
+                  : isMode
+                    ? "Mode & Vêtements"
+                    : isConnect
+                      ? "Matériel & Connect"
+                      : "Saveurs & Resto";
+
+                const status = supplier.subscriptionStatus || "TRIAL";
+                const endDate = supplier.subscriptionEndDate
+                  ? new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate)
+                  : null;
+                const daysLeft = endDate ? Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
+                const isExpired = !isOfficial && daysLeft <= 0;
+
+                return (
+                  <div key={supplier.id} className="p-4 flex flex-col gap-2.5 hover:bg-white/[0.02] transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h4 className="font-semibold text-sm text-white truncate">{supplier.name}</h4>
+                        <p className="text-[11px] text-gray-400 truncate">{supplier.email}</p>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-white/[0.06] border border-white/10 text-gray-300 shrink-0">
+                        {rayonLabel}
+                      </span>
+                    </div>
+
+                    {/* Clean Info Grid: Origine + Abonnement */}
+                    <div className="grid grid-cols-2 gap-2 text-[11px] bg-black/20 p-2.5 rounded-lg border border-white/5">
+                      <div>
+                        <span className="text-[10px] text-gray-500 uppercase block">Origine</span>
+                        <span className="text-gray-200 font-medium truncate block">
+                          {supplier.partnerName ? `Partenaire : ${supplier.partnerName}` : "Direction Centrale"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-gray-500 uppercase block">Abonnement</span>
+                        <span className="text-gray-200 font-medium block">
+                          {isOfficial
+                            ? "Officiel (Exempté)"
+                            : isExpired
+                              ? "Expiré"
+                              : status === "TRIAL"
+                                ? `Essai (${daysLeft}j)`
+                                : `Actif (${daysLeft}j)`}
+                        </span>
+                      </div>
+                    </div>
+
+                    {(supplier.supplierApplicationStatus === "PENDING_APPROVAL" || supplier.profileUpdateStatus === "PENDING_APPROVAL" || supplier.status === "PENDING_APPROVAL") && (
+                      <button
+                        onClick={() => openReviewModal(supplier)}
+                        className={`w-full text-xs font-bold py-2 px-3 rounded-lg cursor-pointer ${
+                          supplier.supplierApplicationStatus === "PENDING_APPROVAL"
+                            ? "bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27]"
+                            : "bg-amber-500 hover:bg-amber-400 text-gray-950"
+                        }`}
+                      >
+                        {supplier.supplierApplicationStatus === "PENDING_APPROVAL"
+                          ? "Évaluer le projet & attribuer un rayon"
+                          : "Vérifier & valider le dossier KYC"}
+                      </button>
+                    )}
+
+                    <div className="pt-1 flex items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => openAccessModal(supplier)}
+                          className="text-gray-400 hover:text-white underline cursor-pointer"
+                        >
+                          Rayon
+                        </button>
+                        <button
+                          onClick={() => openReviewModal(supplier)}
+                          className="text-gray-400 hover:text-white underline cursor-pointer"
+                        >
+                          Dossier KYC
+                        </button>
+                        {!isOfficial && (
+                          <button
+                            onClick={() => openSubModal(supplier)}
+                            className="text-gray-400 hover:text-white underline cursor-pointer"
+                          >
+                            Échéance
+                          </button>
+                        )}
+                      </div>
+
+                      <button
+                        onClick={() => handleDeleteSupplier(supplier.id)}
+                        className="text-gray-400 hover:text-red-400 text-xs cursor-pointer"
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
-
-        {/* Desktop Table (>= md) — Sober & Compartmentalized */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full min-w-[900px] text-left text-xs text-gray-300">
-            <thead className="text-[11px] uppercase bg-black/30 text-gray-400 tracking-wider border-b border-white/10">
-              <tr>
-                <th className="px-5 py-3.5 font-semibold">Fournisseur / Boutique</th>
-                <th className="px-5 py-3.5 font-semibold">Origine / Partenaire</th>
-                <th className="px-5 py-3.5 font-semibold">Rayon</th>
-                <th className="px-5 py-3.5 font-semibold">Abonnement</th>
-                <th className="px-5 py-3.5 font-semibold">Dossier KYC</th>
-                <th className="px-5 py-3.5 font-semibold text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/[0.06]">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400">
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="w-6 h-6 border-2 border-white/40 border-t-transparent rounded-full animate-spin" />
-                      <span>Chargement des fournisseurs...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredSuppliers.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
-                    <div className="max-w-md mx-auto flex flex-col items-center">
-                      <h3 className="text-sm font-semibold text-white mb-1">Aucun fournisseur trouvé</h3>
-                      <p className="text-xs text-gray-400 mb-4">
-                        Aucun compte ne correspond aux filtres sélectionnés.
-                      </p>
-                      <button
-                        onClick={() => {
-                          setSelectedRayonFilter("all");
-                          setSelectedSourceFilter("all");
-                          setSelectedStatusFilter("all");
-                          setSearch("");
-                        }}
-                        className="px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs font-medium transition-colors cursor-pointer"
-                      >
-                        Afficher toute la liste
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredSuppliers.map((supplier) => {
-                  const supplierRayons = getSupplierRayons(supplier);
-                  const isImmo = supplierRayons.includes("immo");
-                  const isMode = supplierRayons.includes("mode");
-                  const isConnect = supplierRayons.includes("connect");
-                  const isOfficial = Boolean(supplier.isOfficialAdminStore || supplier.isAdminSupplier);
-
-                  const rayonLabel = isImmo
-                    ? "Immobilier & Hôtels"
-                    : isMode
-                    ? "Mode & Vêtements"
-                    : isConnect
-                    ? "Matériel & Connect"
-                    : "Saveurs & Resto";
-
-                  const status = supplier.subscriptionStatus || "TRIAL";
-                  const endDate = supplier.subscriptionEndDate
-                    ? new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate)
-                    : null;
-                  const daysLeft = endDate ? Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
-                  const isExpired = !isOfficial && daysLeft <= 0;
-
-                  const subCount = suppliers.filter(
-                    (s) => s.parentSupplierId === supplier.id || (s.role === "SUB_SUPPLIER" && s.createdBy === supplier.id)
-                  ).length;
-
-                  return (
-                    <tr key={supplier.id} className="hover:bg-white/[0.03] transition-colors">
-                      {/* 1. Fournisseur / Boutique */}
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-white/[0.05] border border-white/10 text-gray-300 flex items-center justify-center shrink-0">
-                            {isImmo ? (
-                              <Home size={15} />
-                            ) : isMode ? (
-                              <ShoppingBag size={15} />
-                            ) : isConnect ? (
-                              <Zap size={15} />
-                            ) : (
-                              <Store size={15} />
-                            )}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-white text-sm truncate">{supplier.name}</span>
-                              {isOfficial && (
-                                <span className="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-200 border border-white/15 font-medium shrink-0">
-                                  Officiel
-                                </span>
-                              )}
-                              {supplier.role === "SUB_SUPPLIER" && (
-                                <span className="text-[10px] px-2 py-0.5 rounded bg-white/5 text-gray-400 border border-white/10 shrink-0">
-                                  Sous-agent
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[11px] text-gray-400 truncate mt-0.5">
-                              {supplier.email}
-                              {supplier.phone ? ` · ${supplier.phone}` : ""}
-                            </div>
-                            {subCount > 0 && (
-                              <div className="text-[10px] text-gray-500 mt-0.5">
-                                {subCount} sous-agent{subCount > 1 ? "s" : ""} rattaché{subCount > 1 ? "s" : ""}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* 2. Origine / Partenaire (Dedicated Column) */}
-                      <td className="px-5 py-3.5">
-                        {supplier.partnerName || supplier.partnerReferral ? (
-                          <div className="flex flex-col">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (supplier.referredByPartnerId) {
-                                  setSelectedSourceFilter(`partner:${supplier.referredByPartnerId}`);
-                                } else {
-                                  setSelectedSourceFilter("partner");
-                                }
-                              }}
-                              className="text-left group cursor-pointer"
-                              title="Filtrer les fournisseurs de ce partenaire"
-                            >
-                              <span className="font-semibold text-gray-200 group-hover:text-white group-hover:underline block">
-                                {supplier.partnerName || "Partenaire affilié"}
-                              </span>
-                              <span className="text-[11px] text-gray-500 font-mono">
-                                {supplier.partnerCode || supplier.referralCodeUsed || "Partenaire"}
-                              </span>
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-gray-500">Direction Centrale</span>
-                        )}
-                      </td>
-
-                      {/* 3. Rayon Commercial */}
-                      <td className="px-5 py-3.5">
-                        {supplier.role === "SUB_SUPPLIER" ? (
-                          <span className="text-xs text-gray-500 italic">Hérité</span>
-                        ) : (
-                          <div className="flex flex-col items-start gap-1">
-                            <span className="px-2.5 py-1 rounded-md bg-white/[0.05] border border-white/10 text-gray-200 text-xs font-medium">
-                              {rayonLabel}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => openAccessModal(supplier)}
-                              className="text-[11px] text-gray-400 hover:text-white underline cursor-pointer"
-                            >
-                              Modifier le rayon
-                            </button>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* 4. Abonnement */}
-                      <td className="px-5 py-3.5">
-                        {isOfficial ? (
-                          <div>
-                            <span className="text-xs text-gray-300 font-medium block">Exempté</span>
-                            <span className="text-[11px] text-gray-500">Boutique plateforme</span>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col items-start gap-0.5">
-                            {isExpired ? (
-                              <div className="flex items-center gap-2">
-                                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-400">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-                                  Expiré
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuickReactivate(supplier)}
-                                  className="text-[11px] px-2 py-0.5 rounded bg-white/10 hover:bg-white/15 text-white font-medium cursor-pointer"
-                                >
-                                  Réactiver 15j
-                                </button>
-                              </div>
-                            ) : status === "TRIAL" ? (
-                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                                Essai ({daysLeft}j restants)
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                Actif ({daysLeft}j restants)
-                              </span>
-                            )}
-                            {endDate && (
-                              <span className="text-[11px] text-gray-500">
-                                Échéance : {endDate.toLocaleDateString("fr-FR")}
-                              </span>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => openSubModal(supplier)}
-                              className="text-[11px] text-gray-400 hover:text-white underline mt-0.5 cursor-pointer"
-                            >
-                              Gérer l&apos;échéance
-                            </button>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* 5. Dossier KYC / Projet */}
-                      <td className="px-5 py-3.5">
-                        {supplier.supplierApplicationStatus === "PENDING_APPROVAL" ? (
-                          <div className="flex flex-col items-start gap-1">
-                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-300">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                              Projet à évaluer
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => openReviewModal(supplier)}
-                              className="text-[11px] px-2.5 py-1 rounded-lg bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold cursor-pointer"
-                            >
-                              Évaluer &amp; attribuer rayon
-                            </button>
-                          </div>
-                        ) : supplier.profileUpdateStatus === "PENDING_APPROVAL" || supplier.status === "PENDING_APPROVAL" ? (
-                          <div className="flex flex-col items-start gap-1">
-                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-300">
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                              En attente
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => openReviewModal(supplier)}
-                              className="text-[11px] px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold cursor-pointer"
-                            >
-                              Vérifier &amp; valider
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col items-start gap-1">
-                            <span className="text-xs text-gray-400">
-                              {supplier.idDocumentNumber || supplier.idDocumentFrontUrl ? "Vérifié / Renseigné" : "Non renseigné"}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => openReviewModal(supplier)}
-                              className="text-[11px] text-gray-400 hover:text-white underline cursor-pointer"
-                            >
-                              Consulter le dossier
-                            </button>
-                          </div>
-                        )}
-                      </td>
-
-                      {/* 6. Actions */}
-                      <td className="px-5 py-3.5 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteSupplier(supplier.id)}
-                          className="text-gray-400 hover:text-red-400 hover:bg-red-500/10 px-2.5 py-1 rounded-lg transition-colors text-xs font-medium cursor-pointer"
-                        >
-                          Supprimer
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Mobile Supplier Cards (< md) — Sober & Clean */}
-        <div className="md:hidden divide-y divide-white/[0.06]">
-          {isLoading ? (
-            <div className="p-8 text-center text-gray-400">
-              <div className="w-6 h-6 border-2 border-white/40 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-              <p className="text-xs">Chargement des fournisseurs...</p>
-            </div>
-          ) : filteredSuppliers.length === 0 ? (
-            <div className="p-8 text-center text-gray-400">
-              <p className="text-sm font-semibold text-white">Aucun fournisseur trouvé</p>
-            </div>
-          ) : (
-            filteredSuppliers.map((supplier) => {
-              const supplierRayons = getSupplierRayons(supplier);
-              const isImmo = supplierRayons.includes("immo");
-              const isMode = supplierRayons.includes("mode");
-              const isConnect = supplierRayons.includes("connect");
-              const isOfficial = Boolean(supplier.isOfficialAdminStore || supplier.isAdminSupplier);
-
-              const rayonLabel = isImmo
-                ? "Immobilier & Hôtels"
-                : isMode
-                ? "Mode & Vêtements"
-                : isConnect
-                ? "Matériel & Connect"
-                : "Saveurs & Resto";
-
-              const status = supplier.subscriptionStatus || "TRIAL";
-              const endDate = supplier.subscriptionEndDate
-                ? new Date(supplier.subscriptionEndDate.toDate ? supplier.subscriptionEndDate.toDate() : supplier.subscriptionEndDate)
-                : null;
-              const daysLeft = endDate ? Math.ceil((endDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : 0;
-              const isExpired = !isOfficial && daysLeft <= 0;
-
-              return (
-                <div key={supplier.id} className="p-4 flex flex-col gap-2.5 hover:bg-white/[0.02] transition-colors">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h4 className="font-semibold text-sm text-white truncate">{supplier.name}</h4>
-                      <p className="text-[11px] text-gray-400 truncate">{supplier.email}</p>
-                    </div>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-white/[0.06] border border-white/10 text-gray-300 shrink-0">
-                      {rayonLabel}
-                    </span>
-                  </div>
-
-                  {/* Clean Info Grid: Origine + Abonnement */}
-                  <div className="grid grid-cols-2 gap-2 text-[11px] bg-black/20 p-2.5 rounded-lg border border-white/5">
-                    <div>
-                      <span className="text-[10px] text-gray-500 uppercase block">Origine</span>
-                      <span className="text-gray-200 font-medium truncate block">
-                        {supplier.partnerName ? `Partenaire : ${supplier.partnerName}` : "Direction Centrale"}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-gray-500 uppercase block">Abonnement</span>
-                      <span className="text-gray-200 font-medium block">
-                        {isOfficial
-                          ? "Officiel (Exempté)"
-                          : isExpired
-                          ? "Expiré"
-                          : status === "TRIAL"
-                          ? `Essai (${daysLeft}j)`
-                          : `Actif (${daysLeft}j)`}
-                      </span>
-                    </div>
-                  </div>
-
-                  {(supplier.supplierApplicationStatus === "PENDING_APPROVAL" || supplier.profileUpdateStatus === "PENDING_APPROVAL" || supplier.status === "PENDING_APPROVAL") && (
-                    <button
-                      onClick={() => openReviewModal(supplier)}
-                      className={`w-full text-xs font-bold py-2 px-3 rounded-lg cursor-pointer ${
-                        supplier.supplierApplicationStatus === "PENDING_APPROVAL"
-                          ? "bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27]"
-                          : "bg-amber-500 hover:bg-amber-400 text-gray-950"
-                      }`}
-                    >
-                      {supplier.supplierApplicationStatus === "PENDING_APPROVAL"
-                        ? "Évaluer le projet & attribuer un rayon"
-                        : "Vérifier & valider le dossier KYC"}
-                    </button>
-                  )}
-
-                  <div className="pt-1 flex items-center justify-between gap-2 text-xs">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => openAccessModal(supplier)}
-                        className="text-gray-400 hover:text-white underline cursor-pointer"
-                      >
-                        Rayon
-                      </button>
-                      <button
-                        onClick={() => openReviewModal(supplier)}
-                        className="text-gray-400 hover:text-white underline cursor-pointer"
-                      >
-                        Dossier KYC
-                      </button>
-                      {!isOfficial && (
-                        <button
-                          onClick={() => openSubModal(supplier)}
-                          className="text-gray-400 hover:text-white underline cursor-pointer"
-                        >
-                          Échéance
-                        </button>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={() => handleDeleteSupplier(supplier.id)}
-                      className="text-gray-400 hover:text-red-400 text-xs cursor-pointer"
-                    >
-                      Supprimer
-                    </button>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
       )}
 
       {/* Access Management Modal */}
@@ -1404,11 +1404,11 @@ export default function SuppliersPage() {
                     Sélectionnez les rayons auxquels <strong>{selectedSupplierForAccess.name}</strong> a le droit de vendre :
                   </p>
                 </div>
-                
+
                 <div className="space-y-3">
                   {availableRayons.map((r) => (
                     <label key={r.id} className="flex items-center space-x-3 bg-white/5 border border-white/10 p-3 rounded-lg cursor-pointer hover:bg-white/10 transition-colors">
-                      <input 
+                      <input
                         type="checkbox"
                         checked={selectedRayons.includes(r.id)}
                         onChange={(e) => {
@@ -1424,7 +1424,7 @@ export default function SuppliersPage() {
                     </label>
                   ))}
                 </div>
-                
+
                 <div className="pt-6 flex justify-end space-x-3">
                   <button type="button" onClick={() => setIsAccessModalOpen(false)} className="px-4 py-2 text-gray-400 hover:text-white transition-colors">
                     Annuler
@@ -1462,7 +1462,7 @@ export default function SuppliersPage() {
                     {error}
                   </div>
                 )}
-                
+
                 <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-300 text-sm mb-2">
                   Un e-mail de configuration de mot de passe sera automatiquement envoyé à l'adresse indiquée une fois le compte créé.
                 </div>
@@ -1515,22 +1515,22 @@ export default function SuppliersPage() {
                   <label className="text-sm font-medium text-gray-300">Méthode de notification</label>
                   <div className="flex space-x-4">
                     <label className="flex items-center space-x-2 text-white cursor-pointer">
-                      <input 
-                        type="radio" 
-                        name="notificationMethod" 
-                        value="email" 
-                        checked={notificationMethod === 'email'} 
+                      <input
+                        type="radio"
+                        name="notificationMethod"
+                        value="email"
+                        checked={notificationMethod === 'email'}
                         onChange={() => setNotificationMethod('email')}
                         className="text-primary focus:ring-primary bg-black/20 border-white/10"
                       />
                       <span>Email</span>
                     </label>
                     <label className="flex items-center space-x-2 text-white cursor-pointer">
-                      <input 
-                        type="radio" 
-                        name="notificationMethod" 
-                        value="sms" 
-                        checked={notificationMethod === 'sms'} 
+                      <input
+                        type="radio"
+                        name="notificationMethod"
+                        value="sms"
+                        checked={notificationMethod === 'sms'}
                         onChange={() => setNotificationMethod('sms')}
                         className="text-primary focus:ring-primary bg-black/20 border-white/10"
                       />
@@ -1566,11 +1566,10 @@ export default function SuppliersPage() {
                         setRole("SUPPLIER_IMMO");
                         setRayon("immo");
                       }}
-                      className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-                        supplierCategory === "immo"
-                          ? "bg-emerald-500/15 border-emerald-500 text-white shadow-md shadow-emerald-500/10"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
-                      }`}
+                      className={`p-3.5 rounded-xl border cursor-pointer transition-all ${supplierCategory === "immo"
+                        ? "bg-emerald-500/15 border-emerald-500 text-white shadow-md shadow-emerald-500/10"
+                        : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-xl">🏠</span>
@@ -1593,11 +1592,10 @@ export default function SuppliersPage() {
                         setRole("supplier");
                         setRayon("mode");
                       }}
-                      className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-                        supplierCategory === "mode"
-                          ? "bg-pink-500/15 border-pink-500 text-white shadow-md shadow-pink-500/10"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
-                      }`}
+                      className={`p-3.5 rounded-xl border cursor-pointer transition-all ${supplierCategory === "mode"
+                        ? "bg-pink-500/15 border-pink-500 text-white shadow-md shadow-pink-500/10"
+                        : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-xl">👗</span>
@@ -1620,11 +1618,10 @@ export default function SuppliersPage() {
                         setRole("supplier");
                         setRayon("connect");
                       }}
-                      className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-                        supplierCategory === "connect"
-                          ? "bg-cyan-500/15 border-cyan-500 text-white shadow-md shadow-cyan-500/10"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
-                      }`}
+                      className={`p-3.5 rounded-xl border cursor-pointer transition-all ${supplierCategory === "connect"
+                        ? "bg-cyan-500/15 border-cyan-500 text-white shadow-md shadow-cyan-500/10"
+                        : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-xl">⚡</span>
@@ -1647,11 +1644,10 @@ export default function SuppliersPage() {
                         setRole("supplier");
                         setRayon("saveurs");
                       }}
-                      className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
-                        supplierCategory === "saveurs"
-                          ? "bg-[#FF6B35]/15 border-[#FF6B35] text-white shadow-md shadow-[#FF6B35]/10"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
-                      }`}
+                      className={`p-3.5 rounded-xl border cursor-pointer transition-all ${supplierCategory === "saveurs"
+                        ? "bg-[#FF6B35]/15 border-[#FF6B35] text-white shadow-md shadow-[#FF6B35]/10"
+                        : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-gray-200"
+                        }`}
                     >
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-xl">🍽️</span>
@@ -1674,13 +1670,12 @@ export default function SuppliersPage() {
                 </div>
 
                 {/* Option: Boutique Officielle Rayons (Magasin interne de la plateforme) */}
-                <div 
+                <div
                   onClick={() => setIsOfficialAdminStore(!isOfficialAdminStore)}
-                  className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                    isOfficialAdminStore 
-                      ? "bg-amber-500/15 border-amber-500 text-white shadow-lg shadow-amber-500/10" 
-                      : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
-                  }`}
+                  className={`p-4 rounded-xl border cursor-pointer transition-all ${isOfficialAdminStore
+                    ? "bg-amber-500/15 border-amber-500 text-white shadow-lg shadow-amber-500/10"
+                    : "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white"
+                    }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3">
@@ -1697,10 +1692,10 @@ export default function SuppliersPage() {
                         </p>
                       </div>
                     </div>
-                    <input 
-                      type="checkbox" 
-                      checked={isOfficialAdminStore} 
-                      onChange={(e) => setIsOfficialAdminStore(e.target.checked)} 
+                    <input
+                      type="checkbox"
+                      checked={isOfficialAdminStore}
+                      onChange={(e) => setIsOfficialAdminStore(e.target.checked)}
                       className="mt-1 h-4 w-4 rounded text-amber-500 focus:ring-amber-400 bg-black/40 border-white/20 shrink-0"
                     />
                   </div>
@@ -1754,8 +1749,8 @@ export default function SuppliersPage() {
                 {selectedSupplierSub && (() => {
                   const currentEnd = selectedSupplierSub.subscriptionEndDate
                     ? (selectedSupplierSub.subscriptionEndDate.toDate
-                        ? selectedSupplierSub.subscriptionEndDate.toDate()
-                        : new Date(selectedSupplierSub.subscriptionEndDate))
+                      ? selectedSupplierSub.subscriptionEndDate.toDate()
+                      : new Date(selectedSupplierSub.subscriptionEndDate))
                     : null;
                   const daysLeft = currentEnd
                     ? Math.ceil((currentEnd.getTime() - Date.now()) / 86400000)
@@ -1765,11 +1760,10 @@ export default function SuppliersPage() {
                     <div className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-1 text-xs">
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400 uppercase font-semibold text-[10px]">Statut en base :</span>
-                        <span className={`px-2 py-0.5 rounded-full font-bold ${
-                          status === "TRIAL" ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" :
+                        <span className={`px-2 py-0.5 rounded-full font-bold ${status === "TRIAL" ? "bg-blue-500/20 text-blue-300 border border-blue-500/30" :
                           status === "ACTIVE" ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" :
-                          "bg-red-500/20 text-red-300 border border-red-500/30"
-                        }`}>
+                            "bg-red-500/20 text-red-300 border border-red-500/30"
+                          }`}>
                           {status === "TRIAL" ? "Période d'essai" : status === "ACTIVE" ? "Abonnement Actif" : "Suspendu"}
                         </span>
                       </div>
@@ -1792,33 +1786,30 @@ export default function SuppliersPage() {
                     <button
                       type="button"
                       onClick={() => setSelectedSubStatus("TRIAL")}
-                      className={`p-2 rounded-xl text-xs font-bold transition-all border text-center cursor-pointer ${
-                        selectedSubStatus === "TRIAL"
-                          ? "bg-blue-500/20 text-blue-300 border-blue-500/50 shadow-sm"
-                          : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
-                      }`}
+                      className={`p-2 rounded-xl text-xs font-bold transition-all border text-center cursor-pointer ${selectedSubStatus === "TRIAL"
+                        ? "bg-blue-500/20 text-blue-300 border-blue-500/50 shadow-sm"
+                        : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
+                        }`}
                     >
                       ⏱️ Essai (15j)
                     </button>
                     <button
                       type="button"
                       onClick={() => setSelectedSubStatus("ACTIVE")}
-                      className={`p-2 rounded-xl text-xs font-bold transition-all border text-center cursor-pointer ${
-                        selectedSubStatus === "ACTIVE"
-                          ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-sm"
-                          : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
-                      }`}
+                      className={`p-2 rounded-xl text-xs font-bold transition-all border text-center cursor-pointer ${selectedSubStatus === "ACTIVE"
+                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 shadow-sm"
+                        : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
+                        }`}
                     >
                       ✅ Actif (Payé)
                     </button>
                     <button
                       type="button"
                       onClick={() => setSelectedSubStatus("SUSPENDED_PAYMENT")}
-                      className={`p-2 rounded-xl text-xs font-bold transition-all border text-center cursor-pointer ${
-                        selectedSubStatus === "SUSPENDED_PAYMENT"
-                          ? "bg-red-500/20 text-red-300 border-red-500/50 shadow-sm"
-                          : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
-                      }`}
+                      className={`p-2 rounded-xl text-xs font-bold transition-all border text-center cursor-pointer ${selectedSubStatus === "SUSPENDED_PAYMENT"
+                        ? "bg-red-500/20 text-red-300 border-red-500/50 shadow-sm"
+                        : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
+                        }`}
                     >
                       ⛔ Suspendu
                     </button>
@@ -1837,11 +1828,10 @@ export default function SuppliersPage() {
                           setDaysToAdd(d);
                           setCustomExpiryDate("");
                         }}
-                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          daysToAdd === d && !customExpiryDate
-                            ? 'bg-primary text-gray-950 shadow-sm'
-                            : 'bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10'
-                        }`}
+                        className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${daysToAdd === d && !customExpiryDate
+                          ? 'bg-primary text-gray-950 shadow-sm'
+                          : 'bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10'
+                          }`}
                       >
                         {d === 15 ? "15j (Essai)" : `+${d}j`}
                       </button>
@@ -1867,8 +1857,8 @@ export default function SuppliersPage() {
                   } else {
                     const currentEnd = selectedSupplierSub.subscriptionEndDate
                       ? (selectedSupplierSub.subscriptionEndDate.toDate
-                          ? selectedSupplierSub.subscriptionEndDate.toDate()
-                          : new Date(selectedSupplierSub.subscriptionEndDate))
+                        ? selectedSupplierSub.subscriptionEndDate.toDate()
+                        : new Date(selectedSupplierSub.subscriptionEndDate))
                       : null;
                     const base = currentEnd && currentEnd > new Date() ? currentEnd : new Date();
                     preview = new Date(base);
@@ -1889,18 +1879,18 @@ export default function SuppliersPage() {
                     En validant un statut <em>Essai</em> ou <em>Actif</em>, le fournisseur est instantanément débloqué, réactivé en base et autorisé à publier immédiatement.
                   </div>
                 </div>
-                
+
                 <div className="pt-2 flex justify-end space-x-3">
-                  <button 
-                    type="button" 
-                    onClick={() => { setIsSubModalOpen(false); setSelectedSupplierSub(null); }} 
+                  <button
+                    type="button"
+                    onClick={() => { setIsSubModalOpen(false); setSelectedSupplierSub(null); }}
                     className="px-4 py-2 text-xs font-semibold text-gray-400 hover:text-white transition-colors cursor-pointer"
                   >
                     Annuler
                   </button>
-                  <button 
-                    type="submit" 
-                    disabled={isLoading} 
+                  <button
+                    type="submit"
+                    disabled={isLoading}
                     className="bg-primary hover:bg-primary-light text-gray-950 font-bold px-5 py-2 rounded-xl text-xs transition-all shadow-md cursor-pointer disabled:opacity-50"
                   >
                     {isLoading ? "Enregistrement..." : "Appliquer"}
@@ -2174,9 +2164,9 @@ export default function SuppliersPage() {
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-[#C7D300] mb-2">Logo de l&apos;enseigne</h3>
                     <div className="bg-white/5 rounded-xl border border-white/10 p-4 flex justify-center items-center h-28">
-                      <img 
-                        src={selectedSupplierToApprove.pendingProfile?.logoUrl || selectedSupplierToApprove.logoUrl} 
-                        alt="Logo" 
+                      <img
+                        src={selectedSupplierToApprove.pendingProfile?.logoUrl || selectedSupplierToApprove.logoUrl}
+                        alt="Logo"
                         className="max-h-full max-w-full object-contain"
                         onError={(e) => (e.currentTarget.style.display = 'none')}
                       />
@@ -2186,7 +2176,7 @@ export default function SuppliersPage() {
               </div>
 
               <div className="p-5 sm:p-6 border-t border-white/10 shrink-0 flex flex-wrap items-center justify-end gap-3">
-                <button 
+                <button
                   onClick={() => setIsReviewModalOpen(false)}
                   className="px-4 py-2 text-gray-400 hover:text-white transition-colors text-xs sm:text-sm font-semibold cursor-pointer"
                 >

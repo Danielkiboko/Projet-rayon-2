@@ -5,7 +5,6 @@ import { onAuthStateChanged, User, signOut as firebaseSignOut, getIdTokenResult,
 import { doc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, ShieldAlert, Clock } from "lucide-react";
 import { SUPER_ADMIN_EMAILS } from "@/lib/permissions";
 
@@ -59,12 +58,7 @@ function SessionWarningModal({
 }) {
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9, y: 20 }}
-        className="w-full max-w-sm bg-[#0F1D27] border border-orange-500/40 rounded-3xl shadow-2xl p-6 text-center"
-      >
+      <div className="w-full max-w-sm bg-[#0F1D27] border border-orange-500/40 rounded-3xl shadow-2xl p-6 text-center transition-all">
         {/* Icône */}
         <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
           <ShieldAlert size={32} className="text-orange-400" />
@@ -102,7 +96,7 @@ function SessionWarningModal({
             Rester connecté
           </button>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }
@@ -309,15 +303,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       {children}
 
       {/* Modal d'avertissement de session */}
-      <AnimatePresence>
-        {showWarning && (
-          <SessionWarningModal
-            countdown={countdown}
-            onStay={handleStay}
-            onLeave={() => performSignOut("inactivity")}
-          />
-        )}
-      </AnimatePresence>
+      {showWarning && (
+        <SessionWarningModal
+          countdown={countdown}
+          onStay={handleStay}
+          onLeave={() => performSignOut("inactivity")}
+        />
+      )}
     </AuthContext.Provider>
   );
 }
