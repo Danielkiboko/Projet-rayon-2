@@ -13,6 +13,7 @@ const nextConfig = {
   },
   images: {
     formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 86400,
     remotePatterns: [
       {
         protocol: 'https',
@@ -50,6 +51,14 @@ const nextConfig = {
         source: '/:file(supermarket-hero\\.jpg|icon\\.png|icon-512\\.png|apple-touch-icon\\.png|favicon\\.ico)',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+          { key: 'CDN-Cache-Control', value: 'public, max-age=604800' },
+        ],
+      },
+      {
+        source: '/api/og/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800' },
+          { key: 'CDN-Cache-Control', value: 'public, max-age=86400' },
         ],
       },
       {

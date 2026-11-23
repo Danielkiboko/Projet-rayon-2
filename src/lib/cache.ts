@@ -11,9 +11,11 @@ interface L1Entry {
   expiresAt: number;
 }
 
-const L1_MAX_ENTRIES = 300;
+const L1_MAX_ENTRIES = 600;
 const globalCacheStore = globalThis as unknown as {
   __rayonsL1Cache?: Map<string, L1Entry>;
+  __rayonsInFlight?: Map<string, Promise<unknown>>;
+  __rayonsRateL1?: Map<string, { count: number; resetAt: number }>;
 };
 
 function getL1Store(): Map<string, L1Entry> {
@@ -21,6 +23,20 @@ function getL1Store(): Map<string, L1Entry> {
     globalCacheStore.__rayonsL1Cache = new Map();
   }
   return globalCacheStore.__rayonsL1Cache;
+}
+
+function getInFlightStore(): Map<string, Promise<unknown>> {
+  if (!globalCacheStore.__rayonsInFlight) {
+    globalCacheStore.__rayonsInFlight = new Map();
+  }
+  return globalCacheStore.__rayonsInFlight;
+}
+
+function getRateL1Store(): Map<string, { count: number; resetAt: number }> {
+  if (!globalCacheStore.__rayonsRateL1) {
+    globalCacheStore.__rayonsRateL1 = new Map();
+  }
+  return globalCacheStore.__rayonsRateL1;
 }
 
 function stripWrappingQuotes(val: string): string {
@@ -101,8 +117,8 @@ export async function cacheGet<T>(key: string): Promise<{ hit: boolean; source: 
   if (typeof raw === "string" && raw.length > 0) {
     try {
       const parsed = JSON.parse(raw) as T;
-      // Réchauffer L1 brièvement (15s) pour absorber les rafales sur cette instance
-      setL1(key, parsed, 15);
+      // Réchauffer L1 (60s) pour absorber les rafales 3 000+ users sur cette instance sans saturer le quota Redis
+      setL1(key, parsed, 60);
       return { hit: true, source: "redis", value: parsed };
     } catch {
       return { hit: false, source: "miss", value: null };
@@ -114,7 +130,7 @@ export async function cacheGet<T>(key: string): Promise<{ hit: boolean; source: 
 
 export async function cacheSet(key: string, value: unknown, ttlSeconds: number): Promise<void> {
   const safeTtl = Math.max(5, Math.min(3600, Math.floor(ttlSeconds)));
-  setL1(key, value, Math.min(safeTtl, 30));
+  setL1(key, value, Math.min(safeTtl, 60));
 
   if (isRedisConfigured()) {
     try {
@@ -140,7 +156,9 @@ export async function cacheDel(...keys: string[]): Promise<void> {
 }
 
 /**
- * Pattern Cache-Aside standard : lit L1 -> Redis L2 -> sinon exécute `fetcher` et remplit le cache.
+ * Pattern Cache-Aside haute concurrence avec protection anti-stampede (Single-Flight Coalescing) :
+ * Si 3 000 requêtes arrivent à la même milliseconde sur une clé expirée, UNE SEULE requête Firestore
+ * est exécutée et toutes les autres partagent sa promesse.
  */
 export async function cacheGetOrSet<T>(
   key: string,
@@ -152,47 +170,78 @@ export async function cacheGetOrSet<T>(
     return { data: cached.value, cacheSource: cached.source === "miss" ? "db" : cached.source };
   }
 
-  const fresh = await fetcher();
-  await cacheSet(key, fresh, ttlSeconds);
+  const inFlight = getInFlightStore();
+  const existingPromise = inFlight.get(key) as Promise<T> | undefined;
+  if (existingPromise) {
+    const shared = await existingPromise;
+    return { data: shared, cacheSource: "l1" };
+  }
+
+  const runPromise = (async () => {
+    try {
+      const fresh = await fetcher();
+      await cacheSet(key, fresh, ttlSeconds);
+      return fresh;
+    } finally {
+      inFlight.delete(key);
+    }
+  })();
+
+  inFlight.set(key, runPromise);
+  const fresh = await runPromise;
   return { data: fresh, cacheSource: "db" };
 }
 
 /**
- * Rate Limiter distribué (Redis INCR + EXPIRE si configuré, sinon fallback L1 local).
+ * Rate Limiter distribué (Redis INCR + EXPIRE, fallback RAM L1) pour protéger les endpoints
+ * contre les rafales abusives / bots lors de pics à 3 000+ utilisateurs simultanés.
  */
 export async function checkDistributedRateLimit(
   bucketKey: string,
   maxRequests: number,
   windowSeconds: number
-): Promise<{ allowed: boolean; remaining: number; engine: "redis" | "l1" }> {
+): Promise<{ allowed: boolean; current: number; remaining: number; resetInSec: number; engine: "redis" | "l1" }> {
+  const safeWindow = Math.max(5, Math.floor(windowSeconds));
   const fullKey = `rl:${bucketKey}`;
 
   if (isRedisConfigured()) {
-    const count = await redisCommand<number>(["INCR", fullKey]);
-    if (typeof count === "number") {
-      if (count === 1) {
-        await redisCommand(["EXPIRE", fullKey, windowSeconds]);
+    try {
+      const count = await redisCommand<number>(["INCR", fullKey]);
+      if (typeof count === "number" && count > 0) {
+        if (count === 1) {
+          await redisCommand(["EXPIRE", fullKey, safeWindow]).catch(() => {});
+        }
+        return {
+          allowed: count <= maxRequests,
+          current: count,
+          remaining: Math.max(0, maxRequests - count),
+          resetInSec: safeWindow,
+          engine: "redis",
+        };
       }
-      return {
-        allowed: count <= maxRequests,
-        remaining: Math.max(0, maxRequests - count),
-        engine: "redis",
-      };
+    } catch {
+      // Fallback L1 si Redis indisponible
     }
   }
 
-  // Fallback L1 local
-  const current = getL1<{ count: number; resetAt: number }>(fullKey);
+  const store = getRateL1Store();
   const now = Date.now();
-  if (!current || now > current.resetAt) {
-    setL1(fullKey, { count: 1, resetAt: now + windowSeconds * 1000 }, windowSeconds);
-    return { allowed: true, remaining: maxRequests - 1, engine: "l1" };
+  const existing = store.get(fullKey);
+  if (!existing || now > existing.resetAt) {
+    if (store.size > 2000) {
+      const firstKey = store.keys().next().value;
+      if (firstKey) store.delete(firstKey);
+    }
+    store.set(fullKey, { count: 1, resetAt: now + safeWindow * 1000 });
+    return { allowed: true, current: 1, remaining: Math.max(0, maxRequests - 1), resetInSec: safeWindow, engine: "l1" };
   }
-  const nextCount = current.count + 1;
-  setL1(fullKey, { count: nextCount, resetAt: current.resetAt }, Math.max(1, Math.ceil((current.resetAt - now) / 1000)));
+
+  existing.count += 1;
   return {
-    allowed: nextCount <= maxRequests,
-    remaining: Math.max(0, maxRequests - nextCount),
+    allowed: existing.count <= maxRequests,
+    current: existing.count,
+    remaining: Math.max(0, maxRequests - existing.count),
+    resetInSec: Math.max(1, Math.ceil((existing.resetAt - now) / 1000)),
     engine: "l1",
   };
 }

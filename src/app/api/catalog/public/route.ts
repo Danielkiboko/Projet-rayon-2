@@ -73,7 +73,7 @@ export async function GET(req: NextRequest) {
     const scope = ["home", "mode", "connect", "saveurs", "immo"].includes(rawScope) ? rawScope : "home";
     const cacheKey = `catalog:public:v1:${scope}`;
 
-    const { data, cacheSource } = await cacheGetOrSet(cacheKey, 120, async () => {
+    const { data, cacheSource } = await cacheGetOrSet(cacheKey, 300, async () => {
       if (scope === "immo") {
         const snap = await adminDb
           .collection("properties")
@@ -121,7 +121,9 @@ export async function GET(req: NextRequest) {
       {
         status: 200,
         headers: {
-          "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+          "Cache-Control": "public, max-age=30, s-maxage=120, stale-while-revalidate=600, stale-if-error=86400",
+          "CDN-Cache-Control": "public, max-age=120, stale-while-revalidate=600, stale-if-error=86400",
+          "Cloudflare-CDN-Cache-Control": "public, max-age=120, stale-while-revalidate=600, stale-if-error=86400",
           "X-Rayons-Cache": cacheSource,
         },
       }

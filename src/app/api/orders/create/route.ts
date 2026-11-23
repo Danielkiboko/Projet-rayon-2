@@ -3,9 +3,14 @@ import { adminDb, adminAuth } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { getDeliveryFeeForCommune } from "@/lib/kinshasaDelivery";
 import { dispatchAccountNotification } from "@/lib/pushNotifications";
+import { enforceRateLimit } from "@/lib/rateLimit";
 
 export async function POST(req: NextRequest) {
   try {
+    // Protection anti-spam / rafale lors des pics à 3 000+ utilisateurs (15 commandes / minute / IP)
+    const rateLimited = await enforceRateLimit(req, "orders:create", 15, 60);
+    if (rateLimited) return rateLimited;
+
     const body = await req.json();
     const {
       items,

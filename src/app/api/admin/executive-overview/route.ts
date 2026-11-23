@@ -5,7 +5,7 @@ import { SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
 import { requireAnyStaffPermission } from "@/server/guards";
 import { creditReferralCommission } from "@/lib/referrals";
 import { dispatchAccountNotification } from "@/lib/pushNotifications";
-import { cacheDel } from "@/lib/cache";
+import { cacheGet, cacheSet, cacheDel } from "@/lib/cache";
 
 function resolveSupplierRayon(data: any): string {
   const candidates: string[] = [];
@@ -45,9 +45,8 @@ function isStaffOrAdminDoc(data: any): boolean {
   );
 }
 
-// Cache mémoire court (20s) pour rendre la navigation entre pages Admin quasi-instantanée
-let executiveOverviewCache: { data: any; expiresAt: number } | null = null;
-const OVERVIEW_CACHE_TTL_MS = 20_000;
+const OVERVIEW_CACHE_KEY = "admin:executive-overview:v1";
+const OVERVIEW_CACHE_TTL_SEC = 30;
 
 /**
  * GET /api/admin/executive-overview
@@ -60,8 +59,13 @@ export async function GET(req: NextRequest) {
     if (!guard.ok) return guard.errorResponse!;
 
     const forceFresh = req.nextUrl.searchParams.get("fresh") === "1";
-    if (!forceFresh && executiveOverviewCache && Date.now() < executiveOverviewCache.expiresAt) {
-      return NextResponse.json(executiveOverviewCache.data);
+    if (!forceFresh) {
+      const cached = await cacheGet<any>(OVERVIEW_CACHE_KEY);
+      if (cached.hit && cached.value) {
+        return NextResponse.json(cached.value, {
+          headers: { "X-Rayons-Cache": cached.source },
+        });
+      }
     }
 
     const [
@@ -381,12 +385,9 @@ export async function GET(req: NextRequest) {
       supplierSubscriptions,
     };
 
-    executiveOverviewCache = {
-      data: payload,
-      expiresAt: Date.now() + OVERVIEW_CACHE_TTL_MS,
-    };
+    await cacheSet(OVERVIEW_CACHE_KEY, payload, OVERVIEW_CACHE_TTL_SEC);
 
-    return NextResponse.json(payload);
+    return NextResponse.json(payload, { headers: { "X-Rayons-Cache": "db" } });
   } catch (error: any) {
     console.error("[EXECUTIVE OVERVIEW GET ERROR]:", error);
     return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
@@ -404,8 +405,8 @@ export async function POST(req: NextRequest) {
     if (!guard.ok || !guard.caller) return guard.errorResponse!;
     const caller = guard.caller;
 
-    // Invalider le cache lors d'une écriture financière
-    executiveOverviewCache = null;
+    // Invalider le cache distribué Redis + L1 lors d'une écriture financière
+    await cacheDel(OVERVIEW_CACHE_KEY);
 
     const body = await req.json();
     const {

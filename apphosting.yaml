@@ -1,11 +1,14 @@
 # Firebase App Hosting (Google Cloud Run + Global Cloud Load Balancer + Cloud CDN)
-# Déploie automatiquement le backend en multi-instances auto-scalables (Backend 1, 2, 3... jusqu'à 10)
+# Dimensionné pour 3 000 à 10 000+ utilisateurs simultanés en auto-scaling horizontal :
+# - minInstances: 1  -> zéro démarrage à froid (cold start)
+# - maxInstances: 20 -> jusqu'à 20 backends parallèles (Backend 1..20)
+# - concurrency: 100 -> 2 000 requêtes actives en parallèle (= 5 000–10 000 utilisateurs connectés)
 runConfig:
   minInstances: 1
-  maxInstances: 10
-  concurrency: 80
-  cpu: 1
-  memoryMiB: 1024
+  maxInstances: 20
+  concurrency: 100
+  cpu: 2
+  memoryMiB: 2048
 
 env:
   - variable: NEXT_PUBLIC_APP_URL
@@ -20,8 +23,8 @@ env:
       - BUILD
       - RUNTIME
 
-  # Cache distribué Redis (Upstash REST) partagé entre toutes les instances Backend 1..N
-  # À configurer via : firebase apphosting:secrets:set UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN
+  # Cache distribué Redis (Upstash REST) partagé entre toutes les instances Backend 1..20
+  # Commande : npx firebase-tools@latest apphosting:secrets:set UPSTASH_REDIS_REST_URL
   - variable: UPSTASH_REDIS_REST_URL
     secret: UPSTASH_REDIS_REST_URL
     availability:
@@ -36,4 +39,27 @@ env:
   - variable: CRON_SECRET
     secret: CRON_SECRET
     availability:
+      - RUNTIME
+
+  # Identifiants Firebase Admin SDK (optionnel si service account Cloud Run par défaut autorisé)
+  - variable: FIREBASE_CLIENT_EMAIL
+    secret: FIREBASE_CLIENT_EMAIL
+    availability:
+      - RUNTIME
+
+  - variable: FIREBASE_PRIVATE_KEY
+    secret: FIREBASE_PRIVATE_KEY
+    availability:
+      - RUNTIME
+
+  # Emails Super Admin
+  - variable: SUPER_ADMIN_EMAILS
+    value: danielkiboko218@gmail.com,admin@rayons.net
+    availability:
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_SUPER_ADMIN_EMAILS
+    value: danielkiboko218@gmail.com,admin@rayons.net
+    availability:
+      - BUILD
       - RUNTIME
