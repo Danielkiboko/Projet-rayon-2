@@ -324,109 +324,90 @@ export default function AdminPushCenterPage() {
   };
 
   return (
-    <div className="space-y-6">
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">
-            Centre de Notifications Push &amp; Téléchargements App
-          </h1>
-          <p className="text-sm text-gray-400 mt-0.5">
-            Suivez le nombre d&apos;appareils ayant installé l&apos;application et diffusez vos communiqués, promotions clients, offres partenaires et push personnalisés.
+    <div className="space-y-5 pb-16">
+      {/* Header Exécutif */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-xl font-bold text-white tracking-tight">
+              Push &amp; App Mobile
+            </h1>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-white/[0.06] text-gray-300 border border-white/10">
+              {telemetry.installedAppsCount} install(s)
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 mt-1 max-w-2xl">
+            Suivi des installations mobiles et diffusion de notifications push ciblées aux clients, fournisseurs et partenaires.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 shrink-0 overflow-x-auto">
           <button
             type="button"
             onClick={() => fetchPushCenterData()}
-            className="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 text-xs font-semibold flex items-center gap-2 transition-colors cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-gray-200 text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer"
           >
-            <RefreshCw size={14} className={isLoading ? "animate-spin" : ""} />
+            <RefreshCw size={13} className={isLoading ? "animate-spin" : ""} />
             <span>Actualiser</span>
           </button>
 
           <button
             type="button"
             onClick={handleSendSelfTestPush}
-            className="px-4 py-2 rounded-xl bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-extrabold flex items-center gap-2 transition-all shadow-md cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#C7D300] hover:bg-[#b8c400] text-[#0F1D27] text-xs font-bold transition-colors whitespace-nowrap cursor-pointer"
           >
-            <Bell size={14} />
-            <span>Tester un Push sur mon appareil</span>
+            <Bell size={13} />
+            <span>Tester un Push</span>
           </button>
         </div>
       </div>
 
-      {/* KPI Cards — Téléchargements & Audiences Push */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* 1. Applications Téléchargées / Installées */}
-        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 space-y-1">
-          <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
-            <span>Applications Téléchargées</span>
-            <div className="w-7 h-7 rounded-lg bg-white/[0.06] text-[#C7D300] flex items-center justify-center">
-              <Download size={14} />
-            </div>
+      {/* 4 Cartes KPI Exécutives */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Installations App</span>
+            <span className="p-1.5 rounded-lg bg-white/[0.05] text-[#C7D300]"><Download size={14} /></span>
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">
-            {telemetry.installedAppsCount}
-          </div>
-          <p className="text-[11px] text-gray-400">
-            Android : <strong className="text-gray-200">{telemetry.byPlatform.android}</strong> · iOS :{" "}
-            <strong className="text-gray-200">{telemetry.byPlatform.ios}</strong> · Web :{" "}
-            <strong className="text-gray-200">{telemetry.byPlatform.desktop}</strong>
+          <p className="text-2xl font-bold text-white tracking-tight tabular-nums">{telemetry.installedAppsCount}</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">
+            Android {telemetry.byPlatform.android} · iOS {telemetry.byPlatform.ios} · Web {telemetry.byPlatform.desktop}
           </p>
         </div>
 
-        {/* 2. Appareils Joignables par Push */}
-        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 space-y-1">
-          <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
-            <span>Appareils Push Actifs</span>
-            <div className="w-7 h-7 rounded-lg bg-white/[0.06] text-gray-200 flex items-center justify-center">
-              <Smartphone size={14} />
-            </div>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Appareils Push Actifs</span>
+            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400"><Smartphone size={14} /></span>
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">
-            {telemetry.pushEnabledDevicesCount}
-          </div>
-          <p className="text-[11px] text-gray-400">
-            Téléphones liés recevant les alertes même déconnectés
-          </p>
+          <p className="text-2xl font-bold text-emerald-400 tracking-tight tabular-nums">{telemetry.pushEnabledDevicesCount}</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">Joignables même hors ligne</p>
         </div>
 
-        {/* 3. Répartition des Comptes (Clients vs Pros) */}
-        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 space-y-1">
-          <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
-            <span>Audiences Enregistrées</span>
-            <div className="w-7 h-7 rounded-lg bg-white/[0.06] text-gray-200 flex items-center justify-center">
-              <UserCheck size={14} />
-            </div>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Audiences</span>
+            <span className="p-1.5 rounded-lg bg-white/[0.05] text-gray-300"><UserCheck size={14} /></span>
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">
+          <p className="text-2xl font-bold text-white tracking-tight tabular-nums">
             {telemetry.byAudience.clients +
               telemetry.byAudience.suppliers +
               telemetry.byAudience.partners +
               telemetry.byAudience.drivers}
-          </div>
-          <p className="text-[11px] text-gray-400">
-            {telemetry.byAudience.clients} Clients · {telemetry.byAudience.suppliers} Fournisseurs ·{" "}
-            {telemetry.byAudience.partners} Partenaires
+          </p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">
+            {telemetry.byAudience.clients} Clients · {telemetry.byAudience.suppliers} Boutiques · {telemetry.byAudience.partners} Partenaires
           </p>
         </div>
 
-        {/* 4. Campagnes Diffusées */}
-        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 space-y-1">
-          <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
-            <span>Campagnes Push Envoyées</span>
-            <div className="w-7 h-7 rounded-lg bg-white/[0.06] text-gray-200 flex items-center justify-center">
-              <Megaphone size={14} />
-            </div>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Campagnes Envoyées</span>
+            <span className="p-1.5 rounded-lg bg-white/[0.05] text-gray-300"><Megaphone size={14} /></span>
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">
-            {campaigns.length}
-          </div>
-          <p className="text-[11px] text-gray-400">
-            Communiqués, promotions clients et offres pro
+          <p className="text-2xl font-bold text-white tracking-tight tabular-nums">{campaigns.length}</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">
+            Communiqués, promos &amp; offres pro
           </p>
         </div>
       </div>

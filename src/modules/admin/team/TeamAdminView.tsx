@@ -652,37 +652,39 @@ export default function AdminTeamPage() {
   const opsCount = teamMembers.filter(m => m.role?.toUpperCase().includes("OPS")).length;
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-5 pb-16">
+      {/* Header Exécutif */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            <Users className="text-indigo-400" /> 
-            <span>Gestion du Team Rayons</span>
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Gérez les membres de votre Team interne (Finance, Logistique, Support, Catalogue). Ces membres appartiennent au Team de la plateforme : <strong>ils ne paient aucun abonnement et n&apos;apparaissent pas dans les fournisseurs</strong>.
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-xl font-bold text-white tracking-tight">Team Rayons</h1>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-white/[0.06] text-gray-300 border border-white/10">
+              {teamMembers.length} interne(s)
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 mt-1 max-w-2xl">
+            Gestion de l&apos;équipe interne (Finance, Logistique, Support, Catalogue) et des sous-agents délégués.
           </p>
         </div>
         {isSuper && (
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:brightness-110 text-white px-5 py-2.5 rounded-xl font-medium shadow-lg shadow-indigo-600/25 transition-all text-sm shrink-0"
+            className="inline-flex items-center gap-1.5 bg-[#C7D300] hover:bg-[#b8c400] text-[#0F1D27] px-3.5 py-2 rounded-lg font-bold transition-colors text-xs whitespace-nowrap cursor-pointer self-start sm:self-auto"
           >
-            <Plus size={18} />
+            <Plus size={14} />
             <span>Nouveau Collaborateur</span>
           </button>
         )}
       </div>
 
       {errorMessage && (
-        <div className="p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-300 flex items-center justify-between">
+        <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-300 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
-            <XCircle size={18} className="text-red-400 shrink-0" />
-            <span className="text-sm">{errorMessage}</span>
+            <XCircle size={15} className="text-rose-400 shrink-0" />
+            <span>{errorMessage}</span>
           </div>
-          <button onClick={() => setErrorMessage("")} className="text-red-400 hover:text-white">
-            <X size={16} />
+          <button onClick={() => setErrorMessage("")} className="text-rose-400 hover:text-white cursor-pointer">
+            <X size={15} />
           </button>
         </div>
       )}
@@ -696,96 +698,84 @@ export default function AdminTeamPage() {
         />
       ) : (
         <>
-          {/* KPI Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-gray-400 font-medium">Total Staff Interne</p>
-            <p className="text-2xl font-bold text-white mt-1">{teamMembers.length}</p>
+          {/* 4 Cartes KPI Exécutives */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">Staff Interne</span>
+            <span className="p-1.5 bg-white/[0.05] text-gray-300 rounded-lg"><Users size={14} /></span>
           </div>
-          <div className="p-3 bg-white/10 text-gray-300 rounded-xl">
-            <Users size={20} />
-          </div>
+          <p className="text-2xl font-bold text-white tabular-nums">{teamMembers.length}</p>
         </div>
 
-        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-emerald-300 font-medium">💼 Finance & Caisse</p>
-            <p className="text-2xl font-bold text-emerald-400 mt-1">{financeCount}</p>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">Finance &amp; Caisse</span>
+            <span className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg"><Wallet size={14} /></span>
           </div>
-          <div className="p-3 bg-emerald-500/20 text-emerald-300 rounded-xl">
-            <Wallet size={20} />
-          </div>
+          <p className="text-2xl font-bold text-white tabular-nums">{financeCount}</p>
         </div>
 
-        <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-cyan-300 font-medium">🗄️ Base de Données & Logs</p>
-            <p className="text-2xl font-bold text-cyan-400 mt-1">{dbCount}</p>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">Catalogue &amp; BDD</span>
+            <span className="p-1.5 bg-sky-500/10 text-sky-400 rounded-lg"><Database size={14} /></span>
           </div>
-          <div className="p-3 bg-cyan-500/20 text-cyan-300 rounded-xl">
-            <Database size={20} />
-          </div>
+          <p className="text-2xl font-bold text-white tabular-nums">{dbCount}</p>
         </div>
 
-        <div className="bg-purple-500/10 border border-purple-500/20 rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-purple-300 font-medium">📦 Modération & Opérations</p>
-            <p className="text-2xl font-bold text-purple-400 mt-1">{opsCount}</p>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">Opérations &amp; Support</span>
+            <span className="p-1.5 bg-purple-500/10 text-purple-400 rounded-lg"><ShieldCheck size={14} /></span>
           </div>
-          <div className="p-3 bg-purple-500/20 text-purple-300 rounded-xl">
-            <ShieldCheck size={20} />
-          </div>
+          <p className="text-2xl font-bold text-white tabular-nums">{opsCount}</p>
         </div>
       </div>
 
-      {/* Navigation Tabs between Internal Staff and Sub-Agents */}
-      <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+      {/* Navigation Tabs */}
+      <div className="flex items-center gap-1 p-1 bg-black/30 border border-white/[0.06] rounded-lg w-fit">
         <button
           onClick={() => setActiveTeamTab("internal")}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${
-            activeTeamTab === "internal"
-              ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
-              : "text-gray-400 hover:text-white bg-white/5"
+          className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+            activeTeamTab === "internal" ? "bg-white/15 text-white" : "text-gray-400 hover:text-white"
           }`}
         >
-          <Users size={16} />
+          <Users size={13} />
           <span>Team Rayons ({teamMembers.length})</span>
         </button>
         <button
           onClick={() => setActiveTeamTab("sub_agents")}
-          className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${
-            activeTeamTab === "sub_agents"
-              ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/25"
-              : "text-gray-400 hover:text-white bg-white/5"
+          className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+            activeTeamTab === "sub_agents" ? "bg-white/15 text-white" : "text-gray-400 hover:text-white"
           }`}
         >
-          <ShieldCheck size={16} />
-          <span>Sous-Agents Fournisseurs & Délégués ({subSuppliers.length})</span>
+          <ShieldCheck size={13} />
+          <span>Sous-Agents Fournisseurs ({subSuppliers.length})</span>
         </button>
       </div>
 
       {/* Main Staff Table */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden shadow-xl">
-        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+      <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
+        <div className="p-4 border-b border-white/[0.08] flex items-center justify-between">
           <div>
-            <h2 className="text-base font-bold text-white">
+            <h2 className="text-sm font-bold text-white">
               {activeTeamTab === "internal" ? "Team & Collaborateurs Internes" : "Sous-Agents & Délégués des Fournisseurs"}
             </h2>
-            <p className="text-xs text-gray-400 mt-0.5">
-              {activeTeamTab === "internal" 
-                ? "Membres ayant accès aux modules du panneau d'administration selon leurs fonctions assignées (cumulables)." 
-                : "Collaborateurs et agents créés par les fournisseurs pour gérer leurs opérations de boutique."}
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              {activeTeamTab === "internal"
+                ? "Membres ayant accès aux modules du panneau d'administration selon leurs fonctions assignées."
+                : "Collaborateurs créés par les fournisseurs pour gérer leurs opérations de boutique."}
             </p>
           </div>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-white/10 text-gray-300">
+          <span className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-white/[0.06] text-gray-300 whitespace-nowrap">
             {activeTeamTab === "internal" ? teamMembers.length : subSuppliers.length} membre{((activeTeamTab === "internal" ? teamMembers.length : subSuppliers.length) > 1) ? "s" : ""}
           </span>
         </div>
 
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-xs text-gray-300">
-            <thead className="text-[11px] uppercase bg-black/30 text-gray-400 tracking-wider">
+            <thead className="text-[10px] uppercase bg-white/[0.01] text-gray-500 tracking-wider border-b border-white/[0.08]">
               {activeTeamTab === "internal" ? (
                 <tr>
                   <th className="px-4 py-3 font-semibold">Collaborateur</th>

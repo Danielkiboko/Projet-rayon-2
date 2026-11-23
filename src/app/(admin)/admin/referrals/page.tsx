@@ -115,75 +115,66 @@ export default function AdminReferralsPage() {
   const commissions = data?.commissions || [];
 
   return (
-    <div className="space-y-6 pb-12">
-
+    <div className="space-y-5 pb-16">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
-              <Gift size={20} />
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-bold text-white tracking-tight">Parrainages &amp; Commissions</h1>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-white/[0.06] text-gray-300 border border-white/10">
+              $5 / réabonnement
             </span>
-            <h1 className="text-2xl font-black text-white tracking-tight">Programme Parrainage & Commissions</h1>
           </div>
           <p className="text-xs text-gray-400 mt-1">
-            Supervision centrale des codes promos, filleuls rattachés et reversement des commissions de 5 USD / réabonnement.
+            Supervision des codes promos, filleuls rattachés et reversement des commissions.
           </p>
         </div>
 
         <button
           onClick={fetchAdminReferrals}
-          className="px-4 py-2 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 border border-white/10 cursor-pointer self-start sm:self-auto"
+          className="inline-flex items-center gap-1.5 px-3 py-2 bg-white/[0.04] hover:bg-white/[0.08] text-gray-200 rounded-lg text-xs font-semibold transition-colors border border-white/10 whitespace-nowrap cursor-pointer self-start sm:self-auto"
         >
-          <RefreshCw size={14} />
+          <RefreshCw size={13} />
           <span>Actualiser</span>
         </button>
       </div>
 
-      {/* KPI METRICS */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-2xl bg-[#0F1D27] border border-white/10 shadow-sm">
-          <div className="flex items-center justify-between text-gray-400 text-xs mb-1">
-            <span>Commissions en attente</span>
-            <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
-              <Clock size={16} />
-            </span>
+      {/* 4 Cartes KPI Exécutives */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">À Verser</span>
+            <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400"><Clock size={14} /></span>
           </div>
-          <div className="text-2xl font-black text-amber-400">${stats.totalPending?.toFixed(2) || "0.00"}</div>
-          <span className="text-[10px] text-gray-400 mt-1 block">À verser aux parrains</span>
+          <p className="text-2xl font-bold text-amber-400 tabular-nums tracking-tight">${stats.totalPending?.toFixed(2) || "0.00"}</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">Commissions en attente</p>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#0F1D27] border border-white/10 shadow-sm">
-          <div className="flex items-center justify-between text-gray-400 text-xs mb-1">
-            <span>Commissions versées</span>
-            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-              <CheckCircle2 size={16} />
-            </span>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Versées</span>
+            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400"><CheckCircle2 size={14} /></span>
           </div>
-          <div className="text-2xl font-black text-emerald-400">${stats.totalPaid?.toFixed(2) || "0.00"}</div>
-          <span className="text-[10px] text-gray-400 mt-1 block">Déjà réglées par la caisse</span>
+          <p className="text-2xl font-bold text-emerald-400 tabular-nums tracking-tight">${stats.totalPaid?.toFixed(2) || "0.00"}</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">Déjà réglées par la caisse</p>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#0F1D27] border border-white/10 shadow-sm">
-          <div className="flex items-center justify-between text-gray-400 text-xs mb-1">
-            <span>Total commissions générées</span>
-            <span className="p-1.5 rounded-lg bg-[#C7D300]/10 text-[#C7D300]">
-              <TrendingUp size={16} />
-            </span>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Total Généré</span>
+            <span className="p-1.5 rounded-lg bg-white/[0.05] text-gray-300"><TrendingUp size={14} /></span>
           </div>
-          <div className="text-2xl font-black text-[#C7D300]">${stats.totalEarned?.toFixed(2) || "0.00"}</div>
-          <span className="text-[10px] text-gray-400 mt-1 block">{stats.totalCommissionsCount || 0} commissions au total</span>
+          <p className="text-2xl font-bold text-white tabular-nums tracking-tight">${stats.totalEarned?.toFixed(2) || "0.00"}</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">{stats.totalCommissionsCount || 0} commission(s) au total</p>
         </div>
 
-        <div className="p-4 rounded-2xl bg-[#0F1D27] border border-white/10 shadow-sm">
-          <div className="flex items-center justify-between text-gray-400 text-xs mb-1">
-            <span>Réseau Filleuls</span>
-            <span className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
-              <Users size={16} />
-            </span>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Réseau Filleuls</span>
+            <span className="p-1.5 rounded-lg bg-white/[0.05] text-gray-300"><Users size={14} /></span>
           </div>
-          <div className="text-2xl font-black text-white">{stats.totalFilleuls || 0}</div>
-          <span className="text-[10px] text-gray-400 mt-1 block">Commerçants parrainés actifs</span>
+          <p className="text-2xl font-bold text-white tabular-nums tracking-tight">{stats.totalFilleuls || 0}</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">Commerçants parrainés</p>
         </div>
       </div>
 
@@ -197,42 +188,42 @@ export default function AdminReferralsPage() {
       ) : (
         <>
       {/* TABLEAU DES PARRAINS & VERSEMENTS */}
-      <div className="bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-sm space-y-4 p-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
+        <div className="p-4 border-b border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="text-base font-bold text-white">Parrains & Soldes à reverser</h2>
-            <p className="text-xs text-gray-400">Liste des boutiques possédant un code promo et des filleuls rattachés.</p>
+            <h2 className="text-sm font-bold text-white">Parrains &amp; Soldes à Reverser</h2>
+            <p className="text-[11px] text-gray-400 mt-0.5">Boutiques possédant un code promo et des filleuls rattachés.</p>
           </div>
 
-          <div className="relative w-full sm:w-64">
-            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="relative w-full sm:w-56">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Rechercher par nom, code..."
-              className="w-full pl-9 pr-3.5 py-2 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-xs text-white placeholder-gray-500"
+              placeholder="Rechercher nom, code..."
+              className="w-full pl-8 pr-3 py-1.5 bg-white/[0.04] border border-white/10 rounded-lg focus:outline-none focus:border-white/25 text-[11px] text-white placeholder-gray-500"
             />
           </div>
         </div>
 
-        <div className="overflow-x-auto -mx-5 -mb-5">
+        <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-white/5 border-y border-white/10 text-gray-400 uppercase tracking-wider text-[10px]">
+            <thead className="bg-white/[0.01] border-b border-white/[0.08] text-gray-500 uppercase tracking-wider text-[10px]">
               <tr>
-                <th className="py-3 px-5">Fournisseur Parrain</th>
-                <th className="py-3 px-5">Code Promo</th>
-                <th className="py-3 px-5 text-center">Filleuls</th>
-                <th className="py-3 px-5">Total Gagné</th>
-                <th className="py-3 px-5">Déjà Versé</th>
-                <th className="py-3 px-5 font-bold text-amber-400">Solde Dû</th>
-                <th className="py-3 px-5 text-right">Action Versement</th>
+                <th className="py-3 px-4 whitespace-nowrap">Parrain</th>
+                <th className="py-3 px-4 whitespace-nowrap">Code</th>
+                <th className="py-3 px-4 text-center whitespace-nowrap">Filleuls</th>
+                <th className="py-3 px-4 whitespace-nowrap">Total Gagné</th>
+                <th className="py-3 px-4 whitespace-nowrap">Versé</th>
+                <th className="py-3 px-4 whitespace-nowrap">Solde Dû</th>
+                <th className="py-3 px-4 text-right whitespace-nowrap">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5 text-gray-200">
+            <tbody className="divide-y divide-white/[0.05] text-gray-200">
               {referrers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-gray-500">
+                  <td colSpan={7} className="py-10 text-center text-gray-500">
                     Aucun parrain trouvé.
                   </td>
                 </tr>
@@ -243,41 +234,39 @@ export default function AdminReferralsPage() {
 
                   return (
                     <tr key={r.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="py-3.5 px-5">
-                        <div className="font-bold text-white">{r.name}</div>
-                        <div className="text-[11px] text-gray-400">{r.email || r.phone || "---"}</div>
+                      <td className="py-3 px-4">
+                        <div className="font-semibold text-white">{r.name}</div>
+                        <div className="text-[11px] text-gray-500">{r.email || r.phone || "—"}</div>
                       </td>
-                      <td className="py-3.5 px-5">
-                        <span className="font-mono text-[11px] font-bold px-2.5 py-1 rounded-md bg-white/5 text-[#C7D300] border border-white/10">
-                          {r.code || "---"}
+                      <td className="py-3 px-4">
+                        <span className="font-mono text-[11px] font-semibold px-2 py-0.5 rounded bg-white/[0.05] text-[#C7D300] border border-white/10">
+                          {r.code || "—"}
                         </span>
                       </td>
-                      <td className="py-3.5 px-5 text-center">
-                        <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-bold text-[11px]">
-                          {r.referralCount || 0}
-                        </span>
+                      <td className="py-3 px-4 text-center tabular-nums font-semibold text-gray-300">
+                        {r.referralCount || 0}
                       </td>
-                      <td className="py-3.5 px-5 font-semibold text-gray-300">
+                      <td className="py-3 px-4 font-semibold text-gray-300 tabular-nums">
                         ${(r.referralTotalEarned || 0).toFixed(2)}
                       </td>
-                      <td className="py-3.5 px-5 font-semibold text-emerald-400">
+                      <td className="py-3 px-4 font-semibold text-emerald-400 tabular-nums">
                         ${(r.referralPaidTotal || 0).toFixed(2)}
                       </td>
-                      <td className="py-3.5 px-5 font-black text-amber-400 text-sm">
+                      <td className="py-3 px-4 font-bold text-amber-400 tabular-nums">
                         ${(r.referralBalance || 0).toFixed(2)}
                       </td>
-                      <td className="py-3.5 px-5 text-right">
+                      <td className="py-3 px-4 text-right">
                         {hasPending ? (
                           <button
                             onClick={() => handlePayout(r)}
                             disabled={isProcessing}
-                            className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold rounded-xl text-xs transition-all shadow-md flex items-center gap-1.5 ml-auto cursor-pointer disabled:opacity-50"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#C7D300]/15 hover:bg-[#C7D300]/25 text-[#C7D300] border border-[#C7D300]/30 font-semibold rounded-lg text-[11px] transition-colors ml-auto whitespace-nowrap cursor-pointer disabled:opacity-50"
                           >
-                            <Wallet size={13} />
+                            <Wallet size={12} />
                             <span>{isProcessing ? "Versement..." : `Verser $${r.referralBalance.toFixed(2)}`}</span>
                           </button>
                         ) : (
-                          <span className="text-[11px] text-gray-500 italic">À jour</span>
+                          <span className="text-[11px] text-gray-500">À jour</span>
                         )}
                       </td>
                     </tr>
@@ -290,25 +279,25 @@ export default function AdminReferralsPage() {
       </div>
 
       {/* DERNIÈRES COMMISSIONS ENREGISTRÉES */}
-      <div className="bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-sm p-5 space-y-4">
-        <div>
-          <h2 className="text-base font-bold text-white">Dernières Commissions Générées</h2>
-          <p className="text-xs text-gray-400">Journal en temps réel des attributions de commissions de 5 USD.</p>
+      <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
+        <div className="p-4 border-b border-white/[0.08]">
+          <h2 className="text-sm font-bold text-white">Dernières Commissions Générées</h2>
+          <p className="text-[11px] text-gray-400 mt-0.5">Journal des attributions de commissions de $5 USD.</p>
         </div>
 
-        <div className="overflow-x-auto -mx-5 -mb-5">
+        <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-white/5 border-y border-white/10 text-gray-400 uppercase tracking-wider text-[10px]">
+            <thead className="bg-white/[0.01] border-b border-white/[0.08] text-gray-500 uppercase tracking-wider text-[10px]">
               <tr>
-                <th className="py-3 px-5">Date</th>
-                <th className="py-3 px-5">Parrain Bénéficiaire</th>
-                <th className="py-3 px-5">Filleul Payeur</th>
-                <th className="py-3 px-5">Réf Paiement</th>
-                <th className="py-3 px-5">Montant</th>
-                <th className="py-3 px-5 text-right">Statut</th>
+                <th className="py-3 px-4 whitespace-nowrap">Date</th>
+                <th className="py-3 px-4 whitespace-nowrap">Parrain</th>
+                <th className="py-3 px-4 whitespace-nowrap">Filleul</th>
+                <th className="py-3 px-4 whitespace-nowrap">Réf Paiement</th>
+                <th className="py-3 px-4 whitespace-nowrap">Montant</th>
+                <th className="py-3 px-4 text-right whitespace-nowrap">Statut</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/5 text-gray-200">
+            <tbody className="divide-y divide-white/[0.05] text-gray-200">
               {commissions.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-gray-500">

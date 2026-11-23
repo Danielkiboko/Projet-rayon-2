@@ -194,69 +194,72 @@ export default function AdminMyOrdersPage() {
   ).length;
 
   return (
-    <div className="space-y-6">
-      {/* En-tête */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">Mes Ventes & Commandes</h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#C7D300]/15 text-[#C7D300] border border-[#C7D300]/30">
-              Ma Boutique Personnelle
+    <div className="space-y-5 pb-16">
+      {/* En-tête Exécutif */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl font-bold text-white tracking-tight">Mes Ventes &amp; Commandes</h1>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-white/[0.06] text-gray-300 border border-white/10 whitespace-nowrap">
+              Boutique Officielle
             </span>
           </div>
-          <p className="text-sm text-gray-400 mt-1 max-w-2xl">
-            Commandes passées par les clients sur vos propres articles mis en vente. Vous ne voyez ici que <strong>vos propres ventes</strong> (les autres fournisseurs conservent la stricte confidentialité de leurs commandes).
+          <p className="text-xs text-gray-400 mt-1 max-w-2xl">
+            Commandes passées sur vos propres articles. Les ventes des fournisseurs tiers restent strictement privées dans leur espace.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0 overflow-x-auto">
           <Link
             href="/admin/products"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all border border-white/10"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white/[0.04] hover:bg-white/[0.08] text-gray-200 rounded-lg text-xs font-semibold transition-colors border border-white/10 whitespace-nowrap"
           >
-            <Package size={15} />
-            <span>Gérer mes Articles</span>
+            <Package size={13} />
+            <span>Mes Articles</span>
           </Link>
           <Link
             href="/admin/clients"
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] rounded-xl text-xs font-bold transition-all shadow-md"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#C7D300] hover:bg-[#b8c400] text-[#0F1D27] rounded-lg text-xs font-bold transition-colors whitespace-nowrap"
           >
-            <UserCheck size={15} />
-            <span>Répertoire Clients</span>
+            <UserCheck size={13} />
+            <span>Clients</span>
           </Link>
         </div>
       </div>
 
-      {/* Cartes KPI Mes Ventes */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-3">
-        <div className="col-span-2 sm:col-span-1 bg-[#0F1A23] border border-white/[0.08] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center justify-between">
-          <div>
-            <p className="text-[10px] sm:text-[11px] text-gray-400 uppercase font-semibold">Chiffre d'affaires encaissé</p>
-            <p className="text-xl sm:text-2xl font-bold text-white mt-0.5">{totalRevenue.toLocaleString()} $</p>
+      {/* 3 Cartes KPI Exécutives */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-white/[0.03] border border-white/[0.08] p-4 rounded-xl flex flex-col justify-between gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">CA Encaissé</span>
+            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+              <DollarSign size={14} />
+            </span>
           </div>
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0">
-            <DollarSign size={17} />
-          </div>
+          <p className="text-2xl font-bold text-white tabular-nums tracking-tight">${totalRevenue.toLocaleString()}</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">Ventes boutique officielle</p>
         </div>
 
-        <div className="bg-[#0F1A23] border border-white/[0.08] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center justify-between">
-          <div>
-            <p className="text-[10px] sm:text-[11px] text-gray-400 uppercase font-semibold">À Traiter / En Cours</p>
-            <p className="text-xl sm:text-2xl font-bold text-orange-400 mt-0.5">{pendingCount}</p>
+        <div className="bg-white/[0.03] border border-white/[0.08] p-4 rounded-xl flex flex-col justify-between gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">À Traiter</span>
+            <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
+              <Clock size={14} />
+            </span>
           </div>
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20 flex items-center justify-center shrink-0">
-            <Clock size={17} />
-          </div>
+          <p className={`text-2xl font-bold tabular-nums tracking-tight ${pendingCount > 0 ? "text-amber-400" : "text-white"}`}>{pendingCount}</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">En préparation ou livraison</p>
         </div>
 
-        <div className="bg-[#0F1A23] border border-white/[0.08] p-3.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center justify-between">
-          <div>
-            <p className="text-[10px] sm:text-[11px] text-gray-400 uppercase font-semibold">Commandes Livrées</p>
-            <p className="text-xl sm:text-2xl font-bold text-[#C7D300] mt-0.5">{deliveredCount}</p>
+        <div className="bg-white/[0.03] border border-white/[0.08] p-4 rounded-xl flex flex-col justify-between gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">Commandes Livrées</span>
+            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+              <CheckCircle size={14} />
+            </span>
           </div>
-          <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#C7D300]/10 text-[#C7D300] border border-[#C7D300]/20 flex items-center justify-center shrink-0">
-            <CheckCircle size={17} />
-          </div>
+          <p className="text-2xl font-bold text-emerald-400 tabular-nums tracking-tight">{deliveredCount}</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">Sur {orders.length} commande(s) au total</p>
         </div>
       </div>
 
@@ -269,63 +272,54 @@ export default function AdminMyOrdersPage() {
         />
       ) : (
       /* Table des commandes */
-      <div className="bg-[#0F1A23] border border-white/[0.08] rounded-2xl overflow-hidden shadow-lg">
+      <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
         {/* Recherche et filtres */}
-        <div className="p-3 sm:p-4 border-b border-white/[0.06] flex flex-col sm:flex-row justify-between gap-2.5 sm:gap-3 bg-white/[0.01]">
-          <div className="relative max-w-sm w-full">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
+        <div className="p-3.5 sm:p-4 border-b border-white/[0.08] flex flex-col sm:flex-row justify-between gap-3 sm:items-center">
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={13} />
             <input
               type="text"
-              placeholder="Rechercher par ID ou nom du client..."
+              placeholder="Rechercher ID ou client..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-black/30 border border-white/[0.08] rounded-xl focus:outline-none focus:border-[#C7D300] text-white text-xs placeholder:text-gray-500 transition-all"
+              className="w-full pl-8 pr-3 py-1.5 bg-white/[0.04] border border-white/10 rounded-lg focus:outline-none focus:border-white/25 text-white text-[11px] placeholder:text-gray-500"
             />
           </div>
 
-          <div className="flex items-center gap-1.5 p-1 bg-black/30 border border-white/[0.06] rounded-xl text-xs overflow-x-auto scrollbar-none whitespace-nowrap">
-            <button
-              onClick={() => setFilter("all")}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                filter === "all" ? "bg-white text-gray-900 font-bold" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              Toutes ({orders.length})
-            </button>
-            <button
-              onClick={() => setFilter("pending")}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                filter === "pending" ? "bg-orange-500 text-white font-bold" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              À Traiter
-            </button>
-            <button
-              onClick={() => setFilter("delivered")}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                filter === "delivered" ? "bg-emerald-600 text-white font-bold" : "text-gray-400 hover:text-white"
-              }`}
-            >
-              Livrées ({deliveredCount})
-            </button>
+          <div className="flex items-center gap-1 p-1 bg-black/30 border border-white/[0.06] rounded-lg text-[11px] overflow-x-auto whitespace-nowrap">
+            {[
+              { id: "all", label: `Toutes (${orders.length})` },
+              { id: "pending", label: `À traiter (${pendingCount})` },
+              { id: "delivered", label: `Livrées (${deliveredCount})` },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setFilter(tab.id as any)}
+                className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                  filter === tab.id ? "bg-white/15 text-white" : "text-gray-400 hover:text-white"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Desktop Tableau (Hidden on mobile < md) */}
+        {/* Desktop Tableau */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-sm text-gray-300">
-            <thead className="text-[11px] uppercase bg-black/20 text-gray-400 font-semibold border-b border-white/[0.06]">
+          <table className="w-full min-w-[720px] text-left text-xs text-gray-300">
+            <thead className="text-[10px] uppercase bg-white/[0.01] text-gray-500 font-semibold border-b border-white/[0.08] tracking-wider">
               <tr>
-                <th className="px-6 py-4">Commande</th>
-                <th className="px-6 py-4">Client</th>
-                <th className="px-6 py-4">Articles Vendus</th>
-                <th className="px-6 py-4">Total</th>
-                <th className="px-6 py-4">Statut</th>
-                <th className="px-6 py-4">Action</th>
-                <th className="px-6 py-4 text-right">Facture</th>
+                <th className="px-4 py-3 whitespace-nowrap">Commande</th>
+                <th className="px-4 py-3 whitespace-nowrap">Client</th>
+                <th className="px-4 py-3 whitespace-nowrap">Articles</th>
+                <th className="px-4 py-3 whitespace-nowrap">Total</th>
+                <th className="px-4 py-3 whitespace-nowrap">Statut</th>
+                <th className="px-4 py-3 whitespace-nowrap">Action</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap">Facture</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.04]">
+            <tbody className="divide-y divide-white/[0.05]">
               {loading ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-gray-400">

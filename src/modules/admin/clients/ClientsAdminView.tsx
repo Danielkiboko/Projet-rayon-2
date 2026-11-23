@@ -416,105 +416,113 @@ export default function ClientsPage() {
   const suspendedCount = clients.filter((c) => c.isSuspended).length;
 
   return (
-    <div className="space-y-5">
-      {/* En-tête */}
+    <div className="space-y-5 pb-16">
+      {/* En-tête Exécutif */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">CRM &amp; Gestion Clientèle</h1>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl font-bold text-white tracking-tight">Clients &amp; CRM</h1>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-white/[0.06] text-gray-300 border border-white/10 whitespace-nowrap">
               Fiche 360°
             </span>
           </div>
-          <p className="text-xs sm:text-sm text-gray-400 mt-0.5 max-w-2xl">
-            Suivi des clients Rayons.net : historique d&apos;achats, segmentation VIP, notes internes, notifications directes et export CRM.
+          <p className="text-xs text-gray-400 mt-1 max-w-2xl">
+            Suivi des clients Rayons.net : historique d&apos;achats, segmentation VIP, notes internes et export CRM.
           </p>
         </div>
 
         {/* Boutons d'actions Admin */}
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0 overflow-x-auto">
           <button
             onClick={exportClientsCSV}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-bold transition-all border border-white/10 shadow-sm cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white/[0.04] hover:bg-white/[0.08] text-gray-200 rounded-lg text-xs font-semibold transition-colors border border-white/10 whitespace-nowrap cursor-pointer"
             title="Télécharger la liste sous format Excel/CSV"
           >
-            <Download size={14} />
+            <Download size={13} />
             <span>Exporter CSV</span>
           </button>
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#C7D300] hover:bg-[#b8c400] text-[#0F1D27] rounded-lg text-xs font-bold transition-colors whitespace-nowrap cursor-pointer"
           >
-            <Plus size={15} />
-            <span>Enregistrer un Client</span>
+            <Plus size={14} />
+            <span>Nouveau Client</span>
           </button>
         </div>
       </div>
 
-      {/* Cartes statistiques CRM */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* 4 Cartes KPI Exécutives */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
         <button
           onClick={() => { setFilterType("ALL"); setSortBy("NEWEST"); }}
-          className={`bg-[#0F1A23] border p-3.5 rounded-2xl flex items-center justify-between transition-all text-left cursor-pointer ${
-            filterType === "ALL" ? "border-blue-500/50 shadow-md shadow-blue-950/20" : "border-white/[0.08] hover:border-white/20"
+          className={`bg-white/[0.03] border p-4 rounded-xl flex flex-col justify-between gap-2.5 transition-colors text-left cursor-pointer ${
+            filterType === "ALL" ? "border-white/25 bg-white/[0.05]" : "border-white/[0.08] hover:border-white/15"
           }`}
         >
-          <div>
-            <p className="text-[10px] text-gray-400 uppercase font-semibold">Total Clients</p>
-            <p className="text-xl sm:text-2xl font-bold text-white tabular-nums mt-0.5">{clients.length}</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">{recentCount} nouveau(x) (7j)</p>
+          <div className="flex items-center justify-between w-full">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">Total Clients</span>
+            <span className="p-1.5 rounded-lg bg-white/[0.05] text-gray-300">
+              <UsersIcon size={14} />
+            </span>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center justify-center shrink-0">
-            <UsersIcon size={16} />
+          <p className="text-2xl font-bold text-white tabular-nums tracking-tight">{clients.length}</p>
+          <div className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06] w-full">
+            {recentCount} nouveau(x) sur 7 jours
           </div>
         </button>
 
         <button
           onClick={() => { setFilterType("BUYERS"); setSortBy("SPENT"); }}
-          className={`bg-[#0F1A23] border p-3.5 rounded-2xl flex items-center justify-between transition-all text-left cursor-pointer ${
-            filterType === "BUYERS" ? "border-[#C7D300]/50 shadow-md shadow-[#C7D300]/10" : "border-white/[0.08] hover:border-white/20"
+          className={`bg-white/[0.03] border p-4 rounded-xl flex flex-col justify-between gap-2.5 transition-colors text-left cursor-pointer ${
+            filterType === "BUYERS" ? "border-white/25 bg-white/[0.05]" : "border-white/[0.08] hover:border-white/15"
           }`}
         >
-          <div>
-            <p className="text-[10px] text-gray-400 uppercase font-semibold">Acheteurs Actifs</p>
-            <p className="text-xl sm:text-2xl font-bold text-[#C7D300] tabular-nums mt-0.5">{buyersCount}</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">Ont déjà commandé</p>
+          <div className="flex items-center justify-between w-full">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">Acheteurs Actifs</span>
+            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+              <ShoppingBag size={14} />
+            </span>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-[#C7D300]/10 text-[#C7D300] border border-[#C7D300]/20 flex items-center justify-center shrink-0">
-            <ShoppingBag size={16} />
+          <p className="text-2xl font-bold text-white tabular-nums tracking-tight">{buyersCount}</p>
+          <div className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06] w-full">
+            Clients ayant déjà commandé
           </div>
         </button>
 
         <button
           onClick={() => { setFilterType("VIP"); setSortBy("SPENT"); }}
-          className={`bg-[#0F1A23] border p-3.5 rounded-2xl flex items-center justify-between transition-all text-left cursor-pointer ${
-            filterType === "VIP" ? "border-amber-500/50 shadow-md" : "border-white/[0.08] hover:border-white/20"
+          className={`bg-white/[0.03] border p-4 rounded-xl flex flex-col justify-between gap-2.5 transition-colors text-left cursor-pointer ${
+            filterType === "VIP" ? "border-white/25 bg-white/[0.05]" : "border-white/[0.08] hover:border-white/15"
           }`}
         >
-          <div>
-            <p className="text-[10px] text-gray-400 uppercase font-semibold">Clients VIP</p>
-            <p className="text-xl sm:text-2xl font-bold text-amber-400 tabular-nums mt-0.5">{vipCount}</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">Tag VIP ou ≥ $100</p>
+          <div className="flex items-center justify-between w-full">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">Clients VIP</span>
+            <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
+              <Star size={14} />
+            </span>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center justify-center shrink-0">
-            <Star size={16} />
+          <p className="text-2xl font-bold text-white tabular-nums tracking-tight">{vipCount}</p>
+          <div className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06] w-full">
+            Tag VIP ou achats ≥ $100
           </div>
         </button>
 
         <button
           onClick={() => setFilterType("ONLINE")}
-          className={`bg-[#0F1A23] border p-3.5 rounded-2xl flex items-center justify-between transition-all text-left cursor-pointer ${
-            filterType === "ONLINE" ? "border-emerald-500/50 shadow-md" : "border-white/[0.08] hover:border-white/20"
+          className={`bg-white/[0.03] border p-4 rounded-xl flex flex-col justify-between gap-2.5 transition-colors text-left cursor-pointer ${
+            filterType === "ONLINE" ? "border-white/25 bg-white/[0.05]" : "border-white/[0.08] hover:border-white/15"
           }`}
         >
-          <div>
-            <p className="text-[10px] text-gray-400 uppercase font-semibold">En Ligne</p>
-            <p className="text-xl sm:text-2xl font-bold text-emerald-400 tabular-nums mt-0.5">{activeClientsCount}</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">{suspendedCount} suspendu(s)</p>
+          <div className="flex items-center justify-between w-full">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">En Ligne</span>
+            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+              <UserCheck size={14} />
+            </span>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0">
-            <UserCheck size={16} />
+          <p className="text-2xl font-bold text-emerald-400 tabular-nums tracking-tight">{activeClientsCount}</p>
+          <div className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06] w-full">
+            {suspendedCount} compte(s) suspendu(s)
           </div>
         </button>
       </div>
@@ -528,95 +536,67 @@ export default function ClientsPage() {
         />
       ) : (
       /* Barre de recherche, filtres et tri */
-      <div className="bg-[#0F1A23] border border-white/[0.08] rounded-2xl overflow-hidden shadow-lg">
-        <div className="p-4 border-b border-white/[0.06] flex flex-col md:flex-row gap-3 justify-between items-center bg-white/[0.01]">
-          <div className="relative w-full md:max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+      <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
+        <div className="p-3.5 sm:p-4 border-b border-white/[0.08] flex flex-col lg:flex-row gap-3 justify-between lg:items-center">
+          <div className="relative w-full lg:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={13} />
             <input
               type="text"
-              placeholder="Rechercher par nom, email, téléphone..."
+              placeholder="Rechercher nom, email, tél..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-black/30 border border-white/[0.08] rounded-xl focus:outline-none focus:border-blue-500 text-white text-xs placeholder:text-gray-500 transition-all"
+              className="w-full pl-8 pr-3 py-1.5 bg-white/[0.04] border border-white/10 rounded-lg focus:outline-none focus:border-white/25 text-white text-[11px] placeholder:text-gray-500 transition-colors"
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
-            {/* Tri */}
-            <div className="flex items-center gap-1.5 text-xs text-gray-400">
-              <span className="hidden sm:inline">Trier par :</span>
-              <select
-                value={sortBy}
-                onChange={(e: any) => setSortBy(e.target.value)}
-                className="bg-black/30 border border-white/[0.08] text-white text-xs rounded-xl px-2.5 py-1.5 focus:outline-none"
-              >
-                <option value="NEWEST">Plus récents d&apos;abord</option>
-                <option value="SPENT">Meilleurs acheteurs ($)</option>
-                <option value="ONLINE">Présence (En ligne)</option>
-                <option value="NAME">Nom (A-Z)</option>
-              </select>
-            </div>
+          <div className="flex flex-wrap items-center gap-2 justify-end">
+            <select
+              value={sortBy}
+              onChange={(e: any) => setSortBy(e.target.value)}
+              className="bg-white/[0.04] border border-white/10 text-gray-200 text-[11px] rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-white/25"
+            >
+              <option value="NEWEST" className="bg-[#0F1D27]">Plus récents</option>
+              <option value="SPENT" className="bg-[#0F1D27]">Meilleurs acheteurs ($)</option>
+              <option value="ONLINE" className="bg-[#0F1D27]">En ligne</option>
+              <option value="NAME" className="bg-[#0F1D27]">Nom (A-Z)</option>
+            </select>
 
-            {/* Filtres tabs */}
-            <div className="flex flex-wrap items-center gap-1 p-1 bg-black/30 border border-white/[0.06] rounded-xl text-xs">
-              <button
-                onClick={() => setFilterType("ALL")}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                  filterType === "ALL" ? "bg-white text-gray-900 font-bold" : "text-gray-400 hover:text-white"
-                }`}
-              >
-                Tous ({clients.length})
-              </button>
-              <button
-                onClick={() => setFilterType("BUYERS")}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                  filterType === "BUYERS" ? "bg-[#C7D300] text-[#0F1D27] font-bold" : "text-gray-400 hover:text-white"
-                }`}
-              >
-                Acheteurs ({buyersCount})
-              </button>
-              <button
-                onClick={() => setFilterType("VIP")}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                  filterType === "VIP" ? "bg-amber-500 text-[#0F1D27] font-bold" : "text-gray-400 hover:text-white"
-                }`}
-              >
-                VIP ({vipCount})
-              </button>
-              <button
-                onClick={() => setFilterType("NEW")}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                  filterType === "NEW" ? "bg-sky-500 text-white font-bold" : "text-gray-400 hover:text-white"
-                }`}
-              >
-                Nouveaux ({recentCount})
-              </button>
-              <button
-                onClick={() => setFilterType("SUSPENDED")}
-                className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                  filterType === "SUSPENDED" ? "bg-red-600 text-white font-bold" : "text-gray-400 hover:text-white"
-                }`}
-              >
-                Suspendus ({suspendedCount})
-              </button>
+            <div className="flex items-center gap-1 p-1 bg-black/30 border border-white/[0.06] rounded-lg text-[11px] overflow-x-auto">
+              {[
+                { id: "ALL", label: `Tous (${clients.length})` },
+                { id: "BUYERS", label: `Acheteurs (${buyersCount})` },
+                { id: "VIP", label: `VIP (${vipCount})` },
+                { id: "NEW", label: `Nouveaux (${recentCount})` },
+                { id: "SUSPENDED", label: `Suspendus (${suspendedCount})` },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setFilterType(tab.id as any)}
+                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+                    filterType === tab.id ? "bg-white/15 text-white" : "text-gray-400 hover:text-white"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
           </div>
         </div>
 
         {/* ── Desktop Table (hidden on mobile) ── */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm text-gray-300">
-            <thead className="text-[11px] uppercase bg-black/20 text-gray-400 font-semibold border-b border-white/[0.06]">
+          <table className="w-full min-w-[760px] text-left text-xs text-gray-300">
+            <thead className="text-[10px] uppercase bg-white/[0.01] text-gray-500 font-semibold border-b border-white/[0.08] tracking-wider">
               <tr>
-                <th className="px-4 py-3.5">Client &amp; Tags CRM</th>
-                <th className="px-4 py-3.5">Téléphone</th>
-                <th className="px-4 py-3.5">Email</th>
-                <th className="px-4 py-3.5">Achats</th>
-                <th className="px-4 py-3.5">Statut</th>
-                <th className="px-4 py-3.5 text-right">Actions rapides</th>
+                <th className="px-4 py-3 whitespace-nowrap">Client &amp; Tags CRM</th>
+                <th className="px-4 py-3 whitespace-nowrap">Téléphone</th>
+                <th className="px-4 py-3 whitespace-nowrap">Email</th>
+                <th className="px-4 py-3 whitespace-nowrap">Achats</th>
+                <th className="px-4 py-3 whitespace-nowrap">Statut</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.04]">
+            <tbody className="divide-y divide-white/[0.05]">
               {isLoading ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-gray-400">

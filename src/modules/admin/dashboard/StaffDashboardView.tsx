@@ -975,35 +975,32 @@ export default function StaffDashboardView() {
   };
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto font-sans pb-6">
-      {/* ── EN-TÊTE PROFESSIONNEL ── */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pb-3.5 border-b border-white/[0.08]">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap mb-1">
-            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#C7D300]/15 text-[#C7D300] border border-[#C7D300]/25 uppercase tracking-wider">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#C7D300] animate-pulse" />
+    <div className="space-y-5 max-w-7xl mx-auto font-sans pb-16">
+      {/* ── EN-TÊTE EXÉCUTIF ── */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-xl font-bold text-white tracking-tight">
+              {currentHeader.title}
+            </h1>
+            <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 uppercase tracking-wider whitespace-nowrap">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               {currentHeader.badge}
             </span>
-            <span className="text-xs text-gray-500 font-medium">
-              Bonjour, {userData?.displayName || userData?.name || "Collaborateur"}
-            </span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-            {currentHeader.title}
-          </h1>
-          <p className="text-gray-400 text-xs mt-0.5 max-w-2xl">
-            {currentHeader.desc}
+          <p className="text-gray-400 text-xs mt-1 max-w-2xl">
+            Bonjour, <strong className="text-gray-200">{userData?.displayName || userData?.name || user?.displayName || user?.email?.split("@")[0] || "Direction"}</strong> — {currentHeader.desc}
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 overflow-x-auto">
           <button
             type="button"
             onClick={() => loadDashboard(rangeDays, true)}
             disabled={refreshing}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 font-semibold text-xs transition-all cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-gray-200 font-semibold text-xs transition-colors whitespace-nowrap cursor-pointer disabled:opacity-50"
           >
-            <RefreshCw size={14} className={refreshing ? "animate-spin text-[#C7D300]" : "text-[#C7D300]"} />
+            <RefreshCw size={13} className={refreshing ? "animate-spin text-[#C7D300]" : "text-gray-300"} />
             <span>{refreshing ? "Actualisation..." : "Actualiser"}</span>
           </button>
 
@@ -1012,27 +1009,27 @@ export default function StaffDashboardView() {
               <button
                 type="button"
                 onClick={() => setIsBroadcastOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-white font-bold text-xs transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-gray-200 font-semibold text-xs transition-colors whitespace-nowrap cursor-pointer"
               >
-                <Send size={14} className="text-[#C7D300]" />
+                <Send size={13} className="text-[#C7D300]" />
                 <span>Écrire aux Fournisseurs</span>
               </button>
               <Link
                 href="/admin/suppliers"
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold text-xs shadow-md shadow-[#C7D300]/15 transition-all"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#C7D300] hover:bg-[#b8c400] text-[#0F1D27] font-bold text-xs transition-colors whitespace-nowrap"
               >
-                <Store size={14} />
-                <span>Gérer les Boutiques</span>
+                <Store size={13} />
+                <span>Boutiques</span>
               </Link>
             </>
           )}
         </div>
       </div>
 
-      {/* ── BARRE DE FILTRES : SÉLECTEUR DE PÔLE + SÉLECTEUR DE PÉRIODE (7j / 30j / 90j) ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* ── BARRE DE FILTRES : SÉLECTEUR DE PÔLE + PÉRIODE ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-3">
         {availablePoles.length > 1 ? (
-          <div className="flex items-center gap-1.5 bg-[#0F1A23] border border-white/[0.08] p-1.5 rounded-xl overflow-x-auto scrollbar-none w-full sm:w-fit max-w-full">
+          <div className="flex items-center gap-1 bg-black/30 border border-white/[0.06] p-1 rounded-lg overflow-x-auto scrollbar-none w-full sm:w-fit max-w-full">
             {availablePoles.map((pole) => {
               const PoleIcon = pole.icon;
               const isSelected = activePole === pole.id;
@@ -1041,13 +1038,13 @@ export default function StaffDashboardView() {
                   key={pole.id}
                   type="button"
                   onClick={() => setActivePole(pole.id)}
-                  className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-2 cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors shrink-0 flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
                     isSelected
-                      ? "bg-[#C7D300] text-[#0F1D27] shadow-md"
-                      : "text-gray-400 hover:text-white hover:bg-white/5"
+                      ? "bg-white/15 text-white"
+                      : "text-gray-400 hover:text-white"
                   }`}
                 >
-                  <PoleIcon size={14} />
+                  <PoleIcon size={13} />
                   <span>{pole.label}</span>
                 </button>
               );
@@ -1057,9 +1054,8 @@ export default function StaffDashboardView() {
           <div />
         )}
 
-        {/* Sélecteur de période 7j / 30j / 90j */}
-        <div className="flex items-center gap-1 bg-[#0F1A23] border border-white/[0.08] p-1 rounded-xl w-fit shrink-0 self-end sm:self-auto">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500 px-2.5 hidden sm:inline">
+        <div className="flex items-center gap-1 bg-black/30 border border-white/[0.06] p-1 rounded-lg w-fit shrink-0 self-end sm:self-auto">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 px-2 hidden sm:inline">
             Période
           </span>
           {([7, 30, 90] as RangeDays[]).map((d) => {
@@ -1069,53 +1065,51 @@ export default function StaffDashboardView() {
                 key={d}
                 type="button"
                 onClick={() => setRangeDays(d)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors whitespace-nowrap cursor-pointer ${
                   active
-                    ? "bg-white text-[#0F1D27] shadow-sm"
-                    : "text-gray-400 hover:text-white hover:bg-white/5"
+                    ? "bg-white/15 text-white"
+                    : "text-gray-400 hover:text-white"
                 }`}
               >
-                {d} jours
+                {d}j
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* ── RANGÉE 1 : 4 CARTES KPI AVEC TENDANCES % ── */}
-      <div className={`grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5 transition-opacity ${refreshing ? "opacity-75" : "opacity-100"}`}>
+      {/* ── RANGÉE 1 : 4 CARTES KPI EXÉCUTIVES ── */}
+      <div className={`grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 transition-opacity ${refreshing ? "opacity-75" : "opacity-100"}`}>
         {kpis.map((kpi, idx) => {
           const Icon = kpi.icon;
           const cardContent = (
             <motion.div
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.05, duration: 0.25 }}
-              className={`bg-gradient-to-b from-[#131E27] to-[#0D151D] border rounded-xl sm:rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between min-h-[118px] sm:h-34 transition-all duration-200 shadow-md relative overflow-hidden group ${
-                kpi.href ? "cursor-pointer hover:border-white/25 hover:scale-[1.01]" : ""
-              } ${kpi.alert ? "border-amber-500/35" : "border-white/[0.08]"}`}
+              transition={{ delay: idx * 0.04, duration: 0.2 }}
+              className={`bg-white/[0.03] border rounded-xl p-4 flex flex-col justify-between gap-2.5 transition-colors relative overflow-hidden group ${
+                kpi.href ? "cursor-pointer hover:border-white/20 hover:bg-white/[0.05]" : ""
+              } ${kpi.alert ? "border-amber-500/30" : "border-white/[0.08]"}`}
             >
-              <div className="absolute top-0 right-0 w-24 h-24 bg-[#C7D300]/[0.04] rounded-full blur-2xl -mr-8 -mt-8 group-hover:bg-[#C7D300]/[0.09] transition-colors pointer-events-none" />
-
-              <div className="flex justify-between items-start relative z-10 gap-1.5">
-                <h3 className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-gray-400 line-clamp-1">
+              <div className="flex justify-between items-center relative z-10 gap-1.5">
+                <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 line-clamp-1">
                   {kpi.title}
                 </h3>
                 <div
-                  className={`p-1.5 rounded-lg border shrink-0 transition-colors ${
+                  className={`p-1.5 rounded-lg shrink-0 transition-colors ${
                     kpi.alert
-                      ? "bg-amber-500/10 border-amber-500/25 text-amber-400"
-                      : "bg-white/5 border-white/5 text-gray-300 group-hover:text-[#C7D300] group-hover:border-[#C7D300]/25"
+                      ? "bg-amber-500/10 text-amber-400"
+                      : "bg-white/[0.05] text-gray-300 group-hover:text-white"
                   }`}
                 >
                   <Icon size={14} />
                 </div>
               </div>
 
-              <div className="relative z-10 my-1">
+              <div className="relative z-10">
                 <div className="flex items-center gap-2 flex-wrap">
                   <div
-                    className={`text-lg sm:text-xl lg:text-2xl font-bold tracking-tight tabular-nums truncate ${
+                    className={`text-2xl font-bold tracking-tight tabular-nums truncate ${
                       kpi.alert ? "text-amber-400" : "text-white"
                     }`}
                   >

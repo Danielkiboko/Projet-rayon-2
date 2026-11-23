@@ -94,118 +94,107 @@ export default function AdminTicketsPage() {
   const unreadCount = tickets.filter((t) => t.unreadByAdmin).length;
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Page Header */}
-      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${selectedTicketId ? "hidden lg:flex" : "flex"}`}>
+    <div className="space-y-5">
+      {/* Page Header Exécutif */}
+      <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${selectedTicketId ? "hidden lg:flex" : "flex"}`}>
         <div>
-          <div className="flex items-center gap-2">
-            <span className="p-2 bg-[#C7D300]/15 text-[#C7D300] rounded-xl border border-[#C7D300]/30">
-              <LifeBuoy size={20} />
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-bold text-white tracking-tight">Support &amp; Tickets</h1>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-white/[0.06] text-gray-300 border border-white/10">
+              {openCount} ouvert(s)
             </span>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Support &amp; Assistance Tickets</h1>
           </div>
-          <p className="text-sm text-slate-400 mt-1">
-            Gérez toutes les demandes et réclamations des clients et des fournisseurs en temps réel.
+          <p className="text-xs text-gray-400 mt-1">
+            Suivi en temps réel des demandes et réclamations des clients et fournisseurs.
           </p>
         </div>
       </div>
 
-      {/* Metrics Row */}
-      <div className={`grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 ${selectedTicketId ? "hidden lg:grid" : "grid"}`}>
-        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-gray-400 font-medium">Total Tickets</p>
-            <p className="text-2xl font-bold text-white mt-0.5">{totalCount}</p>
+      {/* 4 Cartes KPI Exécutives */}
+      <div className={`grid grid-cols-2 lg:grid-cols-4 gap-3 ${selectedTicketId ? "hidden lg:grid" : "grid"}`}>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">Total</span>
+            <span className="p-1.5 bg-white/[0.05] rounded-lg text-gray-300"><Inbox size={14} /></span>
           </div>
-          <div className="p-3 bg-white/5 rounded-xl text-gray-400">
-            <Inbox size={20} />
-          </div>
+          <p className="text-2xl font-bold text-white tabular-nums">{totalCount}</p>
         </div>
 
-        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-blue-400 font-medium">Ouverts (Nouveaux)</p>
-            <p className="text-2xl font-bold text-blue-400 mt-0.5">{openCount}</p>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">Ouverts</span>
+            <span className="p-1.5 bg-sky-500/10 text-sky-400 rounded-lg"><Clock size={14} /></span>
           </div>
-          <div className="p-3 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
-            <Clock size={20} />
-          </div>
+          <p className="text-2xl font-bold text-sky-400 tabular-nums">{openCount}</p>
         </div>
 
-        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-amber-400 font-medium">En cours de traitement</p>
-            <p className="text-2xl font-bold text-amber-400 mt-0.5">{inProgressCount}</p>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">En cours</span>
+            <span className="p-1.5 bg-amber-500/10 text-amber-400 rounded-lg"><AlertCircle size={14} /></span>
           </div>
-          <div className="p-3 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
-            <AlertCircle size={20} />
-          </div>
+          <p className="text-2xl font-bold text-amber-400 tabular-nums">{inProgressCount}</p>
         </div>
 
-        <div className="bg-[#0F1D27] border border-white/10 rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-[#C7D300] font-medium">Résolus / Clôturés</p>
-            <p className="text-2xl font-bold text-[#C7D300] mt-0.5">{resolvedCount}</p>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">Résolus</span>
+            <span className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg"><CheckCircle2 size={14} /></span>
           </div>
-          <div className="p-3 bg-[#C7D300]/10 text-[#C7D300] rounded-xl border border-[#C7D300]/20">
-            <CheckCircle2 size={20} />
-          </div>
+          <p className="text-2xl font-bold text-emerald-400 tabular-nums">{resolvedCount}</p>
         </div>
       </div>
 
       {/* Desk View: Filters + Two-Pane Container */}
-      <div className={`bg-[#0F1D27] border border-white/10 rounded-2xl overflow-hidden shadow-2xl flex flex-col ${selectedTicketId ? "h-[calc(100dvh-130px)] lg:h-[750px]" : "h-[calc(100dvh-260px)] min-h-[480px] lg:h-[750px]"}`}>
+      <div className={`bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden flex flex-col ${selectedTicketId ? "h-[calc(100dvh-130px)] lg:h-[750px]" : "h-[calc(100dvh-260px)] min-h-[480px] lg:h-[750px]"}`}>
         {/* Filters Bar */}
-        <div className={`p-3 sm:p-4 border-b border-white/10 bg-black/30 flex flex-wrap items-center justify-between gap-3 ${selectedTicketId ? "hidden lg:flex" : "flex"}`}>
-          <div className="relative flex-1 min-w-[220px] max-w-md">
-            <Search size={16} className="absolute left-3.5 top-3 text-gray-400" />
+        <div className={`p-3 sm:p-4 border-b border-white/[0.08] bg-white/[0.01] flex flex-wrap items-center justify-between gap-3 ${selectedTicketId ? "hidden lg:flex" : "flex"}`}>
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
               type="text"
-              placeholder="Rechercher par #ticket, sujet, nom, email..."
+              placeholder="Rechercher #ticket, sujet, nom..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-[11px] text-white placeholder-gray-500 focus:outline-none focus:border-white/25"
             />
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* Status Filter */}
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
+              className="bg-white/[0.04] border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-gray-200 focus:outline-none focus:border-white/25"
             >
-              <option value="all">Tous les statuts</option>
-              <option value="open">Ouverts uniquement</option>
-              <option value="in_progress">En cours</option>
-              <option value="closed">Clôturés / Archivés</option>
+              <option value="all" className="bg-[#0F1D27]">Tous les statuts</option>
+              <option value="open" className="bg-[#0F1D27]">Ouverts</option>
+              <option value="in_progress" className="bg-[#0F1D27]">En cours</option>
+              <option value="closed" className="bg-[#0F1D27]">Clôturés</option>
             </select>
 
-            {/* Role Filter */}
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
+              className="bg-white/[0.04] border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-gray-200 focus:outline-none focus:border-white/25"
             >
-              <option value="all">Tous les demandeurs</option>
-              <option value="client">Clients</option>
-              <option value="supplier">Fournisseurs</option>
+              <option value="all" className="bg-[#0F1D27]">Tous les demandeurs</option>
+              <option value="client" className="bg-[#0F1D27]">Clients</option>
+              <option value="supplier" className="bg-[#0F1D27]">Fournisseurs</option>
             </select>
 
-            {/* Category Filter */}
             <select
               value={categoryFilter}
               onChange={(e) => setCategoryFilter(e.target.value)}
-              className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
+              className="bg-white/[0.04] border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-gray-200 focus:outline-none focus:border-white/25"
             >
-              <option value="all">Toutes catégories</option>
-              <option value="order">Commandes</option>
-              <option value="delivery">Livraison</option>
-              <option value="payment">Paiement</option>
-              <option value="product">Produits</option>
-              <option value="property">Immobilier</option>
-              <option value="technical">Technique</option>
-              <option value="account">Compte</option>
+              <option value="all" className="bg-[#0F1D27]">Toutes catégories</option>
+              <option value="order" className="bg-[#0F1D27]">Commandes</option>
+              <option value="delivery" className="bg-[#0F1D27]">Livraison</option>
+              <option value="payment" className="bg-[#0F1D27]">Paiement</option>
+              <option value="product" className="bg-[#0F1D27]">Produits</option>
+              <option value="property" className="bg-[#0F1D27]">Immobilier</option>
+              <option value="technical" className="bg-[#0F1D27]">Technique</option>
+              <option value="account" className="bg-[#0F1D27]">Compte</option>
             </select>
           </div>
         </div>

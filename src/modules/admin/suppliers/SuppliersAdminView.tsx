@@ -797,32 +797,30 @@ export default function SuppliersPage() {
   const [isBroadcastOpen, setIsBroadcastOpen] = useState(false);
 
   return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-5 pb-16">
+      {/* Top Header Exécutif */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <span>Fournisseurs & Prestataires</span>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-white/10 text-gray-300">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <h1 className="text-xl font-bold text-white tracking-tight">Fournisseurs &amp; Boutiques</h1>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-white/[0.06] text-gray-300 border border-white/10">
               {suppliers.length} total
             </span>
-          </h1>
-          <p className="text-sm text-gray-400">
+          </div>
+          <p className="text-xs text-gray-400 mt-1">
             Gestion compartimentée des fournisseurs par rayon (Immobilier, Mode, Connect, Saveurs).
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          {/* Bouton Écrire à tous */}
+        <div className="flex items-center gap-2 shrink-0 overflow-x-auto">
           <button
             onClick={() => setIsBroadcastOpen(true)}
-            className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/15 border border-white/20 text-white px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-1.5 bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-gray-200 px-3 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer"
           >
-            <span>📢</span>
             <span>Écrire à tous</span>
           </button>
           <button
             onClick={() => handleOpenCreateModal()}
-            className="inline-flex items-center gap-1.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap shadow-sm shadow-[#C7D300]/15 transition-all active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-1.5 bg-[#C7D300] hover:bg-[#b8c400] text-[#0F1D27] px-3.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-colors cursor-pointer"
           >
             <Plus size={14} />
             <span>

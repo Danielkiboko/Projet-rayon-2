@@ -63,24 +63,64 @@ export default function DriversPage() {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-5 pb-16">
+      {/* Header Exécutif */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-white">Livreurs</h1>
-          <p className="text-sm text-gray-400">Gérez les comptes de tous les livreurs de la plateforme.</p>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-bold text-white tracking-tight">Livreurs &amp; Flotte</h1>
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-white/[0.06] text-gray-300 border border-white/10">
+              {drivers.length} compte(s)
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">
+            Supervision des livreurs indépendants Rayons et des livreurs rattachés aux boutiques.
+          </p>
         </div>
         <button
           onClick={() => {
             setIsModalOpen(true);
             setSuccessMessage("");
           }}
-          className="flex items-center space-x-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold px-4 py-2 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+          className="inline-flex items-center gap-1.5 bg-[#C7D300] hover:bg-[#b8c400] text-[#0F1D27] font-bold px-3.5 py-2 rounded-lg text-xs transition-colors whitespace-nowrap cursor-pointer self-start sm:self-auto"
         >
-          <Plus size={18} />
-          <span>Nouveau Livreur Indépendant</span>
+          <Plus size={14} />
+          <span>Nouveau Livreur</span>
         </button>
       </div>
-      
+
+      {/* 3 Cartes KPI Exécutives */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Total Flotte</span>
+            <span className="p-1.5 rounded-lg bg-white/[0.05] text-gray-300"><Truck size={14} /></span>
+          </div>
+          <p className="text-2xl font-bold text-white tabular-nums">{drivers.length}</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">Livreurs enregistrés</p>
+        </div>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Actifs</span>
+            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400"><Check size={14} /></span>
+          </div>
+          <p className="text-2xl font-bold text-emerald-400 tabular-nums">
+            {drivers.filter((d) => d.status === "Actif").length}
+          </p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">Prêts pour les courses</p>
+        </div>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Indépendants Rayons</span>
+            <span className="p-1.5 rounded-lg bg-white/[0.05] text-gray-300"><Smartphone size={14} /></span>
+          </div>
+          <p className="text-2xl font-bold text-white tabular-nums">
+            {drivers.filter((d) => d.supplierId === "superAdmin" || d.supplierId === "admin").length}
+          </p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">Flotte centrale plateforme</p>
+        </div>
+      </div>
+
       {successMessage ? (
         <ValidationSuccessView
           title="C'est fait !"
@@ -90,124 +130,144 @@ export default function DriversPage() {
         />
       ) : (
         <>
-      {/* APK Distribution Card */}
-      <div className="bg-gradient-to-r from-[#C7D300]/10 via-white/5 to-[#C7D300]/10 border border-[#C7D300]/30 rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div className="flex items-center space-x-3.5">
-          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-[#C7D300]/15 border border-[#C7D300]/30 flex items-center justify-center text-[#C7D300] shrink-0">
-            <Smartphone size={22} />
+      {/* Bandeau APK sobre */}
+      <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-3.5 sm:p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-lg bg-[#C7D300]/10 border border-[#C7D300]/20 flex items-center justify-center text-[#C7D300] shrink-0">
+            <Smartphone size={18} />
           </div>
-          <div>
-            <div className="flex items-center space-x-2">
-              <h2 className="text-sm sm:text-base font-bold text-white">Application Mobile Livreur Android (.APK)</h2>
-              <span className="px-2 py-0.5 text-[9px] sm:text-[10px] font-bold uppercase tracking-wider bg-[#C7D300]/15 text-[#C7D300] rounded-full border border-[#C7D300]/30">Officielle</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xs font-bold text-white">Application Mobile Livreur Android (.APK)</h2>
+              <span className="px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-300 rounded border border-emerald-500/20">
+                Officielle
+              </span>
             </div>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Envoyée automatiquement par e-mail et SMS à chaque création de livreur. Vous pouvez aussi la télécharger ou copier le lien ici.
+            <p className="text-[11px] text-gray-400 mt-0.5 truncate">
+              Envoyée par e-mail/SMS à chaque création de livreur · Lien permanent de téléchargement.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2 w-full md:w-auto">
+        <div className="flex items-center gap-2 shrink-0 w-full md:w-auto">
           <button
             onClick={() => {
               navigator.clipboard.writeText(getPermanentDriverApkUrl());
               setCopiedAppUrl(true);
               setTimeout(() => setCopiedAppUrl(false), 2500);
             }}
-            className="flex-1 md:flex-initial flex items-center justify-center space-x-2 px-3 py-2 bg-white/10 hover:bg-white/15 text-white rounded-xl text-xs font-semibold border border-white/10 transition-colors cursor-pointer"
+            className="flex-1 md:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white/[0.04] hover:bg-white/[0.08] text-gray-200 rounded-lg text-xs font-semibold border border-white/10 transition-colors whitespace-nowrap cursor-pointer"
           >
-            {copiedAppUrl ? <Check size={14} className="text-[#C7D300]" /> : <Copy size={14} />}
-            <span>{copiedAppUrl ? "Lien copié !" : "Copier le lien APK"}</span>
+            {copiedAppUrl ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+            <span>{copiedAppUrl ? "Lien copié" : "Copier lien APK"}</span>
           </button>
 
           <a
             href={PERMANENT_DRIVER_APK_PATH}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex-1 md:flex-initial flex items-center justify-center space-x-2 px-3.5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] rounded-xl text-xs font-bold shadow-md shadow-[#C7D300]/20 transition-all cursor-pointer"
+            className="flex-1 md:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#C7D300] hover:bg-[#b8c400] text-[#0F1D27] rounded-lg text-xs font-bold transition-colors whitespace-nowrap cursor-pointer"
           >
-            <Download size={14} />
+            <Download size={13} />
             <span>Télécharger APK</span>
           </a>
         </div>
       </div>
 
-      <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-white/10">
-          <div className="relative max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+      <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
+        <div className="p-3.5 sm:p-4 border-b border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-white">Répertoire des Livreurs</h2>
+            <p className="text-[11px] text-gray-400 mt-0.5">{filteredDrivers.length} livreur(s) affiché(s)</p>
+          </div>
+          <div className="relative w-full sm:w-64">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={13} />
             <input
               type="text"
               placeholder="Rechercher un livreur..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-black/20 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#C7D300] text-white text-xs sm:text-sm transition-all"
+              className="w-full pl-8 pr-3 py-1.5 bg-white/[0.04] border border-white/10 rounded-lg focus:outline-none focus:border-white/25 text-white text-[11px] placeholder:text-gray-500"
             />
           </div>
         </div>
 
-        {/* Desktop Table (Hidden on mobile < md) */}
+        {/* Desktop Table */}
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-300">
-            <thead className="text-xs uppercase bg-black/20 text-gray-400">
+          <table className="w-full text-left text-xs text-gray-300">
+            <thead className="text-[10px] uppercase bg-white/[0.01] text-gray-500 font-semibold border-b border-white/[0.08] tracking-wider">
               <tr>
-                <th className="px-6 py-4">Nom du livreur</th>
-                <th className="px-6 py-4">Email</th>
-                <th className="px-6 py-4">Affiliation</th>
-                <th className="px-6 py-4">Statut</th>
-                <th className="px-6 py-4 text-right">Actions</th>
+                <th className="px-4 py-3 whitespace-nowrap">Livreur</th>
+                <th className="px-4 py-3 whitespace-nowrap">Email</th>
+                <th className="px-4 py-3 whitespace-nowrap">Affiliation</th>
+                <th className="px-4 py-3 whitespace-nowrap">Statut</th>
+                <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-white/[0.05]">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
+                  <td colSpan={5} className="px-4 py-10 text-center text-gray-500">
                     Chargement des livreurs...
                   </td>
                 </tr>
               ) : filteredDrivers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-gray-400">
+                  <td colSpan={5} className="px-4 py-10 text-center text-gray-500">
                     Aucun livreur trouvé.
                   </td>
                 </tr>
               ) : (
-                filteredDrivers.map((driver) => (
-                  <tr key={driver.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <td className="px-6 py-4 font-medium text-white flex items-center space-x-3">
-                      <div className="w-8 h-8 rounded-lg bg-[#C7D300]/15 flex items-center justify-center text-[#C7D300]">
-                        <Truck size={16} />
-                      </div>
-                      <span>{driver.name}</span>
-                    </td>
-                    <td className="px-6 py-4">{driver.email}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${driver.supplierId === 'superAdmin' || driver.supplierId === 'admin' ? 'bg-purple-500/20 text-purple-300' : 'bg-blue-500/20 text-blue-300'}`}>
-                        {driver.supplierId === 'superAdmin' || driver.supplierId === 'admin' ? 'Indépendant (Rayons)' : 'Fournisseur exclusif'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={driver.status === "Actif" ? "text-green-400" : "text-red-400"}>
-                        {driver.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right space-x-4">
-                      <button 
-                        onClick={() => {
-                          const firstName = driver.name.split(' ')[0];
-                          const shareText = `Bonjour ${firstName} !\n\nVotre compte livreur Rayons a été créé.\n\n📲 Téléchargez votre application mobile Android officielle ici :\n${getPermanentDriverApkUrl()}\n\nIdentifiant : ${driver.email}`;
-                          window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
-                        }}
-                        className="text-green-400 hover:text-green-300 transition-colors inline-flex items-center cursor-pointer"
-                        title="Envoyer l'application par WhatsApp"
-                      >
-                        <Smartphone size={16} className="mr-1" />
-                        <span>Envoyer App</span>
-                      </button>
-                      <button className="text-primary-light hover:text-white transition-colors cursor-pointer">Gérer</button>
-                    </td>
-                  </tr>
-                ))
+                filteredDrivers.map((driver) => {
+                  const isIndep = driver.supplierId === "superAdmin" || driver.supplierId === "admin";
+                  return (
+                    <tr key={driver.id} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="px-4 py-3 font-semibold text-white">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-white/[0.06] flex items-center justify-center text-[#C7D300] shrink-0">
+                            <Truck size={14} />
+                          </div>
+                          <span className="truncate max-w-[180px]">{driver.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-400">{driver.email}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-semibold border whitespace-nowrap ${
+                          isIndep
+                            ? "bg-purple-500/10 text-purple-300 border-purple-500/20"
+                            : "bg-sky-500/10 text-sky-300 border-sky-500/20"
+                        }`}>
+                          {isIndep ? "Indépendant Rayons" : "Boutique"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-semibold border whitespace-nowrap ${
+                          driver.status === "Actif"
+                            ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20"
+                            : "bg-rose-500/10 text-rose-300 border-rose-500/20"
+                        }`}>
+                          {driver.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            onClick={() => {
+                              const firstName = driver.name.split(" ")[0];
+                              const shareText = `Bonjour ${firstName} !\n\nVotre compte livreur Rayons a été créé.\n\n📲 Téléchargez votre application mobile Android officielle ici :\n${getPermanentDriverApkUrl()}\n\nIdentifiant : ${driver.email}`;
+                              window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, "_blank");
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 text-[11px] font-semibold transition-colors whitespace-nowrap cursor-pointer"
+                            title="Envoyer l'application par WhatsApp"
+                          >
+                            <Smartphone size={12} />
+                            <span>Envoyer App</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

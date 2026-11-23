@@ -243,86 +243,77 @@ export default function AdminPartnersPage() {
   });
 
   return (
-    <div className="space-y-6">
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-2xl font-extrabold text-white tracking-tight">
-              Partenaires & Apporteurs d'Affaires
+    <div className="space-y-5 pb-16">
+      {/* Header Exécutif */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl font-bold text-white tracking-tight">
+              Partenaires &amp; Affiliation
             </h1>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#C7D300]/20 text-[#C7D300] border border-[#C7D300]/30">
-              Réseau d'Affiliation
+            <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-white/[0.06] text-gray-300 border border-white/10 whitespace-nowrap">
+              Apporteurs d&apos;Affaires
             </span>
           </div>
-          <p className="text-sm text-gray-400 mt-1 max-w-3xl">
-            Suivi des partenaires agréés, de leurs codes d'affiliation, et de l'ensemble des boutiques fournisseurs qu'ils ont enregistrées dans la base centrale.
+          <p className="text-xs text-gray-400 mt-1 max-w-2xl">
+            Suivi des partenaires agréés, de leurs codes d&apos;affiliation et des boutiques fournisseurs recrutées.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={() => setIsCreatePartnerOpen(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] transition-all shadow-md shadow-[#C7D300]/20 active:scale-95 cursor-pointer"
-          >
-            <Briefcase size={15} />
-            <span>+ Créer un Partenaire</span>
-          </button>
+        <div className="flex items-center gap-2 shrink-0 overflow-x-auto">
           <Link
             href="/admin/clients"
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-white transition-all border border-white/10 active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-white/[0.04] hover:bg-white/[0.08] text-gray-200 transition-colors border border-white/10 whitespace-nowrap"
           >
-            <UserPlus size={15} />
+            <UserPlus size={13} />
             <span>Nommer via Clients</span>
           </Link>
+          <button
+            onClick={() => setIsCreatePartnerOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-[#C7D300] hover:bg-[#b8c400] text-[#0F1D27] transition-colors whitespace-nowrap cursor-pointer"
+          >
+            <Briefcase size={13} />
+            <span>Nouveau Partenaire</span>
+          </button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 space-y-1">
-          <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
-            <span>Partenaires Agréés</span>
-            <div className="w-7 h-7 rounded-lg bg-[#C7D300]/10 text-[#C7D300] flex items-center justify-center">
-              <Briefcase size={14} />
-            </div>
+      {/* 4 Cartes KPI Exécutives */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Partenaires Agréés</span>
+            <span className="p-1.5 rounded-lg bg-white/[0.05] text-gray-300"><Briefcase size={14} /></span>
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">{totalPartners}</div>
-          <p className="text-[11px] text-gray-400">Comptes apporteurs d&apos;affaires</p>
+          <p className="text-2xl font-bold text-white tracking-tight tabular-nums">{totalPartners}</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">Comptes apporteurs actifs</p>
         </div>
 
-        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 space-y-1">
-          <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
-            <span>Boutiques Recrutées</span>
-            <div className="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center">
-              <Building2 size={14} />
-            </div>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Boutiques Recrutées</span>
+            <span className="p-1.5 rounded-lg bg-white/[0.05] text-gray-300"><Building2 size={14} /></span>
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">{totalRecruitedSuppliers}</div>
-          <p className="text-[11px] text-gray-400">Fournisseurs créés par les partenaires</p>
+          <p className="text-2xl font-bold text-white tracking-tight tabular-nums">{totalRecruitedSuppliers}</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">Fournisseurs affiliés</p>
         </div>
 
-        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 space-y-1">
-          <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
-            <span>Commissions Cumulées</span>
-            <div className="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
-              <TrendingUp size={14} />
-            </div>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Commissions Cumulées</span>
+            <span className="p-1.5 rounded-lg bg-white/[0.05] text-gray-300"><TrendingUp size={14} /></span>
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums">${totalEarnedCommissions.toFixed(2)}</div>
-          <p className="text-[11px] text-gray-400">Total généré à 5$ / réabonnement</p>
+          <p className="text-2xl font-bold text-white tracking-tight tabular-nums">${totalEarnedCommissions.toFixed(2)}</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">À $5 par réabonnement</p>
         </div>
 
-        <div className="bg-[#0F1D27]/80 border border-white/[0.08] rounded-2xl p-4 space-y-1">
-          <div className="flex items-center justify-between text-gray-400 text-[11px] font-medium">
-            <span>Commissions en Attente</span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-              <Coins size={14} />
-            </div>
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Soldes à Verser</span>
+            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400"><Coins size={14} /></span>
           </div>
-          <div className="text-xl sm:text-2xl font-bold text-emerald-400 tracking-tight tabular-nums">${totalPendingCommissions.toFixed(2)}</div>
-          <p className="text-[11px] text-gray-400">Soldes prêts pour virement Mobile Money</p>
+          <p className="text-2xl font-bold text-emerald-400 tracking-tight tabular-nums">${totalPendingCommissions.toFixed(2)}</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">Prêts pour virement Mobile Money</p>
         </div>
       </div>
 
@@ -335,45 +326,41 @@ export default function AdminPartnersPage() {
         />
       ) : (
         <>
-      {/* Tabs & Dropdown Filters */}
+      {/* Tabs & Filters */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-white/[0.08] pb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 p-1 bg-black/30 border border-white/[0.06] rounded-lg w-fit">
           <button
             onClick={() => setActiveTab("partners")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === "partners"
-                ? "bg-white/15 text-white border border-white/20"
-                : "text-gray-400 hover:text-white hover:bg-white/5"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === "partners" ? "bg-white/15 text-white" : "text-gray-400 hover:text-white"
             }`}
           >
-            <Briefcase size={14} />
+            <Briefcase size={13} />
             <span>Partenaires ({partners.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab("suppliers")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === "suppliers"
-                ? "bg-white/15 text-white border border-white/20"
-                : "text-gray-400 hover:text-white hover:bg-white/5"
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer ${
+              activeTab === "suppliers" ? "bg-white/15 text-white" : "text-gray-400 hover:text-white"
             }`}
           >
-            <Store size={14} />
-            <span>Fournisseurs par Partenaire ({allPartnerSuppliers.length})</span>
+            <Store size={13} />
+            <span>Fournisseurs ({allPartnerSuppliers.length})</span>
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           {activeTab === "suppliers" && (
             <>
               <select
                 value={partnerFilterId}
                 onChange={(e) => setPartnerFilterId(e.target.value)}
-                className="px-3 py-2 bg-[#142430] border border-white/10 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-white/30 cursor-pointer"
+                className="px-2.5 py-1.5 bg-white/[0.04] border border-white/10 rounded-lg text-[11px] text-gray-200 focus:outline-none focus:border-white/25 cursor-pointer"
               >
-                <option value="all">Tous les partenaires ({partners.length})</option>
+                <option value="all" className="bg-[#0F1D27]">Tous les partenaires ({partners.length})</option>
                 {partners.map((p) => (
-                  <option key={p.id} value={p.id}>
+                  <option key={p.id} value={p.id} className="bg-[#0F1D27]">
                     {p.name} ({p.partnerCode}) — {p.suppliersCount}
                   </option>
                 ))}
@@ -382,25 +369,25 @@ export default function AdminPartnersPage() {
               <select
                 value={rayonFilter}
                 onChange={(e) => setRayonFilter(e.target.value)}
-                className="px-3 py-2 bg-[#142430] border border-white/10 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-white/30 cursor-pointer"
+                className="px-2.5 py-1.5 bg-white/[0.04] border border-white/10 rounded-lg text-[11px] text-gray-200 focus:outline-none focus:border-white/25 cursor-pointer"
               >
-                <option value="all">Tous les rayons</option>
-                <option value="immo">Immobilier &amp; Hôtels</option>
-                <option value="mode">Mode &amp; Vêtements</option>
-                <option value="connect">Matériel &amp; Connect</option>
-                <option value="saveur">Saveurs &amp; Restauration</option>
+                <option value="all" className="bg-[#0F1D27]">Tous les rayons</option>
+                <option value="immo" className="bg-[#0F1D27]">Immobilier &amp; Hôtels</option>
+                <option value="mode" className="bg-[#0F1D27]">Mode &amp; Vêtements</option>
+                <option value="connect" className="bg-[#0F1D27]">Connect</option>
+                <option value="saveur" className="bg-[#0F1D27]">Saveurs</option>
               </select>
             </>
           )}
 
-          <div className="relative w-full sm:w-64">
-            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="relative w-full sm:w-56">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
               type="text"
-              placeholder={activeTab === "partners" ? "Rechercher un partenaire..." : "Rechercher un fournisseur..."}
+              placeholder={activeTab === "partners" ? "Rechercher partenaire..." : "Rechercher fournisseur..."}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3.5 py-2 bg-[#142430] border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-white/30"
+              className="w-full pl-8 pr-3 py-1.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-[11px] placeholder:text-gray-500 focus:outline-none focus:border-white/25"
             />
           </div>
         </div>
@@ -408,7 +395,7 @@ export default function AdminPartnersPage() {
 
       {/* Tab 1: Liste des Partenaires */}
       {activeTab === "partners" && (
-        <div className="bg-[#0F1D27]/90 border border-white/[0.08] rounded-2xl overflow-hidden shadow-xl">
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
           {isLoading ? (
             <div className="p-12 text-center text-gray-400">
               <div className="w-6 h-6 border-2 border-[#C7D300] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
@@ -416,7 +403,7 @@ export default function AdminPartnersPage() {
             </div>
           ) : filteredPartners.length === 0 ? (
             <div className="p-12 text-center text-gray-500 space-y-2">
-              <Briefcase size={36} className="mx-auto text-gray-600" />
+              <Briefcase size={32} className="mx-auto text-gray-600" />
               <p className="text-sm font-semibold text-gray-300">Aucun partenaire trouvé.</p>
               <p className="text-xs text-gray-500">
                 Vous pouvez convertir un client existant en Partenaire depuis la page <Link href="/admin/clients" className="text-[#C7D300] underline">Clients</Link>.
@@ -425,28 +412,28 @@ export default function AdminPartnersPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-gray-300">
-                <thead className="bg-black/20 text-gray-400 uppercase text-[10px] font-semibold border-b border-white/[0.06]">
+                <thead className="bg-white/[0.01] text-gray-500 uppercase text-[10px] font-semibold border-b border-white/[0.08] tracking-wider">
                   <tr>
-                    <th className="px-5 py-4">Partenaire</th>
-                    <th className="px-5 py-4">Contact</th>
-                    <th className="px-5 py-4">Code d'Affiliation</th>
-                    <th className="px-5 py-4">Fournisseurs Créés</th>
-                    <th className="px-5 py-4">Solde Disponible</th>
-                    <th className="px-5 py-4">Total Commissions</th>
-                    <th className="px-5 py-4 text-right">Actions</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Partenaire</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Contact</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Code</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Boutiques</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Solde Dispo</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Total Cumulé</th>
+                    <th className="px-4 py-3 text-right whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.04]">
+                <tbody className="divide-y divide-white/[0.05]">
                   {filteredPartners.map((partner) => (
                     <tr key={partner.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-[#C7D300]/10 text-[#C7D300] border border-[#C7D300]/20 flex items-center justify-center font-bold text-xs shrink-0">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-white/[0.06] text-[#C7D300] border border-white/10 flex items-center justify-center font-bold text-xs shrink-0">
                             {partner.name.charAt(0).toUpperCase()}
                           </div>
                           <div>
                             <div className="font-semibold text-white">{partner.name}</div>
-                            <div className="text-[10px] text-gray-500 font-mono">ID: {partner.id.substring(0, 8)}...</div>
+                            <div className="text-[10px] text-gray-500 font-mono">ID: {partner.id.substring(0, 8)}</div>
                           </div>
                         </div>
                       </td>

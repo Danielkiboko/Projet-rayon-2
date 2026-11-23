@@ -74,75 +74,86 @@ export default function HealthDashboard() {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in pb-20">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="space-y-5 pb-16">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-400 to-orange-500 flex items-center gap-2.5">
-            <ShieldAlert size={24} className="text-red-500 shrink-0" />
-            Agent Détecteur de Bugs
-          </h1>
-          <p className="text-xs sm:text-sm text-gray-400 mt-1">Surveillance de la santé de l&apos;application et analyse IA des erreurs.</p>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl font-bold text-white tracking-tight">
+              Santé Système &amp; Audit
+            </h1>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wider bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+              <ShieldAlert size={11} /> Monitoring IA
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">Surveillance en temps réel des erreurs runtime, diagnostic IA et journal d&apos;audit.</p>
         </div>
       </div>
 
       <KpiGrid kpis={kpiData} />
 
-      <div className="bg-[#0F1D27] border border-white/10 rounded-3xl p-6 shadow-xl">
-        <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-          <Bug className="text-[#C7D300]" /> Journal des Erreurs (Runtime)
-        </h2>
-        
+      <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
+        <div className="p-4 border-b border-white/[0.08] flex items-center justify-between">
+          <h2 className="text-sm font-bold text-white flex items-center gap-2">
+            <Bug size={15} className="text-[#C7D300]" />
+            <span>Journal des Erreurs Runtime</span>
+          </h2>
+          <span className="text-[11px] text-gray-400">{logs.length} entrée(s)</span>
+        </div>
+
+        <div className="p-4">
         {loading ? (
-          <div className="flex justify-center p-8"><RefreshCw className="animate-spin text-[#C7D300]" /></div>
+          <div className="flex justify-center p-8"><RefreshCw size={18} className="animate-spin text-[#C7D300]" /></div>
         ) : logs.length === 0 ? (
-          <div className="text-center p-8 text-gray-400">Aucune erreur enregistrée. Le système est sain !</div>
+          <div className="text-center py-10 text-xs text-gray-400">Aucune erreur enregistrée. Le système est sain.</div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {logs.map((log) => (
-              <div key={log.id} className={`border rounded-xl p-4 transition-colors ${log.status === "RESOLVED" ? "bg-green-900/10 border-green-500/20" : "bg-red-900/10 border-red-500/30"}`}>
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <span className={`text-xs font-bold px-2 py-1 rounded uppercase ${log.severity === 'CRITICAL' ? 'bg-red-600 text-white' : 'bg-orange-500/20 text-orange-400'}`}>
-                      {log.severity || "MEDIUM"}
-                    </span>
-                    <span className="text-xs text-gray-500 ml-3">Source: {log.source}</span>
-                    <h3 className="text-lg font-medium text-white mt-2">{log.message}</h3>
+              <div key={log.id} className={`border rounded-xl p-4 transition-colors ${log.status === "RESOLVED" ? "bg-emerald-500/5 border-emerald-500/20" : "bg-rose-500/5 border-rose-500/20"}`}>
+                <div className="flex justify-between items-start gap-3 mb-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase border ${log.severity === "CRITICAL" ? "bg-rose-500/20 text-rose-300 border-rose-500/30" : "bg-amber-500/15 text-amber-300 border-amber-500/25"}`}>
+                        {log.severity || "MEDIUM"}
+                      </span>
+                      <span className="text-[11px] text-gray-500">Source : {log.source}</span>
+                    </div>
+                    <h3 className="text-xs font-semibold text-white mt-2">{log.message}</h3>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 shrink-0">
                     {log.status !== "RESOLVED" && (
-                      <button 
+                      <button
                         onClick={() => markResolved(log.id)}
-                        className="px-3 py-1 bg-green-500/20 text-green-400 rounded-lg text-sm hover:bg-green-500/30 transition-colors"
+                        className="px-2.5 py-1 bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 rounded-lg text-[11px] font-semibold hover:bg-emerald-500/25 transition-colors cursor-pointer whitespace-nowrap"
                       >
                         Résoudre
                       </button>
                     )}
                   </div>
                 </div>
-                
+
                 {log.stack && (
-                  <pre className="mt-2 text-xs text-red-300 bg-black/40 p-3 rounded-lg overflow-x-auto max-h-32">
+                  <pre className="mt-2 text-[11px] text-rose-300 bg-black/40 p-3 rounded-lg overflow-x-auto max-h-32 font-mono">
                     {log.stack}
                   </pre>
                 )}
 
                 {/* Section Analyse IA */}
-                <div className="mt-4 border-t border-white/5 pt-4">
+                <div className="mt-3 border-t border-white/[0.06] pt-3">
                   {log.aiAnalysis ? (
-                    <div className="bg-blue-900/10 border border-blue-500/20 rounded-lg p-4">
-                      <h4 className="text-sm font-semibold text-blue-400 flex items-center gap-2 mb-2">
-                        <BrainCircuit size={16} /> Diagnostic de l'Agent IA
+                    <div className="bg-sky-500/5 border border-sky-500/20 rounded-lg p-3">
+                      <h4 className="text-xs font-semibold text-sky-300 flex items-center gap-1.5 mb-1.5">
+                        <BrainCircuit size={14} /> Diagnostic IA
                       </h4>
-                      <div className="text-sm text-gray-300 whitespace-pre-wrap">{log.aiAnalysis}</div>
+                      <div className="text-xs text-gray-300 whitespace-pre-wrap">{log.aiAnalysis}</div>
                     </div>
                   ) : (
-                    <button 
+                    <button
                       onClick={() => analyzeBug(log.id)}
                       disabled={analyzing === log.id}
-                      className="flex items-center gap-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-400 hover:text-sky-300 transition-colors cursor-pointer"
                     >
-                      {analyzing === log.id ? <RefreshCw size={16} className="animate-spin" /> : <BrainCircuit size={16} />}
-                      {analyzing === log.id ? "Analyse en cours..." : "Demander une analyse à l'IA"}
+                      {analyzing === log.id ? <RefreshCw size={13} className="animate-spin" /> : <BrainCircuit size={13} />}
+                      {analyzing === log.id ? "Analyse en cours..." : "Analyser avec l'IA"}
                     </button>
                   )}
                 </div>
@@ -150,6 +161,7 @@ export default function HealthDashboard() {
             ))}
           </div>
         )}
+        </div>
       </div>
 
       <AuditLogPanel />
