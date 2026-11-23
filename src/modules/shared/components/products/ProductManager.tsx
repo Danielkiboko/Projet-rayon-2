@@ -90,6 +90,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [validationSuccessMsg, setValidationSuccessMsg] = useState("");
+  const [queuedProducts, setQueuedProducts] = useState<Array<{ payload: any; displayTitle: string; displayPrice: string; thumb: string }>>([]);
 
   // Fetch products
   useEffect(() => {
@@ -136,12 +137,15 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
     };
   }, [user, isAdmin, activeSupplierId]);
 
-  const resetForm = () => {
+  const resetForm = (preserveCategoryAndCurrency = false) => {
     setEditingId(null);
-    setInputCurrency("USD");
+    if (!preserveCategoryAndCurrency) {
+      setInputCurrency("USD");
+      setProductCategory("");
+      setQueuedProducts([]);
+    }
     setProductTitle("");
     setProductBrand("");
-    setProductCategory("");
     setProductPrice("");
     setProductPurchasePrice("");
     setProductStock("");
@@ -220,18 +224,18 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
     setIsGalleryUploading(true);
     try {
       const processed: Array<{ url: string; color: string }> = [];
-      for (const file of files.slice(0, 8)) {
+      for (const file of files.slice(0, 12)) {
         const res = await optimizeImageToWebP(file, {
-          maxWidth: 720,
-          maxHeight: 720,
-          quality: 0.8,
+          maxWidth: 640,
+          maxHeight: 640,
+          quality: 0.74,
         });
         if (res?.dataUrl) {
           processed.push({ url: res.dataUrl, color: "" });
         }
       }
       setGalleryItems((prev) => {
-        const combined = [...prev, ...processed].slice(0, 8);
+        const combined = [...prev, ...processed].slice(0, 12);
         if (!imagePreview && combined.length > 0) {
           setImagePreview(combined[0].url);
         }
@@ -257,11 +261,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
     );
   };
 
-  const handleSaveProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    setIsProcessing(true);
-
+  const buildCurrentProductPayload = () => {
     const normalizedCategory = (() => {
       const c = (productCategory || "").toLowerCase().trim();
       if (c.includes("mode") || c.includes("vetement") || c.includes("vêtement") || c.includes("habit") || c.includes("chaussure") || c.includes("accessoire")) return "mode";
@@ -275,13 +275,6 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
     const rawPurchasePrice = parseFloat(productPurchasePrice);
     const parsedStock = parseInt(productStock || "0", 10);
 
-    if (!productTitle.trim()) {
-      alert("Veuillez renseigner un titre pour le produit.");
-      setIsProcessing(false);
-      return;
-    }
-
-    // Conversion dynamique vers la devise de base USD ($) selon le taux actif de la plateforme
     const fcRate = rates?.FC || 2850;
     const eurRate = rates?.EUR || 0.92;
     let canonicalPrice = 0;
@@ -352,46 +345,96 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
       productData.brand = productBrand.trim();
     }
 
+    return {
+      payload: productData,
+      displayTitle: productTitle.trim(),
+      displayPrice: `${isNaN(rawPrice) ? 0 : rawPrice} ${inputCurrency}`,
+      thumb: mainImg,
+    };
+  };
+
+  const handleAddToBatchQueue = () => {
+    if (!productTitle.trim()) {
+      alert("Veuillez renseigner au moins le titre de ce produit avant d'en ajouter un autre.");
+      return;
+    }
+    if (!productCategory) {
+      alert("Veuillez sélectionner un rayon pour ce produit.");
+      return;
+    }
+    const item = buildCurrentProductPayload();
+    setQueuedProducts((prev) => [...prev, item]);
+    resetForm(true);
+  };
+
+  const handleSaveProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setIsProcessing(true);
+
     if (!isAdmin && subscriptionInfo.isBlocked) {
       alert("Action refusée : Votre compte est suspendu pour impayé. Veuillez régulariser votre dépôt.");
       setIsProcessing(false);
       return;
     }
 
+    const hasCurrentFormFilled = productTitle.trim().length > 0;
+    if (!hasCurrentFormFilled && queuedProducts.length === 0) {
+      alert("Veuillez renseigner un titre pour le produit.");
+      setIsProcessing(false);
+      return;
+    }
+
     try {
       if (editingId) {
+        const currentItem = buildCurrentProductPayload();
         await updateDoc(doc(db, "products", editingId), {
-          ...productData,
+          ...currentItem.payload,
           updatedAt: serverTimestamp(),
         });
+        const savedTitle = currentItem.displayTitle;
+        setIsModalOpen(false);
+        resetForm();
+        setValidationSuccessMsg(
+          `Les modifications sur l'article "${savedTitle}" ont été enregistrées avec succès.`
+        );
       } else {
+        const itemsToPublish = [
+          ...queuedProducts,
+          ...(hasCurrentFormFilled ? [buildCurrentProductPayload()] : []),
+        ];
+
         const userEmail = (user.email || "").toLowerCase().trim();
         const isOfficialStore = isAdmin || Boolean(userData?.isOfficialAdminStore || userData?.isAdminSupplier || SUPER_ADMIN_EMAILS.includes(userEmail));
-        await addDoc(collection(db, "products"), {
-          ...productData,
-          supplierId: activeSupplierId || user.uid,
-          supplierName: isOfficialStore 
-            ? (userData?.displayName || "Rayons Officiel (Admin)") 
-            : (userData?.displayName || userData?.name || "Fournisseur"),
-          supplierEmail: user.email || "",
-          supplierRole: isOfficialStore ? "ADMIN" : (userData?.role || "SUPPLIER"),
-          isAdminProduct: isOfficialStore,
-          isOfficialRayons: isOfficialStore,
-          isOfficialAdminStore: isOfficialStore,
-          isVerified: isOfficialStore, // Vérifié d'office si Admin ou Boutique Officielle, soumis aux votes clients si Fournisseur standard
-          ratingsCount: isOfficialStore ? 1 : 0,
-          averageRating: isOfficialStore ? 5.0 : 0,
-          status: isOfficialStore ? "Disponible" : "pending_approval",
-          createdAt: serverTimestamp(),
-        });
+
+        for (const item of itemsToPublish) {
+          await addDoc(collection(db, "products"), {
+            ...item.payload,
+            supplierId: activeSupplierId || user.uid,
+            supplierName: isOfficialStore 
+              ? (userData?.displayName || "Rayons Officiel (Admin)") 
+              : (userData?.displayName || userData?.name || "Fournisseur"),
+            supplierEmail: user.email || "",
+            supplierRole: isOfficialStore ? "ADMIN" : (userData?.role || "SUPPLIER"),
+            isAdminProduct: isOfficialStore,
+            isOfficialRayons: isOfficialStore,
+            isOfficialAdminStore: isOfficialStore,
+            isVerified: isOfficialStore,
+            ratingsCount: isOfficialStore ? 1 : 0,
+            averageRating: isOfficialStore ? 5.0 : 0,
+            status: isOfficialStore ? "Disponible" : "pending_approval",
+            createdAt: serverTimestamp(),
+          });
+        }
 
         if (!isOfficialStore) {
-          // Add notification for admins
           try {
             await addDoc(collection(db, "inapp_notifications"), {
               type: "admin_alert",
-              title: "Nouveau produit à valider",
-              message: `Le fournisseur a ajouté un nouveau produit: ${productTitle}. Veuillez l'examiner.`,
+              title: itemsToPublish.length > 1 ? `${itemsToPublish.length} nouveaux produits à valider` : "Nouveau produit à valider",
+              message: itemsToPublish.length > 1
+                ? `Le fournisseur a soumis un lot de ${itemsToPublish.length} produits (${itemsToPublish.map((i) => i.displayTitle).slice(0, 3).join(", ")}).`
+                : `Le fournisseur a ajouté un nouveau produit: ${itemsToPublish[0].displayTitle}. Veuillez l'examiner.`,
               time: Date.now(),
               link: "/admin/products",
               read: false,
@@ -401,16 +444,17 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
             console.warn("Error notifying admins:", notifError);
           }
         }
+
+        const count = itemsToPublish.length;
+        const firstTitle = itemsToPublish[0].displayTitle;
+        setIsModalOpen(false);
+        resetForm();
+        setValidationSuccessMsg(
+          count > 1
+            ? `${count} produits ont été enregistrés et publiés dans le catalogue en une seule soumission !`
+            : `L'article "${firstTitle}" a été enregistré et publié dans le catalogue.`
+        );
       }
-      const savedTitle = productTitle.trim();
-      const wasEditing = Boolean(editingId);
-      setIsModalOpen(false);
-      resetForm();
-      setValidationSuccessMsg(
-        wasEditing
-          ? `Les modifications sur l'article "${savedTitle}" ont été enregistrées avec succès.`
-          : `L'article "${savedTitle}" a été enregistré et publié dans le catalogue.`
-      );
     } catch (error: any) {
       console.error("Erreur lors de la sauvegarde du produit", error);
       alert("Erreur lors de la sauvegarde : " + (error?.message || "Vérifiez vos permissions réseau."));
@@ -609,14 +653,14 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
             {isAdmin ? "Gérez le catalogue complet de Rayons." : "Gérez votre catalogue d'articles, vos marques et le suivi logistique des stocks."}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {isAdmin && (
             <button
               onClick={handleCleanupOldProducts}
               disabled={isProcessing}
-              className="bg-red-600/20 text-red-500 px-5 py-2.5 rounded-xl text-sm font-semibold flex items-center hover:bg-red-600 hover:text-white transition-colors shadow-sm disabled:opacity-50 border border-red-600/30"
+              className="bg-red-600/15 text-red-400 px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 hover:bg-red-600 hover:text-white transition-colors whitespace-nowrap disabled:opacity-50 border border-red-600/30 cursor-pointer"
             >
-              <Trash2 size={18} className="mr-2" /> Nettoyer les anciens produits
+              <Trash2 size={14} /> Nettoyer anciens
             </button>
           )}
           <button
@@ -624,16 +668,16 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
             className={`${
               !isAdmin && subscriptionInfo.isBlocked 
                 ? "bg-red-600/80 text-white cursor-not-allowed shadow-red-900/30" 
-                : "bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold shadow-md shadow-[#C7D300]/10"
-            } px-5 py-2.5 rounded-xl text-sm font-bold flex items-center transition-all active:scale-95`}
+                : "bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold shadow-sm shadow-[#C7D300]/15 cursor-pointer"
+            } px-3.5 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 whitespace-nowrap transition-all active:scale-95`}
             title={!isAdmin && subscriptionInfo.isBlocked ? "Compte suspendu : Dépôt mensuel impayé" : undefined}
           >
             {!isAdmin && subscriptionInfo.isBlocked ? (
-              <Lock size={18} className="mr-2" />
+              <Lock size={14} />
             ) : (
-              <Plus size={18} className="mr-2" />
+              <Plus size={14} />
             )}
-            {!isAdmin && subscriptionInfo.isBlocked ? "Ajout verrouillé (Impayé)" : "Ajouter un produit"}
+            <span>{!isAdmin && subscriptionInfo.isBlocked ? "Ajout verrouillé" : "Ajouter un produit"}</span>
           </button>
         </div>
       </div>
@@ -1099,6 +1143,43 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
               </div>
 
               <form onSubmit={handleSaveProduct} className="p-4 space-y-5 overflow-y-auto scrollbar-hide">
+                {/* Lot multi-produits en attente de publication */}
+                {!editingId && queuedProducts.length > 0 && (
+                  <div className="p-3 bg-[#C7D300]/10 border border-[#C7D300]/30 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-[#C7D300]">
+                        📦 {queuedProducts.length} produit{queuedProducts.length > 1 ? "s" : ""} prêt{queuedProducts.length > 1 ? "s" : ""} dans ce lot
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setQueuedProducts([])}
+                        className="text-[11px] text-gray-400 hover:text-red-400 underline cursor-pointer"
+                      >
+                        Vider le lot
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {queuedProducts.map((qp, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center gap-2 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-white"
+                        >
+                          <img src={qp.thumb} alt={qp.displayTitle} className="w-6 h-6 rounded object-cover shrink-0" />
+                          <span className="max-w-[140px] truncate font-medium">{qp.displayTitle}</span>
+                          <span className="text-[#C7D300] font-bold">{qp.displayPrice}</span>
+                          <button
+                            type="button"
+                            onClick={() => setQueuedProducts((prev) => prev.filter((_, i) => i !== idx))}
+                            className="text-gray-400 hover:text-red-400 ml-0.5 cursor-pointer"
+                            title="Retirer du lot"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 {/* Image Upload Area */}
                 <ImageUploadArea
@@ -1122,10 +1203,10 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                     <div>
                       <h3 className="text-sm font-bold text-white flex items-center gap-2">
                         <ImageIcon size={16} className="text-[#C7D300]" />
-                        <span>Photos supplémentaires & Couleurs ({galleryItems.length}/8)</span>
+                        <span>Photos supplémentaires & Couleurs ({galleryItems.length}/12)</span>
                       </h3>
                       <p className="text-[11px] text-gray-400">
-                        Ajoutez plusieurs photos du produit (angles différents ou couleurs : Noir, Blanc, Bleu, Or...)
+                        Ajoutez jusqu&apos;à 12 photos pour un même produit (angles différents, modèles ou couleurs : Noir, Blanc, Bleu, Or...)
                       </p>
                     </div>
 
@@ -1139,7 +1220,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                     />
                     <button
                       type="button"
-                      disabled={isGalleryUploading || galleryItems.length >= 8}
+                      disabled={isGalleryUploading || galleryItems.length >= 12}
                       onClick={() => galleryFileInputRef.current?.click()}
                       className="px-3.5 py-2 bg-[#C7D300]/15 hover:bg-[#C7D300]/25 text-[#C7D300] border border-[#C7D300]/30 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
                     >
@@ -1228,7 +1309,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                     <label className="text-sm font-medium text-gray-300">Titre du produit</label>
                     <input
                       type="text"
-                      required
+                      required={queuedProducts.length === 0}
                       value={productTitle}
                       onChange={(e) => setProductTitle(e.target.value)}
                       placeholder="Ex: Routeur Starlink Gen 3"
@@ -1290,7 +1371,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                     <input
                       type="number"
                       step="any"
-                      required
+                      required={queuedProducts.length === 0}
                       value={productPrice}
                       onChange={(e) => setProductPrice(e.target.value)}
                       placeholder={inputCurrency === "FC" ? "Ex: 57000" : inputCurrency === "EUR" ? "Ex: 75.00" : "Ex: 199.99"}
@@ -1330,7 +1411,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                       </button>
                       <input
                         type="number"
-                        required
+                        required={queuedProducts.length === 0}
                         min="0"
                         value={productStock}
                         onChange={(e) => setProductStock(e.target.value)}
@@ -1376,7 +1457,7 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
 
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-300">Rayon / Catégorie de publication</label>
-                  <select required value={productCategory} onChange={(e) => setProductCategory(e.target.value)} className="w-full px-4 py-2.5 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white appearance-none text-sm font-medium">
+                  <select required={queuedProducts.length === 0} value={productCategory} onChange={(e) => setProductCategory(e.target.value)} className="w-full px-4 py-2.5 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-white appearance-none text-sm font-medium">
                     <option className="bg-[#1a1a1a]" value="">Sélectionner un rayon</option>
                     <option className="bg-[#1a1a1a]" value="mode">👗 Rayon Mode (Vêtements, Chaussures & Accessoires)</option>
                     <option className="bg-[#1a1a1a]" value="connect">📡 Rayon Connect (Électronique, Starlink, Télécom)</option>
@@ -1479,20 +1560,39 @@ export default function ProductManager({ isAdmin }: ProductManagerProps) {
                   ></textarea>
                 </div>
 
-                <div className="pt-4 flex justify-end space-x-3 border-t border-white/10">
+                <div className="pt-4 flex flex-wrap items-center justify-end gap-2 border-t border-white/10">
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                    className="px-3 py-1.5 text-xs font-semibold text-gray-400 hover:text-white transition-colors cursor-pointer"
                   >
                     Annuler
                   </button>
+                  {!editingId && (
+                    <button
+                      type="button"
+                      disabled={isProcessing}
+                      onClick={handleAddToBatchQueue}
+                      className="px-3.5 py-1.5 bg-white/10 hover:bg-white/15 border border-white/20 text-white text-xs font-semibold rounded-lg inline-flex items-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      <Plus size={14} />
+                      <span>Ajouter un autre produit</span>
+                    </button>
+                  )}
                   <button
                     type="submit"
                     disabled={isProcessing}
-                    className="px-6 py-2 bg-primary hover:bg-primary-light text-white font-semibold rounded-lg transition-colors disabled:opacity-50"
+                    className="px-4 py-1.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
                   >
-                    {isProcessing ? "Enregistrement..." : (isAdmin ? "Sauvegarder le produit" : "Publier le produit")}
+                    {isProcessing
+                      ? "Enregistrement..."
+                      : editingId
+                      ? "Sauvegarder les modifications"
+                      : queuedProducts.length > 0
+                      ? `Publier le lot (${queuedProducts.length + (productTitle.trim() ? 1 : 0)} produits)`
+                      : isAdmin
+                      ? "Sauvegarder le produit"
+                      : "Publier le produit"}
                   </button>
                 </div>
               </form>

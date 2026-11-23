@@ -59,12 +59,12 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
       transition={{ delay: (index % 4) * 0.08, duration: 0.4 }}
       className="bg-white rounded-xl sm:rounded-2xl border border-gray-100 shadow-xs overflow-hidden hover:shadow-md transition-all group flex flex-col h-full"
     >
-      {/* Product Image */}
+      {/* Product Image — compact, centrée et non zoomée */}
       <div
-        className="relative h-32 sm:h-36 w-full max-h-36 overflow-hidden bg-slate-100 flex items-center justify-center shrink-0"
-        style={{ height: "132px", maxHeight: "144px" }}
+        className="relative h-24 sm:h-28 w-full max-h-28 overflow-hidden bg-slate-50/90 border-b border-gray-100/80 flex items-center justify-center shrink-0"
+        style={{ height: "104px", maxHeight: "112px" }}
       >
-        <Link href={`/product/${product.id}`} className="block w-full h-full">
+        <Link href={`/product/${product.id}`} className="flex items-center justify-center w-full h-full p-1.5">
           <img 
             src={imgSrc || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300' fill='%23F1F5F9'%3E%3Crect width='400' height='300' fill='%23F1F5F9'/%3E%3Ctext x='50%25' y='52%25' dominant-baseline='middle' text-anchor='middle' fill='%2394A3B8' font-family='sans-serif' font-size='14' font-weight='700'%3ERayons%3C/text%3E%3C/svg%3E"} 
             alt={product.title?.[lang] || product.title?.fr || "Produit"}
@@ -73,7 +73,7 @@ export function ProductCard({ product, lang, t, category, index, handleChat, onB
             onError={() => {
               setImgSrc("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300' viewBox='0 0 400 300' fill='%23F1F5F9'%3E%3Crect width='400' height='300' fill='%23F1F5F9'/%3E%3Ctext x='50%25' y='52%25' dominant-baseline='middle' text-anchor='middle' fill='%2394A3B8' font-family='sans-serif' font-size='14' font-weight='700'%3ERayons%3C/text%3E%3C/svg%3E");
             }}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            className="max-w-full max-h-full w-auto h-full object-contain group-hover:scale-105 transition-transform duration-300"
           />
         </Link>
 

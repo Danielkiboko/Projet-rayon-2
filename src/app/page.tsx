@@ -785,9 +785,9 @@ export default function Home() {
                 </div>
 
                 {loading ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-3">
                     {[1, 2, 3, 4, 5, 6].map((i) => (
-                      <div key={i} className="animate-pulse bg-white rounded-xl sm:rounded-2xl h-56 border border-gray-100 p-2.5" />
+                      <div key={i} className="animate-pulse bg-white rounded-xl sm:rounded-2xl h-48 border border-gray-100 p-2.5" />
                     ))}
                   </div>
                 ) : items.length === 0 ? (
@@ -795,7 +795,7 @@ export default function Home() {
                     <p className="text-gray-400 text-xs font-medium">Bientôt de nouvelles offres dans ce rayon.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-3 md:gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-3">
                     {items.map((item, idx) => {
                       const itemName = item.title?.fr || item.title || item.name || "Article";
                       const itemImage =
@@ -845,8 +845,8 @@ export default function Home() {
                           className="group bg-white rounded-xl sm:rounded-2xl overflow-hidden shadow-xs hover:shadow-md transition-all duration-300 border border-gray-100 flex flex-col justify-between h-full"
                         >
                           <div
-                            className="relative h-32 sm:h-36 w-full max-h-36 overflow-hidden bg-slate-100 flex items-center justify-center shrink-0"
-                            style={{ height: "132px", maxHeight: "144px" }}
+                            className="relative h-24 sm:h-28 w-full max-h-28 overflow-hidden bg-slate-100 flex items-center justify-center shrink-0"
+                            style={{ height: "104px", maxHeight: "112px" }}
                           >
                             <Link href={detailHref} className="block w-full h-full relative">
                               <OptimizedImage

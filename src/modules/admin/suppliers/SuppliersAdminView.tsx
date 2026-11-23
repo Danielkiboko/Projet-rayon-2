@@ -797,29 +797,29 @@ export default function SuppliersPage() {
             Gestion compartimentée des fournisseurs par rayon (Immobilier, Mode, Connect, Saveurs).
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {/* Bouton Écrire à tous */}
           <button
             onClick={() => setIsBroadcastOpen(true)}
-            className="flex items-center space-x-2 bg-white/10 hover:bg-white/20 border border-white/25 text-white px-4 py-2.5 rounded-xl font-bold transition-all shadow-sm active:scale-95"
+            className="inline-flex items-center gap-1.5 bg-white/10 hover:bg-white/15 border border-white/20 text-white px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all active:scale-95 cursor-pointer"
           >
             <span>📢</span>
-            <span>Écrire à tous (Email + App)</span>
+            <span>Écrire à tous</span>
           </button>
           <button
             onClick={() => handleOpenCreateModal()}
-            className="flex items-center space-x-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-[#C7D300]/20 transition-all active:scale-95"
+            className="inline-flex items-center gap-1.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] px-3.5 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap shadow-sm shadow-[#C7D300]/15 transition-all active:scale-95 cursor-pointer"
           >
-            <Plus size={20} />
+            <Plus size={14} />
             <span>
               {selectedRayonFilter === "immo"
-                ? "Nouveau Fournisseur Immo"
+                ? "Nouveau Immo"
                 : selectedRayonFilter === "mode"
-                  ? "Nouveau Fournisseur Mode"
+                  ? "Nouveau Mode"
                   : selectedRayonFilter === "connect"
-                    ? "Nouveau Fournisseur Connect"
+                    ? "Nouveau Connect"
                     : selectedRayonFilter === "saveurs"
-                      ? "Nouveau Fournisseur Saveurs"
+                      ? "Nouveau Saveurs"
                       : "Nouveau Fournisseur"}
             </span>
           </button>

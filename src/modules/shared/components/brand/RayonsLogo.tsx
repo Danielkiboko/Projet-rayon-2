@@ -55,7 +55,7 @@ export function RayonsLogo({
   const currentUniverse = rayon ? universeConfig[rayon] : null;
 
   const innerContent = (
-    <div className="inline-flex items-center gap-2 select-none">
+    <div className="inline-flex items-center gap-2 select-none" translate="no" data-no-translate="true">
       {/* Emblème ailé officiel */}
       <RayonsMark size={config.markSize} color={markColor} />
       
