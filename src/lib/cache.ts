@@ -23,9 +23,13 @@ function getL1Store(): Map<string, L1Entry> {
   return globalCacheStore.__rayonsL1Cache;
 }
 
+function stripWrappingQuotes(val: string): string {
+  return val.trim().replace(/^["']+|["']+$/g, "").trim();
+}
+
 function getRedisConfig(): { url: string; token: string } | null {
-  const url = (process.env.UPSTASH_REDIS_REST_URL || "").trim().replace(/\/$/, "");
-  const token = (process.env.UPSTASH_REDIS_REST_TOKEN || "").trim();
+  const url = stripWrappingQuotes(process.env.UPSTASH_REDIS_REST_URL || "").replace(/\/$/, "");
+  const token = stripWrappingQuotes(process.env.UPSTASH_REDIS_REST_TOKEN || "");
   if (!url || !token) return null;
   return { url, token };
 }
@@ -193,15 +197,57 @@ export async function checkDistributedRateLimit(
   };
 }
 
-export async function pingRedis(): Promise<{ configured: boolean; ok: boolean; latencyMs: number | null }> {
-  if (!isRedisConfigured()) {
+export async function pingRedis(): Promise<{
+  configured: boolean;
+  ok: boolean;
+  latencyMs: number | null;
+  httpStatus?: number;
+  error?: string;
+}> {
+  const cfg = getRedisConfig();
+  if (!cfg) {
     return { configured: false, ok: false, latencyMs: null };
   }
   const t0 = Date.now();
-  const res = await redisCommand<string>(["PING"]);
-  return {
-    configured: true,
-    ok: res === "PONG",
-    latencyMs: Date.now() - t0,
-  };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
+  try {
+    const res = await fetch(cfg.url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${cfg.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(["PING"]),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    const latencyMs = Date.now() - t0;
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      return {
+        configured: true,
+        ok: false,
+        latencyMs,
+        httpStatus: res.status,
+        error: errText.slice(0, 120) || `HTTP ${res.status}`,
+      };
+    }
+    const data = await res.json();
+    return {
+      configured: true,
+      ok: data?.result === "PONG",
+      latencyMs,
+      httpStatus: res.status,
+    };
+  } catch (err: any) {
+    return {
+      configured: true,
+      ok: false,
+      latencyMs: Date.now() - t0,
+      error: err?.cause?.code || err?.message || "Network error",
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
 }

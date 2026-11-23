@@ -50,6 +50,8 @@ export async function GET() {
           redisL2Configured: isRedisConfigured(),
           redisConnected: redisStatus.ok,
           redisLatencyMs: redisStatus.latencyMs,
+          ...(redisStatus.httpStatus ? { redisHttpStatus: redisStatus.httpStatus } : {}),
+          ...(redisStatus.error ? { redisError: redisStatus.error } : {}),
         },
         database: {
           engine: "Google Cloud Firestore (REST pooling natif Google)",
