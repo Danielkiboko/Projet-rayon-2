@@ -49,6 +49,7 @@ export default function AdminLayout({
     if (!hasAccess) return;
 
     let unsubUsers: any;
+    let unsubApplications: any;
     let unsubProps: any;
     let unsubProds: any;
     let unsubBroadcasts: any;
@@ -93,6 +94,31 @@ export default function AdminLayout({
           updateNotifications("supplier", items);
         }, (err) => {
           console.warn("Notifications users listener warning (handled):", err.message);
+        });
+
+        // Candidatures clients -> fournisseurs après paiement (en attente d'évaluation & attribution de rayon)
+        const qApplications = query(
+          collection(db, "users"),
+          where("supplierApplicationStatus", "==", "PENDING_APPROVAL"),
+          limit(15)
+        );
+        unsubApplications = onSnapshot(qApplications, (snapshot) => {
+          const items: any[] = [];
+          snapshot.forEach(doc => {
+            const d = doc.data();
+            const shop = d.supplierApplication?.company || d.companyName || d.displayName || d.email;
+            items.push({
+              id: `supplier-app-${doc.id}`,
+              type: "supplier_application",
+              title: "🏪 Projet Fournisseur à évaluer",
+              message: `${shop} a soumis son projet après paiement — attribuez son rayon.`,
+              time: extractTime(d),
+              link: "/admin/suppliers"
+            });
+          });
+          updateNotifications("supplier_application", items);
+        }, (err) => {
+          console.warn("Notifications supplier applications warning:", err.message);
         });
 
         const qProps = query(
@@ -179,6 +205,7 @@ export default function AdminLayout({
 
     return () => {
       if (unsubUsers) unsubUsers();
+      if (unsubApplications) unsubApplications();
       if (unsubProps) unsubProps();
       if (unsubProds) unsubProds();
       if (unsubBroadcasts) unsubBroadcasts();

@@ -192,49 +192,8 @@ export default function SupplierRegisterPage() {
         setPhone(paymentPhone);
       }
 
-      const methodStr = paymentMethod === "mobile_money" 
-        ? `Mobile Money (${mobileOperator.toUpperCase()} - ${paymentPhone})` 
-        : "Carte Bancaire Visa/Mastercard";
-
-      // ── CAS CLIENT CONNECTÉ : ENREGISTRER DIRECTEMENT LA TRANSACTION DÈS L'ÉTAPE 1 ──
-      if (user) {
-        const token = await user.getIdToken();
-        const res = await fetch("/api/supplier/subscribe", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            supplierId: user.uid,
-            supplierName: company.trim() || userData?.company || userData?.displayName || name.trim() || user.email || "Fournisseur",
-            supplierEmail: email.trim() || user.email,
-            amount: effectiveDeposit,
-            currency: "USD",
-            paymentMethod: methodStr,
-            referencePiece: ref,
-            businessType: businessType,
-            referralCode: promoCode.trim() || undefined,
-            companyData: {
-              name: name.trim() || userData?.displayName || "",
-              company: company.trim() || userData?.company || "",
-              email: email.trim() || user.email || "",
-              phone: phone.trim() || paymentPhone.trim() || userData?.phone || "",
-              businessType: businessType,
-              commune: commune.trim(),
-              address: address.trim(),
-              description: description.trim(),
-            }
-          }),
-        });
-
-        const resData = await res.json();
-        if (!res.ok || !resData.success) {
-          throw new Error(resData.error || "Erreur lors de l'enregistrement de l'abonnement.");
-        }
-      }
-
-      // Passer à l'Étape 2 (Renseignement de l'entreprise)
+      // Passer à l'Étape 2 (Présentation du projet & de l'activité pour évaluation admin)
+      // Aucun rayon ni rôle fournisseur n'est attribué avant l'évaluation de l'administration.
       setStep(2);
     } catch (err: any) {
       setError(err.message || "Erreur lors du traitement du paiement.");
@@ -244,7 +203,7 @@ export default function SupplierRegisterPage() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // ÉTAPE 2 : CONFIGURATION DE L'ENTREPRISE & ENREGISTREMENT BACKEND
+  // ÉTAPE 2 : PRÉSENTATION DU PROJET & ENVOI POUR ÉVALUATION ADMIN
   // ─────────────────────────────────────────────────────────────
   const handleFinalizeCompany = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -252,38 +211,26 @@ export default function SupplierRegisterPage() {
     setError("");
 
     if (!name.trim() || !company.trim()) {
-      setError("Veuillez renseigner le nom du contact et le nom de la boutique.");
+      setError("Veuillez renseigner le nom du responsable et le nom de votre boutique.");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!description.trim() || description.trim().length < 15) {
+      setError("Veuillez expliquer clairement votre projet ou ce que vous vendez (minimum 15 caractères) afin que l'administration puisse vous attribuer le bon rayon.");
       setIsLoading(false);
       return;
     }
 
     const depositAmount = effectiveDeposit; // $40 si promo, sinon $50 USD
-    const nextDueDate = new Date();
-    nextDueDate.setDate(nextDueDate.getDate() + 30); // 30 jours renouvelables
-
-    const assigned = businessType === "IMMOBILIER" 
-      ? ["immo"] 
-      : businessType === "RESTAURATION" 
-      ? ["saveurs"] 
-      : businessType === "CONNECT"
-      ? ["connect"]
-      : ["mode"];
-
-    const primaryRayon = assigned[0];
-    const targetRole = businessType === "IMMOBILIER" 
-      ? "SUPPLIER_IMMO" 
-      : (businessType === "RESTAURATION" ? "SUPPLIER_SAVEURS" : "SUPPLIER");
 
     const methodStr = paymentMethod === "mobile_money" 
       ? `Mobile Money (${mobileOperator.toUpperCase()} - ${paymentPhone})` 
       : "Carte Bancaire Visa/Mastercard";
 
     try {
-      let supplierUid = "";
-
-      // ── CAS 1 : CLIENT CONNECTÉ QUI SE MET À NIVEAU ──
+      // ── CAS 1 : CLIENT CONNECTÉ QUI SOUMET SA DEMANDE FOURNISSEUR ──
       if (user) {
-        supplierUid = user.uid;
         const token = await user.getIdToken();
 
         const res = await fetch("/api/supplier/subscribe", {
@@ -293,36 +240,34 @@ export default function SupplierRegisterPage() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
+            mode: "application",
             supplierId: user.uid,
             supplierName: company.trim(),
-            supplierEmail: email.trim(),
+            supplierEmail: email.trim() || user.email,
             amount: depositAmount,
             currency: "USD",
             paymentMethod: methodStr,
             referencePiece: paidPaymentRef,
-            businessType: businessType,
             referralCode: promoCode.trim() || undefined,
             companyData: {
               name: name.trim(),
               company: company.trim(),
-              email: email.trim(),
+              email: email.trim() || user.email || "",
               phone: phone.trim() || paymentPhone.trim(),
-              businessType: businessType,
-              rayon: primaryRayon,
-              assignedRayons: assigned,
               commune: commune.trim(),
               address: address.trim(),
               description: description.trim(),
+              projectDescription: description.trim(),
             }
           }),
         });
 
         const resData = await res.json();
         if (!res.ok || !resData.success) {
-          throw new Error(resData.error || "Erreur lors de la validation de votre entreprise.");
+          throw new Error(resData.error || "Erreur lors de l'envoi de votre projet.");
         }
       } 
-      // ── CAS 2 : NOUVEAU COMPTE CRÉÉ ──
+      // ── CAS 2 : NOUVEAU COMPTE CRÉÉ PUIS SOUMISSION POUR ÉVALUATION ──
       else {
         const tempPassword = generateRandomPassword();
         setGeneratedTempPassword(tempPassword);
@@ -330,12 +275,11 @@ export default function SupplierRegisterPage() {
         // 1. Création compte Auth
         const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), tempPassword);
         const newUser = userCredential.user;
-        supplierUid = newUser.uid;
         const token = await newUser.getIdToken();
 
         await updateProfile(newUser, { displayName: name.trim() });
 
-        // 2. Appel sécurisé au backend pour enregistrer les finances et le compte
+        // 2. Appel sécurisé au backend pour enregistrer le paiement et la candidature (sans auto-attribution de rayon)
         const res = await fetch("/api/supplier/subscribe", {
           method: "POST",
           headers: {
@@ -343,6 +287,7 @@ export default function SupplierRegisterPage() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
+            mode: "application",
             supplierId: newUser.uid,
             supplierName: company.trim(),
             supplierEmail: email.trim(),
@@ -350,26 +295,23 @@ export default function SupplierRegisterPage() {
             currency: "USD",
             paymentMethod: methodStr,
             referencePiece: paidPaymentRef,
-            businessType: businessType,
             referralCode: promoCode.trim() || undefined,
             companyData: {
               name: name.trim(),
               company: company.trim(),
               email: email.trim(),
               phone: phone.trim() || paymentPhone.trim(),
-              businessType: businessType,
-              rayon: primaryRayon,
-              assignedRayons: assigned,
               commune: commune.trim(),
               address: address.trim(),
               description: description.trim(),
+              projectDescription: description.trim(),
             }
           }),
         });
 
         const resData = await res.json();
         if (!res.ok || !resData.success) {
-          throw new Error(resData.error || "Erreur lors de l'enregistrement de votre entreprise.");
+          throw new Error(resData.error || "Erreur lors de l'envoi de votre projet.");
         }
 
         // 3. Notification SMS avec mot de passe
@@ -382,7 +324,7 @@ export default function SupplierRegisterPage() {
             },
             body: JSON.stringify({
               phone: phone || paymentPhone,
-              message: `Bienvenue sur Rayons.net, ${name}! Votre abonnement Vendeur ($50) est actif. Boutique: ${company}. Mot de passe provisoire: ${tempPassword}`,
+              message: `Rayons.net: Paiement ($${depositAmount}) & projet "${company}" bien reçus. Notre équipe vous attribuera votre rayon après évaluation. Mot de passe: ${tempPassword}`,
             }),
           });
         } catch (smsErr) {
@@ -422,7 +364,7 @@ export default function SupplierRegisterPage() {
   };
 
   // ─────────────────────────────────────────────────────────────
-  // ÉCRAN DE SUCCÈS
+  // ÉCRAN DE SUCCÈS (DOSSIER TRANSMIS POUR ÉVALUATION & ATTRIBUTION DU RAYON PAR L'ADMIN)
   // ─────────────────────────────────────────────────────────────
   if (isSuccess) {
     return (
@@ -432,18 +374,18 @@ export default function SupplierRegisterPage() {
           animate={{ opacity: 1, scale: 1 }}
           className="max-w-lg w-full bg-white p-6 sm:p-8 rounded-3xl shadow-md border border-gray-200/90 text-center"
         >
-          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xs">
-            <CheckCircle2 size={38} />
+          <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xs">
+            <Clock size={36} />
           </div>
 
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1 bg-emerald-50 text-emerald-800 rounded-full border border-emerald-200 mb-2">
-            <ShieldCheck size={14} className="text-emerald-600" /> Abonnement Réglé & Compte Activé
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1 bg-amber-50 text-amber-800 rounded-full border border-amber-200 mb-2">
+            <ShieldCheck size={14} className="text-amber-600" /> Paiement Reçu & Projet en Évaluation
           </span>
 
-          <h2 className="text-2xl font-black text-gray-900 mb-2">Boutique En Ligne Ouverte !</h2>
+          <h2 className="text-2xl font-black text-gray-900 mb-2">Demande Transmise à Rayons.net !</h2>
           
           <p className="text-gray-600 text-xs sm:text-sm mb-6 leading-relaxed">
-            Votre abonnement mensuel de <strong>${effectiveDeposit} USD</strong> {hasValidPromo ? "(avec réduction immédiate de 10$ code promo partenaire)" : ""} a été validé et enregistré dans le grand livre comptable. Votre vitrine <strong>{company}</strong> est immédiatement prête à accueillir vos produits et vos clients.
+            Votre paiement de <strong>${effectiveDeposit} USD</strong> {hasValidPromo ? "(avec réduction de $10 code promo partenaire)" : ""} ainsi que la présentation de votre projet <strong>{company}</strong> ont bien été enregistrés. Notre administration va évaluer votre activité pour vous <strong>attribuer officiellement votre rayon</strong> (Connect, Immo, Mode ou Saveurs). Vous recevrez une notification dès l&apos;activation.
           </p>
 
           <div className="p-4 bg-gray-50 rounded-2xl border border-gray-200 mb-6 text-left text-xs space-y-2.5">
@@ -452,16 +394,16 @@ export default function SupplierRegisterPage() {
               <strong className="text-gray-900 font-mono">{paidPaymentRef}</strong>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Boutique :</span>
+              <span className="text-gray-500">Boutique / Projet :</span>
               <strong className="text-gray-900">{company}</strong>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Abonnement Actif :</span>
-              <span className="text-emerald-700 font-bold">${effectiveDeposit} USD (Valide 30 jours)</span>
+              <span className="text-gray-500">Montant réglé :</span>
+              <span className="text-emerald-700 font-bold">${effectiveDeposit} USD</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-500">Rôle attribué :</span>
-              <span className="text-blue-700 font-bold">Fournisseur Vérifié Rayons</span>
+              <span className="text-gray-500">Statut & Rayon :</span>
+              <span className="text-amber-700 font-bold">En attente d&apos;évaluation admin</span>
             </div>
             {generatedTempPassword && (
               <div className="pt-2 border-t border-gray-200 flex justify-between items-center text-amber-800 bg-amber-50 p-2 rounded-xl">
@@ -474,11 +416,11 @@ export default function SupplierRegisterPage() {
           <button
             type="button"
             onClick={() => {
-              window.location.href = "/supplier";
+              window.location.href = "/dashboard/client";
             }}
-            className="w-full inline-flex justify-center items-center gap-2 py-3.5 bg-[#FF6600] hover:bg-[#e65c00] text-white font-extrabold rounded-xl transition-all shadow-md text-sm cursor-pointer"
+            className="w-full inline-flex justify-center items-center gap-2 py-3.5 bg-[#0F1D27] hover:bg-black text-white font-extrabold rounded-xl transition-all shadow-md text-sm cursor-pointer"
           >
-            <span>Accéder à mon Espace Fournisseur</span>
+            <span>Retourner à mon Espace Client</span>
             <ArrowRight size={16} />
           </button>
         </motion.div>
@@ -521,7 +463,7 @@ export default function SupplierRegisterPage() {
               </div>
               <div>
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Étape 2</span>
-                <span className="text-xs font-bold text-gray-900">Infos de la Boutique</span>
+                <span className="text-xs font-bold text-gray-900">Votre Projet & Activité</span>
               </div>
             </div>
           </div>
@@ -533,7 +475,7 @@ export default function SupplierRegisterPage() {
               <div>
                 <strong className="block font-bold">Compte Acheteur Détecté : {user.email}</strong>
                 <p className="text-[11px] text-amber-800 mt-0.5">
-                  Dès le règlement de l'abonnement mensuel, votre compte sera promu en <strong>Compte Fournisseur Partenaire</strong>.
+                  Après règlement et présentation de votre projet, l&apos;administration évaluera votre activité et vous attribuera votre <strong>rayon officiel</strong> avec notification immédiate.
                 </p>
               </div>
             </div>
@@ -907,21 +849,21 @@ export default function SupplierRegisterPage() {
                 <div className="flex items-center gap-2">
                   <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
                   <div>
-                    <strong>Paiement de $50 Validé avec Succès !</strong>
+                    <strong>Paiement de ${effectiveDeposit} USD Enregistré !</strong>
                     <span className="block text-[10px] text-emerald-700 font-mono">Réf : {paidPaymentRef}</span>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-200/60 font-bold text-[10px]">
-                  30 jours actifs
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px]">
+                  Étape 2 / 2
                 </span>
               </div>
 
               <div>
                 <h2 className="text-2xl font-black text-gray-900 tracking-tight">
-                  Configurer votre Boutique
+                  Présentez votre Projet & Activité
                 </h2>
                 <p className="text-xs text-gray-500 mt-1">
-                  Complétez les informations publiques de votre entreprise pour activer votre vitrine en ligne.
+                  Expliquez-nous clairement ce que vous vendez ou proposez. Notre administration évaluera votre projet et vous attribuera le rayon adapté.
                 </p>
               </div>
 
@@ -951,23 +893,38 @@ export default function SupplierRegisterPage() {
                 </div>
               </div>
 
+              {/* Encadré informatif : seul l'admin attribue le rayon */}
+              <div className="p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200 text-xs text-blue-900 flex items-start gap-2.5">
+                <ShieldCheck size={16} className="text-blue-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block font-bold">Attribution officielle du Rayon par l&apos;administration</strong>
+                  <p className="text-[11px] text-blue-800/90 mt-0.5 leading-relaxed">
+                    Pour garantir la qualité de la marketplace, vous ne choisissez pas votre rayon vous-même : l&apos;équipe Rayons.net étudie votre activité ci-dessous et vous attribue votre rayon officiel (Connect, Immo, Mode ou Saveurs) avec notification immédiate.
+                  </p>
+                </div>
+              </div>
+
               <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-700">Rayon & Secteur d'Activité *</label>
-                <select
-                  value={businessType}
-                  onChange={(e) => setBusinessType(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF6600] text-xs text-gray-900 transition-all shadow-xs cursor-pointer"
-                >
-                  <option value="COMMERCE">Commerce Général & Mode (Vêtements, Chaussures, Cosmétiques, Électroménager)</option>
-                  <option value="CONNECT">Technologies & Objets Connectés (Starlink, Smartphones, Informatique)</option>
-                  <option value="RESTAURATION">Restauration & Saveurs (Cuisine, Plats, Épicerie fine)</option>
-                  <option value="IMMOBILIER">Immobilier & Résidences (Agences, Bailleurs, Hôtels & Nuitées)</option>
-                </select>
+                <label className="text-xs font-bold text-gray-700">
+                  Expliquez votre projet / Ce que vous vendez *
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  minLength={15}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF6600] text-xs text-gray-900 transition-all shadow-xs resize-none"
+                  placeholder="Ex : Je vends des smartphones, accessoires tech et kits Starlink neufs avec garantie à Kinshasa ; ou : Je gère des appartements meublés à Gombe ; ou : Restaurant traiteur spécialisé dans..."
+                />
+                <span className="text-[10px] text-gray-400 block">
+                  Détaillez vos produits, services, provenance et type de clientèle pour une validation rapide.
+                </span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-gray-700">Commune à Kinshasa</label>
+                  <label className="text-xs font-bold text-gray-700">Commune / Ville</label>
                   <input
                     type="text"
                     value={commune}
@@ -989,17 +946,6 @@ export default function SupplierRegisterPage() {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-700">Description ou Slogan de la boutique</label>
-                <textarea
-                  rows={2}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3.5 py-2 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF6600] text-xs text-gray-900 transition-all shadow-xs resize-none"
-                  placeholder="Spécialiste de la vente en gros et au détail à Kinshasa..."
-                />
-              </div>
-
               {/* BOUTON FINAL ÉTAPE 2 */}
               <button
                 type="submit"
@@ -1009,11 +955,11 @@ export default function SupplierRegisterPage() {
                 {isLoading ? (
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Création & Activation de votre espace...</span>
+                    <span>Envoi de votre projet pour évaluation...</span>
                   </div>
                 ) : (
                   <>
-                    <span>Finaliser et Ouvrir mon Espace Fournisseur</span>
+                    <span>Soumettre mon Projet pour Attribution de Rayon</span>
                     <ArrowRight size={16} />
                   </>
                 )}

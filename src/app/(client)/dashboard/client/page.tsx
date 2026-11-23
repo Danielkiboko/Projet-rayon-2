@@ -30,7 +30,8 @@ import {
   SlidersHorizontal,
   Sparkles,
   ShoppingBag,
-  Edit3
+  Edit3,
+  AlertCircle
 } from "lucide-react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
@@ -403,6 +404,55 @@ export default function ClientDashboard() {
             </div>
           </div>
         </div>
+
+        {/* 1b. Suivi de demande Fournisseur (après paiement & envoi du projet) */}
+        {userData?.supplierApplicationStatus === "PENDING_APPROVAL" && (
+          <div className="mb-5 p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                <Clock size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-amber-950">
+                  Candidature Fournisseur en cours d&apos;évaluation
+                  {userData?.supplierApplication?.company ? ` — ${userData.supplierApplication.company}` : ""}
+                </h3>
+                <p className="text-xs text-amber-900/80 mt-0.5 leading-relaxed">
+                  Votre paiement et la présentation de votre projet ont bien été reçus. L&apos;administration Rayons.net évalue votre activité afin de vous <strong>attribuer votre rayon officiel</strong>. Vous recevrez une notification dès l&apos;activation.
+                </p>
+              </div>
+            </div>
+            {userData?.supplierApplication?.paymentRef && (
+              <span className="text-[11px] font-mono font-bold px-3 py-1 rounded-full bg-white border border-amber-200 text-amber-800 shrink-0 self-start sm:self-center">
+                Réf. {userData.supplierApplication.paymentRef}
+              </span>
+            )}
+          </div>
+        )}
+
+        {userData?.supplierApplicationStatus === "REJECTED" && (
+          <div className="mb-5 p-4 rounded-2xl bg-red-50 border border-red-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-100 text-red-700 flex items-center justify-center shrink-0">
+                <AlertCircle size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-red-950">
+                  Demande Fournisseur non retenue
+                </h3>
+                <p className="text-xs text-red-900/80 mt-0.5 leading-relaxed">
+                  {userData?.supplierApplicationRejectionReason || "Votre projet nécessite des précisions complémentaires. Contactez notre assistance ou soumettez un nouveau dossier."}
+                </p>
+              </div>
+            </div>
+            <Link
+              href="/supplier/register"
+              className="text-xs font-bold px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white shrink-0 self-start sm:self-center"
+            >
+              Modifier &amp; resoumettre
+            </Link>
+          </div>
+        )}
 
         {/* 2. Quick Metrics (Stat Cards sans doublon Trade Assurance) */}
         <ClientQuickStats 

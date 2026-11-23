@@ -37,10 +37,11 @@ export async function GET(req: NextRequest) {
       "supplier_immo", "supplier_mode", "supplier_connect", "supplier_saveurs",
     ];
 
-    const [snap1, snap2, snap3, snapPartners1, snapPartners2] = await Promise.all([
+    const [snap1, snap2, snap3, snapApplications, snapPartners1, snapPartners2] = await Promise.all([
       adminDb.collection("users").where("role", "in", supplierRoles1).get(),
       adminDb.collection("users").where("role", "in", supplierRoles2).get(),
       adminDb.collection("users").where("isSupplier", "==", true).get(),
+      adminDb.collection("users").where("supplierApplicationStatus", "==", "PENDING_APPROVAL").get(),
       adminDb.collection("users").where("isPartner", "==", true).get(),
       adminDb.collection("users").where("role", "==", "PARTNER").get(),
     ]);
@@ -94,19 +95,25 @@ export async function GET(req: NextRequest) {
         ? data.subscriptionEndDate
         : null;
 
+      const normalizedStatus = String(data.status || "").toLowerCase();
+      const isPendingApp = data.supplierApplicationStatus === "PENDING_APPROVAL";
+
       suppliers.push({
         id: docSnap.id,
-        name: data.companyName || data.company || data.displayName || data.name || "Sans nom",
-        email: data.email || "",
-        rayon: data.rayon || (Array.isArray(data.assignedRayons) && data.assignedRayons[0]) || "Non assigné",
+        name: data.supplierApplication?.company || data.companyName || data.company || data.displayName || data.name || "Sans nom",
+        email: data.email || data.supplierApplication?.email || "",
+        rayon: data.rayon || (Array.isArray(data.assignedRayons) && data.assignedRayons[0]) || "En attente d'attribution",
         assignedRayons: data.assignedRayons || (data.rayon ? [data.rayon] : []),
-        status:
-          data.status === "active" || data.status === "Disponible"
-            ? "Actif"
-            : data.status === "PENDING_APPROVAL"
-            ? "En attente"
-            : "Inactif",
+        status: isPendingApp
+          ? "En attente"
+          : normalizedStatus === "active" || normalizedStatus === "disponible"
+          ? "Actif"
+          : data.status === "PENDING_APPROVAL"
+          ? "En attente"
+          : "Inactif",
         profileUpdateStatus: data.profileUpdateStatus || null,
+        supplierApplicationStatus: data.supplierApplicationStatus || null,
+        supplierApplication: data.supplierApplication || null,
         pendingProfile: data.pendingProfile || null,
         subscriptionStatus: data.subscriptionStatus || "TRIAL",
         subscriptionEndDate: subEndIso,
@@ -146,6 +153,7 @@ export async function GET(req: NextRequest) {
     snap1.forEach(processSupplier);
     snap2.forEach(processSupplier);
     snap3.forEach(processSupplier);
+    snapApplications.forEach(processSupplier);
 
     suppliers.sort((a, b) => (b.createdAtMs || 0) - (a.createdAtMs || 0));
 

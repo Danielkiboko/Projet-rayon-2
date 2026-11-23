@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
+      mode,
       supplierId,
       supplierName,
       supplierEmail,
@@ -34,19 +35,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Sécurité : en production, seul un Administrateur Finance peut activer directement un abonnement.
-    // Les fournisseurs soumettent leur preuve Mobile Money via `/api/payments/mobile-money` pour vérification.
     const caller = await getServerCaller(req);
     if (!caller || !canActForSupplier(caller, supplierId)) {
       return NextResponse.json(
-        { success: false, error: "Authentification requise pour enregistrer un abonnement." },
+        { success: false, error: "Authentification requise pour enregistrer une demande ou un abonnement." },
         { status: 401 }
       );
     }
 
+    // Mode "application" = un client/candidat paie et soumet son projet pour évaluation admin.
+    // Il ne reçoit JAMAIS de rayon ni de rôle fournisseur automatiquement : seul l'admin attribue le rayon.
+    const isApplicationMode = mode === "application" || (!caller.isAdmin && !body.isRenewal);
+
     const isProd = process.env.NODE_ENV === "production";
     const allowSim = process.env.ALLOW_PAYMENT_SIMULATION === "true";
-    if (isProd && !allowSim && !caller.isAdmin) {
+    if (!isApplicationMode && isProd && !allowSim && !caller.isAdmin) {
       return NextResponse.json(
         {
           success: false,
@@ -190,27 +193,98 @@ export async function POST(req: NextRequest) {
     const nextDueDate = new Date();
     nextDueDate.setDate(nextDueDate.getDate() + 30); // 30 jours renouvelables
 
-    // Ne pas rétrograder le superAdmin si c'est lui qui teste
-    let finalRole = targetRole;
-    if (existingUserData?.role === "SUPER_ADMIN" || existingUserData?.role === "superAdmin") {
-      finalRole = existingUserData.role;
-    }
+    const projectDesc = String(companyData?.projectDescription || companyData?.description || "").trim();
 
-    const userUpdatePayload: any = {
-      uid: supplierId,
-      role: finalRole,
-      status: "ACTIVE",
-      subscriptionStatus: "ACTIVE",
-      // Le tarif de référence reste le montant plein (la réduction parrainage est ponctuelle)
-      depositAmount: baseAmount,
-      subscriptionEndDate: nextDueDate,
-      lastDepositPaidAt: now,
-      lastDepositAmount: finalAmount,
-      lastPaymentReference: ref,
-      paymentMethodUsed: paymentMethod,
-      isBlocked: false,
-      updatedAt: now,
-    };
+    let userUpdatePayload: any;
+
+    if (isApplicationMode) {
+      // CANDIDATURE FOURNISSEUR : l'utilisateur NE PEUT PAS se donner un rayon ni activer son compte vendeur.
+      // Son projet et son paiement sont mis en attente d'évaluation par l'administration.
+      const preservedRole = existingUserData?.role || "CLIENT";
+      userUpdatePayload = {
+        uid: supplierId,
+        role: preservedRole,
+        status: existingUserData?.status || "active",
+        supplierApplicationStatus: "PENDING_APPROVAL",
+        profileUpdateStatus: "PENDING_APPROVAL",
+        isSupplierApplication: true,
+        rayon: existingUserData?.rayon || null,
+        assignedRayons: Array.isArray(existingUserData?.assignedRayons) ? existingUserData.assignedRayons : [],
+        depositAmount: baseAmount,
+        lastDepositPaidAt: now,
+        lastDepositAmount: finalAmount,
+        lastPaymentReference: ref,
+        paymentMethodUsed: paymentMethod,
+        supplierApplication: {
+          name: (companyData?.name || existingUserData?.displayName || "").trim(),
+          company: effectiveName,
+          email: (companyData?.email || supplierEmail || existingUserData?.email || "").trim(),
+          phone: (companyData?.phone || existingUserData?.phone || "").trim(),
+          commune: (companyData?.commune || "").trim(),
+          address: (companyData?.address || "").trim(),
+          projectDescription: projectDesc,
+          paymentRef: ref,
+          amountPaid: finalAmount,
+          baseAmount,
+          referralDiscount,
+          paymentMethod,
+          referralCode: referralCode || null,
+          submittedAt: new Date().toISOString(),
+        },
+        companyName: effectiveName,
+        company: effectiveName,
+        ...(companyData?.name ? { name: companyData.name.trim(), displayName: companyData.name.trim() } : {}),
+        ...(companyData?.email ? { email: companyData.email.trim() } : (supplierEmail && !existingUserData?.email ? { email: supplierEmail.trim() } : {})),
+        ...(companyData?.phone ? { phone: companyData.phone.trim() } : {}),
+        ...(companyData?.commune ? { commune: companyData.commune.trim() } : {}),
+        ...(companyData?.address ? { address: companyData.address.trim() } : {}),
+        ...(projectDesc ? { description: projectDesc } : {}),
+        updatedAt: now,
+      };
+    } else {
+      // ACTIVATION / RENOUVELLEMENT DIRECT (réservé admin)
+      let finalRole = targetRole;
+      if (existingUserData?.role === "SUPER_ADMIN" || existingUserData?.role === "superAdmin") {
+        finalRole = existingUserData.role;
+      }
+
+      userUpdatePayload = {
+        uid: supplierId,
+        role: finalRole,
+        status: "active",
+        subscriptionStatus: "ACTIVE",
+        depositAmount: baseAmount,
+        subscriptionEndDate: nextDueDate,
+        lastDepositPaidAt: now,
+        lastDepositAmount: finalAmount,
+        lastPaymentReference: ref,
+        paymentMethodUsed: paymentMethod,
+        isBlocked: false,
+        updatedAt: now,
+      };
+
+      if (companyData) {
+        if (companyData.name) {
+          userUpdatePayload.name = companyData.name.trim();
+          userUpdatePayload.displayName = companyData.name.trim();
+        }
+        if (companyData.company) userUpdatePayload.company = companyData.company.trim();
+        if (companyData.email) userUpdatePayload.email = companyData.email.trim();
+        if (companyData.phone) userUpdatePayload.phone = companyData.phone.trim();
+        if (companyData.businessType) userUpdatePayload.businessType = companyData.businessType;
+        userUpdatePayload.rayon = companyData.rayon || primaryRayon;
+        userUpdatePayload.assignedRayons = companyData.assignedRayons || assigned;
+        if (companyData.commune) userUpdatePayload.commune = companyData.commune.trim();
+        if (companyData.address) userUpdatePayload.address = companyData.address.trim();
+        if (companyData.description) userUpdatePayload.description = companyData.description.trim();
+      } else {
+        if (supplierName && !existingUserData?.company) userUpdatePayload.company = supplierName.trim();
+        if (supplierEmail && !existingUserData?.email) userUpdatePayload.email = supplierEmail.trim();
+        if (!existingUserData?.rayon) userUpdatePayload.rayon = primaryRayon;
+        if (!existingUserData?.assignedRayons) userUpdatePayload.assignedRayons = assigned;
+        if (!existingUserData?.businessType) userUpdatePayload.businessType = businessType;
+      }
+    }
 
     if (referralDiscount > 0) {
       userUpdatePayload.referralDiscountPending = Math.max(
@@ -220,33 +294,11 @@ export async function POST(req: NextRequest) {
       userUpdatePayload.referralDiscountUsedAt = now;
     }
 
-    // Doublon (ex : même paiement renvoyé à l'étape 2 de l'inscription) : on ne touche ni à l'échéance ni aux finances
+    // Doublon (ex : même paiement renvoyé) : on ne touche ni à l'échéance ni aux finances
     if (isDuplicatePayment) {
       delete userUpdatePayload.subscriptionEndDate;
       delete userUpdatePayload.lastDepositPaidAt;
       delete userUpdatePayload.lastDepositAmount;
-    }
-
-    if (companyData) {
-      if (companyData.name) {
-        userUpdatePayload.name = companyData.name.trim();
-        userUpdatePayload.displayName = companyData.name.trim();
-      }
-      if (companyData.company) userUpdatePayload.company = companyData.company.trim();
-      if (companyData.email) userUpdatePayload.email = companyData.email.trim();
-      if (companyData.phone) userUpdatePayload.phone = companyData.phone.trim();
-      if (companyData.businessType) userUpdatePayload.businessType = companyData.businessType;
-      userUpdatePayload.rayon = companyData.rayon || primaryRayon;
-      userUpdatePayload.assignedRayons = companyData.assignedRayons || assigned;
-      if (companyData.commune) userUpdatePayload.commune = companyData.commune.trim();
-      if (companyData.address) userUpdatePayload.address = companyData.address.trim();
-      if (companyData.description) userUpdatePayload.description = companyData.description.trim();
-    } else {
-      if (supplierName && !existingUserData?.company) userUpdatePayload.company = supplierName.trim();
-      if (supplierEmail && !existingUserData?.email) userUpdatePayload.email = supplierEmail.trim();
-      if (!existingUserData?.rayon) userUpdatePayload.rayon = primaryRayon;
-      if (!existingUserData?.assignedRayons) userUpdatePayload.assignedRayons = assigned;
-      if (!existingUserData?.businessType) userUpdatePayload.businessType = businessType;
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -277,6 +329,50 @@ export async function POST(req: NextRequest) {
     batch.set(userDocRef, userUpdatePayload, { merge: true });
 
     await batch.commit();
+
+    // Notifications temps réel (admin + candidat) lors d'une candidature fournisseur
+    if (isApplicationMode) {
+      try {
+        const nowMs = Date.now();
+        // 1. Notifier le client que son dossier est en évaluation
+        await adminDb.collection("inapp_notifications").add({
+          userId: supplierId,
+          clientId: supplierId,
+          type: "supplier_application",
+          title: "📋 Projet fournisseur reçu pour évaluation",
+          message: `Votre paiement ($${finalAmount} USD, réf. ${ref}) et le projet "${effectiveName}" ont bien été reçus. L'administration va vous attribuer votre rayon officiel.`,
+          link: "/dashboard/client",
+          read: false,
+          seen: false,
+          time: nowMs,
+          createdAt: now,
+        });
+
+        // 2. Notifier les administrateurs habilités (limité à 10)
+        const adminsSnap = await adminDb
+          .collection("users")
+          .where("role", "in", ["SUPER_ADMIN", "superAdmin", "ADMIN", "GESTIONNAIRE_ADMIN"])
+          .limit(10)
+          .get();
+
+        const notifWrites = adminsSnap.docs.map((aDoc: any) =>
+          adminDb.collection("inapp_notifications").add({
+            userId: aDoc.id,
+            type: "supplier_application",
+            title: `🏪 Nouveau projet fournisseur : ${effectiveName}`,
+            message: `${effectiveName} a payé $${finalAmount} USD et attend l'évaluation de son projet pour l'attribution de son rayon.`,
+            link: "/admin/suppliers",
+            read: false,
+            seen: false,
+            time: nowMs,
+            createdAt: now,
+          })
+        );
+        await Promise.allSettled(notifWrites);
+      } catch (notifErr) {
+        console.warn("[SUPPLIER SUBSCRIBE] notification warning:", notifErr);
+      }
+    }
 
     // ─────────────────────────────────────────────────────────────
     // PARRAINAGE : rattachement (1ʳᵉ souscription uniquement) + commission 5 USD au parrain

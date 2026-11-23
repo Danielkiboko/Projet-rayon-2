@@ -21,6 +21,20 @@ interface Supplier {
   assignedRayons?: string[];
   status: string;
   profileUpdateStatus?: string;
+  supplierApplicationStatus?: string;
+  supplierApplication?: {
+    name?: string;
+    company?: string;
+    email?: string;
+    phone?: string;
+    commune?: string;
+    address?: string;
+    projectDescription?: string;
+    paymentRef?: string;
+    amountPaid?: number;
+    paymentMethod?: string;
+    submittedAt?: string;
+  } | null;
   pendingProfile?: any;
   subscriptionStatus?: string;
   subscriptionEndDate?: any;
@@ -77,8 +91,12 @@ export default function SuppliersPage() {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<"all" | "trial" | "active" | "expired" | "official">("all");
   const [partnersList, setPartnersList] = useState<{ id: string; name: string; code: string }[]>([]);
 
-  // Rayon selection state for access modal
+  // Rayon selection state for access modal & application evaluation modal
   const [selectedRayons, setSelectedRayons] = useState<string[]>([]);
+  const [approvalRayons, setApprovalRayons] = useState<string[]>([]);
+  const [approvalDays, setApprovalDays] = useState<number>(30);
+  const [approvalNote, setApprovalNote] = useState<string>("");
+  const [isApprovingApp, setIsApprovingApp] = useState<boolean>(false);
   
   const [search, setSearch] = useState("");
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -280,7 +298,59 @@ export default function SuppliersPage() {
 
   const openReviewModal = (supplier: Supplier) => {
     setSelectedSupplierToApprove(supplier);
+    const existingRayons = getSupplierRayons(supplier).filter((r) =>
+      ["immo", "mode", "connect", "saveurs"].includes(r)
+    );
+    setApprovalRayons(existingRayons);
+    setApprovalDays(30);
+    setApprovalNote("");
     setIsReviewModalOpen(true);
+  };
+
+  const handleEvaluateApplication = async (action: "approve" | "reject") => {
+    if (!selectedSupplierToApprove) return;
+    if (action === "approve" && approvalRayons.length === 0) {
+      setError("Veuillez sélectionner au moins un rayon à attribuer (Immo, Mode, Connect ou Saveurs).");
+      return;
+    }
+
+    setIsApprovingApp(true);
+    setError("");
+    setSuccessMessage("");
+    try {
+      const token = await auth.currentUser?.getIdToken(true);
+      if (!token) throw new Error("Session expirée. Veuillez vous reconnecter.");
+
+      const res = await fetch("/api/admin/suppliers/approve-application", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          supplierId: selectedSupplierToApprove.id,
+          action,
+          assignedRayons: approvalRayons,
+          subscriptionDays: approvalDays,
+          adminNote: approvalNote.trim() || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Erreur lors du traitement de la demande.");
+      }
+
+      setSuccessMessage(data.message || "Décision enregistrée et candidat notifié !");
+      setIsReviewModalOpen(false);
+      setSelectedSupplierToApprove(null);
+      fetchSuppliers();
+    } catch (err: any) {
+      console.error("Evaluate application error:", err);
+      setError(err.message || "Erreur lors de l'évaluation du projet.");
+    } finally {
+      setIsApprovingApp(false);
+    }
   };
 
   const openAccessModal = (supplier: Supplier) => {
@@ -637,7 +707,10 @@ export default function SuppliersPage() {
   const saveursSuppliersCount = suppliers.filter((s) => getSupplierRayons(s).includes("saveurs")).length;
 
   const pendingProfilesCount = suppliers.filter(
-    (s) => s.profileUpdateStatus === "PENDING_APPROVAL" || s.status === "PENDING_APPROVAL"
+    (s) =>
+      s.supplierApplicationStatus === "PENDING_APPROVAL" ||
+      s.profileUpdateStatus === "PENDING_APPROVAL" ||
+      s.status === "PENDING_APPROVAL"
   ).length;
 
   const partnerSuppliersCount = suppliers.filter((s) => s.partnerReferral || !!s.referredByPartnerId).length;
@@ -646,7 +719,11 @@ export default function SuppliersPage() {
   const filteredSuppliers = suppliers.filter((s) => {
     // 1. Rayon / Pending approval filter
     if (selectedRayonFilter === "pending") {
-      if (s.profileUpdateStatus !== "PENDING_APPROVAL" && s.status !== "PENDING_APPROVAL") return false;
+      if (
+        s.supplierApplicationStatus !== "PENDING_APPROVAL" &&
+        s.profileUpdateStatus !== "PENDING_APPROVAL" &&
+        s.status !== "PENDING_APPROVAL"
+      ) return false;
     } else if (selectedRayonFilter === "immo") {
       if (!getSupplierRayons(s).includes("immo")) return false;
     } else if (selectedRayonFilter === "mode") {
@@ -1118,9 +1195,23 @@ export default function SuppliersPage() {
                         )}
                       </td>
 
-                      {/* 5. Dossier KYC */}
+                      {/* 5. Dossier KYC / Projet */}
                       <td className="px-5 py-3.5">
-                        {supplier.profileUpdateStatus === "PENDING_APPROVAL" || supplier.status === "PENDING_APPROVAL" ? (
+                        {supplier.supplierApplicationStatus === "PENDING_APPROVAL" ? (
+                          <div className="flex flex-col items-start gap-1">
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-300">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                              Projet à évaluer
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => openReviewModal(supplier)}
+                              className="text-[11px] px-2.5 py-1 rounded-lg bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold cursor-pointer"
+                            >
+                              Évaluer &amp; attribuer rayon
+                            </button>
+                          </div>
+                        ) : supplier.profileUpdateStatus === "PENDING_APPROVAL" || supplier.status === "PENDING_APPROVAL" ? (
                           <div className="flex flex-col items-start gap-1">
                             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-300">
                               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
@@ -1236,12 +1327,18 @@ export default function SuppliersPage() {
                     </div>
                   </div>
 
-                  {(supplier.profileUpdateStatus === "PENDING_APPROVAL" || supplier.status === "PENDING_APPROVAL") && (
+                  {(supplier.supplierApplicationStatus === "PENDING_APPROVAL" || supplier.profileUpdateStatus === "PENDING_APPROVAL" || supplier.status === "PENDING_APPROVAL") && (
                     <button
                       onClick={() => openReviewModal(supplier)}
-                      className="w-full text-xs font-bold bg-amber-500 hover:bg-amber-400 text-gray-950 py-2 px-3 rounded-lg cursor-pointer"
+                      className={`w-full text-xs font-bold py-2 px-3 rounded-lg cursor-pointer ${
+                        supplier.supplierApplicationStatus === "PENDING_APPROVAL"
+                          ? "bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27]"
+                          : "bg-amber-500 hover:bg-amber-400 text-gray-950"
+                      }`}
                     >
-                      Vérifier &amp; valider le dossier KYC
+                      {supplier.supplierApplicationStatus === "PENDING_APPROVAL"
+                        ? "Évaluer le projet & attribuer un rayon"
+                        : "Vérifier & valider le dossier KYC"}
                     </button>
                   )}
 
@@ -1840,6 +1937,107 @@ export default function SuppliersPage() {
               </div>
 
               <div className="p-5 sm:p-6 overflow-y-auto space-y-6 flex-1">
+                {/* 0. Projet & Activité déclarée après paiement (Évaluation & Attribution du Rayon) */}
+                {(selectedSupplierToApprove.supplierApplication || selectedSupplierToApprove.supplierApplicationStatus === "PENDING_APPROVAL") && (
+                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-400/30 space-y-4">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-amber-300 flex items-center gap-2">
+                        <span>📋 Projet déclaré &amp; Attribution du Rayon (Décision Admin)</span>
+                      </h3>
+                      {selectedSupplierToApprove.supplierApplication?.paymentRef && (
+                        <span className="text-[11px] font-mono px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          Payé ${selectedSupplierToApprove.supplierApplication.amountPaid ?? 50} • Réf: {selectedSupplierToApprove.supplierApplication.paymentRef}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="bg-black/35 rounded-xl p-3.5 border border-white/10">
+                      <span className="block text-[10px] text-gray-400 uppercase font-bold mb-1">
+                        Ce que le candidat vend / Description du projet :
+                      </span>
+                      <p className="text-sm text-white leading-relaxed whitespace-pre-wrap">
+                        {selectedSupplierToApprove.supplierApplication?.projectDescription || "Aucune description renseignée."}
+                      </p>
+                      <div className="mt-2.5 pt-2.5 border-t border-white/10 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-300">
+                        {selectedSupplierToApprove.supplierApplication?.company && (
+                          <span>Boutique : <strong className="text-white">{selectedSupplierToApprove.supplierApplication.company}</strong></span>
+                        )}
+                        {selectedSupplierToApprove.supplierApplication?.commune && (
+                          <span>Commune : <strong className="text-white">{selectedSupplierToApprove.supplierApplication.commune}</strong></span>
+                        )}
+                        {selectedSupplierToApprove.supplierApplication?.paymentMethod && (
+                          <span>Paiement : <strong className="text-emerald-300">{selectedSupplierToApprove.supplierApplication.paymentMethod}</strong></span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Choix du/des rayon(s) exclusivement par l'admin */}
+                    <div>
+                      <label className="block text-xs font-bold text-white mb-2">
+                        Attribuer le(s) rayon(s) officiel(s) en fonction de son activité *
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {availableRayons.map((r) => {
+                          const isChecked = approvalRayons.includes(r.id);
+                          return (
+                            <button
+                              key={r.id}
+                              type="button"
+                              onClick={() =>
+                                setApprovalRayons((prev) =>
+                                  prev.includes(r.id) ? prev.filter((x) => x !== r.id) : [...prev, r.id]
+                                )
+                              }
+                              className={`text-left p-3 rounded-xl border transition-all cursor-pointer ${
+                                isChecked
+                                  ? "bg-[#C7D300]/15 border-[#C7D300] text-white"
+                                  : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold flex items-center gap-1.5">
+                                  <span>{r.icon}</span>
+                                  <span>{r.label}</span>
+                                </span>
+                                {isChecked && <CheckCircle2 size={16} className="text-[#C7D300] shrink-0" />}
+                              </div>
+                              <p className="text-[10px] text-gray-400 mt-0.5">{r.desc}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">
+                          Durée (jours)
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={365}
+                          value={approvalDays}
+                          onChange={(e) => setApprovalDays(Number(e.target.value) || 30)}
+                          className="w-full px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] uppercase font-bold text-gray-400 mb-1">
+                          Message / Motif envoyé dans la notification (optionnel)
+                        </label>
+                        <input
+                          type="text"
+                          value={approvalNote}
+                          onChange={(e) => setApprovalNote(e.target.value)}
+                          placeholder="Ex : Bienvenue dans Rayons Connect ! ou motif en cas de refus..."
+                          className="w-full px-3 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white placeholder:text-gray-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Coordonnées & Numéros */}
                 <div>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-[#C7D300] mb-3">
@@ -1987,20 +2185,41 @@ export default function SuppliersPage() {
                 )}
               </div>
 
-              <div className="p-5 sm:p-6 border-t border-white/10 shrink-0 flex justify-end space-x-3">
+              <div className="p-5 sm:p-6 border-t border-white/10 shrink-0 flex flex-wrap items-center justify-end gap-3">
                 <button 
                   onClick={() => setIsReviewModalOpen(false)}
                   className="px-4 py-2 text-gray-400 hover:text-white transition-colors text-xs sm:text-sm font-semibold cursor-pointer"
                 >
                   Fermer
                 </button>
-                <button 
-                  onClick={confirmApproveProfile}
-                  disabled={isLoading}
-                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-lg"
-                >
-                  {isLoading ? "Validation..." : "✅ Valider & Certifier l'Identité en BDD"}
-                </button>
+                {selectedSupplierToApprove.supplierApplicationStatus === "PENDING_APPROVAL" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleEvaluateApplication("reject")}
+                      disabled={isApprovingApp}
+                      className="bg-red-500/15 hover:bg-red-500/25 border border-red-500/40 text-red-300 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-colors disabled:opacity-50 cursor-pointer"
+                    >
+                      Refuser la demande
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleEvaluateApplication("approve")}
+                      disabled={isApprovingApp || approvalRayons.length === 0}
+                      className="bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] px-5 py-2 rounded-xl text-xs sm:text-sm font-extrabold transition-colors disabled:opacity-50 cursor-pointer shadow-lg"
+                    >
+                      {isApprovingApp ? "Attribution..." : "✅ Approuver & Attribuer ce Rayon (+ Notifier)"}
+                    </button>
+                  </>
+                ) : (
+                  <button 
+                    onClick={confirmApproveProfile}
+                    disabled={isLoading}
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded-xl text-xs sm:text-sm font-bold transition-colors disabled:opacity-50 cursor-pointer shadow-lg"
+                  >
+                    {isLoading ? "Validation..." : "✅ Valider & Certifier l'Identité en BDD"}
+                  </button>
+                )}
               </div>
             </motion.div>
           </div>
