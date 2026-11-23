@@ -114,6 +114,19 @@ function ImmoContent() {
     let cancelled = false;
     const fetchProperties = async () => {
       try {
+        // 1. Priorité à l'API cachée CDN + Redis
+        try {
+          const apiRes = await fetch("/api/catalog/public?scope=immo");
+          if (apiRes.ok) {
+            const payload = await apiRes.json();
+            if (!cancelled && payload?.success && Array.isArray(payload.properties)) {
+              setProducts(payload.properties);
+              return;
+            }
+          }
+        } catch {}
+
+        // 2. Fallback Firestore direct
         const q = query(
           collection(db, "properties"),
           where("status", "==", "Disponible"),

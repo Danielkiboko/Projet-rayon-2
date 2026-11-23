@@ -5,6 +5,7 @@ import nodemailer from 'nodemailer';
 import { SUPER_ADMIN_EMAILS } from '@/lib/serverAuth';
 import { getPermanentDriverApkUrl } from '@/lib/constants';
 import { ensureReferralCode, attachReferral } from '@/lib/referrals';
+import { cacheDel } from '@/lib/cache';
 
 export async function POST(req: Request) {
   try {
@@ -578,6 +579,8 @@ export async function POST(req: Request) {
     if (notificationTasks.length > 0) {
       await runWithSoftTimeout(Promise.allSettled(notificationTasks), 1500);
     }
+
+    await cacheDel("admin:suppliers:list:v1");
 
     return NextResponse.json({ 
       message: 'User created successfully', 

@@ -1,5 +1,11 @@
+# Firebase App Hosting (Google Cloud Run + Global Cloud Load Balancer + Cloud CDN)
+# Déploie automatiquement le backend en multi-instances auto-scalables (Backend 1, 2, 3... jusqu'à 10)
 runConfig:
-  minInstances: 0
+  minInstances: 1
+  maxInstances: 10
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 1024
 
 env:
   - variable: NEXT_PUBLIC_APP_URL
@@ -8,8 +14,26 @@ env:
       - BUILD
       - RUNTIME
 
-  # CRON_SECRET: à définir via Firebase Console → App Hosting → Secrets / Variables d'environnement
+  - variable: NEXT_PUBLIC_SITE_URL
+    value: https://rayons.net
+    availability:
+      - BUILD
+      - RUNTIME
+
+  # Cache distribué Redis (Upstash REST) partagé entre toutes les instances Backend 1..N
+  # À configurer via : firebase apphosting:secrets:set UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN
+  - variable: UPSTASH_REDIS_REST_URL
+    secret: UPSTASH_REDIS_REST_URL
+    availability:
+      - RUNTIME
+
+  - variable: UPSTASH_REDIS_REST_TOKEN
+    secret: UPSTASH_REDIS_REST_TOKEN
+    availability:
+      - RUNTIME
+
+  # Secret de sécurisation des routes Cron (/api/cron/purge-deleted-accounts, /api/cron/daily-reports, etc.)
   - variable: CRON_SECRET
-    value: "REMPLACEZ_PAR_VOTRE_SECRET"
+    secret: CRON_SECRET
     availability:
       - RUNTIME

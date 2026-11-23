@@ -4,6 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getServerCaller, canActForSupplier } from "@/lib/serverAuth";
 import { attachReferral, creditReferralCommission } from "@/lib/referrals";
 import { computeDiscountedDeposit } from "@/lib/referralConfig";
+import { cacheDel } from "@/lib/cache";
 
 function generateEntryNumber(): string {
   const year = new Date().getFullYear();
@@ -329,6 +330,7 @@ export async function POST(req: NextRequest) {
     batch.set(userDocRef, userUpdatePayload, { merge: true });
 
     await batch.commit();
+    await cacheDel("admin:suppliers:list:v1");
 
     // Notifications temps réel (admin + candidat) lors d'une candidature fournisseur
     if (isApplicationMode) {

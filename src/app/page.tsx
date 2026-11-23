@@ -222,30 +222,48 @@ export default function Home() {
     let cancelled = false;
     const fetchData = async () => {
       try {
-        const [prodSnap, propSnap] = await Promise.all([
-          getDocs(query(collection(db, "products"), limit(16))),
-          getDocs(query(collection(db, "properties"), where("status", "==", "Disponible"), limit(6)))
-        ]);
+        let prods: any[] = [];
+        let props: any[] = [];
+
+        // 1. Priorité à l'API cachée CDN + Redis (0 lecture Firestore directe par visiteur!)
+        let loadedFromApi = false;
+        try {
+          const apiRes = await fetch("/api/catalog/public?scope=home");
+          if (apiRes.ok) {
+            const payload = await apiRes.json();
+            if (payload?.success) {
+              prods = Array.isArray(payload.products) ? payload.products : [];
+              props = Array.isArray(payload.properties) ? payload.properties : [];
+              loadedFromApi = true;
+            }
+          }
+        } catch {}
+
+        // 2. Fallback Firestore direct uniquement si l'API cachée est indisponible
+        if (!loadedFromApi) {
+          const [prodSnap, propSnap] = await Promise.all([
+            getDocs(query(collection(db, "products"), limit(16))),
+            getDocs(query(collection(db, "properties"), where("status", "==", "Disponible"), limit(6)))
+          ]);
+
+          prodSnap.forEach(doc => {
+            const data = doc.data();
+            if (data.status !== "REJECTED" && data.status !== "ARCHIVED_DELETION" && !data.isHidden) {
+              prods.push({ id: doc.id, ...data });
+            }
+          });
+
+          propSnap.forEach(doc => {
+            const data = doc.data();
+            if (!data.isHidden) props.push({ id: doc.id, ...data });
+          });
+        }
 
         if (cancelled) return;
-
-        const prods: any[] = [];
-        prodSnap.forEach(doc => {
-          const data = doc.data();
-          if (data.status !== "REJECTED") {
-            prods.push({ id: doc.id, ...data });
-          }
-        });
         setDbProducts(prods);
-
-        const props: any[] = [];
-        propSnap.forEach(doc => {
-          props.push({ id: doc.id, ...doc.data() });
-        });
         setDbProperties(props);
 
         try {
-          // Ne mettre en cache que si la charge reste légère (< 1.5 Mo)
           const serialized = JSON.stringify({ products: prods, properties: props, ts: Date.now() });
           if (serialized.length < 1_500_000) {
             sessionStorage.setItem(HOME_CACHE_KEY, serialized);

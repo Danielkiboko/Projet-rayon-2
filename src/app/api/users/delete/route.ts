@@ -3,6 +3,7 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { SUPER_ADMIN_EMAILS } from '@/lib/serverAuth';
 import { recordAuditLog } from '@/server/auditLog';
 import { purgeUserAccountCompletely } from '@/lib/purgeUserAccount';
+import { cacheDel } from '@/lib/cache';
 
 export async function POST(req: Request) {
   try {
@@ -122,6 +123,14 @@ export async function POST(req: Request) {
     let purgeResult;
     try {
       purgeResult = await purgeUserAccountCompletely(uid, { collectionName });
+      await cacheDel(
+        "admin:suppliers:list:v1",
+        "catalog:public:v1:home",
+        "catalog:public:v1:mode",
+        "catalog:public:v1:connect",
+        "catalog:public:v1:saveurs",
+        "catalog:public:v1:immo"
+      );
     } catch (commitErr: any) {
       const msg = String(commitErr?.message || '');
       if (commitErr?.code === 8 || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('FIRESTORE_TIMEOUT')) {

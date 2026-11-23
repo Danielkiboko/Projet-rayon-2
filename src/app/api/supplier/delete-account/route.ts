@@ -4,6 +4,7 @@ import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { getServerCaller, SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
 import { sendEmail } from "@/lib/email";
 import { recordAuditLog } from "@/server/auditLog";
+import { cacheDel } from "@/lib/cache";
 
 const GRACE_PERIOD_DAYS = 15;
 
@@ -86,6 +87,7 @@ export async function POST(req: NextRequest) {
       propsSnap?.forEach((d: any) => batch.update(d.ref, { status: "Disponible", isHidden: false, updatedAt: now }));
 
       await batch.commit();
+      await cacheDel("admin:suppliers:list:v1", "catalog:public:v1:home", "catalog:public:v1:mode", "catalog:public:v1:connect", "catalog:public:v1:saveurs", "catalog:public:v1:immo");
 
       return NextResponse.json({
         success: true,

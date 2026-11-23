@@ -3,6 +3,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
 import { requireAnyStaffPermission } from "@/server/guards";
 import { sendEmail } from "@/lib/email";
+import { cacheDel } from "@/lib/cache";
 
 const VALID_RAYONS = ["immo", "mode", "connect", "saveurs"] as const;
 type ValidRayon = (typeof VALID_RAYONS)[number];
@@ -272,6 +273,7 @@ export async function POST(req: NextRequest) {
     });
 
     await batch.commit();
+    await cacheDel("admin:suppliers:list:v1");
 
     // 5. Email officiel de bienvenue & attribution de rayon (non bloquant)
     if (candidateEmail) {

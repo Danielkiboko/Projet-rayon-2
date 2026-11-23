@@ -43,6 +43,19 @@ function StoreTemplateContent({ category, heroImage, dict }: StoreTemplateProps)
     let cancelled = false;
     const fetchProducts = async () => {
       try {
+        // 1. Priorité à l'API cachée CDN + Redis
+        try {
+          const apiRes = await fetch(`/api/catalog/public?scope=${encodeURIComponent(category)}`);
+          if (apiRes.ok) {
+            const payload = await apiRes.json();
+            if (!cancelled && payload?.success && Array.isArray(payload.products)) {
+              setProducts(payload.products);
+              return;
+            }
+          }
+        } catch {}
+
+        // 2. Fallback Firestore direct
         const productsQuery = query(collection(db, "products"), limit(45));
         const snapshot = await getDocs(productsQuery);
         if (cancelled) return;
