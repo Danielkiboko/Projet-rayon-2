@@ -26,6 +26,7 @@ export const isSuperAdmin = (user: any, userData: any): boolean => {
  */
 export const isTeamMember = (userData: any): boolean => {
   const role = (userData?.role || "").toUpperCase();
+  if (role === "CLIENT" && userData?.isInternalStaff === false) return false;
   return (
     [
       "SUB_ADMIN", "ADMIN_FINANCE", "ADMIN_DB", "ADMIN_TECH", "ADMIN_OPS",
@@ -40,6 +41,7 @@ export const isTeamMember = (userData: any): boolean => {
 
 export const isSubAdmin = (userData: any): boolean => {
   const role = (userData?.role || "").toUpperCase();
+  if (role === "CLIENT" && userData?.isInternalStaff === false) return false;
   return (
     [
       "SUB_ADMIN", "ADMIN_FINANCE", "ADMIN_DB", "ADMIN_TECH", "ADMIN_OPS",

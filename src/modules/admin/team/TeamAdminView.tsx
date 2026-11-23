@@ -437,18 +437,30 @@ export default function AdminTeamPage() {
 
     setIsUpdating(true);
     try {
-      await updateDoc(doc(db, "users", userId), {
-        role: "CLIENT",
-        isInternalStaff: false,
-        updatedAt: serverTimestamp(),
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Session expirée. Veuillez vous reconnecter.");
+
+      const res = await fetch("/api/admin/team/revoke", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ userId, deleteAccount: false }),
       });
-      setSuccessMessage(`Les droits d'administration de "${userName}" ont été révoqués.`);
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Erreur lors de la révocation.");
+      }
+
+      setSuccessMessage(`Tous les accès d'administration de "${userName}" ont été révoqués et sa session invalidée.`);
       if (searchedUser && searchedUser.id === userId) {
-        setSearchedUser({ ...searchedUser, role: "CLIENT" });
+        setSearchedUser({ ...searchedUser, role: "CLIENT", accountType: "CLIENT", isInternalStaff: false });
       }
     } catch (err: any) {
       console.error("Error revoking role:", err);
-      setErrorMessage("Erreur lors de la révocation.");
+      setErrorMessage(err?.message || "Erreur lors de la révocation.");
     } finally {
       setIsUpdating(false);
     }

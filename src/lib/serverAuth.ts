@@ -70,8 +70,10 @@ export async function getServerCaller(req: Request): Promise<ServerCaller | null
     const role = String(data.role || decoded.role || "").toUpperCase().trim();
 
     const isSuperAdminEmail = SUPER_ADMIN_EMAILS.some((e) => e === email);
-    const hasAdminRole = 
-      ADMIN_ROLES.includes(role) || 
+    const isExplicitlyRevokedClient = role === "CLIENT" && data.isInternalStaff === false;
+    const hasAdminRole =
+      !isExplicitlyRevokedClient &&
+      (ADMIN_ROLES.includes(role) || 
       role.includes("ADMIN") || 
       role.includes("FONCTIONNAIRE") ||
       role.includes("RESPONSABLE_") ||
@@ -81,7 +83,7 @@ export async function getServerCaller(req: Request): Promise<ServerCaller | null
       data.isInternalStaff === true ||
       data.accountType === "STAFF" ||
       decoded.admin === true ||
-      decoded.isSuperAdmin === true;
+      decoded.isSuperAdmin === true);
 
     const isAdmin = isSuperAdminEmail || hasAdminRole;
 
