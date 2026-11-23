@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { collection, onSnapshot, query, limit } from "firebase/firestore";
+import { collection, getDocs, query, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { ProductSkeleton } from "@/modules/shared/components/ui/Skeleton";
 import { useChat } from "@/context/ChatContext";
@@ -40,10 +40,12 @@ function StoreTemplateContent({ category, heroImage, dict }: StoreTemplateProps)
   }, [searchParams]);
 
   useEffect(() => {
-    const productsQuery = query(collection(db, "products"), limit(60));
-    const unsubscribe = onSnapshot(
-      productsQuery,
-      (snapshot) => {
+    let cancelled = false;
+    const fetchProducts = async () => {
+      try {
+        const productsQuery = query(collection(db, "products"), limit(45));
+        const snapshot = await getDocs(productsQuery);
+        if (cancelled) return;
         const allProducts = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
@@ -108,16 +110,18 @@ function StoreTemplateContent({ category, heroImage, dict }: StoreTemplateProps)
         const matchedProducts = allProducts.filter(isTargetRayon);
 
         setProducts(matchedProducts);
-        setIsLoading(false);
-      },
-      (error) => {
-        console.error("Error listening to products:", error);
-        setProducts([]);
-        setIsLoading(false);
+      } catch (error) {
+        console.error("Error fetching products:", error);
+        if (!cancelled) setProducts([]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-    );
+    };
 
-    return () => unsubscribe();
+    fetchProducts();
+    return () => {
+      cancelled = true;
+    };
   }, [category]);
 
   const handleChat = (product: any) => {

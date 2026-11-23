@@ -123,6 +123,9 @@ export default function MobilePushManager() {
   const [dismissedBanner, setDismissedBanner] = useState(false);
   const [boundAccount, setBoundAccount] = useState<BoundAccountInfo | null>(null);
   const swRegRef = useRef<ServiceWorkerRegistration | null>(null);
+  const userDataRef = useRef<any>(userData);
+  userDataRef.current = userData;
+  const boundSessionKeyRef = useRef<string | null>(null);
 
   // 1. Enregistrement du Service Worker (/sw.js) au démarrage
   useEffect(() => {
@@ -238,6 +241,18 @@ export default function MobilePushManager() {
     async (requestInteractivePermission = false, forceInstalledFlag = false) => {
       if (typeof window === "undefined") return;
 
+      // Éviter toute ré-écriture Firestore répétée (Spark quota): max 1 enregistrement par session/compte
+      const sessionBindKey = `rayons_push_bound_v1_${user?.uid || "anon"}_${forceInstalledFlag ? "inst" : "std"}`;
+      if (!requestInteractivePermission && !forceInstalledFlag) {
+        if (boundSessionKeyRef.current === sessionBindKey) return;
+        try {
+          if (sessionStorage.getItem(sessionBindKey) === "1") {
+            boundSessionKeyRef.current = sessionBindKey;
+            return;
+          }
+        } catch {}
+      }
+
       let currentPerm: NotificationPermission =
         "Notification" in window ? Notification.permission : "denied";
 
@@ -263,6 +278,12 @@ export default function MobilePushManager() {
       }
 
       if (!user && !isStandalone && currentPerm !== "granted") return;
+
+      // Marquer immédiatement pour empêcher tout double appel concurrent
+      boundSessionKeyRef.current = sessionBindKey;
+      try {
+        sessionStorage.setItem(sessionBindKey, "1");
+      } catch {}
 
       let fcmToken: string | null = null;
       if (currentPerm === "granted") {
@@ -311,18 +332,19 @@ export default function MobilePushManager() {
         });
 
         const data = await res.json();
+        const latestUserData = userDataRef.current;
         if (res.ok && data.success && data.boundUid) {
           const boundInfo: BoundAccountInfo = {
             uid: data.boundUid,
             email: data.boundEmail || user?.email || "",
             displayName:
               data.boundName ||
-              userData?.company ||
-              userData?.displayName ||
+              latestUserData?.company ||
+              latestUserData?.displayName ||
               user?.displayName ||
               user?.email ||
               "Mon Compte",
-            role: data.boundRole || userData?.role || "CLIENT",
+            role: data.boundRole || latestUserData?.role || "CLIENT",
             deviceId: data.deviceId,
             deviceSecret: data.deviceSecret,
             boundAt: Date.now(),
@@ -341,7 +363,7 @@ export default function MobilePushManager() {
         console.warn("[MobilePush] Device binding warning:", err);
       }
     },
-    [user, userData]
+    [user]
   );
 
   // Dès qu'un utilisateur se connecte ou installe l'application sur son téléphone, enregistrer l'appareil
@@ -359,17 +381,33 @@ export default function MobilePushManager() {
     return () => window.removeEventListener("appinstalled", handleAppInstalled);
   }, [user, bindDeviceAndRegisterPush]);
 
-  // 4. Écoute en temps réel quand l'utilisateur est connecté (Notifications + Messages + Ventes)
+  // 4. Écoute en temps réel quand l'utilisateur est connecté (optimisée Spark: limitée au rôle actif)
+  const activeRoleUpper = String(userData?.role || "").toUpperCase();
+  const isSupplierUser =
+    activeRoleUpper.includes("SUPPLIER") ||
+    Boolean(userData?.isSupplier) ||
+    userData?.accountType === "SUPPLIER";
+  const isClientUser =
+    !isSupplierUser &&
+    !activeRoleUpper.includes("ADMIN") &&
+    !activeRoleUpper.includes("STAFF") &&
+    !activeRoleUpper.includes("GESTIONNAIRE") &&
+    !activeRoleUpper.includes("RESPONSABLE") &&
+    !activeRoleUpper.includes("SUPPORT") &&
+    activeRoleUpper !== "PARTNER" &&
+    activeRoleUpper !== "DRIVER";
+
   useEffect(() => {
     if (!user) return;
 
     const mountWatermark = getWatermark();
 
-    // A. Écoute des notifications non lues du compte (userId == user.uid)
+    // A. Écoute des notifications non lues du compte (limité à 15 pour préserver le quota Spark)
     const qUserNotifs = query(
       collection(db, "inapp_notifications"),
       where("userId", "==", user.uid),
-      where("read", "==", false)
+      where("read", "==", false),
+      limit(15)
     );
 
     const unsubUserNotifs = onSnapshot(
@@ -397,74 +435,80 @@ export default function MobilePushManager() {
       () => {}
     );
 
-    // B. Écoute des conversations (chats) où l'utilisateur est fournisseur (nouveaux messages clients)
-    const qSupplierChats = query(
-      collection(db, "chats"),
-      where("supplierId", "==", user.uid),
-      limit(20)
-    );
-    const unsubSupplierChats = onSnapshot(
-      qSupplierChats,
-      (snap) => {
-        snap.docChanges().forEach((change) => {
-          if (change.type === "modified" || change.type === "added") {
-            const c = change.doc.data();
-            const updatedMs = c.updatedAt?.seconds ? c.updatedAt.seconds * 1000 : 0;
-            if (c.unreadSupplier && updatedMs >= mountWatermark) {
-              const notifKey = `chat_sup_${change.doc.id}_${updatedMs}`;
-              triggerNativeAndInAppPush({
-                id: notifKey,
-                title: `💬 Message de ${c.clientName || "Client"}`,
-                message: c.lastMessage || "Vous avez reçu un nouveau message.",
-                link: `/supplier/messages?chatId=${change.doc.id}`,
-                type: "chat",
-                time: updatedMs,
-              });
+    // B. Écoute des conversations fournisseur UNIQUEMENT pour les comptes fournisseurs
+    let unsubSupplierChats: (() => void) | null = null;
+    if (isSupplierUser) {
+      const qSupplierChats = query(
+        collection(db, "chats"),
+        where("supplierId", "==", user.uid),
+        limit(10)
+      );
+      unsubSupplierChats = onSnapshot(
+        qSupplierChats,
+        (snap) => {
+          snap.docChanges().forEach((change) => {
+            if (change.type === "modified" || change.type === "added") {
+              const c = change.doc.data();
+              const updatedMs = c.updatedAt?.seconds ? c.updatedAt.seconds * 1000 : 0;
+              if (c.unreadSupplier && updatedMs >= mountWatermark) {
+                const notifKey = `chat_sup_${change.doc.id}_${updatedMs}`;
+                triggerNativeAndInAppPush({
+                  id: notifKey,
+                  title: `💬 Message de ${c.clientName || "Client"}`,
+                  message: c.lastMessage || "Vous avez reçu un nouveau message.",
+                  link: `/supplier/messages?chatId=${change.doc.id}`,
+                  type: "chat",
+                  time: updatedMs,
+                });
+              }
             }
-          }
-        });
-      },
-      () => {}
-    );
+          });
+        },
+        () => {}
+      );
+    }
 
-    // C. Écoute des conversations (chats) où l'utilisateur est client (réponses fournisseurs / proformas)
-    const qClientChats = query(
-      collection(db, "chats"),
-      where("clientId", "==", user.uid),
-      limit(20)
-    );
-    const unsubClientChats = onSnapshot(
-      qClientChats,
-      (snap) => {
-        snap.docChanges().forEach((change) => {
-          if (change.type === "modified" || change.type === "added") {
-            const c = change.doc.data();
-            const updatedMs = c.updatedAt?.seconds ? c.updatedAt.seconds * 1000 : 0;
-            if (c.unreadClient && updatedMs >= mountWatermark) {
-              const notifKey = `chat_cli_${change.doc.id}_${updatedMs}`;
-              triggerNativeAndInAppPush({
-                id: notifKey,
-                title: `💬 Message de ${c.supplierName || "Fournisseur"}`,
-                message: c.lastMessage || "Nouvelle réponse dans votre discussion.",
-                link: `/dashboard?tab=messages&chatId=${change.doc.id}`,
-                type: "chat",
-                time: updatedMs,
-              });
+    // C. Écoute des conversations client UNIQUEMENT pour les comptes clients
+    let unsubClientChats: (() => void) | null = null;
+    if (isClientUser) {
+      const qClientChats = query(
+        collection(db, "chats"),
+        where("clientId", "==", user.uid),
+        limit(10)
+      );
+      unsubClientChats = onSnapshot(
+        qClientChats,
+        (snap) => {
+          snap.docChanges().forEach((change) => {
+            if (change.type === "modified" || change.type === "added") {
+              const c = change.doc.data();
+              const updatedMs = c.updatedAt?.seconds ? c.updatedAt.seconds * 1000 : 0;
+              if (c.unreadClient && updatedMs >= mountWatermark) {
+                const notifKey = `chat_cli_${change.doc.id}_${updatedMs}`;
+                triggerNativeAndInAppPush({
+                  id: notifKey,
+                  title: `💬 Message de ${c.supplierName || "Fournisseur"}`,
+                  message: c.lastMessage || "Nouvelle réponse dans votre discussion.",
+                  link: `/dashboard?tab=messages&chatId=${change.doc.id}`,
+                  type: "chat",
+                  time: updatedMs,
+                });
+              }
             }
-          }
-        });
-      },
-      () => {}
-    );
+          });
+        },
+        () => {}
+      );
+    }
 
     return () => {
       unsubUserNotifs();
-      unsubSupplierChats();
-      unsubClientChats();
+      if (unsubSupplierChats) unsubSupplierChats();
+      if (unsubClientChats) unsubClientChats();
     };
-  }, [user, triggerNativeAndInAppPush]);
+  }, [user, isSupplierUser, isClientUser, triggerNativeAndInAppPush]);
 
-  // 5. Écoute en arrière-plan MÊME SI DÉCONNECTÉ (via le compte lié à ce téléphone)
+  // 5. Écoute en arrière-plan MÊME SI DÉCONNECTÉ (cadence économique 3 min + onglet visible uniquement)
   useEffect(() => {
     if (user) return; // Déjà couvert par l'écoute temps réel ci-dessus
     const activeBound = boundAccount || getBoundPhoneAccount();
@@ -476,6 +520,7 @@ export default function MobilePushManager() {
 
     const pollBoundAccountNotifications = async () => {
       if (isCancelled) return;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       try {
         const since = getWatermark();
         const url = `/api/push/register?uid=${encodeURIComponent(activeBound.uid)}&deviceId=${encodeURIComponent(
@@ -504,9 +549,9 @@ export default function MobilePushManager() {
       }
     };
 
-    // Vérifier immédiatement puis toutes les 18 secondes + au réveil de l'écran mobile
+    // Vérifier immédiatement puis toutes les 3 minutes (économise 90% du quota Spark vs 18s)
     pollBoundAccountNotifications();
-    const interval = setInterval(pollBoundAccountNotifications, 18000);
+    const interval = setInterval(pollBoundAccountNotifications, 180000);
 
     const handleWakeUp = () => {
       if (document.visibilityState === "visible") {

@@ -1,14 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, MessageSquare, ShoppingCart, User } from "lucide-react";
 import { useCart } from "@/context/CartContext";
-import { useAuth } from "@/context/AuthContext";
 import { useLanguage } from "@/context/LanguageContext";
-import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot, limit } from "firebase/firestore";
 
 interface AlibabaClientBottomNavProps {
   activeTab?: string;
@@ -25,73 +21,10 @@ export default function AlibabaClientBottomNav({
 }: AlibabaClientBottomNavProps) {
   const pathname = usePathname();
   const { totalItems, openCart } = useCart();
-  const { user } = useAuth();
   const { t } = useLanguage();
-  
-  const [livePendingCount, setLivePendingCount] = useState<number>(0);
 
-  // Listen to pending proformas if not supplied via props
-  useEffect(() => {
-    if (!user) {
-      setLivePendingCount(0);
-      return;
-    }
-
-    if (typeof propPendingCount === "number") {
-      setLivePendingCount(propPendingCount);
-      return;
-    }
-
-    // Fetch user chats for pending proformas
-    const qChats = query(
-      collection(db, "chats"),
-      where("clientId", "==", user.uid),
-      limit(25)
-    );
-
-    const messageUnsubs: (() => void)[] = [];
-
-    const unsubChats = onSnapshot(qChats, (snapshot) => {
-      messageUnsubs.forEach(u => u());
-      messageUnsubs.length = 0;
-
-      if (snapshot.empty) {
-        setLivePendingCount(0);
-        return;
-      }
-
-      const pendingMap = new Map<string, boolean>();
-
-      snapshot.docs.forEach((chatDoc) => {
-        const qMsg = query(
-          collection(db, "chats", chatDoc.id, "messages"),
-          where("type", "==", "proforma")
-        );
-
-        const unsubMsg = onSnapshot(qMsg, (msgSnap) => {
-          msgSnap.docs.forEach((msgDoc) => {
-            const m = msgDoc.data();
-            const key = `${chatDoc.id}_${msgDoc.id}`;
-            if (m.proforma && m.proforma.status === "pending") {
-              pendingMap.set(key, true);
-            } else {
-              pendingMap.delete(key);
-            }
-          });
-          setLivePendingCount(pendingMap.size);
-        });
-
-        messageUnsubs.push(unsubMsg);
-      });
-    });
-
-    return () => {
-      unsubChats();
-      messageUnsubs.forEach(u => u());
-    };
-  }, [user, propPendingCount]);
-
-  const effectivePendingCount = typeof propPendingCount === "number" ? propPendingCount : livePendingCount;
+  // Zéro listener Firestore imbriqué dans la barre de navigation globale (préserve le quota Spark)
+  const effectivePendingCount = typeof propPendingCount === "number" ? propPendingCount : 0;
   const cartBadgeCount = effectivePendingCount > 0 ? effectivePendingCount : totalItems;
 
   const isMessagesActive = pathname === "/dashboard/client/chats" || (pathname === "/dashboard/client" && activeTab === "messages");

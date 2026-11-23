@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import { db } from "@/lib/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 
 export type CurrencyCode = "USD" | "FC" | "EUR";
 
@@ -50,27 +50,45 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Listen to live platform settings from Firestore for dynamic exchange rates
+  // Fetch platform exchange rates once with 30-min sessionStorage cache (no permanent onSnapshot for every visitor)
   useEffect(() => {
+    const CACHE_KEY = "rayons_currency_rates_v1";
+    const TTL_MS = 30 * 60 * 1000;
     try {
-      const unsub = onSnapshot(doc(db, "settings", "platform"), (snap) => {
-        if (snap.exists()) {
-          const data = snap.data();
-          const fcRate = Number(data.usdToFcRate || data.exchangeRateFC);
-          const eurRate = Number(data.usdToEurRate || data.exchangeRateEUR);
-          setRates({
-            USD: 1,
-            FC: fcRate && fcRate > 0 ? fcRate : DEFAULT_RATES.FC,
-            EUR: eurRate && eurRate > 0 ? eurRate : DEFAULT_RATES.EUR,
-          });
+      const cachedRaw = sessionStorage.getItem(CACHE_KEY);
+      if (cachedRaw) {
+        const parsed = JSON.parse(cachedRaw);
+        if (parsed?.rates && Date.now() - Number(parsed.ts || 0) < TTL_MS) {
+          setRates(parsed.rates);
+          return;
         }
-      }, () => {
-        // Fallback silently to default rates on error
+      }
+    } catch {}
+
+    let cancelled = false;
+    getDoc(doc(db, "settings", "platform"))
+      .then((snap) => {
+        if (cancelled || !snap.exists()) return;
+        const data = snap.data();
+        const fcRate = Number(data.usdToFcRate || data.exchangeRateFC);
+        const eurRate = Number(data.usdToEurRate || data.exchangeRateEUR);
+        const nextRates: CurrencyRates = {
+          USD: 1,
+          FC: fcRate && fcRate > 0 ? fcRate : DEFAULT_RATES.FC,
+          EUR: eurRate && eurRate > 0 ? eurRate : DEFAULT_RATES.EUR,
+        };
+        setRates(nextRates);
+        try {
+          sessionStorage.setItem(CACHE_KEY, JSON.stringify({ rates: nextRates, ts: Date.now() }));
+        } catch {}
+      })
+      .catch(() => {
+        // Fallback silently to default rates
       });
-      return () => unsub();
-    } catch {
-      // Firestore initialization fallback
-    }
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const setCurrency = useCallback((c: CurrencyCode) => {

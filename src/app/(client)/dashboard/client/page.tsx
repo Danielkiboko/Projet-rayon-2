@@ -92,11 +92,11 @@ export default function ClientDashboard() {
       return tB - tA;
     };
 
-    // 1. Fetch Orders
+    // 1. Fetch Orders (capped for Spark quota)
     const qOrders = query(
       collection(db, "orders"),
       where("clientId", "==", user.uid),
-      limit(100)
+      limit(30)
     );
     const unsubOrders = onSnapshot(qOrders, (snapshot) => {
       const fetchedOrders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -110,7 +110,7 @@ export default function ClientDashboard() {
     const qVisits = query(
       collection(db, "visits"),
       where("clientId", "==", user.uid),
-      limit(50)
+      limit(20)
     );
     const unsubVisits = onSnapshot(qVisits, (snapshot) => {
       const fetchedVisits = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -124,7 +124,7 @@ export default function ClientDashboard() {
     const qHotels = query(
       collection(db, "hotel_bookings"),
       where("clientId", "==", user.uid),
-      limit(30)
+      limit(20)
     );
     const unsubHotels = onSnapshot(qHotels, (snapshot) => {
       const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -142,7 +142,7 @@ export default function ClientDashboard() {
     const qChats = query(
       collection(db, "chats"),
       where("clientId", "==", user.uid),
-      limit(30)
+      limit(20)
     );
     const unsubChats = onSnapshot(qChats, (snapshot) => {
       let unread = 0;
@@ -154,10 +154,11 @@ export default function ClientDashboard() {
       console.warn("Client chats unread listener warning:", err);
     });
 
-    // 5. Listen to tickets for unread badge
+    // 5. Listen to tickets for unread badge (capped for Spark quota)
     const qTickets = query(
       collection(db, "tickets"),
-      where("creatorId", "==", user.uid)
+      where("creatorId", "==", user.uid),
+      limit(20)
     );
     const unsubTickets = onSnapshot(qTickets, (snapshot) => {
       let unread = 0;

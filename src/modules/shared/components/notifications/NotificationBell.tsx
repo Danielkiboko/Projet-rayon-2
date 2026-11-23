@@ -69,11 +69,11 @@ export default function NotificationBell({ variant = "light" }: NotificationBell
       setNotifications(items);
     };
 
-    // Query 1: by userId
+    // Query 1: by userId (capped for Spark quota)
     const q1 = query(
       collection(db, "inapp_notifications"),
       where("userId", "==", user.uid),
-      limit(30)
+      limit(15)
     );
     const unsub1 = onSnapshot(
       q1,
@@ -98,11 +98,11 @@ export default function NotificationBell({ variant = "light" }: NotificationBell
       }
     );
 
-    // Query 2: by clientId
+    // Query 2: by clientId (capped for Spark quota)
     const q2 = query(
       collection(db, "inapp_notifications"),
       where("clientId", "==", user.uid),
-      limit(30)
+      limit(10)
     );
     const unsub2 = onSnapshot(
       q2,

@@ -92,19 +92,42 @@ export async function POST(req: NextRequest) {
       devicePayload.fcmToken = fcmToken;
     }
 
-    await deviceRef.set(devicePayload, { merge: true });
+    const lastUpdatedMs =
+      existingData.updatedAt?.toMillis?.() ||
+      (existingData.updatedAt?.seconds ? existingData.updatedAt.seconds * 1000 : 0);
+    const hasMeaningfulChange =
+      !existingSnap.exists ||
+      existingData.boundUid !== boundUid ||
+      existingData.boundRole !== boundRole ||
+      Boolean(existingData.isInstalledApp) !== finalIsInstalledApp ||
+      Boolean(existingData.pushEnabled) !== Boolean(pushEnabled || existingData.pushEnabled) ||
+      Boolean(fcmToken && existingData.fcmToken !== fcmToken) ||
+      Date.now() - lastUpdatedMs > 12 * 60 * 60 * 1000;
 
-    // Si un utilisateur est connecté, synchroniser aussi sur sa fiche `users/{uid}`
-    if (caller?.uid) {
-      const userUpdate: Record<string, any> = {
-        lastBoundDeviceId: deviceId,
-        lastMobileConnectedAt: FieldValue.serverTimestamp(),
-        hasInstalledApp: finalIsInstalledApp,
-      };
-      if (fcmToken) {
-        userUpdate.fcmTokens = FieldValue.arrayUnion(fcmToken);
+    if (hasMeaningfulChange) {
+      await deviceRef.set(devicePayload, { merge: true });
+
+      // Ne synchroniser users/{uid} que si le deviceId, l'installation ou le token FCM a changé
+      // (évite les écritures en boucle avec AuthContext.onSnapshot)
+      if (caller?.uid) {
+        const callerData = caller.data || {};
+        const needsUserSync =
+          callerData.lastBoundDeviceId !== deviceId ||
+          Boolean(callerData.hasInstalledApp) !== finalIsInstalledApp ||
+          Boolean(fcmToken && !(Array.isArray(callerData.fcmTokens) && callerData.fcmTokens.includes(fcmToken)));
+
+        if (needsUserSync) {
+          const userUpdate: Record<string, any> = {
+            lastBoundDeviceId: deviceId,
+            lastMobileConnectedAt: FieldValue.serverTimestamp(),
+            hasInstalledApp: finalIsInstalledApp,
+          };
+          if (fcmToken) {
+            userUpdate.fcmTokens = FieldValue.arrayUnion(fcmToken);
+          }
+          await adminDb.collection("users").doc(caller.uid).set(userUpdate, { merge: true });
+        }
       }
-      await adminDb.collection("users").doc(caller.uid).set(userUpdate, { merge: true });
     }
 
     return NextResponse.json({
@@ -150,11 +173,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Jeton d'appareil non valide." }, { status: 403 });
     }
 
-    // Récupérer toutes les notifications non lues de ce compte (inapp_notifications)
+    // Récupérer les dernières notifications non lues (limitées à 15 pour préserver le quota Spark)
     const [byUserSnap, byClientSnap, bySupplierSnap] = await Promise.all([
-      adminDb.collection("inapp_notifications").where("userId", "==", uid).where("read", "==", false).get(),
-      adminDb.collection("inapp_notifications").where("clientId", "==", uid).where("read", "==", false).get(),
-      adminDb.collection("inapp_notifications").where("supplierId", "==", uid).where("read", "==", false).get(),
+      adminDb.collection("inapp_notifications").where("userId", "==", uid).where("read", "==", false).limit(15).get(),
+      adminDb.collection("inapp_notifications").where("clientId", "==", uid).where("read", "==", false).limit(15).get(),
+      adminDb.collection("inapp_notifications").where("supplierId", "==", uid).where("read", "==", false).limit(15).get(),
     ]);
 
     const itemsMap = new Map<string, any>();

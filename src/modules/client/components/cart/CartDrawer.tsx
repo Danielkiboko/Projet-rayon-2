@@ -45,8 +45,8 @@ export function CartDrawer() {
   const [activeSection, setActiveSection] = useState<"cart" | "proformas" | "immo">("cart");
   const [isDirectCheckoutOpen, setIsDirectCheckoutOpen] = useState(false);
 
-  // Pending Proformas via unified hook
-  const { pendingProformas, isLoading: isLoadingProformas } = useClientProformas();
+  // Pending Proformas via unified hook (n'écoute Firestore que lorsque le tiroir panier est ouvert)
+  const { pendingProformas, isLoading: isLoadingProformas } = useClientProformas(isCartOpen && Boolean(user));
   const [payingProformaId, setPayingProformaId] = useState<string | null>(null);
   const [proformaError, setProformaError] = useState("");
 

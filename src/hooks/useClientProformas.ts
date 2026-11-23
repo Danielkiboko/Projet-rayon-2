@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { db } from "@/lib/firebase";
-import { collection, query, where, onSnapshot } from "firebase/firestore";
+import { collection, query, where, onSnapshot, limit } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 
 export interface ClientProforma {
@@ -23,14 +23,14 @@ export interface ClientProforma {
   type: string;
 }
 
-export function useClientProformas() {
+export function useClientProformas(enabled = true) {
   const { user } = useAuth();
   const [proformas, setProformas] = useState<ClientProforma[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(enabled);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!user) {
+    if (!user || !enabled) {
       setProformas([]);
       setIsLoading(false);
       return;
@@ -39,10 +39,11 @@ export function useClientProformas() {
     setIsLoading(true);
     const messageUnsubs: (() => void)[] = [];
 
-    // Query all chats where this user is client
+    // Query recent chats where this user is client (capped for Spark free plan)
     const qChats = query(
       collection(db, "chats"),
-      where("clientId", "==", user.uid)
+      where("clientId", "==", user.uid),
+      limit(15)
     );
 
     const unsubChats = onSnapshot(
@@ -72,7 +73,8 @@ export function useClientProformas() {
 
           const qMsg = query(
             collection(db, "chats", chatId, "messages"),
-            where("type", "==", "proforma")
+            where("type", "==", "proforma"),
+            limit(10)
           );
 
           const unsubMsg = onSnapshot(
@@ -143,7 +145,7 @@ export function useClientProformas() {
       unsubChats();
       messageUnsubs.forEach((unsub) => unsub());
     };
-  }, [user]);
+  }, [user, enabled]);
 
   const pendingProformas = proformas.filter((p) => p.status === "pending");
   const pendingCount = pendingProformas.length;

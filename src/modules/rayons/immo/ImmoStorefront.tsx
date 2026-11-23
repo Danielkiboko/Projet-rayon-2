@@ -9,7 +9,7 @@ import {
   Hotel, Star, Sparkles, Zap, Waves, CalendarCheck
 } from "lucide-react";
 import { RayonNavbar } from "@/modules/rayons/shared/RayonNavbar";
-import { collection, onSnapshot, query, where, limit } from "firebase/firestore";
+import { collection, getDocs, query, where, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { ProductSkeleton } from "@/modules/shared/components/ui/Skeleton";
 import { useAuth } from "@/context/AuthContext";
@@ -111,24 +111,31 @@ function ImmoContent() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   useEffect(() => {
-    const q = query(
-      collection(db, "properties"), 
-      where("status", "==", "Disponible"),
-      limit(50)
-    );
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const productsList = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setProducts(productsList);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error subscribing to properties:", error);
-      setIsLoading(false);
-    });
-
-    return () => unsubscribe();
+    let cancelled = false;
+    const fetchProperties = async () => {
+      try {
+        const q = query(
+          collection(db, "properties"),
+          where("status", "==", "Disponible"),
+          limit(40)
+        );
+        const querySnapshot = await getDocs(q);
+        if (cancelled) return;
+        const productsList = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setProducts(productsList);
+      } catch (error) {
+        console.error("Error fetching properties:", error);
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+    fetchProperties();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const filteredProducts = products.filter(property => {
