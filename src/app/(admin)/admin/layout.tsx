@@ -416,7 +416,14 @@ export default function AdminLayout({
       roleBadgeTitle={roleBadgeTitle}
       roleBadgeValue={roleBadgeValue}
       topbarTitle="Administration Centrale"
-      userName={userData?.displayName || userData?.name || "Collaborateur"}
+      userName={
+        userData?.displayName ||
+        userData?.name ||
+        [userData?.firstName, userData?.lastName].filter(Boolean).join(" ").trim() ||
+        user?.displayName ||
+        user?.email?.split("@")[0] ||
+        "Direction"
+      }
       userRole={userRoleTitle}
       notifications={notifications}
       unreadCount={unreadCount}

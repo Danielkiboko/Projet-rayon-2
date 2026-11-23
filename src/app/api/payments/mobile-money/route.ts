@@ -411,10 +411,11 @@ export async function PATCH(req: NextRequest) {
       { merge: true }
     );
 
-    // 3. Grand Livre Comptable Central (accounting_ledger)
+    // 3. Grand Livre Comptable Central (accounting_ledger — PLATFORM_ADMIN)
     batch.set(adminDb.collection("accounting_ledger").doc(), {
       entryNumber,
       date: now,
+      createdAt: now,
       journal: "AB",
       journalName: "Journal des Abonnements & Dépôts",
       referencePiece: transactionRef,
@@ -424,6 +425,7 @@ export async function PATCH(req: NextRequest) {
       balanceAfter: finalAmount,
       currency: "USD",
       actorType: "ADMIN",
+      accountingScope: "PLATFORM_ADMIN",
       supplierId,
       supplierName,
       category: "Abonnement Fournisseur",
@@ -431,7 +433,7 @@ export async function PATCH(req: NextRequest) {
       validatedBy: caller.uid,
     });
 
-    // 4. Transactions Admin (transactions)
+    // 4. Transactions Admin (transactions — PLATFORM_ADMIN)
     batch.set(adminDb.collection("transactions").doc(), {
       type: "SUBSCRIPTION",
       amount: finalAmount,
@@ -439,6 +441,7 @@ export async function PATCH(req: NextRequest) {
       description: `Abonnement Fournisseur (${operatorLabel}) - ${supplierName}${discountLabel}`,
       referenceId: transactionRef,
       status: "COMPLETED",
+      accountingScope: "PLATFORM_ADMIN",
       supplierId,
       supplierName,
       createdAt: now,

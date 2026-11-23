@@ -1,29 +1,26 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Wallet, ArrowDownRight, ArrowUpRight, Plus, Download, X, Search,
+  Wallet, ArrowDownRight, Plus, Download, X, Search,
   FileText, CheckCircle, Clock, Sliders, Lock,
-  TrendingUp, ShoppingBag, Award, ShieldAlert, Sparkles, Coins, Check,
-  RefreshCw, Send, AlertTriangle
+  TrendingUp, Award, ShieldCheck, Coins, Check,
+  AlertTriangle, Building2, RefreshCw
 } from "lucide-react";
 import { useDatePeriodFilter } from "@/hooks/useDatePeriodFilter";
 import DateRangeFilterPills from "@/modules/shared/components/finance/DateRangeFilterPills";
 import { db } from "@/lib/firebase";
 import {
-  collection, query, orderBy, onSnapshot, addDoc,
-  serverTimestamp, doc, limit
+  collection, query, orderBy, onSnapshot, limit
 } from "firebase/firestore";
 import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import { fetchSuppliersAction } from "@/app/(admin)/admin/finance/actions";
-import { canAccessFinance } from "@/lib/permissions";
+import { canAccessFinance, isSuperAdmin as checkIsSuperAdmin } from "@/lib/permissions";
 import {
   AccountingEntry,
   ADJUSTMENT_REASONS,
-  recordCashAdjustment,
-  recordSubscriptionDeposit,
   isOfficialAdminSupplier,
 } from "@/lib/accountingLedger";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
@@ -37,6 +34,8 @@ interface Transaction {
   currency: string;
   description: string;
   referenceId?: string;
+  accountingScope?: string;
+  recordedBy?: string;
   status: "COMPLETED" | "PENDING";
   createdAt: any;
 }
@@ -47,36 +46,81 @@ interface UserSupplier {
   email: string;
   company?: string;
   phone?: string;
+  role?: string;
   rayon?: string;
+  assignedRayons?: string[];
   subscriptionEndDate?: any;
   subscriptionStatus?: string;
   isBlocked?: boolean;
   depositAmount?: number;
   isOfficialAdminStore?: boolean;
   isAdminSupplier?: boolean;
+  referredByPartnerId?: string | null;
   createdAt?: any;
+}
+
+const RAYON_META: Record<string, { label: string; badgeClass: string }> = {
+  immo: {
+    label: "Immobilier",
+    badgeClass: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
+  },
+  mode: {
+    label: "Mode",
+    badgeClass: "bg-pink-500/10 text-pink-300 border-pink-500/20",
+  },
+  connect: {
+    label: "Connect",
+    badgeClass: "bg-sky-500/10 text-sky-300 border-sky-500/20",
+  },
+  saveurs: {
+    label: "Saveurs",
+    badgeClass: "bg-amber-500/10 text-amber-300 border-amber-500/20",
+  },
+};
+
+const PAYMENT_CHANNELS = [
+  "M-Pesa",
+  "Airtel Money",
+  "Orange Money",
+  "Espèces (Caisse Centrale)",
+  "Virement Bancaire",
+] as const;
+
+function formatRayonBadge(rayon?: string) {
+  const key = String(rayon || "connect").toLowerCase().trim();
+  return RAYON_META[key] || {
+    label: key ? key.charAt(0).toUpperCase() + key.slice(1) : "Connect",
+    badgeClass: "bg-white/5 text-gray-300 border-white/10",
+  };
+}
+
+function formatEntryDate(raw: any): string {
+  if (!raw) return "—";
+  if (raw?.toDate) return raw.toDate().toLocaleDateString("fr-FR");
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("fr-FR");
 }
 
 export default function AdminFinancePage() {
   const { user, userData, loading } = useAuth();
   const router = useRouter();
 
-  // Navigation tabs (Par défaut sur l'échéancier des abonnements fournisseurs : Payés vs Impayés)
-  const [activeTab, setActiveTab] = useState<"ledger" | "deposits" | "commissions" | "settings" | "overview">("deposits");
+  const [activeTab, setActiveTab] = useState<"deposits" | "commissions" | "ledger" | "settings" | "overview">("deposits");
 
-  // State data
+  // Data state
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [ledgerEntries, setLedgerEntries] = useState<AccountingEntry[]>([]);
   const [suppliers, setSuppliers] = useState<UserSupplier[]>([]);
   const [adminStoreSales, setAdminStoreSales] = useState<any[]>([]);
-  const [allPlatformOrders, setAllPlatformOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [journalFilter, setJournalFilter] = useState<string>("ALL");
-  const dateFilter = useDatePeriodFilter("today");
+
+  // Par défaut sur le mois en cours pour afficher immédiatement les écritures comptables pertinentes
+  const dateFilter = useDatePeriodFilter("this_month");
   const { periodFilter, isItemInPeriod: isTxInPeriod, getPeriodLabel } = dateFilter;
   const [search, setSearch] = useState("");
 
-  // Supplier recovery filters
+  // Filtres abonnements fournisseurs
   const [supplierStatusFilter, setSupplierStatusFilter] = useState<"ALL" | "OVERDUE" | "TRIAL" | "ACTIVE" | "OFFICIAL">("ALL");
   const [supplierRayonFilter, setSupplierRayonFilter] = useState<string>("ALL");
   const [supplierSearch, setSupplierSearch] = useState<string>("");
@@ -89,36 +133,41 @@ export default function AdminFinancePage() {
   const [commissionReason, setCommissionReason] = useState("");
   const [isSubmittingCommission, setIsSubmittingCommission] = useState(false);
 
-  // Paramètres financiers & Double Approbation (Four-Eyes Principle)
+  // Paramètres financiers & Double Approbation
   const [financialSettings, setFinancialSettings] = useState<any>(null);
   const [pendingProposal, setPendingProposal] = useState<any>(null);
   const [financialHistory, setFinancialHistory] = useState<any[]>([]);
-  const [loadingFinancialSettings, setLoadingFinancialSettings] = useState(false);
   const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [isSubmittingProposal, setIsSubmittingProposal] = useState(false);
 
-  // Proposal form fields
   const [formUsdRate, setFormUsdRate] = useState("2850");
   const [formCommission, setFormCommission] = useState("5");
   const [formSubscription, setFormSubscription] = useState("50");
   const [formPromo, setFormPromo] = useState("10");
   const [formReason, setFormReason] = useState("");
 
-  // Modals
+  // Modales sécurisées
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
+  const [paymentTargetSupplier, setPaymentTargetSupplier] = useState<UserSupplier | null>(null);
 
-  // Form states: Standard Transaction
-  const [txType, setTxType] = useState<"SUBSCRIPTION" | "EXPENSE" | "OTHER_INCOME">("SUBSCRIPTION");
-  const [amount, setAmount] = useState("");
-  const [description, setDescription] = useState("");
-  const [referenceId, setReferenceId] = useState("");
-  const [selectedSupplierId, setSelectedSupplierId] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Form : Encaissement Abonnement Sécurisé (anti-doublon + référence obligatoire)
+  const [subAmount, setSubAmount] = useState("50");
+  const [subChannel, setSubChannel] = useState<string>(PAYMENT_CHANNELS[0]);
+  const [subRef, setSubRef] = useState("");
+  const [subNote, setSubNote] = useState("");
+  const [isSubmittingSub, setIsSubmittingSub] = useState(false);
 
-  // Form states: Cash Adjustment
+  // Form : Nouvelle Écriture Plateforme (serveur uniquement)
+  const [txKind, setTxKind] = useState<"OTHER_INCOME" | "EXPENSE">("OTHER_INCOME");
+  const [txAmount, setTxAmount] = useState("");
+  const [txDescription, setTxDescription] = useState("");
+  const [txReference, setTxReference] = useState("");
+  const [isSubmittingTx, setIsSubmittingTx] = useState(false);
+
+  // Form : Ajustement de Caisse (Super Admin uniquement)
   const [adjAmount, setAdjAmount] = useState("");
   const [adjType, setAdjType] = useState<"ADD" | "SUBTRACT">("ADD");
   const [adjReason, setAdjReason] = useState<string>(ADJUSTMENT_REASONS[0]);
@@ -126,14 +175,24 @@ export default function AdminFinancePage() {
   const [adjRef, setAdjRef] = useState("");
   const [isSubmittingAdj, setIsSubmittingAdj] = useState(false);
 
-  // Action feedback
   const [actionNotice, setActionNotice] = useState("");
   const [execOverview, setExecOverview] = useState<any>(null);
 
-  const fetchExecutiveOverview = async () => {
+  const hasFinanceAccess = canAccessFinance(user, userData);
+  const isSuperAdmin = useMemo(
+    () =>
+      checkIsSuperAdmin(user, userData) ||
+      Boolean(
+        Array.isArray(userData?.staffProfile?.positions) &&
+          userData.staffProfile.positions.includes("DIRECTEUR_GENERAL")
+      ),
+    [user, userData]
+  );
+
+  const fetchExecutiveOverview = async (fresh = false) => {
     try {
       const token = await user?.getIdToken();
-      const res = await fetch("/api/admin/executive-overview", {
+      const res = await fetch(`/api/admin/executive-overview${fresh ? "?fresh=1" : ""}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const json = await res.json();
@@ -145,16 +204,8 @@ export default function AdminFinancePage() {
     }
   };
 
-  const isSuperAdmin = Boolean(
-    userData?.role === "SUPER_ADMIN" ||
-    (userData as any)?.claims?.superAdmin ||
-    (Array.isArray(userData?.staffProfile?.positions) &&
-      userData.staffProfile.positions.includes("DIRECTEUR_GENERAL"))
-  );
-
   const fetchFinancialSettings = async () => {
     try {
-      setLoadingFinancialSettings(true);
       const token = await user?.getIdToken();
       const res = await fetch("/api/admin/financial-settings", {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -173,8 +224,6 @@ export default function AdminFinancePage() {
       }
     } catch (e) {
       console.error("Error loading financial settings:", e);
-    } finally {
-      setLoadingFinancialSettings(false);
     }
   };
 
@@ -190,6 +239,400 @@ export default function AdminFinancePage() {
       }
     } catch (e) {
       console.error("Error loading partners:", e);
+    }
+  };
+
+  const refreshSuppliers = async () => {
+    try {
+      const sups = await fetchSuppliersAction();
+      setSuppliers(sups as UserSupplier[]);
+    } catch (err) {
+      console.error("Error fetching suppliers:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (!loading && !hasFinanceAccess) {
+      router.push("/admin/dashboard");
+      return;
+    }
+
+    if (!hasFinanceAccess) return;
+
+    refreshSuppliers();
+    fetchPartners();
+    fetchFinancialSettings();
+    fetchExecutiveOverview();
+
+    // 1. Transactions Plateforme Admin (`transactions`)
+    const qTx = query(collection(db, "transactions"), orderBy("createdAt", "desc"), limit(150));
+    const unsubTx = onSnapshot(
+      qTx,
+      (snapshot) => {
+        const data: Transaction[] = [];
+        snapshot.forEach((docSnap) => {
+          const d = docSnap.data() as any;
+          // Exclure toute éventuelle transaction hors périmètre plateforme (ex: future agence immo)
+          if (d.accountingScope === "SUPPLIER_PRIVATE" || d.accountingScope === "ADMIN_IMMO") return;
+          data.push({ id: docSnap.id, ...d } as Transaction);
+        });
+        setTransactions(data);
+        setIsLoading(false);
+      },
+      (error) => {
+        console.error("Error fetching transactions:", error);
+        setIsLoading(false);
+      }
+    );
+
+    // 2. Grand Livre Plateforme Admin (`accounting_ledger`, strictement filtré côté plateforme)
+    const qLedger = query(collection(db, "accounting_ledger"), orderBy("date", "desc"), limit(150));
+    const unsubLedger = onSnapshot(
+      qLedger,
+      (snapshot) => {
+        const entries: AccountingEntry[] = [];
+        snapshot.forEach((docSnap) => {
+          const d = docSnap.data() as any;
+          // Cloisonnement strict : exclure les anciens loyers/ventes privées fournisseurs qui avaient fuité dans accounting_ledger
+          const isSupplierPrivate =
+            d.accountingScope === "SUPPLIER_PRIVATE" ||
+            d.accountingScope === "ADMIN_IMMO" ||
+            (d.actorType === "SUPPLIER" &&
+              d.category !== "Abonnement Mensuel" &&
+              d.category !== "Abonnement Fournisseur");
+          if (isSupplierPrivate) return;
+          entries.push({ id: docSnap.id, ...d } as AccountingEntry);
+        });
+        setLedgerEntries(entries);
+      },
+      (error) => {
+        console.warn("Accounting ledger listener warning:", error.message);
+      }
+    );
+
+    // 3. Ventes des boutiques officielles Rayons uniquement (jamais les ventes fournisseurs tiers)
+    const qOrders = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(100));
+    const unsubOrders = onSnapshot(
+      qOrders,
+      (snapshot) => {
+        const sales: any[] = [];
+        snapshot.forEach((docSnap) => {
+          const order = docSnap.data();
+          const status = (order.status || "").toUpperCase();
+          if (status === "COMPLETED" || status === "LIVRÉE" || status === "DELIVERED") {
+            const adminItems = (order.items || []).filter(
+              (item: any) =>
+                item.isAdminProduct ||
+                item.isOfficialRayons ||
+                item.isOfficialAdminStore ||
+                item.supplierId === "admin"
+            );
+            if (adminItems.length > 0) {
+              const amount = adminItems.reduce(
+                (acc: number, it: any) => acc + Number(it.price || 0) * Number(it.quantity || 1),
+                0
+              );
+              sales.push({
+                id: docSnap.id,
+                orderId: docSnap.id,
+                amount,
+                createdAt: order.deliveredAt || order.createdAt,
+              });
+            }
+          }
+        });
+        setAdminStoreSales(sales);
+      },
+      (error) => {
+        console.warn("Orders finance listener warning:", error.message);
+      }
+    );
+
+    return () => {
+      unsubTx();
+      unsubLedger();
+      unsubOrders();
+    };
+  }, [user?.uid, hasFinanceAccess, loading, router]);
+
+  // ── Calculs réconciliés (Source de vérité unique : `transactions` + ventes boutiques officielles) ──
+  const totalSubscriptions = useMemo(
+    () => transactions.filter((t) => t.type === "SUBSCRIPTION").reduce((acc, t) => acc + Number(t.amount || 0), 0),
+    [transactions]
+  );
+
+  const totalOtherIncome = useMemo(
+    () => transactions.filter((t) => t.type === "OTHER_INCOME").reduce((acc, t) => acc + Number(t.amount || 0), 0),
+    [transactions]
+  );
+
+  const totalAdminStoreSales = useMemo(
+    () => adminStoreSales.reduce((acc, s) => acc + Number(s.amount || 0), 0),
+    [adminStoreSales]
+  );
+
+  const totalPayout = useMemo(
+    () => transactions.filter((t) => t.type === "EXPENSE").reduce((acc, t) => acc + Number(t.amount || 0), 0),
+    [transactions]
+  );
+
+  const currentBalance = totalSubscriptions + totalOtherIncome + totalAdminStoreSales - totalPayout;
+
+  // Flux filtrés selon la période comptable sélectionnée
+  const periodTx = useMemo(
+    () => transactions.filter((t) => isTxInPeriod(t, periodFilter)),
+    [transactions, periodFilter, isTxInPeriod]
+  );
+  const periodAdminSalesTotal = useMemo(
+    () => adminStoreSales.filter((s) => isTxInPeriod(s, periodFilter)).reduce((acc, s) => acc + Number(s.amount || 0), 0),
+    [adminStoreSales, periodFilter, isTxInPeriod]
+  );
+  const periodIncome = useMemo(
+    () =>
+      periodTx
+        .filter((t) => t.type === "SUBSCRIPTION" || t.type === "OTHER_INCOME")
+        .reduce((acc, t) => acc + Number(t.amount || 0), 0) + periodAdminSalesTotal,
+    [periodTx, periodAdminSalesTotal]
+  );
+  const periodPayout = useMemo(
+    () => periodTx.filter((t) => t.type === "EXPENSE").reduce((acc, t) => acc + Number(t.amount || 0), 0),
+    [periodTx]
+  );
+
+  // Statistiques abonnements fournisseurs (MRR confirmé strictement séparé des expirés/essais)
+  const supplierStats = useMemo(() => {
+    let official = 0;
+    let overdue = 0;
+    let trial = 0;
+    let active = 0;
+    let confirmedMRR = 0;
+    let expiredPotential = 0;
+
+    suppliers.forEach((s) => {
+      const isOff = isOfficialAdminSupplier(s);
+      if (isOff) {
+        official++;
+        return;
+      }
+      const subInfo = evaluateSupplierSubscription(s);
+      const fee = Number(s.depositAmount) || 50;
+      if (subInfo.isBlocked) {
+        overdue++;
+        expiredPotential += fee;
+      } else if (subInfo.isTrial) {
+        trial++;
+      } else {
+        active++;
+        confirmedMRR += fee;
+      }
+    });
+
+    return {
+      total: suppliers.length,
+      official,
+      overdue,
+      trial,
+      active,
+      confirmedMRR,
+      confirmedARR: confirmedMRR * 12,
+      expiredPotential,
+    };
+  }, [suppliers]);
+
+  const filteredSuppliersList = useMemo(() => {
+    return suppliers
+      .filter((s) => {
+        const isOfficial = isOfficialAdminSupplier(s);
+        const subInfo = evaluateSupplierSubscription(s);
+
+        if (supplierStatusFilter === "OVERDUE" && (isOfficial || !subInfo.isBlocked)) return false;
+        if (supplierStatusFilter === "TRIAL" && (isOfficial || subInfo.isBlocked || !subInfo.isTrial)) return false;
+        if (supplierStatusFilter === "ACTIVE" && (isOfficial || subInfo.isBlocked || subInfo.isTrial)) return false;
+        if (supplierStatusFilter === "OFFICIAL" && !isOfficial) return false;
+
+        if (supplierRayonFilter !== "ALL" && (s.rayon || "connect").toLowerCase() !== supplierRayonFilter.toLowerCase()) {
+          return false;
+        }
+
+        if (supplierSearch.trim()) {
+          const q = supplierSearch.toLowerCase();
+          const name = (s.displayName || s.company || "").toLowerCase();
+          const email = (s.email || "").toLowerCase();
+          return name.includes(q) || email.includes(q);
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const rank = (s: UserSupplier) => {
+          if (isOfficialAdminSupplier(s)) return 4;
+          const info = evaluateSupplierSubscription(s);
+          if (info.isBlocked) return 1;
+          if (info.isTrial) return 2;
+          return 3;
+        };
+        return rank(a) - rank(b);
+      });
+  }, [suppliers, supplierStatusFilter, supplierRayonFilter, supplierSearch]);
+
+  const filteredLedger = useMemo(() => {
+    return ledgerEntries.filter((entry) => {
+      if (!isTxInPeriod({ createdAt: entry.date }, periodFilter)) return false;
+      if (journalFilter !== "ALL" && entry.journal !== journalFilter) return false;
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        const matchLabel = (entry.label || "").toLowerCase().includes(q);
+        const matchRef = (entry.referencePiece || "").toLowerCase().includes(q);
+        const matchNum = (entry.entryNumber || "").toLowerCase().includes(q);
+        if (!matchLabel && !matchRef && !matchNum) return false;
+      }
+      return true;
+    });
+  }, [ledgerEntries, periodFilter, journalFilter, search, isTxInPeriod]);
+
+  // ── Handlers sécurisés (100 % serveur) ──
+
+  const openPaymentModal = (supplier: UserSupplier) => {
+    setPaymentTargetSupplier(supplier);
+    setSubAmount(String(supplier.depositAmount || 50));
+    setSubChannel(PAYMENT_CHANNELS[0]);
+    setSubRef("");
+    setSubNote("");
+  };
+
+  const handleConfirmSubscriptionPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paymentTargetSupplier) return;
+    const parsedAmt = parseFloat(subAmount);
+    if (!Number.isFinite(parsedAmt) || parsedAmt <= 0) {
+      alert("Veuillez saisir un montant valide.");
+      return;
+    }
+    if (subRef.trim().length < 3) {
+      alert("Une référence de preuve de paiement (ID Mobile Money ou n° reçu) est obligatoire pour éviter tout double encaissement.");
+      return;
+    }
+
+    setIsSubmittingSub(true);
+    try {
+      const token = await user?.getIdToken();
+      const res = await fetch("/api/admin/executive-overview", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          action: "RECORD_SUBSCRIPTION_PAYMENT",
+          supplierId: paymentTargetSupplier.id,
+          amountPaid: parsedAmt,
+          paymentMethod: subChannel,
+          referencePiece: subRef.trim(),
+          note: subNote.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Erreur lors de l'encaissement.");
+      }
+
+      setPaymentTargetSupplier(null);
+      setSubRef("");
+      setSubNote("");
+      await Promise.all([refreshSuppliers(), fetchExecutiveOverview(true), fetchPartners()]);
+      setActionNotice(json.message);
+      setTimeout(() => setActionNotice(""), 7000);
+    } catch (err: any) {
+      alert(err.message || "Erreur lors de l'encaissement sécurisé.");
+    } finally {
+      setIsSubmittingSub(false);
+    }
+  };
+
+  const handleSaveAdjustment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseFloat(adjAmount);
+    if (!Number.isFinite(val) || val <= 0) {
+      alert("Veuillez saisir un montant valide.");
+      return;
+    }
+
+    const signedAmount = adjType === "ADD" ? val : -val;
+    setIsSubmittingAdj(true);
+    try {
+      const token = await user?.getIdToken();
+      const res = await fetch("/api/admin/finance/entries", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          kind: "ADJUSTMENT",
+          amount: signedAmount,
+          reason: adjReason,
+          label: adjLabel.trim(),
+          referencePiece: adjRef.trim(),
+          accountingScope: "PLATFORM_ADMIN",
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Erreur lors de l'enregistrement de l'ajustement.");
+      }
+
+      setIsAdjustmentModalOpen(false);
+      setAdjAmount("");
+      setAdjLabel("");
+      setAdjRef("");
+      setActionNotice(json.message);
+      setTimeout(() => setActionNotice(""), 6000);
+    } catch (err: any) {
+      alert(err.message || "Erreur lors de l'ajustement de caisse.");
+    } finally {
+      setIsSubmittingAdj(false);
+    }
+  };
+
+  const handleSaveManualEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseFloat(txAmount);
+    if (!Number.isFinite(val) || val <= 0) {
+      alert("Veuillez saisir un montant valide.");
+      return;
+    }
+
+    setIsSubmittingTx(true);
+    try {
+      const token = await user?.getIdToken();
+      const res = await fetch("/api/admin/finance/entries", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          kind: txKind,
+          amount: val,
+          label: txDescription.trim(),
+          referencePiece: txReference.trim(),
+          accountingScope: "PLATFORM_ADMIN",
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "Erreur lors de l'enregistrement.");
+      }
+
+      setIsTxModalOpen(false);
+      setTxAmount("");
+      setTxDescription("");
+      setTxReference("");
+      setActionNotice(json.message);
+      setTimeout(() => setActionNotice(""), 6000);
+    } catch (err: any) {
+      alert(err.message || "Erreur lors de l'enregistrement de l'écriture.");
+    } finally {
+      setIsSubmittingTx(false);
     }
   };
 
@@ -216,7 +659,6 @@ export default function AdminFinancePage() {
           reason: commissionReason || "Commission directe accordée par la Direction",
         }),
       });
-
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.error || "Erreur lors de l'attribution de la commission.");
@@ -229,6 +671,7 @@ export default function AdminFinancePage() {
       setActionNotice(json.message || "Commission créditée avec succès.");
       setTimeout(() => setActionNotice(""), 6000);
       fetchPartners();
+      fetchExecutiveOverview(true);
     } catch (err: any) {
       alert(err.message || "Erreur réseau.");
     } finally {
@@ -259,12 +702,10 @@ export default function AdminFinancePage() {
           },
         }),
       });
-
       const json = await res.json();
       if (!res.ok || !json.success) {
-        throw new Error(json.error || "Erreur lors de la soumission de la proposition.");
+        throw new Error(json.error || "Erreur lors de la soumission.");
       }
-
       setIsProposalModalOpen(false);
       setFormReason("");
       setActionNotice(json.message);
@@ -323,390 +764,89 @@ export default function AdminFinancePage() {
     }
   };
 
-  const hasFinanceAccess = canAccessFinance(user, userData);
-
-  useEffect(() => {
-    if (!loading && !hasFinanceAccess) {
-      router.push("/admin/dashboard");
-      return;
-    }
-
-    const fetchSuppliers = async () => {
-      try {
-        const sups = await fetchSuppliersAction();
-        setSuppliers(sups as any);
-      } catch (err) {
-        console.error("Error fetching suppliers:", err);
-      }
-    };
-
-    if (hasFinanceAccess) {
-      fetchSuppliers();
-      fetchPartners();
-      fetchFinancialSettings();
-      fetchExecutiveOverview();
-    }
-
-    // 1. Listen to Transactions
-    const qTx = query(collection(db, "transactions"), orderBy("createdAt", "desc"), limit(100));
-    const unsubTx = onSnapshot(qTx, (snapshot) => {
-      const data: Transaction[] = [];
-      snapshot.forEach((docSnap) => {
-        data.push({ id: docSnap.id, ...docSnap.data() } as Transaction);
-      });
-      setTransactions(data);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching transactions:", error);
-      setIsLoading(false);
-    });
-
-    // 2. Listen to Formal Accounting Ledger
-    const qLedger = query(collection(db, "accounting_ledger"), orderBy("date", "desc"), limit(100));
-    const unsubLedger = onSnapshot(qLedger, (snapshot) => {
-      const entries: AccountingEntry[] = [];
-      snapshot.forEach((docSnap) => {
-        entries.push({ id: docSnap.id, ...docSnap.data() } as AccountingEntry);
-      });
-      setLedgerEntries(entries);
-    }, (error) => {
-      console.warn("Accounting ledger listener warning:", error.message);
-    });
-
-    // 3. Listen to Completed Orders containing Official Admin Store / Admin items
-    const qOrders = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(100));
-    const unsubOrders = onSnapshot(qOrders, (snapshot) => {
-      const sales: any[] = [];
-      const platformOrders: any[] = [];
-      snapshot.forEach((docSnap) => {
-        const order = docSnap.data();
-        const status = (order.status || "").toUpperCase();
-        if (status === "COMPLETED" || status === "LIVRÉE" || status === "DELIVERED") {
-          // Volume total plateforme au prix facturé au client
-          const orderTotal = Number(order.total || order.totalPrice || order.subtotal || 0);
-          platformOrders.push({
-            id: docSnap.id,
-            total: orderTotal,
-            createdAt: order.deliveredAt || order.createdAt
-          });
-
-          const adminItems = (order.items || []).filter((item: any) =>
-            item.isAdminProduct ||
-            item.isOfficialRayons ||
-            item.isOfficialAdminStore ||
-            item.supplierId === "admin"
-          );
-          if (adminItems.length > 0) {
-            const amount = adminItems.reduce((acc: number, it: any) => acc + (Number(it.price || 0) * Number(it.quantity || 1)), 0);
-            sales.push({
-              id: docSnap.id,
-              orderId: docSnap.id,
-              amount,
-              items: adminItems,
-              createdAt: order.createdAt
-            });
-          }
-        }
-      });
-      setAdminStoreSales(sales);
-      setAllPlatformOrders(platformOrders);
-    }, (error) => {
-      console.warn("Orders finance listener warning:", error.message);
-    });
-
-    return () => {
-      unsubTx();
-      unsubLedger();
-      unsubOrders();
-    };
-  }, [user?.uid, hasFinanceAccess, loading, router]);
-
-  // Calculations globales (Solde de Caisse)
-  const totalSubscriptions = transactions
-    .filter(t => t.type === "SUBSCRIPTION")
-    .reduce((acc, t) => acc + t.amount, 0);
-
-  const totalOtherIncome = transactions
-    .filter(t => t.type === "OTHER_INCOME")
-    .reduce((acc, t) => acc + t.amount, 0);
-
-  const totalAdminStoreSales = adminStoreSales.reduce((acc, s) => acc + s.amount, 0);
-
-  const totalIncome = totalSubscriptions + totalOtherIncome + totalAdminStoreSales;
-  const totalPayout = transactions
-    .filter(t => t.type === "EXPENSE")
-    .reduce((acc, t) => acc + t.amount, 0);
-
-  const currentBalance = totalIncome - totalPayout;
-
-  // Calculations filtrées par période (Défaut: 24h)
-  const periodAdminSales = adminStoreSales.filter(s => isTxInPeriod(s, periodFilter));
-  const periodTx = transactions.filter(t => isTxInPeriod(t, periodFilter));
-  const periodSubscriptions = periodTx
-    .filter(t => t.type === "SUBSCRIPTION")
-    .reduce((acc, t) => acc + t.amount, 0);
-  const periodOtherIncome = periodTx
-    .filter(t => t.type === "OTHER_INCOME")
-    .reduce((acc, t) => acc + t.amount, 0);
-  const periodAdminSalesTotal = periodAdminSales.reduce((acc, s) => acc + s.amount, 0);
-  const periodIncome = periodSubscriptions + periodOtherIncome + periodAdminSalesTotal;
-  const periodPayout = periodTx
-    .filter(t => t.type === "EXPENSE")
-    .reduce((acc, t) => acc + t.amount, 0);
-
-  // Volume global plateforme (au prix facturé aux clients)
-  const periodPlatformVolume = allPlatformOrders
-    .filter(o => isTxInPeriod(o, periodFilter))
-    .reduce((acc, o) => acc + o.total, 0);
-
-  // Statistiques de Recouvrement Abonnements Fournisseurs (Admin Finances)
-  const supplierStats = {
-    total: suppliers.length,
-    official: suppliers.filter(s => isOfficialAdminSupplier(s)).length,
-    overdue: suppliers.filter(s => !isOfficialAdminSupplier(s) && evaluateSupplierSubscription(s).isBlocked).length,
-    trial: suppliers.filter(s => !isOfficialAdminSupplier(s) && !evaluateSupplierSubscription(s).isBlocked && evaluateSupplierSubscription(s).isTrial).length,
-    active: suppliers.filter(s => !isOfficialAdminSupplier(s) && !evaluateSupplierSubscription(s).isBlocked && !evaluateSupplierSubscription(s).isTrial).length,
-    overdueAmountToCollect: suppliers.filter(s => !isOfficialAdminSupplier(s) && evaluateSupplierSubscription(s).isBlocked).reduce((sum, s) => sum + (s.depositAmount || 50), 0),
-    projectedMonthlySubscriptions: suppliers.filter(s => !isOfficialAdminSupplier(s)).reduce((sum, s) => sum + (s.depositAmount || 50), 0),
-  };
-
-  const filteredSuppliersList = suppliers.filter(s => {
-    const isOfficial = isOfficialAdminSupplier(s);
-    const subInfo = evaluateSupplierSubscription(s);
-
-    if (supplierStatusFilter === "OVERDUE" && (isOfficial || !subInfo.isBlocked)) return false;
-    if (supplierStatusFilter === "TRIAL" && (isOfficial || subInfo.isBlocked || !subInfo.isTrial)) return false;
-    if (supplierStatusFilter === "ACTIVE" && (isOfficial || subInfo.isBlocked || subInfo.isTrial)) return false;
-    if (supplierStatusFilter === "OFFICIAL" && !isOfficial) return false;
-
-    if (supplierRayonFilter !== "ALL" && (s.rayon || "").toLowerCase() !== supplierRayonFilter.toLowerCase()) return false;
-
-    if (supplierSearch.trim()) {
-      const q = supplierSearch.toLowerCase();
-      const name = (s.displayName || s.company || "").toLowerCase();
-      const email = (s.email || "").toLowerCase();
-      return name.includes(q) || email.includes(q);
-    }
-    return true;
-  });
-
-  // Settle supplier deposit (1-click action connected to backend + partner commission + push)
-  const handleSettleSupplierDeposit = async (supplier: UserSupplier) => {
-    const depositAmount = supplier.depositAmount || 50;
-    if (!confirm(`Confirmez-vous l'encaissement de l'abonnement de $${depositAmount} pour le fournisseur ${supplier.displayName || supplier.email} ?\n\nCette action prolongera son abonnement de 30 jours, débloquera son compte, passera l'écriture au Grand Livre et créditera automatiquement la commission partenaire ($5) le cas échéant.`)) {
-      return;
-    }
-
-    try {
-      const token = await user?.getIdToken();
-      const res = await fetch("/api/admin/executive-overview", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          action: "RECORD_SUBSCRIPTION_PAYMENT",
-          supplierId: supplier.id,
-          amount: depositAmount,
-          paymentMethod: "Caisse centrale / Mobile Money",
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || "Erreur lors de l'encaissement.");
-      }
-
-      // Refresh local supplier list & executive overview
-      setSuppliers(prev => prev.map(s => {
-        if (s.id === supplier.id) {
-          const next = new Date();
-          next.setDate(next.getDate() + 30);
-          return {
-            ...s,
-            subscriptionStatus: "ACTIVE",
-            subscriptionEndDate: next.toISOString(),
-            isBlocked: false
-          };
-        }
-        return s;
-      }));
-      fetchExecutiveOverview();
-      fetchPartners();
-
-      setActionNotice(json.message || `Abonnement de $${depositAmount} encaissé avec succès pour ${supplier.displayName || supplier.email}.`);
-      setTimeout(() => setActionNotice(""), 6000);
-    } catch (err: any) {
-      console.error("Error settling deposit:", err);
-      alert(err.message || "Erreur lors de l'encaissement du dépôt.");
-    }
-  };
-
-  // Submit Cash Adjustment
-  const handleSaveAdjustment = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const val = parseFloat(adjAmount);
-    if (isNaN(val) || val <= 0) {
-      alert("Veuillez saisir un montant valide.");
-      return;
-    }
-
-    const finalAmount = adjType === "ADD" ? val : -val;
-    setIsSubmittingAdj(true);
-
-    try {
-      await recordCashAdjustment({
-        amount: finalAmount,
-        reason: adjReason,
-        label: adjLabel,
-        referencePiece: adjRef,
-        actorType: "ADMIN",
-        currentBalance
-      });
-
-      setIsAdjustmentModalOpen(false);
-      setAdjAmount("");
-      setAdjLabel("");
-      setAdjRef("");
-      setActionNotice(`Ajustement de caisse de ${finalAmount > 0 ? "+" : ""}$${finalAmount} enregistré avec succès dans le Grand Livre.`);
-      setTimeout(() => setActionNotice(""), 6000);
-    } catch (err: any) {
-      console.error("Error saving cash adjustment:", err);
-      alert(err.message || "Erreur lors de l'enregistrement de l'ajustement de caisse.");
-    } finally {
-      setIsSubmittingAdj(false);
-    }
-  };
-
-  // Submit Standard Transaction
-  const handleAddTransaction = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const parsedAmount = parseFloat(amount);
-    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
-      alert("Veuillez saisir un montant valide.");
-      return;
-    }
-    
-    if (txType === "SUBSCRIPTION" && !selectedSupplierId) {
-      alert("Veuillez sélectionner un fournisseur.");
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      if (txType === "SUBSCRIPTION") {
-        const sup = suppliers.find(s => s.id === selectedSupplierId);
-        await recordSubscriptionDeposit({
-          supplierId: selectedSupplierId,
-          supplierName: sup?.displayName || sup?.email || "Fournisseur",
-          amount: parsedAmount,
-          referencePiece: referenceId,
-          currentBalance
-        });
-      } else {
-        // Use recordCashAdjustment for EXPENSE or OTHER_INCOME to keep batch atomicity
-        await recordCashAdjustment({
-          amount: txType === "EXPENSE" ? -parsedAmount : parsedAmount,
-          reason: txType === "EXPENSE" ? "Dépense de plateforme" : "Recette directe",
-          label: description,
-          referencePiece: referenceId || `MANUAL-${Math.floor(Math.random() * 1000000)}`,
-          actorType: "ADMIN",
-          currentBalance,
-        });
-      }
-
-      setIsTxModalOpen(false);
-      setAmount("");
-      setDescription("");
-      setReferenceId("");
-      setSelectedSupplierId("");
-      setActionNotice("Opération enregistrée avec succès.");
-      setTimeout(() => setActionNotice(""), 5000);
-    } catch (error) {
-      console.error("Error adding transaction:", error);
-      alert("Erreur lors de l'ajout de la transaction");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Export CSV
   const downloadCSV = () => {
-    const headers = ["Date", "N° Écriture", "Journal", "Réf Pièce", "Libellé", "Débit (+)", "Crédit (-)", "Solde"];
-    const rows = ledgerEntries.map(e => [
-      e.date?.toDate ? e.date.toDate().toLocaleDateString('fr-FR') : 'N/A',
-      e.entryNumber || '-',
-      e.journal || '-',
-      e.referencePiece || '-',
-      `"${(e.label || '').replace(/"/g, '""')}"`,
-      e.debit ? `$${e.debit.toFixed(2)}` : '',
-      e.credit ? `$${e.credit.toFixed(2)}` : '',
-      e.balanceAfter ? `$${e.balanceAfter.toFixed(2)}` : ''
+    const headers = ["Date", "N° Écriture", "Journal", "Réf Pièce", "Libellé", "Débit (+)", "Crédit (-)"];
+    const rows = filteredLedger.map((e) => [
+      formatEntryDate(e.date),
+      e.entryNumber || "-",
+      e.journal || "-",
+      e.referencePiece || "-",
+      `"${(e.label || "").replace(/"/g, '""')}"`,
+      e.debit ? e.debit.toFixed(2) : "",
+      e.credit ? e.credit.toFixed(2) : "",
     ]);
 
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + headers.join(",") + "\n" 
-      + rows.map(r => r.join(",")).join("\n");
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      headers.join(",") +
+      "\n" +
+      rows.map((r) => r.join(",")).join("\n");
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `grand_livre_rayons_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `grand_livre_plateforme_rayons_${new Date().toISOString().split("T")[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // Filtered Ledger (avec filtre de période temporelle)
-  const filteredLedger = ledgerEntries.filter(entry => {
-    if (!isTxInPeriod({ createdAt: entry.date }, periodFilter)) return false;
-    if (journalFilter !== "ALL" && entry.journal !== journalFilter) return false;
-    if (search) {
-      const q = search.toLowerCase();
-      const matchLabel = (entry.label || "").toLowerCase().includes(q);
-      const matchRef = (entry.referencePiece || "").toLowerCase().includes(q);
-      const matchNum = (entry.entryNumber || "").toLowerCase().includes(q);
-      if (!matchLabel && !matchRef && !matchNum) return false;
-    }
-    return true;
-  });
+  const pendingPartnerPayouts = partners.reduce((sum, p) => sum + Number(p.balance || 0), 0);
+  const totalPartnerEarned = partners.reduce((sum, p) => sum + Number(p.totalEarned || 0), 0);
+  const targetSubInfo = paymentTargetSupplier ? evaluateSupplierSubscription(paymentTargetSupplier) : null;
+  const targetAlreadyActive = Boolean(
+    paymentTargetSupplier &&
+      !isOfficialAdminSupplier(paymentTargetSupplier) &&
+      targetSubInfo &&
+      !targetSubInfo.isBlocked &&
+      !targetSubInfo.isTrial
+  );
 
   return (
-    <div className="space-y-6 pb-20">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-white tracking-tight">Finances, Abonnements & Commissions</h1>
-            <span className="px-2 py-0.5 bg-[#C7D300]/10 text-[#C7D300] border border-[#C7D300]/20 rounded-md text-[10px] font-bold uppercase tracking-widest">
-              Centralisé
+    <div className="space-y-5 pb-20">
+      {/* Header Exécutif (1 seule ligne d'actions propre) */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="text-xl font-bold text-white tracking-tight">Finances Plateforme</h1>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 rounded-md text-[10px] font-semibold uppercase tracking-wider whitespace-nowrap">
+              <ShieldCheck size={11} />
+              Audit &amp; Grand Livre Immuable
             </span>
           </div>
-          <p className="text-xs text-gray-400 mt-1">
-            Revenus générés par l&apos;application : Abonnements fournisseurs (Payés / Impayés), Commissions partenaires, Grand Livre &amp; Prévisions financières
+          <p className="text-xs text-gray-400 mt-1 flex items-center gap-1.5">
+            <Building2 size={12} className="text-gray-500 shrink-0" />
+            <span>
+              Trésorerie Rayons.net uniquement (abonnements boutiques &amp; commissions). La comptabilité locative des agences Immo reste privée dans leur espace.
+            </span>
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setIsAdjustmentModalOpen(true)}
-            className="flex items-center gap-1.5 bg-white/5 hover:bg-white/8 border border-white/10 text-gray-300 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all"
-          >
-            <Sliders size={14} />
-            <span>Ajustement</span>
-          </button>
+        <div className="flex items-center gap-2 shrink-0 overflow-x-auto">
+          {isSuperAdmin && (
+            <button
+              onClick={() => setIsAdjustmentModalOpen(true)}
+              className="inline-flex items-center gap-1.5 bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-gray-200 px-3 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer"
+            >
+              <Sliders size={13} />
+              <span>Ajustement</span>
+            </button>
+          )}
 
           <button
             onClick={downloadCSV}
-            className="flex items-center gap-1.5 bg-white/5 hover:bg-white/8 border border-white/10 text-gray-300 px-3.5 py-2 rounded-lg text-xs font-semibold transition-all"
+            className="inline-flex items-center gap-1.5 bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-gray-200 px-3 py-2 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap cursor-pointer"
           >
-            <Download size={14} />
+            <Download size={13} />
             <span>Exporter CSV</span>
           </button>
 
           <button
-            onClick={() => setIsTxModalOpen(true)}
-            className="flex items-center gap-1.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] px-4 py-2 rounded-lg text-xs font-bold transition-all"
+            onClick={() => {
+              setTxKind("OTHER_INCOME");
+              setIsTxModalOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 bg-[#C7D300] hover:bg-[#b8c400] text-[#0F1D27] px-3.5 py-2 rounded-lg text-xs font-bold transition-colors whitespace-nowrap cursor-pointer"
           >
             <Plus size={14} />
             <span>Nouvelle Écriture</span>
@@ -714,990 +854,1138 @@ export default function AdminFinancePage() {
         </div>
       </div>
 
-      {/* Preuves Mobile Money en attente de validation 1 clic */}
-      <MobileMoneyRequestsPanel />
+      {/* Preuves Mobile Money en attente de validation */}
+      <MobileMoneyRequestsPanel
+        onApproved={() => {
+          refreshSuppliers();
+          fetchExecutiveOverview(true);
+          fetchPartners();
+        }}
+      />
 
       {/* Période Comptable */}
       <DateRangeFilterPills filter={dateFilter} />
 
-      {/* KPI Cards — Centralisation Revenus Plateforme & Prévisions */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-3">
-        {[
-          {
-            label: "Caisse Nette",
-            value: `$${currentBalance.toFixed(2)}`,
-            sub: "Solde trésorerie consolidé",
-            icon: <Wallet size={14} />,
-            accent: currentBalance >= 0,
-          },
-          {
-            label: "Abonnements Encaissés",
-            value: `$${(execOverview?.financeSummary?.collectedSubscriptionRevenueUSD ?? totalSubscriptions).toFixed(2)}`,
-            sub: `${supplierStats.active} boutique(s) payée(s)`,
-            icon: <ArrowDownRight size={14} />,
-            accent: true,
-          },
-          {
-            label: "MRR Actuel",
-            value: `$${(execOverview?.forecasts?.currentMRR ?? supplierStats.active * 50).toFixed(0)}/mois`,
-            sub: "Revenu mensuel récurrent",
-            icon: <TrendingUp size={14} />,
-            accent: false,
-          },
-          {
-            label: "Prévision Net 30J",
-            value: `$${(execOverview?.forecasts?.projected30dNetRevenue ?? supplierStats.projectedMonthlySubscriptions).toFixed(0)}`,
-            sub: `ARR projeté : $${(execOverview?.forecasts?.projectedAnnualARR ?? supplierStats.projectedMonthlySubscriptions * 12).toFixed(0)}/an`,
-            icon: <TrendingUp size={14} />,
-            accent: true,
-          },
-          {
-            label: "Commissions Partenaires",
-            value: `$${(execOverview?.financeSummary?.totalPartnerCommissionsEarnedUSD ?? 0).toFixed(2)}`,
-            sub: `À payer : $${(execOverview?.financeSummary?.pendingPartnerPayoutsUSD ?? 0).toFixed(2)}`,
-            icon: <Award size={14} />,
-            accent: false,
-          },
-          {
-            label: "Impayés à Recouvrer",
-            value: `$${supplierStats.overdueAmountToCollect.toFixed(0)}`,
-            sub: `${supplierStats.overdue} fournisseur(s) expiré(s)`,
-            icon: <ArrowUpRight size={14} />,
-            accent: false,
-            negative: supplierStats.overdue > 0,
-          },
-        ].map((kpi, i) => (
-          <div key={i} className="bg-white/3 border border-white/8 rounded-xl p-3 sm:p-4 flex flex-col gap-2 sm:gap-3">
-            <div className="flex items-center justify-between">
-              <p className="text-gray-500 text-[10px] font-semibold uppercase tracking-wider leading-tight">{kpi.label}</p>
-              <span className={`p-1 sm:p-1.5 rounded-md ${kpi.accent ? "bg-[#C7D300]/10 text-[#C7D300]" : "bg-white/5 text-gray-500"}`}>
-                {kpi.icon}
-              </span>
-            </div>
-            <p className={`text-base sm:text-xl font-black tabular-nums ${kpi.negative ? "text-red-400" : kpi.accent ? "text-[#C7D300]" : "text-white"}`}>
-              {kpi.value}
-            </p>
-            <p className="text-[10px] text-gray-500 truncate">{kpi.sub}</p>
+      {/* 4 Cartes KPI Exécutives (1 seule rangée sobre, chiffres réconciliés) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        {/* KPI 1: Trésorerie Plateforme */}
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+              Trésorerie Nette
+            </span>
+            <span className="p-1.5 rounded-lg bg-white/[0.05] text-gray-300">
+              <Wallet size={14} />
+            </span>
           </div>
-        ))}
+          <p className="text-2xl font-bold text-white tabular-nums tracking-tight">
+            {isLoading ? "—" : `$${currentBalance.toFixed(2)}`}
+          </p>
+          <div className="flex items-center justify-between text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">
+            <span className="truncate">{getPeriodLabel()}</span>
+            <span className="tabular-nums whitespace-nowrap">
+              <span className="text-emerald-400 font-semibold">+${periodIncome.toFixed(0)}</span>
+              {" / "}
+              <span className="text-rose-400 font-semibold">-${periodPayout.toFixed(0)}</span>
+            </span>
+          </div>
+        </div>
+
+        {/* KPI 2: MRR Confirmé */}
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+              MRR Confirmé
+            </span>
+            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+              <TrendingUp size={14} />
+            </span>
+          </div>
+          <p className="text-2xl font-bold text-white tabular-nums tracking-tight">
+            ${supplierStats.confirmedMRR.toFixed(0)}
+            <span className="text-xs font-medium text-gray-400 ml-1">/mois</span>
+          </p>
+          <div className="flex items-center justify-between text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">
+            <span>{supplierStats.active} boutique(s) active(s)</span>
+            <span className="tabular-nums text-emerald-400 font-medium">
+              ARR ${supplierStats.confirmedARR.toFixed(0)}/an
+            </span>
+          </div>
+        </div>
+
+        {/* KPI 3: Abonnements Expirés (vocable SaaS clair, aucune confusion Immo) */}
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+              Abonnements Expirés
+            </span>
+            <span className={`p-1.5 rounded-lg ${supplierStats.overdue > 0 ? "bg-rose-500/10 text-rose-400" : "bg-white/[0.05] text-gray-400"}`}>
+              <Clock size={14} />
+            </span>
+          </div>
+          <p className={`text-2xl font-bold tabular-nums tracking-tight ${supplierStats.overdue > 0 ? "text-rose-400" : "text-white"}`}>
+            {supplierStats.overdue}
+            <span className="text-xs font-medium text-gray-400 ml-1.5">compte(s) suspendu(s)</span>
+          </p>
+          <div className="flex items-center justify-between text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">
+            <span>Renouvellement : ${supplierStats.expiredPotential}/mois</span>
+            <span className="text-amber-300">{supplierStats.trial} en essai</span>
+          </div>
+        </div>
+
+        {/* KPI 4: Commissions Partenaires */}
+        <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-4 flex flex-col justify-between gap-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+              Commissions Partenaires
+            </span>
+            <span className="p-1.5 rounded-lg bg-white/[0.05] text-gray-300">
+              <Award size={14} />
+            </span>
+          </div>
+          <p className="text-2xl font-bold text-white tabular-nums tracking-tight">
+            ${pendingPartnerPayouts.toFixed(2)}
+          </p>
+          <div className="flex items-center justify-between text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">
+            <span>À verser ({partners.length} partenaire{partners.length > 1 ? "s" : ""})</span>
+            <span className="tabular-nums text-gray-300">Cumul ${totalPartnerEarned.toFixed(2)}</span>
+          </div>
+        </div>
       </div>
 
       {actionNotice ? (
         <ValidationSuccessView
-          title="C'est fait !"
+          title="Opération enregistrée"
           message={actionNotice}
-          badgeLabel="Opération Financière Validée"
+          badgeLabel="Journal Comptable Auditée"
           onDone={() => setActionNotice("")}
         />
       ) : (
         <>
-      {/* Tabs */}
-      <div className="flex border-b border-white/8 gap-4 sm:gap-6 text-xs font-semibold overflow-x-auto scrollbar-none whitespace-nowrap">
-        {[
-          { id: "deposits", label: `Abonnements : Payés / Impayés (${suppliers.length})`, icon: <Clock size={13} /> },
-          { id: "commissions", label: `Commissions Partenaires (${partners.length})`, icon: <Award size={13} /> },
-          { id: "ledger", label: `Grand Livre (${filteredLedger.length})`, icon: <FileText size={13} /> },
-          {
-            id: "settings",
-            label: pendingProposal ? "Paramètres & Taux (1 En Attente)" : "Paramètres Financiers & Taux",
-            icon: <Sliders size={13} />,
-            hasBadge: Boolean(pendingProposal),
-          },
-          { id: "overview", label: "Livre de Caisse", icon: <Wallet size={13} /> },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
-            className={`pb-3 border-b-2 transition-all flex items-center gap-1.5 cursor-pointer relative ${
-              activeTab === tab.id
-                ? "border-[#C7D300] text-[#C7D300]"
-                : "border-transparent text-gray-500 hover:text-gray-300"
-            }`}
-          >
-            {tab.icon}
-            <span>{tab.label}</span>
-            {tab.hasBadge && (
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse ml-0.5" />
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* TAB 1: GRAND LIVRE */}
-      {activeTab === "ledger" && (
-        <div className="bg-white/3 border border-white/8 rounded-xl overflow-hidden">
-          <div className="p-3 sm:p-4 border-b border-white/8 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex flex-wrap gap-1.5 text-[11px]">
-              {[
-                { code: "ALL", label: "Tous" },
-                { code: "VT", label: "VT · Ventes" },
-                { code: "AB", label: "AB · Abonnements" },
-                { code: "AJ", label: "AJ · Ajustements" },
-                { code: "CS", label: "CS · Caisse" },
-                { code: "BQ", label: "BQ · Banque" },
-              ].map(j => (
-                <button
-                  key={j.code}
-                  onClick={() => setJournalFilter(j.code)}
-                  className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
-                    journalFilter === j.code
-                      ? "bg-[#C7D300] text-[#0F1D27]"
-                      : "bg-white/5 text-gray-500 hover:text-gray-300"
-                  }`}
-                >
-                  {j.label}
-                </button>
-              ))}
-            </div>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" size={13} />
-              <input
-                type="text"
-                placeholder="Libellé ou référence..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full sm:w-56 pl-8 pr-3 py-1.5 bg-white/5 border border-white/8 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 text-white text-[11px] placeholder:text-gray-600"
-              />
-            </div>
-          </div>
-
-          {/* Desktop Table (Hidden on mobile < md) */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full min-w-[800px] text-left">
-              <thead>
-                <tr className="border-b border-white/8">
-                  {["N° Écriture", "Date", "Journal", "Réf. Pièce", "Libellé", "Débit", "Crédit", "Solde"].map(h => (
-                    <th key={h} className="px-4 py-3 text-[10px] font-semibold text-gray-600 uppercase tracking-wider text-left last:text-right">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {filteredLedger.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center">
-                      <p className="text-sm font-semibold text-gray-400">Aucune écriture pour {getPeriodLabel()}</p>
-                      <p className="text-xs text-gray-600 mt-1">Modifiez la période ou le filtre journal pour afficher l&apos;historique.</p>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredLedger.map((entry) => (
-                    <tr key={entry.id || entry.entryNumber} className="hover:bg-white/3 transition-colors">
-                      <td className="px-4 py-3 font-mono text-[11px] text-gray-300 font-semibold">{entry.entryNumber}</td>
-                      <td className="px-4 py-3 text-[11px] text-gray-500">
-                        {entry.date?.toDate ? entry.date.toDate().toLocaleDateString("fr-FR") : "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-[10px] font-black text-gray-300 bg-white/6 px-2 py-0.5 rounded">
-                          {entry.journal}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-[11px] text-gray-500">{entry.referencePiece || "—"}</td>
-                      <td className="px-4 py-3 text-[11px] text-gray-300 max-w-xs truncate" title={entry.label}>{entry.label}</td>
-                      <td className="px-4 py-3 text-right text-[11px] font-bold text-[#C7D300]">
-                        {entry.debit > 0 ? `+$${entry.debit.toFixed(2)}` : "—"}
-                      </td>
-                      <td className="px-4 py-3 text-right text-[11px] font-bold text-red-400">
-                        {entry.credit > 0 ? `-$${entry.credit.toFixed(2)}` : "—"}
-                      </td>
-                      <td className="px-4 py-3 text-right text-[11px] font-semibold text-gray-300">
-                        {entry.balanceAfter !== undefined ? `$${entry.balanceAfter.toFixed(2)}` : "—"}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Ledger Cards (< md) */}
-          <div className="md:hidden divide-y divide-white/5">
-            {filteredLedger.length === 0 ? (
-              <div className="p-8 text-center text-xs text-gray-400">
-                Aucune écriture pour {getPeriodLabel()}
-              </div>
-            ) : (
-              filteredLedger.map((entry) => (
-                <div key={entry.id || entry.entryNumber} className="p-3.5 space-y-2">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-gray-300 font-bold">{entry.entryNumber}</span>
-                      <span className="font-mono text-[9px] font-black text-gray-300 bg-white/10 px-1.5 py-0.5 rounded">
-                        {entry.journal}
-                      </span>
-                    </div>
-                    <span className="text-gray-500 text-[10px]">
-                      {entry.date?.toDate ? entry.date.toDate().toLocaleDateString("fr-FR") : "—"}
-                    </span>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-white font-medium line-clamp-2">{entry.label}</p>
-                    {entry.referencePiece && (
-                      <p className="font-mono text-[10px] text-gray-500 mt-0.5">Réf: {entry.referencePiece}</p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between pt-1 border-t border-white/5 text-xs">
-                    <div>
-                      {entry.debit > 0 ? (
-                        <span className="font-bold text-[#C7D300]">+$${entry.debit.toFixed(2)}</span>
-                      ) : entry.credit > 0 ? (
-                        <span className="font-bold text-red-400">-$${entry.credit.toFixed(2)}</span>
-                      ) : (
-                        <span className="text-gray-500">—</span>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[10px] text-gray-500 mr-1.5">Solde</span>
-                      <span className="font-semibold text-gray-300">
-                        {entry.balanceAfter !== undefined ? `$${entry.balanceAfter.toFixed(2)}` : "—"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: ÉCHÉANCIER ET RECOUVREMENT DES COTISATIONS FOURNISSEURS (ADMIN FINANCES) */}
-      {activeTab === "deposits" && (
-        <div className="space-y-4">
-          {/* Cartes d'Analyse Recouvrement Transversal */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div className="bg-white/3 border border-white/8 rounded-xl p-3.5 sm:p-4">
-              <p className="text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Fournisseurs Actifs</p>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-xl sm:text-2xl font-black text-white">{supplierStats.active}</span>
-                <span className="text-[10px] text-gray-500">/ {supplierStats.total} total</span>
-              </div>
-              <p className="text-[10px] text-gray-500 mt-1">Cotisations à jour</p>
-            </div>
-
-            <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3.5 sm:p-4">
-              <p className="text-[10px] sm:text-[11px] font-semibold text-amber-400 uppercase tracking-wider">En Période d&apos;Essai</p>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-xl sm:text-2xl font-black text-amber-300">{supplierStats.trial}</span>
-                <span className="text-[10px] text-amber-500/80">fournisseurs</span>
-              </div>
-              <p className="text-[10px] text-amber-400/70 mt-1">15 jours d&apos;essai gratuits</p>
-            </div>
-
-            <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-3.5 sm:p-4">
-              <p className="text-[10px] sm:text-[11px] font-semibold text-red-400 uppercase tracking-wider">À Recouvrer (Impayés)</p>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-xl sm:text-2xl font-black text-red-300">{supplierStats.overdue}</span>
-                <span className="text-xs font-bold text-red-400">(${supplierStats.overdueAmountToCollect})</span>
-              </div>
-              <p className="text-[10px] text-red-400/80 mt-1">Comptes bloqués pour impayé</p>
-            </div>
-
-            <div className="bg-white/3 border border-white/8 rounded-xl p-3.5 sm:p-4">
-              <p className="text-[10px] sm:text-[11px] font-semibold text-gray-500 uppercase tracking-wider">Boutiques Officielles</p>
-              <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-xl sm:text-2xl font-black text-[#C7D300]">{supplierStats.official}</span>
-                <span className="text-[10px] text-gray-400">Rayons.net</span>
-              </div>
-              <p className="text-[10px] text-gray-500 mt-1">Exemptées de cotisations</p>
-            </div>
-          </div>
-
-          {/* Table Principale Échéancier */}
-          <div className="bg-white/3 border border-white/8 rounded-xl overflow-hidden">
-            <div className="p-3.5 sm:p-4 border-b border-white/8 flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-bold text-white">Échéancier & Recouvrement des Cotisations</h2>
-                <p className="text-[10px] sm:text-[11px] text-gray-500 mt-0.5">Suivi transversal tous rayons confondus · Encaissement des cotisations mensuelles</p>
-              </div>
-
-              {/* Filtres de Statut */}
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex items-center gap-1 bg-white/5 p-1 rounded-lg">
-                  {(
-                    [
-                      { id: "ALL", label: `Tous (${supplierStats.total})` },
-                      { id: "OVERDUE", label: `Impayés (${supplierStats.overdue})` },
-                      { id: "ACTIVE", label: `À jour (${supplierStats.active})` },
-                      { id: "TRIAL", label: `Essai (${supplierStats.trial})` },
-                      { id: "OFFICIAL", label: `Officielles (${supplierStats.official})` },
-                    ] as const
-                  ).map((btn) => (
-                    <button
-                      key={btn.id}
-                      onClick={() => setSupplierStatusFilter(btn.id)}
-                      className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${
-                        supplierStatusFilter === btn.id
-                          ? "bg-[#C7D300] text-[#0F1D27] shadow-sm font-bold"
-                          : "text-gray-400 hover:text-white hover:bg-white/5"
-                      }`}
-                    >
-                      {btn.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Filtre Rayon */}
-                <select
-                  value={supplierRayonFilter}
-                  onChange={(e) => setSupplierRayonFilter(e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-[#C7D300]"
-                >
-                  <option value="ALL">Tous les Rayons</option>
-                  <option value="immo">Immobilier & Hôtels</option>
-                  <option value="mode">Mode & Vêtements</option>
-                  <option value="connect">Connect (Tech & Services)</option>
-                  <option value="saveurs">Saveurs (Alimentation)</option>
-                </select>
-
-                {/* Recherche */}
-                <input
-                  type="text"
-                  placeholder="Rechercher fournisseur..."
-                  value={supplierSearch}
-                  onChange={(e) => setSupplierSearch(e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded-lg px-2.5 py-1 text-[11px] text-white placeholder-gray-500 focus:outline-none focus:border-[#C7D300] w-36 sm:w-44"
-                />
-              </div>
-            </div>
-
-            {/* Desktop Table (Hidden on mobile < md) */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full min-w-[780px] text-left">
-                <thead>
-                  <tr className="border-b border-white/8">
-                    {["Fournisseur", "Rayon Commercial", "Cycle", "Échéance", "Cotisation", "Statut", ""].map(h => (
-                      <th key={h} className="px-4 py-3 text-[10px] font-semibold text-gray-600 uppercase tracking-wider last:text-right">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {filteredSuppliersList.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-sm text-gray-600">Aucun fournisseur ne correspond aux critères.</td>
-                    </tr>
-                  ) : (
-                    filteredSuppliersList.map((s) => {
-                      const isOfficial = isOfficialAdminSupplier(s);
-                      const subInfo = evaluateSupplierSubscription(s);
-                      const depositAmount = s.depositAmount || 50;
-
-                      return (
-                        <tr key={s.id} className="hover:bg-white/3 transition-colors">
-                          <td className="px-4 py-3">
-                            <p className="text-[11px] font-semibold text-white">{s.displayName || s.company || "Partenaire"}</p>
-                            <p className="text-[10px] text-gray-600">{s.email}</p>
-                          </td>
-                          <td className="px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">
-                            {s.rayon || "—"}
-                          </td>
-                          <td className="px-4 py-3 text-[11px] text-gray-400">
-                            {isOfficial ? "Officielle Rayons (Exemptée)" : subInfo.isTrial ? `Essai gratuit (${subInfo.daysLeft}j)` : "Cotisation Mensuelle"}
-                          </td>
-                          <td className="px-4 py-3 text-[11px] text-gray-400">
-                            {isOfficial ? "—" : subInfo.formattedDueDate}
-                          </td>
-                          <td className="px-4 py-3 text-[11px] font-semibold text-gray-300">
-                            {isOfficial ? "$0" : `$${depositAmount}/mois`}
-                          </td>
-                          <td className="px-4 py-3">
-                            {isOfficial ? (
-                              <span className="text-[10px] font-bold text-[#C7D300] bg-[#C7D300]/10 px-2 py-0.5 rounded border border-[#C7D300]/20">
-                                🏷️ Boutique Officielle
-                              </span>
-                            ) : subInfo.isBlocked ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded border border-red-500/20">
-                                <Lock size={10} /> Bloqué (Impayé)
-                              </span>
-                            ) : subInfo.isTrial ? (
-                              <span className="text-[10px] font-semibold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                                En essai ({subInfo.daysLeft}j)
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                                <CheckCircle size={10} /> À jour
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            {isOfficial ? (
-                              <span className="text-[10px] text-gray-600 italic">Exempté</span>
-                            ) : (
-                              <button
-                                onClick={() => handleSettleSupplierDeposit(s)}
-                                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold text-[11px] transition-colors cursor-pointer ${
-                                  subInfo.isBlocked
-                                    ? "bg-red-500 hover:bg-red-600 text-white shadow-sm"
-                                    : "bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27]"
-                                }`}
-                              >
-                                <ArrowDownRight size={12} />
-                                {subInfo.isBlocked ? `Recouvrer $${depositAmount}` : `Encaisser $${depositAmount}`}
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Supplier Deposit Cards (< md) */}
-            <div className="md:hidden divide-y divide-white/5">
-              {filteredSuppliersList.length === 0 ? (
-                <div className="p-8 text-center text-xs text-gray-500">Aucun fournisseur ne correspond.</div>
-              ) : (
-                filteredSuppliersList.map((s) => {
-                  const isOfficial = isOfficialAdminSupplier(s);
-                  const subInfo = evaluateSupplierSubscription(s);
-                  const depositAmount = s.depositAmount || 50;
-
-                  return (
-                    <div key={s.id} className="p-3.5 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <h4 className="text-xs font-bold text-white">{s.displayName || s.company || "Partenaire"}</h4>
-                          <p className="text-[10px] text-gray-500 truncate max-w-[180px]">{s.email}</p>
-                        </div>
-                        {isOfficial ? (
-                          <span className="text-[9px] font-bold text-[#C7D300] bg-[#C7D300]/10 px-2 py-0.5 rounded border border-[#C7D300]/20">
-                            🏷️ Boutique Officielle
-                          </span>
-                        ) : subInfo.isBlocked ? (
-                          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-red-400 bg-red-400/10 px-2 py-0.5 rounded border border-red-500/20">
-                            <Lock size={10} /> Bloqué
-                          </span>
-                        ) : subInfo.isTrial ? (
-                          <span className="text-[9px] font-semibold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                            Essai ({subInfo.daysLeft}j)
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                            <CheckCircle size={10} /> À jour
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between text-[11px] text-gray-400">
-                        <span>Rayon Commercial: <strong className="text-gray-300 uppercase">{s.rayon || "—"}</strong></span>
-                        <span>Échéance: <strong className="text-gray-300">{isOfficial ? "—" : subInfo.formattedDueDate}</strong></span>
-                      </div>
-
-                      {!isOfficial && (
-                        <div className="flex items-center justify-between pt-1 border-t border-white/5">
-                          <span className="text-xs font-semibold text-gray-300">${depositAmount}/mois</span>
-                          <button
-                            onClick={() => handleSettleSupplierDeposit(s)}
-                            className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold text-xs transition-colors cursor-pointer active:scale-95 ${
-                              subInfo.isBlocked
-                                ? "bg-red-500 text-white"
-                                : "bg-[#C7D300] text-[#0F1D27]"
-                            }`}
-                          >
-                            <ArrowDownRight size={13} />
-                            <span>{subInfo.isBlocked ? `Recouvrer $${depositAmount}` : `Encaisser $${depositAmount}`}</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 3: LIVRE DE CAISSE */}
-      {activeTab === "overview" && (
-        <div className="bg-white/3 border border-white/8 rounded-xl overflow-hidden">
-          <div className="p-4 border-b border-white/8">
-            <h2 className="text-sm font-bold text-white">Livre de Caisse</h2>
-            <p className="text-[11px] text-gray-600 mt-0.5">Historique brut des encaissements et décaissements.</p>
-          </div>
-
-          {/* Desktop Table (>= md) */}
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full min-w-[600px] text-left">
-              <thead>
-                <tr className="border-b border-white/8">
-                  {["Date", "Type", "Description", "Référence", "Montant"].map(h => (
-                    <th key={h} className="px-4 py-3 text-[10px] font-semibold text-gray-600 uppercase tracking-wider last:text-right">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {transactions.length === 0 ? (
-                  <tr><td colSpan={5} className="px-6 py-12 text-center text-sm text-gray-600">Aucune transaction.</td></tr>
-                ) : (
-                  transactions.map((t) => (
-                    <tr key={t.id} className="hover:bg-white/3 transition-colors">
-                      <td className="px-4 py-3 text-[11px] text-gray-500">
-                        {t.createdAt?.toDate ? t.createdAt.toDate().toLocaleDateString("fr-FR") : "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                          t.type === "EXPENSE" ? "text-red-400 bg-red-400/8" : "text-[#C7D300] bg-[#C7D300]/8"
-                        }`}>
-                          {t.type === "SUBSCRIPTION" ? "Abonnement" : t.type === "OTHER_INCOME" ? "Recette" : "Dépense"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-[11px] text-gray-300 max-w-xs truncate">{t.description}</td>
-                      <td className="px-4 py-3 font-mono text-[11px] text-gray-600">{t.referenceId || "—"}</td>
-                      <td className={`px-4 py-3 text-right text-[11px] font-bold ${
-                        t.type === "EXPENSE" ? "text-red-400" : "text-[#C7D300]"
-                      }`}>
-                        {t.type === "EXPENSE" ? "-" : "+"}${t.amount.toFixed(2)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Mobile Stacked Cards (< md) */}
-          <div className="md:hidden divide-y divide-white/5">
-            {transactions.length === 0 ? (
-              <div className="p-8 text-center text-xs text-gray-600">Aucune transaction.</div>
-            ) : (
-              transactions.map((t) => (
-                <div key={t.id} className="p-3.5 space-y-2 hover:bg-white/3 transition-colors">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                      t.type === "EXPENSE" ? "text-red-400 bg-red-400/8" : "text-[#C7D300] bg-[#C7D300]/8"
-                    }`}>
-                      {t.type === "SUBSCRIPTION" ? "Abonnement" : t.type === "OTHER_INCOME" ? "Recette" : "Dépense"}
-                    </span>
-                    <span className={`text-xs font-extrabold ${
-                      t.type === "EXPENSE" ? "text-red-400" : "text-[#C7D300]"
-                    }`}>
-                      {t.type === "EXPENSE" ? "-" : "+"}${t.amount.toFixed(2)}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-200 leading-snug">{t.description}</p>
-                  <div className="flex items-center justify-between text-[10px] text-gray-500 pt-1">
-                    <span>{t.createdAt?.toDate ? t.createdAt.toDate().toLocaleDateString("fr-FR") : "—"}</span>
-                    <span className="font-mono text-gray-600">Réf: {t.referenceId || "—"}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 4: COMMISSIONS DES PARTENAIRES & CRÉDIT DIRECT */}
-      {activeTab === "commissions" && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="bg-white/3 border border-white/8 rounded-xl p-4">
-              <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Partenaires Enregistrés</p>
-              <div className="text-2xl font-black text-white mt-1">{partners.length}</div>
-              <p className="text-[10px] text-gray-500 mt-0.5">Apporteurs d&apos;affaires agréés</p>
-            </div>
-
-            <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
-              <p className="text-[10px] text-emerald-400 font-semibold uppercase tracking-wider">Soldes Disponibles Cumulés</p>
-              <div className="text-2xl font-black text-emerald-400 mt-1">
-                ${partners.reduce((sum, p) => sum + (p.balance || 0), 0).toFixed(2)}
-              </div>
-              <p className="text-[10px] text-emerald-500/70 mt-0.5">En attente de versement Mobile Money</p>
-            </div>
-
-            <div className="bg-white/3 border border-white/8 rounded-xl p-4">
-              <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">Commissions Versées à Vie</p>
-              <div className="text-2xl font-black text-[#C7D300] mt-1">
-                ${partners.reduce((sum, p) => sum + (p.totalEarned || 0), 0).toFixed(2)}
-              </div>
-              <p className="text-[10px] text-gray-500 mt-0.5">Rémunération totale générée</p>
-            </div>
-          </div>
-
-          <div className="bg-white/3 border border-white/8 rounded-xl overflow-hidden">
-            <div className="p-4 border-b border-white/8 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Award size={15} className="text-[#C7D300]" />
-                  <span>Gestion des Commissions Partenaires & Crédit Direct</span>
-                </h2>
-                <p className="text-[11px] text-gray-500 mt-0.5">
-                  Visualisez les soldes de vos partenaires et créditez directement des commissions exceptionnelles
-                </p>
-              </div>
-
+          {/* Onglets */}
+          <div className="flex border-b border-white/[0.08] gap-5 text-xs font-semibold overflow-x-auto scrollbar-none whitespace-nowrap">
+            {[
+              { id: "deposits", label: `Abonnements Boutiques (${suppliers.length})`, icon: <Clock size={13} /> },
+              { id: "commissions", label: `Commissions Partenaires (${partners.length})`, icon: <Award size={13} /> },
+              { id: "ledger", label: `Grand Livre Plateforme (${filteredLedger.length})`, icon: <FileText size={13} /> },
+              {
+                id: "settings",
+                label: pendingProposal ? "Paramètres & Taux (1 en attente)" : "Paramètres & Taux",
+                icon: <Sliders size={13} />,
+                hasBadge: Boolean(pendingProposal),
+              },
+              { id: "overview", label: `Livre de Caisse (${periodTx.length})`, icon: <Wallet size={13} /> },
+            ].map((tab) => (
               <button
-                onClick={() => {
-                  setSelectedPartnerId(partners[0]?.id || "");
-                  setIsCommissionModalOpen(true);
-                }}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] rounded-lg font-bold text-xs transition-colors cursor-pointer self-start sm:self-auto"
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  activeTab === tab.id
+                    ? "border-[#C7D300] text-white"
+                    : "border-transparent text-gray-500 hover:text-gray-300"
+                }`}
               >
-                <Plus size={14} />
-                <span>Créditer une Commission Directe</span>
+                {tab.icon}
+                <span>{tab.label}</span>
+                {tab.hasBadge && <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse ml-0.5" />}
               </button>
-            </div>
+            ))}
+          </div>
 
-            {/* Desktop Table (>= md) */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full min-w-[700px] text-left">
-                <thead>
-                  <tr className="border-b border-white/8">
-                    {["Partenaire", "Code", "Boutiques Rattachées", "Solde Disponible", "Total Cumulé", ""].map(h => (
-                      <th key={h} className="px-4 py-3 text-[10px] font-semibold text-gray-600 uppercase tracking-wider last:text-right">{h}</th>
+          {/* TAB 1: ABONNEMENTS FOURNISSEURS */}
+          {activeTab === "deposits" && (
+            <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
+              <div className="p-4 border-b border-white/[0.08] flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-white">Suivi des Abonnements Fournisseurs</h2>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    Cotisations mensuelles plateforme · Encaissement sécurisé avec preuve de paiement obligatoire
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1 bg-black/30 p-1 rounded-lg border border-white/[0.06]">
+                    {(
+                      [
+                        { id: "ALL", label: `Tous (${supplierStats.total})` },
+                        { id: "OVERDUE", label: `Expirés (${supplierStats.overdue})` },
+                        { id: "ACTIVE", label: `Actifs (${supplierStats.active})` },
+                        { id: "TRIAL", label: `Essai (${supplierStats.trial})` },
+                        { id: "OFFICIAL", label: `Officielles (${supplierStats.official})` },
+                      ] as const
+                    ).map((btn) => (
+                      <button
+                        key={btn.id}
+                        onClick={() => setSupplierStatusFilter(btn.id)}
+                        className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-colors whitespace-nowrap cursor-pointer ${
+                          supplierStatusFilter === btn.id
+                            ? "bg-white/15 text-white"
+                            : "text-gray-400 hover:text-white"
+                        }`}
+                      >
+                        {btn.label}
+                      </button>
                     ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {partners.length === 0 ? (
-                    <tr><td colSpan={6} className="px-6 py-12 text-center text-sm text-gray-600">Aucun partenaire enregistré.</td></tr>
-                  ) : (
-                    partners.map((p) => (
-                      <tr key={p.id} className="hover:bg-white/3 transition-colors">
-                        <td className="px-4 py-3">
-                          <p className="text-xs font-bold text-white">{p.displayName}</p>
-                          <p className="text-[10px] text-gray-500">{p.email || p.phone || "—"}</p>
-                        </td>
-                        <td className="px-4 py-3 font-mono text-xs font-bold text-[#C7D300]">
-                          {p.referralCode}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-gray-300">
-                          {p.referralCount} boutique{p.referralCount > 1 ? "s" : ""}
-                        </td>
-                        <td className="px-4 py-3 text-xs font-extrabold text-emerald-400">
-                          ${Number(p.balance || 0).toFixed(2)}
-                        </td>
-                        <td className="px-4 py-3 text-xs font-bold text-gray-300">
-                          ${Number(p.totalEarned || 0).toFixed(2)}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => {
-                              setSelectedPartnerId(p.id);
-                              setIsCommissionModalOpen(true);
-                            }}
-                            className="inline-flex items-center gap-1 px-3 py-1 bg-white/5 hover:bg-white/10 text-white rounded-md text-xs font-semibold transition-colors cursor-pointer"
-                          >
-                            <Coins size={12} className="text-[#C7D300]" />
-                            <span>Créditer</span>
-                          </button>
+                  </div>
+
+                  <select
+                    value={supplierRayonFilter}
+                    onChange={(e) => setSupplierRayonFilter(e.target.value)}
+                    className="bg-white/[0.04] border border-white/10 rounded-lg px-2.5 py-1.5 text-[11px] text-gray-200 focus:outline-none focus:border-white/25"
+                  >
+                    <option value="ALL" className="bg-[#0F1D27]">Tous les rayons</option>
+                    <option value="immo" className="bg-[#0F1D27]">Immobilier</option>
+                    <option value="mode" className="bg-[#0F1D27]">Mode</option>
+                    <option value="connect" className="bg-[#0F1D27]">Connect</option>
+                    <option value="saveurs" className="bg-[#0F1D27]">Saveurs</option>
+                  </select>
+
+                  <div className="relative">
+                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                    <input
+                      type="text"
+                      placeholder="Rechercher..."
+                      value={supplierSearch}
+                      onChange={(e) => setSupplierSearch(e.target.value)}
+                      className="bg-white/[0.04] border border-white/10 rounded-lg pl-7 pr-2.5 py-1.5 text-[11px] text-white placeholder-gray-500 focus:outline-none focus:border-white/25 w-40"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Table Desktop */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full min-w-[820px] text-left">
+                  <thead>
+                    <tr className="border-b border-white/[0.08] bg-white/[0.01]">
+                      {["Fournisseur", "Rayon", "Cycle", "Échéance", "Tarif", "Statut", "Action"].map((h) => (
+                        <th
+                          key={h}
+                          className="px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider last:text-right whitespace-nowrap"
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.05]">
+                    {filteredSuppliersList.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-12 text-center text-xs text-gray-500">
+                          Aucun fournisseur ne correspond aux filtres sélectionnés.
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ) : (
+                      filteredSuppliersList.map((s) => {
+                        const isOfficial = isOfficialAdminSupplier(s);
+                        const subInfo = evaluateSupplierSubscription(s);
+                        const depositAmount = Number(s.depositAmount) || 50;
+                        const rayonMeta = formatRayonBadge(s.rayon);
 
-            {/* Mobile Stacked Cards (< md) */}
-            <div className="md:hidden divide-y divide-white/5">
-              {partners.length === 0 ? (
-                <div className="p-8 text-center text-xs text-gray-600">Aucun partenaire enregistré.</div>
-              ) : (
-                partners.map((p) => (
-                  <div key={p.id} className="p-3.5 space-y-2.5 hover:bg-white/3 transition-colors">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-white truncate">{p.displayName}</p>
-                        <p className="text-[10px] text-gray-500 truncate">{p.email || p.phone || "—"}</p>
+                        return (
+                          <tr key={s.id} className="hover:bg-white/[0.02] transition-colors">
+                            <td className="px-4 py-3">
+                              <p className="text-xs font-semibold text-white truncate max-w-[200px]">
+                                {s.displayName || s.company || "Boutique"}
+                              </p>
+                              <p className="text-[11px] text-gray-500 truncate max-w-[200px]">{s.email}</p>
+                            </td>
+                            <td className="px-4 py-3">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold border whitespace-nowrap ${rayonMeta.badgeClass}`}
+                              >
+                                {rayonMeta.label}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
+                              {isOfficial
+                                ? "Officielle Rayons"
+                                : subInfo.isTrial
+                                ? `Essai (${subInfo.daysLeft}j)`
+                                : "Mensuel"}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-gray-300 tabular-nums whitespace-nowrap">
+                              {isOfficial ? "—" : subInfo.isBlocked ? "Expirée" : subInfo.formattedDueDate}
+                            </td>
+                            <td className="px-4 py-3 text-xs font-semibold text-gray-200 tabular-nums whitespace-nowrap">
+                              {isOfficial ? "$0" : `$${depositAmount}/mois`}
+                            </td>
+                            <td className="px-4 py-3">
+                              {isOfficial ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-gray-300 bg-white/[0.06] px-2 py-0.5 rounded-md border border-white/10 whitespace-nowrap">
+                                  Boutique Officielle
+                                </span>
+                              ) : subInfo.isBlocked ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-300 bg-rose-500/10 px-2 py-0.5 rounded-md border border-rose-500/20 whitespace-nowrap">
+                                  <Lock size={10} /> Suspendu
+                                </span>
+                              ) : subInfo.isTrial ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20 whitespace-nowrap">
+                                  Essai · {subInfo.daysLeft}j
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 whitespace-nowrap">
+                                  <CheckCircle size={10} /> À jour
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {isOfficial ? (
+                                <span className="text-[11px] text-gray-600">Exemptée</span>
+                              ) : subInfo.isBlocked ? (
+                                <button
+                                  onClick={() => openPaymentModal(s)}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg font-semibold text-[11px] bg-rose-500/15 hover:bg-rose-500/25 text-rose-200 border border-rose-500/30 transition-colors whitespace-nowrap cursor-pointer"
+                                >
+                                  <RefreshCw size={11} />
+                                  <span>Renouveler</span>
+                                </button>
+                              ) : subInfo.isTrial ? (
+                                <button
+                                  onClick={() => openPaymentModal(s)}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg font-semibold text-[11px] bg-[#C7D300]/15 hover:bg-[#C7D300]/25 text-[#C7D300] border border-[#C7D300]/30 transition-colors whitespace-nowrap cursor-pointer"
+                                >
+                                  <ArrowDownRight size={12} />
+                                  <span>Activer (${depositAmount})</span>
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => openPaymentModal(s)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-medium text-[11px] bg-white/[0.04] hover:bg-white/[0.08] text-gray-300 border border-white/10 transition-colors whitespace-nowrap cursor-pointer"
+                                  title="Déjà actif — prolonger uniquement après réception d'une avance"
+                                >
+                                  <span>Prolonger</span>
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Cartes Mobile */}
+              <div className="md:hidden divide-y divide-white/[0.06]">
+                {filteredSuppliersList.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-gray-500">Aucun fournisseur ne correspond.</div>
+                ) : (
+                  filteredSuppliersList.map((s) => {
+                    const isOfficial = isOfficialAdminSupplier(s);
+                    const subInfo = evaluateSupplierSubscription(s);
+                    const depositAmount = Number(s.depositAmount) || 50;
+                    const rayonMeta = formatRayonBadge(s.rayon);
+
+                    return (
+                      <div key={s.id} className="p-3.5 space-y-2.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <h4 className="text-xs font-bold text-white truncate">{s.displayName || s.company || "Boutique"}</h4>
+                            <p className="text-[11px] text-gray-500 truncate">{s.email}</p>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border whitespace-nowrap ${rayonMeta.badgeClass}`}>
+                            {rayonMeta.label}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-gray-400">
+                          <span>Échéance : <strong className="text-gray-200">{isOfficial ? "—" : subInfo.isBlocked ? "Expirée" : subInfo.formattedDueDate}</strong></span>
+                          <span className="tabular-nums font-semibold text-gray-200">{isOfficial ? "$0" : `$${depositAmount}/mois`}</span>
+                        </div>
+
+                        {!isOfficial && (
+                          <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
+                            {subInfo.isBlocked ? (
+                              <span className="text-[10px] font-semibold text-rose-300">Suspendu</span>
+                            ) : subInfo.isTrial ? (
+                              <span className="text-[10px] font-semibold text-amber-300">Essai ({subInfo.daysLeft}j)</span>
+                            ) : (
+                              <span className="text-[10px] font-semibold text-emerald-300">À jour</span>
+                            )}
+                            <button
+                              onClick={() => openPaymentModal(s)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer ${
+                                subInfo.isBlocked
+                                  ? "bg-rose-500/20 text-rose-200 border border-rose-500/30"
+                                  : subInfo.isTrial
+                                  ? "bg-[#C7D300]/15 text-[#C7D300] border border-[#C7D300]/30"
+                                  : "bg-white/[0.05] text-gray-200 border border-white/10"
+                              }`}
+                            >
+                              {subInfo.isBlocked ? "Renouveler" : subInfo.isTrial ? `Activer ($${depositAmount})` : "Prolonger"}
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <span className="font-mono text-[11px] font-bold text-[#C7D300] bg-[#C7D300]/10 border border-[#C7D300]/25 px-2 py-0.5 rounded shrink-0">
-                        {p.referralCode}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-2 bg-black/30 p-2.5 rounded-lg border border-white/5 text-center">
-                      <div>
-                        <span className="text-[9px] text-gray-500 uppercase block">Boutiques</span>
-                        <span className="text-xs font-bold text-white">{p.referralCount}</span>
-                      </div>
-                      <div>
-                        <span className="text-[9px] text-gray-500 uppercase block">Solde Dispo</span>
-                        <span className="text-xs font-extrabold text-emerald-400">${Number(p.balance || 0).toFixed(2)}</span>
-                      </div>
-                      <div>
-                        <span className="text-[9px] text-gray-500 uppercase block">Cumulé</span>
-                        <span className="text-xs font-bold text-gray-300">${Number(p.totalEarned || 0).toFixed(2)}</span>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        setSelectedPartnerId(p.id);
-                        setIsCommissionModalOpen(true);
-                      }}
-                      className="w-full py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center justify-center gap-1.5 border border-white/8"
-                    >
-                      <Coins size={13} className="text-[#C7D300]" />
-                      <span>Créditer une commission</span>
-                    </button>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TAB 5: PARAMÈTRES FINANCIERS & WORKFLOW DE DOUBLE VALIDATION */}
-      {activeTab === "settings" && (
-        <div className="space-y-5">
-          {/* BANDEAU DE PROPOSITION EN ATTENTE (DOUBLE VALIDATION) */}
-          {pendingProposal && pendingProposal.status === "PENDING_APPROVAL" && (
-            <div className="bg-amber-500/10 border-2 border-amber-500/30 rounded-2xl p-5 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-500/20 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
-                    <AlertTriangle size={18} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-white">
-                      Proposition Financière Soumise par le Responsable Financier
-                    </h3>
-                    <p className="text-xs text-amber-300/80 mt-0.5">
-                      Demandée par <strong>{pendingProposal.requestedByName}</strong> ({pendingProposal.requestedByRole}) · En attente d&apos;approbation par l&apos;Administrateur Principal
-                    </p>
-                  </div>
-                </div>
-
-                {isSuperAdmin && (
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={handleApproveProposal}
-                      className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-extrabold rounded-xl text-xs transition-all shadow-md cursor-pointer"
-                    >
-                      <Check size={14} />
-                      <span>Approuver & Notifier</span>
-                    </button>
-                    <button
-                      onClick={() => setIsRejectModalOpen(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 font-bold rounded-xl text-xs transition-all border border-red-500/30 cursor-pointer"
-                    >
-                      <X size={14} />
-                      <span>Rejeter</span>
-                    </button>
-                  </div>
+                    );
+                  })
                 )}
               </div>
-
-              {pendingProposal.reason && (
-                <p className="text-xs text-gray-300 italic bg-black/30 p-2.5 rounded-lg border border-white/5">
-                  &ldquo;{pendingProposal.reason}&rdquo;
-                </p>
-              )}
-
-              {/* Tableau comparatif Avant / Après */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-                <div className="bg-black/40 p-3 rounded-xl border border-white/5 space-y-1">
-                  <span className="text-[10px] text-gray-500 uppercase font-semibold">Taux USD / CDF</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-400 line-through">{pendingProposal.current?.usdToFcRate} FC</span>
-                    <span className="font-extrabold text-[#C7D300] text-sm">➔ {pendingProposal.proposed?.usdToFcRate} FC</span>
-                  </div>
-                </div>
-
-                <div className="bg-black/40 p-3 rounded-xl border border-white/5 space-y-1">
-                  <span className="text-[10px] text-gray-500 uppercase font-semibold">Commission Partenaire</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-400 line-through">${pendingProposal.current?.referralCommissionUSD}</span>
-                    <span className="font-extrabold text-[#C7D300] text-sm">➔ ${pendingProposal.proposed?.referralCommissionUSD}</span>
-                  </div>
-                </div>
-
-                <div className="bg-black/40 p-3 rounded-xl border border-white/5 space-y-1">
-                  <span className="text-[10px] text-gray-500 uppercase font-semibold">Abonnement Fournisseur</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-400 line-through">${pendingProposal.current?.monthlySubscriptionPrice}</span>
-                    <span className="font-extrabold text-[#C7D300] text-sm">➔ ${pendingProposal.proposed?.monthlySubscriptionPrice}</span>
-                  </div>
-                </div>
-
-                <div className="bg-black/40 p-3 rounded-xl border border-white/5 space-y-1">
-                  <span className="text-[10px] text-gray-500 uppercase font-semibold">Réduction Code Promo</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-400 line-through">-${pendingProposal.current?.promoDiscountUSD}$</span>
-                    <span className="font-extrabold text-[#C7D300] text-sm">➔ -${pendingProposal.proposed?.promoDiscountUSD}$</span>
-                  </div>
-                </div>
-              </div>
-
-              {!isSuperAdmin && (
-                <div className="text-[11px] text-amber-300 flex items-center gap-1.5 pt-1">
-                  <Clock size={12} />
-                  <span>En attente de signature par le Directeur Général. Les taux actuels restent en vigueur jusqu&apos;à validation.</span>
-                </div>
-              )}
             </div>
           )}
 
-          {/* PARAMÈTRES ACTIFS */}
-          <div className="bg-white/3 border border-white/8 rounded-2xl p-5 sm:p-6 space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/8 pb-4">
-              <div>
-                <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Sliders size={16} className="text-[#C7D300]" />
-                  <span>Paramètres Financiers Actifs de la Plateforme</span>
-                </h2>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Taux de conversion, rémunération des partenaires et politique tarifaire
-                </p>
-              </div>
-
-              <button
-                onClick={() => setIsProposalModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold text-xs rounded-xl transition-all cursor-pointer shadow-md"
-              >
-                <Sliders size={14} />
-                <span>{isSuperAdmin ? "Modifier les Paramètres Financiers" : "Proposer une Modification (Financier)"}</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-black/40 p-4 rounded-xl border border-white/6 space-y-1">
-                <span className="text-[10px] text-gray-400 uppercase font-semibold block">Taux de Change USD / CDF</span>
-                <div className="text-2xl font-black text-white">
-                  1 $ = {financialSettings?.usdToFcRate || 2850} FC
+          {/* TAB 2: GRAND LIVRE PLATEFORME */}
+          {activeTab === "ledger" && (
+            <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
+              <div className="p-3.5 sm:p-4 border-b border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-wrap gap-1.5 text-[11px]">
+                  {[
+                    { code: "ALL", label: "Tous" },
+                    { code: "AB", label: "AB · Abonnements" },
+                    { code: "AJ", label: "AJ · Ajustements" },
+                    { code: "CS", label: "CS · Caisse" },
+                    { code: "BQ", label: "BQ · Banque" },
+                    { code: "VT", label: "VT · Ventes Officielles" },
+                  ].map((j) => (
+                    <button
+                      key={j.code}
+                      onClick={() => setJournalFilter(j.code)}
+                      className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                        journalFilter === j.code
+                          ? "bg-white/15 text-white"
+                          : "bg-white/[0.03] text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      {j.label}
+                    </button>
+                  ))}
                 </div>
-                <p className="text-[10px] text-gray-500">Taux officiel de conversion pour les paiements en francs</p>
-              </div>
-
-              <div className="bg-black/40 p-4 rounded-xl border border-white/6 space-y-1">
-                <span className="text-[10px] text-gray-400 uppercase font-semibold block">Commission Partenaire</span>
-                <div className="text-2xl font-black text-[#C7D300]">
-                  ${financialSettings?.referralCommissionUSD || 5} USD
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={13} />
+                  <input
+                    type="text"
+                    placeholder="Libellé ou référence..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full sm:w-56 pl-8 pr-3 py-1.5 bg-white/[0.04] border border-white/10 rounded-lg focus:outline-none focus:border-white/25 text-white text-[11px] placeholder:text-gray-500"
+                  />
                 </div>
-                <p className="text-[10px] text-gray-500">Crédité au partenaire à chaque mois réglé par un filleul</p>
               </div>
 
-              <div className="bg-black/40 p-4 rounded-xl border border-white/6 space-y-1">
-                <span className="text-[10px] text-gray-400 uppercase font-semibold block">Abonnement Mensuel Boutique</span>
-                <div className="text-2xl font-black text-white">
-                  ${financialSettings?.monthlySubscriptionPrice || 50} USD
-                </div>
-                <p className="text-[10px] text-gray-500">Tarif standard de tenue de boutique et vitrine</p>
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full min-w-[800px] text-left">
+                  <thead>
+                    <tr className="border-b border-white/[0.08]">
+                      {["N° Écriture", "Date", "Journal", "Réf. Pièce", "Libellé", "Débit (+)", "Crédit (-)"].map((h) => (
+                        <th key={h} className="px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider text-left last:text-right">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.05]">
+                    {filteredLedger.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-6 py-12 text-center">
+                          <p className="text-sm font-semibold text-gray-300">Aucune écriture plateforme pour {getPeriodLabel()}</p>
+                          <p className="text-xs text-gray-500 mt-1">Élargissez la période (ex : Tout) pour consulter l&apos;historique complet.</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredLedger.map((entry) => (
+                        <tr key={entry.id || entry.entryNumber} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="px-4 py-3 font-mono text-[11px] text-gray-200 font-semibold whitespace-nowrap">{entry.entryNumber}</td>
+                          <td className="px-4 py-3 text-[11px] text-gray-400 tabular-nums whitespace-nowrap">{formatEntryDate(entry.date)}</td>
+                          <td className="px-4 py-3">
+                            <span className="font-mono text-[10px] font-bold text-gray-200 bg-white/[0.07] px-2 py-0.5 rounded">
+                              {entry.journal}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-[11px] text-gray-400 whitespace-nowrap">{entry.referencePiece || "—"}</td>
+                          <td className="px-4 py-3 text-[11px] text-gray-200 max-w-xs truncate" title={entry.label}>{entry.label}</td>
+                          <td className="px-4 py-3 text-[11px] font-bold text-emerald-400 tabular-nums whitespace-nowrap">
+                            {entry.debit > 0 ? `+$${Number(entry.debit).toFixed(2)}` : "—"}
+                          </td>
+                          <td className="px-4 py-3 text-right text-[11px] font-bold text-rose-400 tabular-nums whitespace-nowrap">
+                            {entry.credit > 0 ? `-$${Number(entry.credit).toFixed(2)}` : "—"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
 
-              <div className="bg-black/40 p-4 rounded-xl border border-white/6 space-y-1">
-                <span className="text-[10px] text-gray-400 uppercase font-semibold block">Réduction Immédiate Code Promo</span>
-                <div className="text-2xl font-black text-emerald-400">
-                  -${financialSettings?.promoDiscountUSD || 10} USD
-                </div>
-                <p className="text-[10px] text-gray-500">Déduit directement à l&apos;enregistrement du commerçant</p>
-              </div>
-            </div>
-          </div>
-
-          {/* HISTORIQUE DES CHANGEMENTS APPLIQUÉS */}
-          <div className="bg-white/3 border border-white/8 rounded-2xl p-5 space-y-3">
-            <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider">
-              Historique des Dernières Validations Financières
-            </h3>
-            {financialHistory.length === 0 ? (
-              <p className="text-xs text-gray-500 py-3">Aucun changement récent enregistré.</p>
-            ) : (
-              <div className="divide-y divide-white/5 text-xs">
-                {financialHistory.map((h) => (
-                  <div key={h.id} className="py-2.5 flex items-center justify-between text-gray-400">
-                    <div>
-                      <span className="font-semibold text-white">{h.reason || "Mise à jour financière"}</span>
-                      <p className="text-[10px] text-gray-500">
-                        Validé par {h.approvedByName || h.appliedByName || "Direction"} · Taux: {h.values?.usdToFcRate} FC · Commission: ${h.values?.referralCommissionUSD}
-                      </p>
+              <div className="md:hidden divide-y divide-white/[0.05]">
+                {filteredLedger.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-gray-400">Aucune écriture pour {getPeriodLabel()}</div>
+                ) : (
+                  filteredLedger.map((entry) => (
+                    <div key={entry.id || entry.entryNumber} className="p-3.5 space-y-2">
+                      <div className="flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-gray-200 font-bold">{entry.entryNumber}</span>
+                          <span className="font-mono text-[9px] font-bold text-gray-300 bg-white/10 px-1.5 py-0.5 rounded">{entry.journal}</span>
+                        </div>
+                        <span className="text-gray-500 text-[10px]">{formatEntryDate(entry.date)}</span>
+                      </div>
+                      <p className="text-xs text-white line-clamp-2">{entry.label}</p>
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-white/[0.05]">
+                        <span className="font-mono text-[10px] text-gray-500">{entry.referencePiece || "—"}</span>
+                        {entry.debit > 0 ? (
+                          <span className="font-bold text-emerald-400 tabular-nums">+${Number(entry.debit).toFixed(2)}</span>
+                        ) : (
+                          <span className="font-bold text-rose-400 tabular-nums">-${Number(entry.credit).toFixed(2)}</span>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-[10px] font-mono text-gray-500">
-                      {h.appliedAt ? new Date(h.appliedAt).toLocaleDateString("fr-FR") : "Récent"}
-                    </span>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            </div>
+          )}
+
+          {/* TAB 3: LIVRE DE CAISSE */}
+          {activeTab === "overview" && (
+            <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
+              <div className="p-4 border-b border-white/[0.08]">
+                <h2 className="text-sm font-bold text-white">Livre de Caisse Plateforme ({getPeriodLabel()})</h2>
+                <p className="text-[11px] text-gray-400 mt-0.5">Historique immuable des encaissements et décaissements Rayons.net.</p>
+              </div>
+
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full min-w-[650px] text-left">
+                  <thead>
+                    <tr className="border-b border-white/[0.08]">
+                      {["Date", "Type", "Description", "Référence", "Montant"].map((h) => (
+                        <th key={h} className="px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider last:text-right">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.05]">
+                    {periodTx.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12 text-center text-xs text-gray-500">
+                          Aucune transaction pour {getPeriodLabel()}.
+                        </td>
+                      </tr>
+                    ) : (
+                      periodTx.map((t) => (
+                        <tr key={t.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="px-4 py-3 text-[11px] text-gray-400 tabular-nums whitespace-nowrap">{formatEntryDate(t.createdAt)}</td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded whitespace-nowrap ${
+                                t.type === "EXPENSE"
+                                  ? "text-rose-300 bg-rose-500/10"
+                                  : "text-emerald-300 bg-emerald-500/10"
+                              }`}
+                            >
+                              {t.type === "SUBSCRIPTION" ? "Abonnement" : t.type === "OTHER_INCOME" ? "Recette" : "Dépense"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-[11px] text-gray-200 max-w-md truncate">{t.description}</td>
+                          <td className="px-4 py-3 font-mono text-[11px] text-gray-400 whitespace-nowrap">{t.referenceId || "—"}</td>
+                          <td
+                            className={`px-4 py-3 text-right text-[11px] font-bold tabular-nums whitespace-nowrap ${
+                              t.type === "EXPENSE" ? "text-rose-400" : "text-emerald-400"
+                            }`}
+                          >
+                            {t.type === "EXPENSE" ? "-" : "+"}${Number(t.amount || 0).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="md:hidden divide-y divide-white/[0.05]">
+                {periodTx.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-gray-500">Aucune transaction pour {getPeriodLabel()}.</div>
+                ) : (
+                  periodTx.map((t) => (
+                    <div key={t.id} className="p-3.5 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded ${t.type === "EXPENSE" ? "text-rose-300 bg-rose-500/10" : "text-emerald-300 bg-emerald-500/10"}`}>
+                          {t.type === "SUBSCRIPTION" ? "Abonnement" : t.type === "OTHER_INCOME" ? "Recette" : "Dépense"}
+                        </span>
+                        <span className={`text-xs font-bold tabular-nums ${t.type === "EXPENSE" ? "text-rose-400" : "text-emerald-400"}`}>
+                          {t.type === "EXPENSE" ? "-" : "+"}${Number(t.amount || 0).toFixed(2)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-200">{t.description}</p>
+                      <div className="flex items-center justify-between text-[10px] text-gray-500">
+                        <span>{formatEntryDate(t.createdAt)}</span>
+                        <span className="font-mono">{t.referenceId || "—"}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 4: COMMISSIONS PARTENAIRES */}
+          {activeTab === "commissions" && (
+            <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
+              <div className="p-4 border-b border-white/[0.08] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Award size={15} className="text-[#C7D300]" />
+                    <span>Commissions Partenaires &amp; Crédit Direct</span>
+                  </h2>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    Soldes apporteurs d&apos;affaires agréés · Crédit direct audité
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setSelectedPartnerId(partners[0]?.id || "");
+                    setIsCommissionModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] rounded-lg font-bold text-xs transition-colors cursor-pointer whitespace-nowrap self-start sm:self-auto"
+                >
+                  <Plus size={14} />
+                  <span>Créditer une Commission</span>
+                </button>
+              </div>
+
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full min-w-[700px] text-left">
+                  <thead>
+                    <tr className="border-b border-white/[0.08]">
+                      {["Partenaire", "Code", "Boutiques", "Solde Disponible", "Cumulé à Vie", ""].map((h) => (
+                        <th key={h} className="px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider last:text-right">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/[0.05]">
+                    {partners.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center text-xs text-gray-500">Aucun partenaire enregistré.</td>
+                      </tr>
+                    ) : (
+                      partners.map((p) => (
+                        <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="px-4 py-3">
+                            <p className="text-xs font-semibold text-white">{p.displayName}</p>
+                            <p className="text-[11px] text-gray-500">{p.email || p.phone || "—"}</p>
+                          </td>
+                          <td className="px-4 py-3 font-mono text-xs font-semibold text-[#C7D300]">{p.referralCode}</td>
+                          <td className="px-4 py-3 text-xs text-gray-300">{p.referralCount} boutique{p.referralCount > 1 ? "s" : ""}</td>
+                          <td className="px-4 py-3 text-xs font-bold text-emerald-400 tabular-nums">${Number(p.balance || 0).toFixed(2)}</td>
+                          <td className="px-4 py-3 text-xs font-semibold text-gray-300 tabular-nums">${Number(p.totalEarned || 0).toFixed(2)}</td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => {
+                                setSelectedPartnerId(p.id);
+                                setIsCommissionModalOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-white/[0.05] hover:bg-white/[0.1] text-white rounded-md text-xs font-semibold transition-colors cursor-pointer"
+                            >
+                              <Coins size={12} className="text-[#C7D300]" />
+                              <span>Créditer</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="md:hidden divide-y divide-white/[0.05]">
+                {partners.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-gray-500">Aucun partenaire enregistré.</div>
+                ) : (
+                  partners.map((p) => (
+                    <div key={p.id} className="p-3.5 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-white truncate">{p.displayName}</p>
+                          <p className="text-[10px] text-gray-500 truncate">{p.email || p.phone || "—"}</p>
+                        </div>
+                        <span className="font-mono text-[11px] font-bold text-[#C7D300] bg-[#C7D300]/10 px-2 py-0.5 rounded">{p.referralCode}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs pt-1 border-t border-white/[0.05]">
+                        <span className="text-emerald-400 font-bold tabular-nums">${Number(p.balance || 0).toFixed(2)} dispo</span>
+                        <button
+                          onClick={() => {
+                            setSelectedPartnerId(p.id);
+                            setIsCommissionModalOpen(true);
+                          }}
+                          className="px-3 py-1 bg-white/[0.06] text-white rounded text-xs font-semibold"
+                        >
+                          Créditer
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: PARAMÈTRES FINANCIERS & DOUBLE VALIDATION */}
+          {activeTab === "settings" && (
+            <div className="space-y-4">
+              {pendingProposal && pendingProposal.status === "PENDING_APPROVAL" && (
+                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-500/20 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <AlertTriangle size={18} className="text-amber-400 shrink-0" />
+                      <div>
+                        <h3 className="text-sm font-bold text-white">Proposition financière en attente d&apos;approbation</h3>
+                        <p className="text-xs text-amber-200/80">
+                          Demandée par <strong>{pendingProposal.requestedByName}</strong> ({pendingProposal.requestedByRole})
+                        </p>
+                      </div>
+                    </div>
+                    {isSuperAdmin && (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleApproveProposal}
+                          className="inline-flex items-center gap-1 px-3.5 py-1.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold rounded-lg text-xs cursor-pointer"
+                        >
+                          <Check size={13} /> Approuver
+                        </button>
+                        <button
+                          onClick={() => setIsRejectModalOpen(true)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-500/20 text-rose-200 font-semibold rounded-lg text-xs border border-rose-500/30 cursor-pointer"
+                        >
+                          <X size={13} /> Rejeter
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                    <div className="bg-black/30 p-3 rounded-lg border border-white/[0.06]">
+                      <span className="text-[10px] text-gray-400 uppercase block">Taux USD / CDF</span>
+                      <span className="text-gray-500 line-through mr-2">{pendingProposal.current?.usdToFcRate}</span>
+                      <span className="font-bold text-[#C7D300]">➔ {pendingProposal.proposed?.usdToFcRate} FC</span>
+                    </div>
+                    <div className="bg-black/30 p-3 rounded-lg border border-white/[0.06]">
+                      <span className="text-[10px] text-gray-400 uppercase block">Commission Partenaire</span>
+                      <span className="text-gray-500 line-through mr-2">${pendingProposal.current?.referralCommissionUSD}</span>
+                      <span className="font-bold text-[#C7D300]">➔ ${pendingProposal.proposed?.referralCommissionUSD}</span>
+                    </div>
+                    <div className="bg-black/30 p-3 rounded-lg border border-white/[0.06]">
+                      <span className="text-[10px] text-gray-400 uppercase block">Abonnement Mensuel</span>
+                      <span className="text-gray-500 line-through mr-2">${pendingProposal.current?.monthlySubscriptionPrice}</span>
+                      <span className="font-bold text-[#C7D300]">➔ ${pendingProposal.proposed?.monthlySubscriptionPrice}</span>
+                    </div>
+                    <div className="bg-black/30 p-3 rounded-lg border border-white/[0.06]">
+                      <span className="text-[10px] text-gray-400 uppercase block">Réduction Promo</span>
+                      <span className="text-gray-500 line-through mr-2">-${pendingProposal.current?.promoDiscountUSD}</span>
+                      <span className="font-bold text-[#C7D300]">➔ -${pendingProposal.proposed?.promoDiscountUSD}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-3">
+                  <div>
+                    <h2 className="text-sm font-bold text-white">Paramètres Financiers Plateforme</h2>
+                    <p className="text-xs text-gray-400">Taux de change, tarification abonnement et commission partenaire</p>
+                  </div>
+                  <button
+                    onClick={() => setIsProposalModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold text-xs rounded-lg cursor-pointer whitespace-nowrap"
+                  >
+                    <Sliders size={13} />
+                    <span>{isSuperAdmin ? "Modifier les paramètres" : "Proposer une modification"}</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="bg-black/30 p-4 rounded-xl border border-white/[0.06]">
+                    <span className="text-[10px] text-gray-400 uppercase font-semibold block">Taux USD / CDF</span>
+                    <div className="text-xl font-bold text-white mt-1 tabular-nums">1 $ = {financialSettings?.usdToFcRate || 2850} FC</div>
+                  </div>
+                  <div className="bg-black/30 p-4 rounded-xl border border-white/[0.06]">
+                    <span className="text-[10px] text-gray-400 uppercase font-semibold block">Commission Partenaire</span>
+                    <div className="text-xl font-bold text-[#C7D300] mt-1 tabular-nums">${financialSettings?.referralCommissionUSD || 5} USD</div>
+                  </div>
+                  <div className="bg-black/30 p-4 rounded-xl border border-white/[0.06]">
+                    <span className="text-[10px] text-gray-400 uppercase font-semibold block">Abonnement Mensuel</span>
+                    <div className="text-xl font-bold text-white mt-1 tabular-nums">${financialSettings?.monthlySubscriptionPrice || 50} USD</div>
+                  </div>
+                  <div className="bg-black/30 p-4 rounded-xl border border-white/[0.06]">
+                    <span className="text-[10px] text-gray-400 uppercase font-semibold block">Réduction Code Promo</span>
+                    <div className="text-xl font-bold text-emerald-400 mt-1 tabular-nums">-${financialSettings?.promoDiscountUSD || 10} USD</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5 space-y-2.5">
+                <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider">Historique des validations</h3>
+                {financialHistory.length === 0 ? (
+                  <p className="text-xs text-gray-500">Aucun changement récent enregistré.</p>
+                ) : (
+                  <div className="divide-y divide-white/[0.05] text-xs">
+                    {financialHistory.map((h) => (
+                      <div key={h.id} className="py-2.5 flex items-center justify-between text-gray-400">
+                        <div>
+                          <span className="font-semibold text-white">{h.reason || "Mise à jour financière"}</span>
+                          <p className="text-[10px] text-gray-500">
+                            Validé par {h.approvedByName || h.appliedByName || "Direction"} · Taux {h.values?.usdToFcRate} FC · Comm. ${h.values?.referralCommissionUSD}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-mono text-gray-500">
+                          {h.appliedAt ? new Date(h.appliedAt).toLocaleDateString("fr-FR") : "Récent"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </>
       )}
 
-      {/* MODAL 1: AJUSTEMENT DE CAISSE */}
+      {/* MODAL 1 : ENCAISSEMENT SÉCURISÉ D'ABONNEMENT (PREUVE OBLIGATOIRE + ANTI-DOUBLON) */}
       <AnimatePresence>
-        {isAdjustmentModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+        {paymentTargetSupplier && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.97, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.97 }}
-              className="w-full max-w-lg bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+              className="w-full max-w-md bg-[#0F1D27] border border-white/15 rounded-2xl shadow-2xl overflow-hidden"
             >
-              <div className="flex items-center justify-between px-6 py-5 border-b border-white/8">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
+                <div>
+                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                    <ShieldCheck size={16} className="text-emerald-400" />
+                    <span>Enregistrer un Paiement d&apos;Abonnement</span>
+                  </h2>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    {paymentTargetSupplier.displayName || paymentTargetSupplier.email}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPaymentTargetSupplier(null)}
+                  className="text-gray-400 hover:text-white cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleConfirmSubscriptionPayment} className="p-6 space-y-4">
+                {targetAlreadyActive && targetSubInfo && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 flex items-start gap-2">
+                    <AlertTriangle size={15} className="text-amber-400 shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Attention :</strong> ce fournisseur est <strong>déjà actif</strong> jusqu&apos;au{" "}
+                      <strong>{targetSubInfo.formattedDueDate}</strong>. Ne validez que si vous avez effectivement reçu une avance supplémentaire (+30 jours).
+                    </span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">
+                      Canal de paiement *
+                    </label>
+                    <select
+                      value={subChannel}
+                      onChange={(e) => setSubChannel(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs focus:outline-none focus:border-white/25"
+                    >
+                      {PAYMENT_CHANNELS.map((c) => (
+                        <option key={c} value={c} className="bg-[#0F1D27]">{c}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">
+                      Montant reçu ($ USD) *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="1"
+                      required
+                      value={subAmount}
+                      onChange={(e) => setSubAmount(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs tabular-nums focus:outline-none focus:border-white/25"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">
+                    Référence unique de transaction / Reçu *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    minLength={3}
+                    value={subRef}
+                    onChange={(e) => setSubRef(e.target.value)}
+                    placeholder="ex: MP261123.1420.A123 ou REC-CAISSE-042"
+                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-[#C7D300]/60 placeholder:text-gray-600"
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    Verrou anti-doublon : une même référence ne peut jamais être encaissée deux fois.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">
+                    Note interne (optionnel)
+                  </label>
+                  <input
+                    type="text"
+                    value={subNote}
+                    onChange={(e) => setSubNote(e.target.value)}
+                    placeholder="ex: Paiement mensuel décembre validé par la caisse"
+                    className="w-full px-3.5 py-2 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs placeholder:text-gray-600"
+                  />
+                </div>
+
+                <div className="pt-2 flex justify-end gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentTargetSupplier(null)}
+                    className="px-4 py-2 text-xs text-gray-400 hover:text-white cursor-pointer"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingSub}
+                    className="px-4 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
+                  >
+                    {isSubmittingSub ? "Validation atomique..." : `Confirmer $${subAmount || 0} (+30j)`}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL 2 : NOUVELLE ÉCRITURE PLATEFORME (SERVEUR + AUDIT) */}
+      <AnimatePresence>
+        {isTxModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              className="w-full max-w-md bg-[#0F1D27] border border-white/15 rounded-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
+                <div>
+                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Plus size={16} className="text-[#C7D300]" />
+                    <span>Nouvelle Écriture Plateforme</span>
+                  </h2>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    Enregistrée de façon immuable dans le Grand Livre Rayons.net
+                  </p>
+                </div>
+                <button onClick={() => setIsTxModalOpen(false)} className="text-gray-400 hover:text-white cursor-pointer">
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveManualEntry} className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setTxKind("OTHER_INCOME")}
+                    className={`py-2.5 rounded-lg text-xs font-semibold border cursor-pointer ${
+                      txKind === "OTHER_INCOME"
+                        ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                        : "bg-white/[0.04] text-gray-400 border-white/10"
+                    }`}
+                  >
+                    + Recette Plateforme
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!isSuperAdmin}
+                    onClick={() => setTxKind("EXPENSE")}
+                    title={!isSuperAdmin ? "Réservé au Directeur Général (Super Admin)" : ""}
+                    className={`py-2.5 rounded-lg text-xs font-semibold border cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                      txKind === "EXPENSE"
+                        ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
+                        : "bg-white/[0.04] text-gray-400 border-white/10"
+                    }`}
+                  >
+                    - Dépense {!isSuperAdmin && "(DG)"}
+                  </button>
+                </div>
+
+                <div>
+                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">Montant (USD) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={txAmount}
+                    onChange={(e) => setTxAmount(e.target.value)}
+                    placeholder="50.00"
+                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs tabular-nums"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">Libellé comptable *</label>
+                  <input
+                    type="text"
+                    required
+                    minLength={3}
+                    value={txDescription}
+                    onChange={(e) => setTxDescription(e.target.value)}
+                    placeholder="ex: Hébergement serveur cloud / Sponsoring campagne"
+                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs placeholder:text-gray-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">N° Pièce justificative</label>
+                  <input
+                    type="text"
+                    value={txReference}
+                    onChange={(e) => setTxReference(e.target.value)}
+                    placeholder="ex: FACT-2026-014"
+                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white font-mono text-xs placeholder:text-gray-600"
+                  />
+                </div>
+
+                <div className="pt-2 flex justify-end gap-2.5">
+                  <button type="button" onClick={() => setIsTxModalOpen(false)} className="px-4 py-2 text-xs text-gray-400 hover:text-white cursor-pointer">
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingTx}
+                    className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg disabled:opacity-50 cursor-pointer"
+                  >
+                    {isSubmittingTx ? "Enregistrement..." : "Valider l'Écriture"}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* MODAL 3 : AJUSTEMENT DE CAISSE (SUPER ADMIN UNIQUEMENT) */}
+      <AnimatePresence>
+        {isAdjustmentModalOpen && isSuperAdmin && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              className="w-full max-w-lg bg-[#0F1D27] border border-white/15 rounded-2xl shadow-2xl overflow-hidden"
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
                 <div>
                   <h2 className="text-sm font-bold text-white flex items-center gap-2">
                     <Sliders className="text-[#C7D300]" size={15} />
-                    Ajustement de Caisse
+                    <span>Ajustement de Caisse (Direction Générale)</span>
                   </h2>
-                  <p className="text-[11px] text-gray-500 mt-0.5">Solde actuel : <span className="text-white font-semibold">${currentBalance.toFixed(2)}</span></p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    Solde actuel : <span className="text-white font-semibold tabular-nums">${currentBalance.toFixed(2)}</span> · Audité dans `audit_logs`
+                  </p>
                 </div>
-                <button onClick={() => setIsAdjustmentModalOpen(false)} className="text-gray-500 hover:text-white transition-colors">
+                <button onClick={() => setIsAdjustmentModalOpen(false)} className="text-gray-400 hover:text-white cursor-pointer">
                   <X size={18} />
                 </button>
               </div>
 
               <form onSubmit={handleSaveAdjustment} className="p-6 space-y-4">
-                <div>
-                  <label className="text-[11px] text-gray-500 font-semibold block mb-2 uppercase tracking-wider">Sens</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button type="button" onClick={() => setAdjType("ADD")}
-                      className={`py-2.5 rounded-lg text-xs font-bold transition-all border ${
-                        adjType === "ADD"
-                          ? "bg-[#C7D300]/10 text-[#C7D300] border-[#C7D300]/30"
-                          : "bg-white/4 text-gray-500 border-white/8 hover:border-white/15"
-                      }`}>
-                      + Entrée / Apport
-                    </button>
-                    <button type="button" onClick={() => setAdjType("SUBTRACT")}
-                      className={`py-2.5 rounded-lg text-xs font-bold transition-all border ${
-                        adjType === "SUBTRACT"
-                          ? "bg-red-400/10 text-red-400 border-red-400/25"
-                          : "bg-white/4 text-gray-500 border-white/8 hover:border-white/15"
-                      }`}>
-                      - Sortie / Prélèvement
-                    </button>
-                  </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAdjType("ADD")}
+                    className={`py-2.5 rounded-lg text-xs font-bold border cursor-pointer ${
+                      adjType === "ADD"
+                        ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                        : "bg-white/[0.04] text-gray-400 border-white/10"
+                    }`}
+                  >
+                    + Entrée / Apport
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdjType("SUBTRACT")}
+                    className={`py-2.5 rounded-lg text-xs font-bold border cursor-pointer ${
+                      adjType === "SUBTRACT"
+                        ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
+                        : "bg-white/[0.04] text-gray-400 border-white/10"
+                    }`}
+                  >
+                    - Sortie / Prélèvement
+                  </button>
                 </div>
 
-                {[{ label: "Montant (USD) *", value: adjAmount, setter: setAdjAmount, type: "number", placeholder: "50.00", min: "0.01", step: "0.01" }].map(f => (
-                  <div key={f.label}>
-                    <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">{f.label}</label>
-                    <input type={f.type} step={f.step} min={f.min} required value={f.value} onChange={e => f.setter(e.target.value)} placeholder={f.placeholder}
-                      className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600" />
-                  </div>
-                ))}
+                <div>
+                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">Montant (USD) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={adjAmount}
+                    onChange={(e) => setAdjAmount(e.target.value)}
+                    placeholder="50.00"
+                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs tabular-nums"
+                  />
+                </div>
 
                 <div>
-                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Motif *</label>
-                  <select value={adjReason} onChange={e => setAdjReason(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50">
-                    {ADJUSTMENT_REASONS.map(r => <option key={r} value={r} className="bg-[#0F1D27]">{r}</option>)}
+                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">Motif *</label>
+                  <select
+                    value={adjReason}
+                    onChange={(e) => setAdjReason(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs"
+                  >
+                    {ADJUSTMENT_REASONS.map((r) => (
+                      <option key={r} value={r} className="bg-[#0F1D27]">{r}</option>
+                    ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Libellé précis *</label>
-                  <input type="text" required value={adjLabel} onChange={e => setAdjLabel(e.target.value)} placeholder="ex: Régularisation inventaire du coffre"
-                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600" />
+                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">Libellé précis *</label>
+                  <input
+                    type="text"
+                    required
+                    minLength={3}
+                    value={adjLabel}
+                    onChange={(e) => setAdjLabel(e.target.value)}
+                    placeholder="ex: Régularisation inventaire coffre central"
+                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs placeholder:text-gray-600"
+                  />
                 </div>
 
                 <div>
-                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">N° Pièce justificative</label>
-                  <input type="text" value={adjRef} onChange={e => setAdjRef(e.target.value)} placeholder="ex: REC-INV-2026-01"
-                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600" />
+                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">N° Pièce justificative</label>
+                  <input
+                    type="text"
+                    value={adjRef}
+                    onChange={(e) => setAdjRef(e.target.value)}
+                    placeholder="ex: REC-INV-2026-01"
+                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white font-mono text-xs placeholder:text-gray-600"
+                  />
                 </div>
 
-                <div className="pt-2 flex justify-end gap-3">
-                  <button type="button" onClick={() => setIsAdjustmentModalOpen(false)}
-                    className="px-4 py-2 text-xs text-gray-500 hover:text-white transition-colors">Annuler</button>
-                  <button type="submit" disabled={isSubmittingAdj}
-                    className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg transition-all disabled:opacity-50">
+                <div className="pt-2 flex justify-end gap-2.5">
+                  <button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="px-4 py-2 text-xs text-gray-400 hover:text-white cursor-pointer">
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingAdj}
+                    className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg disabled:opacity-50 cursor-pointer"
+                  >
                     {isSubmittingAdj ? "Enregistrement..." : "Valider l'Ajustement"}
                   </button>
                 </div>
@@ -1707,46 +1995,46 @@ export default function AdminFinancePage() {
         )}
       </AnimatePresence>
 
-      {/* MODAL 3: CRÉDITER COMMISSION PARTENAIRE DIRECTEMENT */}
+      {/* MODAL 4 : CRÉDITER COMMISSION PARTENAIRE */}
       <AnimatePresence>
         {isCommissionModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.97, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.97 }}
-              className="w-full max-w-md bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+              className="w-full max-w-md bg-[#0F1D27] border border-white/15 rounded-2xl shadow-2xl overflow-hidden"
             >
-              <div className="flex items-center justify-between px-6 py-5 border-b border-white/8">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
                 <h2 className="text-sm font-bold text-white flex items-center gap-2">
                   <Award className="text-[#C7D300]" size={16} />
                   <span>Créditer une Commission Partenaire</span>
                 </h2>
-                <button onClick={() => setIsCommissionModalOpen(false)} className="text-gray-500 hover:text-white transition-colors cursor-pointer">
+                <button onClick={() => setIsCommissionModalOpen(false)} className="text-gray-400 hover:text-white cursor-pointer">
                   <X size={18} />
                 </button>
               </div>
 
               <form onSubmit={handleCreditCommissionSubmit} className="p-6 space-y-4">
                 <div>
-                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Partenaire Bénéficiaire *</label>
+                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">Partenaire *</label>
                   <select
                     value={selectedPartnerId}
                     onChange={(e) => setSelectedPartnerId(e.target.value)}
                     required
-                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
+                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs"
                   >
                     <option value="">Sélectionnez un partenaire</option>
                     {partners.map((p) => (
                       <option key={p.id} value={p.id} className="bg-[#0F1D27]">
-                        {p.displayName} (Code: {p.referralCode} · Solde: ${p.balance}$)
+                        {p.displayName} ({p.referralCode} · Solde: ${Number(p.balance || 0).toFixed(2)})
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Montant à Créditer ($ USD) *</label>
+                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">Montant ($ USD) *</label>
                   <input
                     type="number"
                     step="0.01"
@@ -1755,31 +2043,32 @@ export default function AdminFinancePage() {
                     value={commissionAmount}
                     onChange={(e) => setCommissionAmount(e.target.value)}
                     placeholder="25.00"
-                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600"
+                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs tabular-nums"
                   />
-                  <span className="text-[10px] text-gray-500 mt-1 block">
-                    Ce montant s&apos;ajoutera directement au solde disponible du partenaire.
-                  </span>
                 </div>
 
                 <div>
-                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Motif / Justification *</label>
+                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">Motif *</label>
                   <input
                     type="text"
                     required
                     value={commissionReason}
                     onChange={(e) => setCommissionReason(e.target.value)}
-                    placeholder="ex: Bonus recrutement de 5 boutiques ou prime d'apport"
-                    className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600"
+                    placeholder="ex: Prime apport 5 nouvelles boutiques"
+                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs placeholder:text-gray-600"
                   />
                 </div>
 
-                <div className="pt-2 flex justify-end gap-3">
-                  <button type="button" onClick={() => setIsCommissionModalOpen(false)}
-                    className="px-4 py-2 text-xs text-gray-500 hover:text-white transition-colors cursor-pointer">Annuler</button>
-                  <button type="submit" disabled={isSubmittingCommission}
-                    className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg transition-all disabled:opacity-50 cursor-pointer">
-                    {isSubmittingCommission ? "Enregistrement..." : "Créditer Immédiatement"}
+                <div className="pt-2 flex justify-end gap-2.5">
+                  <button type="button" onClick={() => setIsCommissionModalOpen(false)} className="px-4 py-2 text-xs text-gray-400 hover:text-white cursor-pointer">
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingCommission}
+                    className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg disabled:opacity-50 cursor-pointer"
+                  >
+                    {isSubmittingCommission ? "Enregistrement..." : "Créditer"}
                   </button>
                 </div>
               </form>
@@ -1788,108 +2077,51 @@ export default function AdminFinancePage() {
         )}
       </AnimatePresence>
 
-      {/* MODAL 4: PROPOSER / MODIFIER LES PARAMÈTRES FINANCIERS */}
+      {/* MODAL 5 : PARAMÈTRES FINANCIERS */}
       <AnimatePresence>
         {isProposalModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.97, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.97 }}
-              className="w-full max-w-lg bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+              className="w-full max-w-lg bg-[#0F1D27] border border-white/15 rounded-2xl shadow-2xl overflow-hidden"
             >
-              <div className="flex items-center justify-between px-6 py-5 border-b border-white/8">
-                <div>
-                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Sliders className="text-[#C7D300]" size={16} />
-                    <span>{isSuperAdmin ? "Mise à Jour Directe des Paramètres" : "Proposition d'Ajustement Financier"}</span>
-                  </h2>
-                  <p className="text-[11px] text-gray-500 mt-0.5">
-                    {isSuperAdmin
-                      ? "En tant que Super Admin / DG, ces paramètres s'appliqueront immédiatement."
-                      : "Soumis à la signature et approbation de l'Administrateur Principal."}
-                  </p>
-                </div>
-                <button onClick={() => setIsProposalModalOpen(false)} className="text-gray-500 hover:text-white transition-colors cursor-pointer">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
+                <h2 className="text-sm font-bold text-white">
+                  {isSuperAdmin ? "Modifier les Paramètres Financiers" : "Proposer une Modification Financière"}
+                </h2>
+                <button onClick={() => setIsProposalModalOpen(false)} className="text-gray-400 hover:text-white cursor-pointer">
                   <X size={18} />
                 </button>
               </div>
-
               <form onSubmit={handleProposeChangeSubmit} className="p-6 space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Taux USD / CDF *</label>
-                    <input
-                      type="number"
-                      required
-                      value={formUsdRate}
-                      onChange={(e) => setFormUsdRate(e.target.value)}
-                      placeholder="2850"
-                      className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
-                    />
+                    <label className="text-[11px] text-gray-400 font-semibold block mb-1 uppercase">Taux USD / CDF *</label>
+                    <input type="number" required value={formUsdRate} onChange={(e) => setFormUsdRate(e.target.value)} className="w-full px-3 py-2 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs" />
                   </div>
-
                   <div>
-                    <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Commission Partenaire ($ USD) *</label>
-                    <input
-                      type="number"
-                      required
-                      value={formCommission}
-                      onChange={(e) => setFormCommission(e.target.value)}
-                      placeholder="5"
-                      className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
-                    />
+                    <label className="text-[11px] text-gray-400 font-semibold block mb-1 uppercase">Commission ($ USD) *</label>
+                    <input type="number" required value={formCommission} onChange={(e) => setFormCommission(e.target.value)} className="w-full px-3 py-2 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-400 font-semibold block mb-1 uppercase">Abonnement ($ USD) *</label>
+                    <input type="number" required value={formSubscription} onChange={(e) => setFormSubscription(e.target.value)} className="w-full px-3 py-2 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-400 font-semibold block mb-1 uppercase">Réduction Promo ($ USD) *</label>
+                    <input type="number" required value={formPromo} onChange={(e) => setFormPromo(e.target.value)} className="w-full px-3 py-2 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs" />
                   </div>
                 </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Abonnement Mensuel ($ USD) *</label>
-                    <input
-                      type="number"
-                      required
-                      value={formSubscription}
-                      onChange={(e) => setFormSubscription(e.target.value)}
-                      placeholder="50"
-                      className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Réduction Promo ($ USD) *</label>
-                    <input
-                      type="number"
-                      required
-                      value={formPromo}
-                      onChange={(e) => setFormPromo(e.target.value)}
-                      placeholder="10"
-                      className="w-full px-3.5 py-2.5 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50"
-                    />
-                  </div>
-                </div>
-
                 <div>
-                  <label className="text-[11px] text-gray-500 font-semibold block mb-1.5 uppercase tracking-wider">Motif / Justification du Changement *</label>
-                  <textarea
-                    required
-                    rows={2}
-                    value={formReason}
-                    onChange={(e) => setFormReason(e.target.value)}
-                    placeholder="ex: Réajustement suite au cours officiel de la Banque Centrale ou campagne promotionnelle de Noël..."
-                    className="w-full px-3.5 py-2 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-[#C7D300]/50 placeholder:text-gray-600"
-                  />
+                  <label className="text-[11px] text-gray-400 font-semibold block mb-1 uppercase">Justification *</label>
+                  <textarea required rows={2} value={formReason} onChange={(e) => setFormReason(e.target.value)} className="w-full px-3 py-2 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs" />
                 </div>
-
-                <div className="pt-2 flex justify-end gap-3">
-                  <button type="button" onClick={() => setIsProposalModalOpen(false)}
-                    className="px-4 py-2 text-xs text-gray-500 hover:text-white transition-colors cursor-pointer">Annuler</button>
-                  <button type="submit" disabled={isSubmittingProposal}
-                    className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg transition-all disabled:opacity-50 cursor-pointer">
-                    {isSubmittingProposal
-                      ? "Traitement..."
-                      : isSuperAdmin
-                      ? "Appliquer et Notifier Immédiatement"
-                      : "Soumettre pour Approbation DG"}
+                <div className="flex justify-end gap-2.5">
+                  <button type="button" onClick={() => setIsProposalModalOpen(false)} className="px-4 py-2 text-xs text-gray-400 hover:text-white cursor-pointer">Annuler</button>
+                  <button type="submit" disabled={isSubmittingProposal} className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg disabled:opacity-50 cursor-pointer">
+                    {isSubmittingProposal ? "Traitement..." : isSuperAdmin ? "Appliquer" : "Soumettre au DG"}
                   </button>
                 </div>
               </form>
@@ -1898,41 +2130,25 @@ export default function AdminFinancePage() {
         )}
       </AnimatePresence>
 
-      {/* MODAL 5: REJETER LA PROPOSITION */}
+      {/* MODAL 6 : REJET PROPOSITION */}
       <AnimatePresence>
         {isRejectModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.97, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.97 }}
-              className="w-full max-w-md bg-[#0F1D27] border border-white/10 rounded-2xl shadow-2xl p-6 space-y-4"
+              className="w-full max-w-md bg-[#0F1D27] border border-white/15 rounded-2xl shadow-2xl p-6 space-y-4"
             >
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <AlertTriangle size={16} className="text-red-400" />
-                <span>Rejeter la Proposition Financière</span>
+                <AlertTriangle size={16} className="text-rose-400" />
+                <span>Rejeter la proposition</span>
               </h3>
-              <p className="text-xs text-gray-400">
-                Veuillez indiquer le motif du rejet qui sera transmis au responsable financier.
-              </p>
-
               <form onSubmit={handleRejectProposalSubmit} className="space-y-4">
-                <textarea
-                  required
-                  rows={3}
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Motif du refus..."
-                  className="w-full px-3.5 py-2 bg-white/4 border border-white/8 rounded-lg text-white text-xs focus:outline-none focus:ring-1 focus:ring-red-400/50"
-                />
-
-                <div className="flex justify-end gap-3">
-                  <button type="button" onClick={() => setIsRejectModalOpen(false)}
-                    className="px-4 py-2 text-xs text-gray-500 hover:text-white transition-colors cursor-pointer">Annuler</button>
-                  <button type="submit"
-                    className="px-5 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-lg transition-all cursor-pointer">
-                    Confirmer le Rejet
-                  </button>
+                <textarea required rows={3} value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} placeholder="Motif du refus..." className="w-full px-3 py-2 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs" />
+                <div className="flex justify-end gap-2.5">
+                  <button type="button" onClick={() => setIsRejectModalOpen(false)} className="px-4 py-2 text-xs text-gray-400 hover:text-white cursor-pointer">Annuler</button>
+                  <button type="submit" className="px-5 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-lg cursor-pointer">Confirmer le rejet</button>
                 </div>
               </form>
             </motion.div>

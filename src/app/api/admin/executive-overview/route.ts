@@ -5,6 +5,29 @@ import { SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
 import { requireAnyStaffPermission } from "@/server/guards";
 import { creditReferralCommission } from "@/lib/referrals";
 import { dispatchAccountNotification } from "@/lib/pushNotifications";
+import { cacheDel } from "@/lib/cache";
+
+function resolveSupplierRayon(data: any): string {
+  const candidates: string[] = [];
+  if (Array.isArray(data?.assignedRayons)) {
+    candidates.push(...data.assignedRayons.map((r: any) => String(r || "")));
+  }
+  if (data?.rayon) candidates.push(String(data.rayon));
+  if (data?.serviceAttached) candidates.push(String(data.serviceAttached));
+  if (data?.businessType) candidates.push(String(data.businessType));
+  if (data?.category) candidates.push(String(data.category));
+  if (data?.role) candidates.push(String(data.role));
+
+  for (const raw of candidates) {
+    const val = raw.toLowerCase().trim();
+    if (!val) continue;
+    if (val.includes("immo") || val.includes("hotel") || val.includes("hôtel")) return "immo";
+    if (val.includes("saveur") || val.includes("food") || val.includes("alim") || val.includes("resto")) return "saveurs";
+    if (val.includes("mode") || val.includes("fashion") || val.includes("vetement") || val.includes("vêtement")) return "mode";
+    if (val.includes("connect") || val.includes("tech") || val.includes("elec") || val.includes("service")) return "connect";
+  }
+  return "connect";
+}
 
 function isStaffOrAdminDoc(data: any): boolean {
   if (!data) return false;
@@ -139,7 +162,7 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    // 3. Construire la liste détaillée des Abonnements Fournisseurs (Payés / Essai / Impayés)
+    // 3. Construire la liste détaillée des Abonnements Fournisseurs (Payés / Essai / Expirés)
     let paidActiveCount = 0;
     let trialCount = 0;
     let unpaidExpiredCount = 0;
@@ -147,11 +170,14 @@ export async function GET(req: NextRequest) {
     let expiringIn7DaysCount = 0;
 
     let currentMRR = 0;
+    let confirmedPartnerCommissions30d = 0;
     let trialConversionPotential30d = 0;
     let overdueRecoveryPotential = 0;
     let projected30dPartnerCommissions = 0;
 
-    const supplierSubscriptions = supplierDocs.map((s) => {
+    const supplierSubscriptions = supplierDocs
+      .filter((s) => s.isDeleted !== true && s.deletionStatus !== "DELETED")
+      .map((s) => {
       const isOfficial = Boolean(s.isOfficialAdminStore || s.isAdminSupplier);
       const partnerId =
         s.referredByPartnerId ||
@@ -187,7 +213,10 @@ export async function GET(req: NextRequest) {
         paymentState = "PAID_ACTIVE";
         paidActiveCount++;
         currentMRR += monthlyFeeUSD;
-        if (isPartnerRecruited) projected30dPartnerCommissions += partnerCommissionUSD;
+        if (isPartnerRecruited) {
+          confirmedPartnerCommissions30d += partnerCommissionUSD;
+          projected30dPartnerCommissions += partnerCommissionUSD;
+        }
         if (daysRemaining <= 7) expiringIn7DaysCount++;
       } else {
         paymentState = "TRIAL";
@@ -197,17 +226,12 @@ export async function GET(req: NextRequest) {
         if (daysRemaining <= 7) expiringIn7DaysCount++;
       }
 
-      // Si un fournisseur est marqué ACTIVE mais qu'aucune transaction n'avait été comptabilisée
-      if (paymentState === "PAID_ACTIVE" && paymentStats.totalUSD === 0) {
-        collectedSubscriptionRevenueUSD += monthlyFeeUSD;
-      }
-
       return {
         id: s.id,
         name: s.companyName || s.company || s.displayName || s.name || "Boutique",
         email: s.email || "",
         phone: s.phone || s.phoneNumber || "",
-        rayon: s.rayon || (Array.isArray(s.assignedRayons) && s.assignedRayons[0]) || "connect",
+        rayon: resolveSupplierRayon(s),
         paymentState,
         subscriptionStatus: rawStatus,
         subscriptionEndDate: endDate ? endDate.toISOString() : null,
@@ -217,8 +241,8 @@ export async function GET(req: NextRequest) {
         partnerName: partnerInfo?.name || null,
         partnerCode: partnerInfo?.code || s.referralCodeUsed || null,
         partnerCommissionUSD,
-        paymentsCount: paymentStats.count || (paymentState === "PAID_ACTIVE" ? 1 : 0),
-        totalPaidUSD: paymentStats.totalUSD || (paymentState === "PAID_ACTIVE" ? monthlyFeeUSD : 0),
+        paymentsCount: paymentStats.count,
+        totalPaidUSD: paymentStats.totalUSD,
         lastPaidAt: paymentStats.lastPaidAt,
       };
     });
@@ -255,11 +279,12 @@ export async function GET(req: NextRequest) {
 
     const netPlatformRevenueUSD = Math.max(0, collectedSubscriptionRevenueUSD - totalPartnerCommissionsEarnedUSD);
 
-    // 5. Prévisions Financières (30j, 90j, Annuel)
-    const projected30dGrossRevenue = currentMRR + trialConversionPotential30d + overdueRecoveryPotential;
-    const projected30dNetRevenue = Math.max(0, projected30dGrossRevenue - projected30dPartnerCommissions);
-    const projected90dRevenue = projected30dGrossRevenue * 3;
-    const projectedAnnualARR = projected30dGrossRevenue * 12;
+    // 5. Prévisions Financières HONNÊTES (MRR Confirmé séparé du potentiel d'essais/renouvellements)
+    const confirmedNetMRR = Math.max(0, currentMRR - confirmedPartnerCommissions30d);
+    const projected30dGrossRevenue = currentMRR;
+    const projected30dNetRevenue = confirmedNetMRR;
+    const projected90dRevenue = confirmedNetMRR * 3;
+    const projectedAnnualARR = currentMRR * 12;
 
     // 6. Indicateurs Logistique, Commandes, Support & Catalogue
     let ordersAwaitingDriver = 0;
@@ -383,108 +408,210 @@ export async function POST(req: NextRequest) {
     executiveOverviewCache = null;
 
     const body = await req.json();
-    const { action, supplierId, amountPaid, paymentMethod = "Mobile Money / Caisse Centrale" } = body;
+    const {
+      action,
+      supplierId,
+      amountPaid,
+      amount,
+      paymentMethod = "Mobile Money / Caisse Centrale",
+      referencePiece = "",
+      note = "",
+    } = body;
 
     if (action === "RECORD_SUBSCRIPTION_PAYMENT") {
       if (!supplierId) {
         return NextResponse.json({ success: false, error: "supplierId requis." }, { status: 400 });
       }
 
+      const cleanRef = String(referencePiece || "").trim();
+      if (cleanRef.length < 3 || cleanRef.length > 80) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Référence de paiement obligatoire (ex: ID transaction M-Pesa, Airtel Money, Orange Money ou n° reçu caisse).",
+          },
+          { status: 400 }
+        );
+      }
+
       const userRef = adminDb.collection("users").doc(supplierId);
-      const userSnap = await userRef.get();
-      if (!userSnap.exists) {
-        return NextResponse.json({ success: false, error: "Fournisseur introuvable." }, { status: 404 });
+      const supplierRef = adminDb.collection("suppliers").doc(supplierId);
+      const lockId = `sub_${cleanRef.toUpperCase().replace(/[^A-Z0-9_-]/g, "_")}`;
+      const lockRef = adminDb.collection("subscription_payments").doc(lockId);
+
+      const requestedAmount = Number(amountPaid ?? amount);
+      if (
+        (amountPaid !== undefined || amount !== undefined) &&
+        (!Number.isFinite(requestedAmount) || requestedAmount <= 0 || requestedAmount > 10000)
+      ) {
+        return NextResponse.json(
+          { success: false, error: "Montant d'abonnement invalide." },
+          { status: 400 }
+        );
       }
 
-      const sData = userSnap.data() || {};
-      const supplierName = sData.companyName || sData.company || sData.displayName || sData.name || "Fournisseur";
-      const hasPartner = Boolean(sData.referredByPartnerId || sData.referredBy || sData.partnerReferral);
-      const finalAmount = Number(amountPaid) > 0 ? Number(amountPaid) : hasPartner ? 40 : 50;
+      const year = new Date().getFullYear();
+      const entryNumber = `ECR-${year}-${Math.floor(10000 + Math.random() * 90000)}`;
+      const cleanMethod = String(paymentMethod || "Mobile Money / Caisse Centrale").trim().slice(0, 80);
+      const cleanNote = String(note || "").trim().slice(0, 200);
 
-      // Calculer la nouvelle échéance (+30 jours)
-      let baseDate = new Date();
-      if (sData.subscriptionEndDate) {
-        const existingEnd = sData.subscriptionEndDate.toDate
-          ? sData.subscriptionEndDate.toDate()
-          : new Date(sData.subscriptionEndDate);
-        if (existingEnd > baseDate) {
-          baseDate = existingEnd;
+      let supplierName = "Fournisseur";
+      let finalAmount = 50;
+      let newEndDate = new Date();
+
+      // Transaction atomique unique : verrou d'idempotence + activation + caisse + Grand Livre Admin + audit
+      await adminDb.runTransaction(async (tx: any) => {
+        const [userSnap, lockSnap] = await Promise.all([tx.get(userRef), tx.get(lockRef)]);
+
+        if (!userSnap.exists) {
+          throw new Error("SUPPLIER_NOT_FOUND");
         }
-      }
-      const newEndDate = new Date(baseDate);
-      newEndDate.setDate(newEndDate.getDate() + 30);
+        if (lockSnap.exists) {
+          throw new Error("DUPLICATE_PAYMENT_REF");
+        }
 
-      const refPiece = `ABO-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+        const sData = userSnap.data() || {};
+        supplierName = sData.companyName || sData.company || sData.displayName || sData.name || "Fournisseur";
+        const hasPartner = Boolean(sData.referredByPartnerId || sData.referredBy || sData.partnerReferral);
+        finalAmount = Number.isFinite(requestedAmount) && requestedAmount > 0 ? requestedAmount : hasPartner ? 40 : 50;
 
-      // 1. Activer l'abonnement sur users/{supplierId} et suppliers/{supplierId}
-      await Promise.all([
-        userRef.set(
+        // Calculer la nouvelle échéance (+30 jours à partir de la date la plus lointaine)
+        let baseDate = new Date();
+        if (sData.subscriptionEndDate) {
+          const existingEnd = sData.subscriptionEndDate.toDate
+            ? sData.subscriptionEndDate.toDate()
+            : new Date(sData.subscriptionEndDate);
+          if (existingEnd > baseDate) {
+            baseDate = existingEnd;
+          }
+        }
+        newEndDate = new Date(baseDate);
+        newEndDate.setDate(newEndDate.getDate() + 30);
+
+        const now = FieldValue.serverTimestamp();
+        const noteSuffix = cleanNote ? ` · ${cleanNote}` : "";
+
+        // 1. Verrou d'idempotence anti-double encaissement
+        tx.set(lockRef, {
+          supplierId,
+          supplierName,
+          referencePiece: cleanRef,
+          amount: finalAmount,
+          paymentMethod: cleanMethod,
+          note: cleanNote || null,
+          recordedBy: caller.email || caller.uid,
+          recordedByUid: caller.uid,
+          entryNumber,
+          createdAt: now,
+        });
+
+        // 2. Activer l'abonnement sur users/{supplierId} et suppliers/{supplierId}
+        tx.set(
+          userRef,
           {
             subscriptionStatus: "ACTIVE",
             subscriptionEndDate: newEndDate,
             isBlocked: false,
             isSuspended: false,
             status: "active",
-            lastSubscriptionPaidAt: FieldValue.serverTimestamp(),
+            lastSubscriptionPaidAt: now,
+            lastDepositPaidAt: now,
+            lastDepositAmount: finalAmount,
           },
           { merge: true }
-        ),
-        adminDb
-          .collection("suppliers")
-          .doc(supplierId)
-          .set(
-            {
-              subscriptionStatus: "ACTIVE",
-              subscriptionEndDate: newEndDate,
-              isBlocked: false,
-              status: "active",
-              updatedAt: FieldValue.serverTimestamp(),
-            },
-            { merge: true }
-          ),
-      ]);
+        );
+        tx.set(
+          supplierRef,
+          {
+            subscriptionStatus: "ACTIVE",
+            subscriptionEndDate: newEndDate,
+            isBlocked: false,
+            status: "active",
+            updatedAt: now,
+          },
+          { merge: true }
+        );
 
-      // 2. Enregistrer l'encaissement dans `transactions` et `accounting_ledger`
-      await Promise.all([
-        adminDb.collection("transactions").add({
+        // 3. Transaction Plateforme Admin (`PLATFORM_ADMIN`)
+        tx.set(adminDb.collection("transactions").doc(), {
           type: "SUBSCRIPTION",
           category: "Abonnement Mensuel Boutique",
           amount: finalAmount,
           currency: "USD",
-          description: `Règlement abonnement mensuel (30j) — ${supplierName} (${paymentMethod})`,
-          referenceId: refPiece,
+          description: `Abonnement mensuel (30j) — ${supplierName} (${cleanMethod})${noteSuffix}`,
+          referenceId: cleanRef,
           supplierId,
           supplierName,
+          accountingScope: "PLATFORM_ADMIN",
           status: "COMPLETED",
           recordedBy: caller.email || caller.uid,
-          createdAt: FieldValue.serverTimestamp(),
-        }),
-        adminDb.collection("accounting_ledger").add({
-          entryNumber: `ECR-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`,
-          date: FieldValue.serverTimestamp(),
-          journal: "BQ",
-          journalName: "Journal de Trésorerie (Abonnements Fournisseurs)",
-          referencePiece: refPiece,
-          label: `Encaissement abonnement mensuel boutique ${supplierName} (${paymentMethod})`,
+          recordedByUid: caller.uid,
+          createdAt: now,
+        });
+
+        // 4. Grand Livre Plateforme Admin (`accounting_ledger`, actorType: "ADMIN", scope: "PLATFORM_ADMIN")
+        tx.set(adminDb.collection("accounting_ledger").doc(), {
+          entryNumber,
+          date: now,
+          createdAt: now,
+          journal: "AB",
+          journalName: "Journal des Abonnements Plateforme",
+          referencePiece: cleanRef,
+          label: `Abonnement mensuel boutique ${supplierName} (${cleanMethod})${noteSuffix}`,
           debit: finalAmount,
           credit: 0,
-          balanceAfter: finalAmount,
           currency: "USD",
-          actorType: "SUPPLIER",
+          actorType: "ADMIN",
+          accountingScope: "PLATFORM_ADMIN",
           supplierId,
           supplierName,
-          category: "Abonnement Mensuel",
+          category: "Abonnement Fournisseur",
           status: "VALIDATED",
-          createdAt: FieldValue.serverTimestamp(),
-        }),
-      ]);
+          recordedBy: caller.email || caller.uid,
+          recordedByUid: caller.uid,
+        });
 
-      // 3. Créditer automatiquement la commission de 5$ au partenaire si la boutique est affiliée
+        // 5. Dépense dans le livre privé du fournisseur (`supplier_transactions`, scope: "SUPPLIER_PRIVATE")
+        tx.set(adminDb.collection("supplier_transactions").doc(), {
+          type: "EXPENSE",
+          category: "Abonnement Plateforme",
+          amount: finalAmount,
+          currency: "USD",
+          description: `Cotisation mensuelle Rayons.net (${cleanMethod}) — Réf: ${cleanRef}`,
+          referenceId: cleanRef,
+          supplierId,
+          accountingScope: "SUPPLIER_PRIVATE",
+          status: "COMPLETED",
+          createdAt: now,
+        });
+
+        // 6. Trace immuable dans `audit_logs`
+        tx.set(adminDb.collection("audit_logs").doc(), {
+          action: "ADMIN_RECORD_SUBSCRIPTION_PAYMENT",
+          category: "FINANCE",
+          actorUid: caller.uid,
+          actorEmail: caller.email || null,
+          actorRole: caller.role || null,
+          supplierId,
+          supplierName,
+          amount: finalAmount,
+          paymentMethod: cleanMethod,
+          referencePiece: cleanRef,
+          entryNumber,
+          newEndDate: newEndDate.toISOString(),
+          createdAt: now,
+        });
+      });
+
+      await cacheDel("admin:suppliers:list:v1");
+
+      // 7. Créditer automatiquement la commission de 5$ au partenaire si la boutique est affiliée
       let commissionCredited = false;
       try {
         const commRes = await creditReferralCommission({
           filleulId: supplierId,
-          paymentRef: refPiece,
+          paymentRef: cleanRef,
           amountPaid: finalAmount,
         });
         commissionCredited = commRes.credited;
@@ -492,29 +619,43 @@ export async function POST(req: NextRequest) {
         console.warn("[EXECUTIVE OVERVIEW] Partner commission credit warning:", commErr);
       }
 
-      // 4. Envoyer une notification Push au fournisseur
+      // 8. Envoyer une notification au fournisseur
       await dispatchAccountNotification({
         userId: supplierId,
         supplierId,
         type: "system",
         title: "✅ Abonnement Mensuel Validé (+30 jours)",
-        message: `Votre règlement de $${finalAmount.toFixed(2)} USD (Réf: ${refPiece}) est confirmé. Votre boutique est active jusqu'au ${newEndDate.toLocaleDateString("fr-FR")}.`,
+        message: `Votre règlement de $${finalAmount.toFixed(2)} USD (Réf: ${cleanRef}) est confirmé. Votre boutique est active jusqu'au ${newEndDate.toLocaleDateString("fr-FR")}.`,
         link: "/supplier/finance",
       });
 
       return NextResponse.json({
         success: true,
-        referencePiece: refPiece,
+        entryNumber,
+        referencePiece: cleanRef,
         newEndDate: newEndDate.toISOString(),
         commissionCredited,
-        message: `Abonnement de "${supplierName}" validé (+30j, $${finalAmount} USD)${
-          commissionCredited ? " et commission de $5 créditée au partenaire !" : " !"
+        message: `Abonnement de "${supplierName}" validé (+30j, $${finalAmount.toFixed(2)} USD · Réf ${cleanRef})${
+          commissionCredited ? " et commission partenaire créditée !" : "."
         }`,
       });
     }
 
     return NextResponse.json({ success: false, error: "Action non reconnue." }, { status: 400 });
   } catch (error: any) {
+    if (error?.message === "SUPPLIER_NOT_FOUND") {
+      return NextResponse.json({ success: false, error: "Fournisseur introuvable." }, { status: 404 });
+    }
+    if (error?.message === "DUPLICATE_PAYMENT_REF") {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Cette référence de paiement a déjà été enregistrée. Double encaissement bloqué automatiquement.",
+        },
+        { status: 409 }
+      );
+    }
     console.error("[EXECUTIVE OVERVIEW POST ERROR]:", error);
     return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
   }

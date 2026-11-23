@@ -142,12 +142,18 @@ export async function POST(req: NextRequest) {
           createdAt: FieldValue.serverTimestamp(),
         });
 
-        // B. Écriture formelle dans le grand livre comptable central
-        const ledgerRef = adminDb.collection("accounting_ledger").doc();
+        // B. Écriture comptable strictement cloisonnée :
+        //    - Boutique officielle Admin ("admin") -> accounting_ledger (PLATFORM_ADMIN)
+        //    - Fournisseur tiers -> supplier_ledger (SUPPLIER_PRIVATE, jamais mélangé dans le Grand Livre Admin)
+        const isAdminSale = sId === "admin";
+        const ledgerRef = adminDb
+          .collection(isAdminSale ? "accounting_ledger" : "supplier_ledger")
+          .doc();
         const rand = Math.floor(10000 + Math.random() * 90000);
         transaction.set(ledgerRef, {
           entryNumber: `ECR-${new Date().getFullYear()}-${rand}`,
           date: FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
           journal: "CS",
           journalName: "Journal de Caisse (Espèces)",
           referencePiece: orderId,
@@ -155,7 +161,8 @@ export async function POST(req: NextRequest) {
           debit: sAmount,
           credit: 0,
           currency: "USD",
-          actorType: sId === "admin" ? "ADMIN" : "SUPPLIER",
+          actorType: isAdminSale ? "ADMIN" : "SUPPLIER",
+          accountingScope: isAdminSale ? "PLATFORM_ADMIN" : "SUPPLIER_PRIVATE",
           supplierId: sId,
           category: "Vente Livrée",
           status: "VALIDATED"

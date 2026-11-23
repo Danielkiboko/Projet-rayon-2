@@ -12,7 +12,8 @@ rules_version = '2';
 //     cannot create, elevate to, modify, or delete Super Admin accounts.
 //   - Finance Staff (isFinanceStaff): General Admin, ADMIN_FINANCE, RESPONSABLE_FINANCIER,
 //     or staffProfile.positions contains 'RESPONSABLE_FINANCIER'.
-//     Owns accounting_ledger, transactions, supplier_transactions, referrals/commissions,
+//     Reads accounting_ledger, transactions, subscription_payments (all Admin SDK write-only),
+//     supplier_ledger, supplier_transactions, referrals/commissions,
 //     invoices, payments, settings/financial, and read-only access to orders/drivers.
 //   - Catalog Staff (isCatalogStaff): General Admin, ADMIN_DB, ADMIN_TECH,
 //     RESPONSABLE_CATALOGUE, GESTIONNAIRE_ADMIN, or staffProfile.positions hasAny
@@ -36,7 +37,9 @@ rules_version = '2';
 //   - products/{productId} & properties/{propertyId} (+ reviews subcollection): Public catalog.
 //   - categories/{catId}: Public marketplace categories/rayons.
 //   - settings/{docId}: Public platform/financial configuration (exchange rates, language).
-//   - accounting_ledger/{entryId} & transactions/{transactionId}: Internal finance records.
+//   - accounting_ledger/{entryId}, transactions/{transactionId}, subscription_payments/{paymentId}:
+//     Central platform finance records & payment idempotency locks (Admin SDK write-only; Finance Staff read-only).
+//   - supplier_ledger/{entryId}: Compartmentalized append-only supplier/Immo private accounting ledger.
 //   - supplier_transactions/{transactionId}, invoices/{invoiceId}, payments/{paymentId}: Supplier finance.
 //   - tenants/{tenantId}, maintenance_tickets/{ticketId}, relances/{relanceId}: Immo tenant management.
 //   - visits/{visitId} & hotel_bookings/{bookingId}: Publicly creatable booking/visit requests.
@@ -891,27 +894,47 @@ service cloud.firestore {
       allow update: if (isGeneralAdmin() || isCatalogStaff()) && isValidErrorLogDoc(request.resource.data);
     }
 
-    // Strictly Compartmentalized Financial Collections (ONLY Finance Staff / GeneralAdmin / SuperAdmin)
+    // ===============================================================
+    // Strictly Compartmentalized Financial Collections
     // Explicitly blocks SUPPORT_CLIENT, RESPONSABLE_LOGISTIQUE, RESPONSABLE_CATALOGUE
+    // ===============================================================
+
+    // Central Platform Admin General Ledger — strictly append-only via Firebase Admin SDK server APIs (+ audit_logs)
     match /accounting_ledger/{entryId} {
-      allow read, delete: if isFinanceStaff();
-      allow create, update: if isFinanceStaff() && isValidFinanceDoc(request.resource.data);
+      allow read: if isFinanceStaff();
+      allow create, update, delete: if false;
     }
 
+    // Central Platform Admin Cash Transactions — strictly via Firebase Admin SDK server APIs
     match /transactions/{transactionId} {
-      allow read, delete: if isFinanceStaff();
-      allow create, update: if isFinanceStaff() && isValidFinanceDoc(request.resource.data);
+      allow read: if isFinanceStaff();
+      allow create, update, delete: if false;
     }
 
+    // Server-side idempotency & proof lock for supplier subscription payments (Admin SDK only)
+    match /subscription_payments/{paymentId} {
+      allow read: if isFinanceStaff();
+      allow create, update, delete: if false;
+    }
+
+    // Strictly compartmentalized private accounting ledger for Suppliers & Immo agencies
+    // (rent payments, hotel stays, supplier cash adjustments — completely separated from accounting_ledger)
+    // Append-only audit integrity: no silent client tampering or deletion
+    match /supplier_ledger/{entryId} {
+      allow read: if isFinanceStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
+      allow create: if ownsSupplierData(request.resource.data.get('supplierId', '')) &&
+        isValidFinanceDoc(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    // Supplier Cashbook & Operations Transactions
+    // No silent deletion of financial history; adjustments should be offsetting entries
     match /supplier_transactions/{transactionId} {
+      allow read: if isFinanceStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
       allow create: if (isFinanceStaff() || ownsSupplierData(request.resource.data.get('supplierId', ''))) &&
         isValidFinanceDoc(request.resource.data);
-      allow read: if isFinanceStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
-      allow update: if (
-        isFinanceStaff() ||
-        (ownsSupplierData(resource.data.get('supplierId', '')) && areImmutableFieldsUnchanged(['supplierId']))
-      ) && isValidFinanceDoc(request.resource.data);
-      allow delete: if isFinanceStaff() || ownsSupplierData(resource.data.get('supplierId', ''));
+      allow update: if isSuperAdmin() && isValidFinanceDoc(request.resource.data);
+      allow delete: if false;
     }
 
     // System Notifications

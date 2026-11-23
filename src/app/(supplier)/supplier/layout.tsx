@@ -9,7 +9,6 @@ import { themeConfig } from "@/lib/themeConfig";
 import DashboardLayout from "@/modules/shared/components/layouts/DashboardLayout";
 import { isSupplier, getSupplierType, getSupplierAvailableRayons } from "@/lib/permissions";
 import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
-import { recordSubscriptionDeposit } from "@/lib/accountingLedger";
 
 export default function SupplierLayout({
   children,
@@ -232,25 +231,8 @@ export default function SupplierLayout({
 
   const availableRayons = getSupplierAvailableRayons(userData);
 
-  const handlePayDeposit = async () => {
-    const depositAmount = userData?.depositAmount || 50;
-    if (!confirm(`Confirmez-vous le règlement de votre dépôt mensuel de $${depositAmount} ?\n\nCette action prolongera votre abonnement pour 30 jours supplémentaires.`)) {
-      return;
-    }
-    try {
-      await recordSubscriptionDeposit({
-        supplierId: activeSupplierId,
-        supplierName: userData?.displayName || userData?.company || "Partenaire",
-        amount: depositAmount,
-        paymentMethod: "Paiement direct en ligne",
-        currentBalance: 0
-      });
-      alert("Félicitations ! Votre dépôt mensuel a été validé avec succès.");
-      window.location.reload();
-    } catch (err: any) {
-      console.error("Error paying deposit:", err);
-      alert(err.message || "Erreur lors du paiement du dépôt.");
-    }
+  const handlePayDeposit = () => {
+    router.push("/supplier/finance");
   };
 
   const getRayonLabel = (r: string) => {

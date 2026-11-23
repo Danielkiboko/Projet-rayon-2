@@ -98,17 +98,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const assigned = businessType === "IMMOBILIER" 
-      ? ["immo"] 
-      : businessType === "RESTAURATION" 
-      ? ["saveurs"] 
-      : businessType === "CONNECT"
-      ? ["connect"]
-      : ["mode"];
+    const assigned = businessType === "IMMOBILIER"
+      ? ["immo"]
+      : businessType === "RESTAURATION"
+        ? ["saveurs"]
+        : businessType === "CONNECT"
+          ? ["connect"]
+          : ["mode"];
 
     const primaryRayon = assigned[0];
-    const targetRole = businessType === "IMMOBILIER" 
-      ? "SUPPLIER_IMMO" 
+    const targetRole = businessType === "IMMOBILIER"
+      ? "SUPPLIER_IMMO"
       : (businessType === "RESTAURATION" ? "SUPPLIER_SAVEURS" : "SUPPLIER");
 
     const effectiveName = (companyData?.company || supplierName || "Boutique Partenaire").trim();
@@ -143,6 +143,7 @@ export async function POST(req: NextRequest) {
     const ledgerEntry = {
       entryNumber,
       date: now,
+      createdAt: now,
       journal: "AB",
       journalName: "Journal des Abonnements & Dépôts",
       referencePiece: ref,
@@ -152,6 +153,7 @@ export async function POST(req: NextRequest) {
       balanceAfter: finalAmount,
       currency: currency || "USD",
       actorType: "ADMIN",
+      accountingScope: "PLATFORM_ADMIN",
       supplierId,
       supplierName: effectiveName,
       category: "Abonnement Fournisseur",
@@ -168,6 +170,7 @@ export async function POST(req: NextRequest) {
       description: `Abonnement Fournisseur - ${effectiveName} (${paymentMethod})${discountLabel}`,
       referenceId: ref,
       status: "COMPLETED",
+      accountingScope: "PLATFORM_ADMIN",
       supplierId,
       supplierName: effectiveName,
       createdAt: now,

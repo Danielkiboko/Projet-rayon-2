@@ -9,11 +9,19 @@ import {
 /**
  * Grand Livre & Journal Général des Écritures Comptables Rayons.net
  *
- * Toutes les opérations multi-collections utilisent un writeBatch() atomique
- * pour garantir la cohérence des données même en cas de coupure réseau.
+ * ARCHITECTURE CLOISONNÉE (3 périmètres étanches) :
+ * 1. `PLATFORM_ADMIN` (`accounting_ledger` + `transactions`) :
+ *    - Exclusivement la comptabilité de la plateforme Rayons.net (abonnements, commissions, dépenses internes).
+ *    - ÉCRITURE SERVEUR UNIQUEMENT via `/api/admin/finance/entries` et `/api/admin/executive-overview` (immuable & audité).
+ * 2. `SUPPLIER_PRIVATE` (`supplier_ledger` + `supplier_transactions`) :
+ *    - Exclusivement la comptabilité privée de chaque fournisseur / agence immo (loyers, hôtels, ventes, ajustements).
+ *    - Jamais mélangé dans le Grand Livre central Admin (`accounting_ledger`).
+ * 3. `ADMIN_IMMO` (optionnel, séparé) :
+ *    - Réservé à une éventuelle agence immobilière officielle exploitée par l'Admin, isolé de la trésorerie SaaS.
  */
 
 export type JournalCode = "VT" | "AB" | "CS" | "BQ" | "AJ" | "OD";
+export type AccountingScope = "PLATFORM_ADMIN" | "SUPPLIER_PRIVATE" | "ADMIN_IMMO";
 
 export interface AccountingEntry {
   id?: string;
@@ -28,11 +36,13 @@ export interface AccountingEntry {
   balanceAfter?: number;
   currency: string;
   actorType: "ADMIN" | "SUPPLIER";
+  accountingScope?: AccountingScope;
   supplierId?: string | null;
   supplierName?: string;
   adjustmentReason?: string;
   category?: string;
   status: "VALIDATED" | "DRAFT";
+  recordedBy?: string;
 }
 
 export const ADJUSTMENT_REASONS = [
@@ -65,7 +75,6 @@ export function getJournalName(code: JournalCode): string {
 
 /**
  * Détermine si un fournisseur est une boutique officielle Admin (exempté d'abonnement).
- * Centralise la logique pour éviter tout email hardcodé dans les composants.
  */
 export function isOfficialAdminSupplier(supplierData: any): boolean {
   return (
@@ -75,7 +84,7 @@ export function isOfficialAdminSupplier(supplierData: any): boolean {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 1. Ajustement de caisse
+// 1. Ajustement de caisse (Admin -> API serveur sécurisée | Fournisseur -> supplier_ledger privé)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function recordCashAdjustment(params: {
@@ -101,6 +110,59 @@ export async function recordCashAdjustment(params: {
   if (!label.trim())
     throw new Error("Le libellé comptable de l'ajustement est obligatoire.");
 
+  // Côté ADMIN : passage obligatoire par la route serveur sécurisée & auditée
+  if (actorType === "ADMIN") {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) {
+      throw new Error("Session expirée. Veuillez vous reconnecter.");
+    }
+    const res = await fetch("/api/admin/finance/entries", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        kind: "ADJUSTMENT",
+        amount,
+        reason,
+        label,
+        referencePiece,
+        currency,
+        accountingScope: "PLATFORM_ADMIN",
+      }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.error || "Erreur lors de l'enregistrement sécurisé de l'ajustement.");
+    }
+    const isPositive = amount > 0;
+    return {
+      entryNumber: json.entryNumber || generateEntryNumber(),
+      date: new Date(),
+      journal: "AJ",
+      journalName: "Journal des Ajustements de Caisse",
+      referencePiece: json.referencePiece || referencePiece || "",
+      label: `Ajustement de caisse [${reason}] — ${label}`,
+      debit: isPositive ? Math.abs(amount) : 0,
+      credit: !isPositive ? Math.abs(amount) : 0,
+      balanceAfter: currentBalance + amount,
+      currency,
+      actorType: "ADMIN",
+      accountingScope: "PLATFORM_ADMIN",
+      supplierId: null,
+      supplierName: "Rayons.net Plateforme",
+      adjustmentReason: reason,
+      category: isPositive ? "Ajustement Créditeur" : "Ajustement Débiteur",
+      status: "VALIDATED",
+    };
+  }
+
+  // Côté FOURNISSEUR : strictement isolé dans `supplier_ledger` + `supplier_transactions` (JAMAIS `accounting_ledger`)
+  if (!supplierId) {
+    throw new Error("Identifiant fournisseur manquant pour l'ajustement de caisse privé.");
+  }
+
   const isPositive  = amount > 0;
   const entryNumber = generateEntryNumber();
   const ref         = referencePiece || `AJUST-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -118,47 +180,36 @@ export async function recordCashAdjustment(params: {
     credit: !isPositive ? Math.abs(amount) : 0,
     balanceAfter: newBalance,
     currency,
-    actorType,
-    supplierId: supplierId || null,
-    supplierName: supplierName || (actorType === "ADMIN" ? "Rayons Central Admin" : "Partenaire"),
+    actorType: "SUPPLIER",
+    accountingScope: "SUPPLIER_PRIVATE",
+    supplierId,
+    supplierName: supplierName || "Partenaire",
     adjustmentReason: reason,
     category: isPositive ? "Ajustement Créditeur" : "Ajustement Débiteur",
     status: "VALIDATED",
   };
 
   const batch = writeBatch(db);
-  batch.set(doc(collection(db, "accounting_ledger")), entry);
-
-  if (actorType === "ADMIN") {
-    batch.set(doc(collection(db, "transactions")), {
-      type: isPositive ? "OTHER_INCOME" : "EXPENSE",
-      amount: Math.abs(amount),
-      currency,
-      description: entry.label,
-      referenceId: ref,
-      status: "COMPLETED",
-      createdAt: ts,
-    });
-  } else if (supplierId) {
-    batch.set(doc(collection(db, "supplier_transactions")), {
-      type: isPositive ? "INCOME" : "EXPENSE",
-      category: `Ajustement: ${reason}`,
-      amount: Math.abs(amount),
-      currency,
-      description: entry.label,
-      referenceId: ref,
-      status: "COMPLETED",
-      supplierId,
-      createdAt: ts,
-    });
-  }
+  batch.set(doc(collection(db, "supplier_ledger")), entry);
+  batch.set(doc(collection(db, "supplier_transactions")), {
+    type: isPositive ? "INCOME" : "EXPENSE",
+    category: `Ajustement: ${reason}`,
+    amount: Math.abs(amount),
+    currency,
+    description: entry.label,
+    referenceId: ref,
+    status: "COMPLETED",
+    supplierId,
+    accountingScope: "SUPPLIER_PRIVATE",
+    createdAt: ts,
+  });
 
   await batch.commit();
   return entry;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. Encaissement d'abonnement / dépôt attendu fournisseur
+// 2. Encaissement d'abonnement fournisseur (STRICTEMENT via API serveur sécurisée)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function recordSubscriptionDeposit(params: {
@@ -171,109 +222,68 @@ export async function recordSubscriptionDeposit(params: {
   currentBalance?: number;
 }): Promise<AccountingEntry> {
   const {
-    supplierId, supplierName, amount,
-    paymentMethod = "Mobile Money / Caisse",
-    referencePiece, currency = "USD", currentBalance = 0,
+    supplierId,
+    supplierName,
+    amount,
+    paymentMethod = "Mobile Money / Caisse Centrale",
+    referencePiece,
+    currency = "USD",
+    currentBalance = 0,
   } = params;
 
-  const entryNumber  = generateEntryNumber();
-  const ref          = referencePiece || `RAY-DEP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
-  const balanceAfter = currentBalance + amount;
-  const ts           = serverTimestamp();
+  const cleanRef = String(referencePiece || "").trim();
+  if (!cleanRef) {
+    throw new Error("Une référence de preuve de paiement (Mobile Money ou Reçu Caisse) est obligatoire.");
+  }
 
-  const nextDueDate = new Date();
-  nextDueDate.setDate(nextDueDate.getDate() + 30);
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) {
+    throw new Error("Authentification requise pour enregistrer un encaissement d'abonnement.");
+  }
 
-  const entry: AccountingEntry = {
-    entryNumber,
-    date: ts,
+  const res = await fetch("/api/admin/executive-overview", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      action: "RECORD_SUBSCRIPTION_PAYMENT",
+      supplierId,
+      amountPaid: amount,
+      paymentMethod,
+      referencePiece: cleanRef,
+    }),
+  });
+
+  const json = await res.json();
+  if (!res.ok || !json.success) {
+    throw new Error(json.error || "Erreur lors de l'encaissement sécurisé de l'abonnement.");
+  }
+
+  return {
+    entryNumber: json.entryNumber || generateEntryNumber(),
+    date: new Date(),
     journal: "AB",
     journalName: "Journal des Abonnements & Dépôts",
-    referencePiece: ref,
-    label: `Encaissement abonnement mensuel - Fournisseur ${supplierName} (${paymentMethod})`,
+    referencePiece: json.referencePiece || cleanRef,
+    label: `Encaissement abonnement mensuel — ${supplierName} (${paymentMethod})`,
     debit: amount,
     credit: 0,
-    balanceAfter,
+    balanceAfter: currentBalance + amount,
     currency,
     actorType: "ADMIN",
+    accountingScope: "PLATFORM_ADMIN",
     supplierId,
     supplierName,
     category: "Abonnement Fournisseur",
     status: "VALIDATED",
   };
-
-  const batch = writeBatch(db);
-
-  // Grand livre central
-  batch.set(doc(collection(db, "accounting_ledger")), entry);
-
-  // Transaction admin (SUBSCRIPTION)
-  batch.set(doc(collection(db, "transactions")), {
-    type: "SUBSCRIPTION",
-    amount,
-    currency,
-    description: entry.label,
-    referenceId: ref,
-    status: "COMPLETED",
-    supplierId,
-    supplierName,
-    createdAt: ts,
-  });
-
-  // Cotisation côté fournisseur
-  batch.set(doc(collection(db, "supplier_transactions")), {
-    type: "EXPENSE",
-    category: "Abonnement",
-    amount,
-    currency,
-    description: `Cotisation mensuelle Abonnement Fournisseur Rayons ($${amount})`,
-    referenceId: ref,
-    status: "COMPLETED",
-    supplierId,
-    createdAt: ts,
-  });
-
-  // Déblocage compte fournisseur (+30 jours)
-  batch.update(doc(db, "users", supplierId), {
-    subscriptionStatus: "ACTIVE",
-    subscriptionEndDate: nextDueDate,
-    isBlocked: false,
-    lastDepositPaidAt: ts,
-    lastDepositAmount: amount,
-  });
-
-  await batch.commit();
-
-  // Déclencher la commission de parrainage en arrière-plan (5 USD à vie)
-  if (typeof window !== "undefined") {
-    setTimeout(async () => {
-      try {
-        const token = await auth.currentUser?.getIdToken();
-        if (token) {
-          await fetch("/api/referrals/credit", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              filleulId: supplierId,
-              paymentRef: ref,
-              amountPaid: amount,
-            }),
-          });
-        }
-      } catch (err) {
-        console.warn("[LEDGER] Referral commission trigger notice:", err);
-      }
-    }, 100);
-  }
-
-  return entry;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 3. Encaissement de loyer immobilier
+// 3. Encaissement de loyer immobilier (STRICTEMENT PRIVÉ au fournisseur Immo -> `supplier_ledger`)
+//    Ne touche JAMAIS au Grand Livre central de l'Admin (`accounting_ledger`) !
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function recordRentPayment(params: {
@@ -291,7 +301,7 @@ export async function recordRentPayment(params: {
   paymentMethod?: string;
 }): Promise<AccountingEntry> {
   const {
-    supplierId, supplierName = "Partenaire Immo",
+    supplierId, supplierName = "Agence Immobilière",
     tenantId, tenantName, propertyId, propertyName, unitName,
     amount, currency = "USD", reference, periodicity = "Mensuel",
     paymentMethod = "Caisse / Mobile Money",
@@ -299,6 +309,8 @@ export async function recordRentPayment(params: {
 
   if (!amount || amount <= 0)
     throw new Error("Le montant du loyer doit être supérieur à zéro.");
+  if (!supplierId)
+    throw new Error("Identifiant agence immobilière manquant.");
 
   const entryNumber = generateEntryNumber();
   const year        = new Date().getFullYear();
@@ -312,13 +324,14 @@ export async function recordRentPayment(params: {
     entryNumber,
     date: ts,
     journal: "CS",
-    journalName: "Journal de Caisse (Espèces)",
+    journalName: "Journal Locatif Privé (Fournisseur Immo)",
     referencePiece: ref,
     label,
     debit: amount,
     credit: 0,
     currency,
     actorType: "SUPPLIER",
+    accountingScope: "SUPPLIER_PRIVATE",
     supplierId,
     supplierName,
     category: "Revenu Locatif",
@@ -327,11 +340,13 @@ export async function recordRentPayment(params: {
 
   const batch = writeBatch(db);
 
-  batch.set(doc(collection(db, "accounting_ledger")), entry);
+  // Cloisonnement strict : écriture uniquement dans le livre privé du fournisseur (`supplier_ledger` + `supplier_transactions`)
+  batch.set(doc(collection(db, "supplier_ledger")), entry);
 
   batch.set(doc(collection(db, "supplier_transactions")), {
     type: "INCOME",
     category: "Loyer",
+    branch: "habitation",
     amount,
     currency,
     description: label,
@@ -341,10 +356,10 @@ export async function recordRentPayment(params: {
     tenantName,
     status: "COMPLETED",
     supplierId,
+    accountingScope: "SUPPLIER_PRIVATE",
     createdAt: ts,
   });
 
   await batch.commit();
   return entry;
 }
-

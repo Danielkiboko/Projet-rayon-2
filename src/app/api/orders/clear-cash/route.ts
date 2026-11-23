@@ -134,12 +134,16 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      // D. Ajouter l'écriture de confirmation au journal de caisse central
-      const ledgerRef = adminDb.collection("accounting_ledger").doc();
+      // D. Écriture comptable strictement cloisonnée (Admin -> accounting_ledger, Fournisseur -> supplier_ledger)
+      const isAdminStore = supplierId === "admin";
+      const ledgerRef = adminDb
+        .collection(isAdminStore ? "accounting_ledger" : "supplier_ledger")
+        .doc();
       const rand = Math.floor(10000 + Math.random() * 90000);
       transaction.set(ledgerRef, {
         entryNumber: `ECR-${new Date().getFullYear()}-${rand}`,
         date: FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         journal: "CS",
         journalName: "Journal de Caisse (Espèces)",
         referencePiece: orderId,
@@ -147,7 +151,8 @@ export async function POST(req: NextRequest) {
         debit: amount,
         credit: 0,
         currency: "USD",
-        actorType: supplierId === "admin" ? "ADMIN" : "SUPPLIER",
+        actorType: isAdminStore ? "ADMIN" : "SUPPLIER",
+        accountingScope: isAdminStore ? "PLATFORM_ADMIN" : "SUPPLIER_PRIVATE",
         supplierId: supplierId,
         category: "Clôture Encaissement Livreur",
         status: "VALIDATED"
