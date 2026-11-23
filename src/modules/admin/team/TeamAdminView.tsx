@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { 
@@ -771,30 +771,30 @@ export default function AdminTeamPage() {
         </div>
 
         <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-300">
-            <thead className="text-xs uppercase bg-black/30 text-gray-400 tracking-wider">
+          <table className="w-full text-left text-xs text-gray-300">
+            <thead className="text-[11px] uppercase bg-black/30 text-gray-400 tracking-wider">
               {activeTeamTab === "internal" ? (
                 <tr>
-                  <th className="px-6 py-4 font-semibold">Collaborateur</th>
-                  <th className="px-6 py-4 font-semibold">Postes & Fonctions Attribués</th>
-                  <th className="px-6 py-4 font-semibold">Périmètre d'Accès</th>
-                  <th className="px-6 py-4 font-semibold">Statut</th>
-                  <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                  <th className="px-4 py-3 font-semibold">Collaborateur</th>
+                  <th className="px-4 py-3 font-semibold">Postes & Fonctions Attribués</th>
+                  <th className="px-4 py-3 font-semibold">Périmètre d'Accès</th>
+                  <th className="px-4 py-3 font-semibold">Statut</th>
+                  <th className="px-4 py-3 font-semibold text-right">Actions</th>
                 </tr>
               ) : (
                 <tr>
-                  <th className="px-6 py-4 font-semibold">Sous-Agent Délégué</th>
-                  <th className="px-6 py-4 font-semibold">Rayon & Type</th>
-                  <th className="px-6 py-4 font-semibold">Modules Autorisés</th>
-                  <th className="px-6 py-4 font-semibold">Statut</th>
-                  <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                  <th className="px-4 py-3 font-semibold">Sous-Agent Délégué</th>
+                  <th className="px-4 py-3 font-semibold">Rayon & Type</th>
+                  <th className="px-4 py-3 font-semibold">Modules Autorisés</th>
+                  <th className="px-4 py-3 font-semibold">Statut</th>
+                  <th className="px-4 py-3 font-semibold text-right">Actions</th>
                 </tr>
               )}
             </thead>
             <tbody className="divide-y divide-white/5">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={5} className="px-4 py-10 text-center text-gray-400">
                     <div className="flex flex-col items-center gap-2">
                       <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
                       <span>Chargement...</span>
@@ -804,7 +804,7 @@ export default function AdminTeamPage() {
               ) : activeTeamTab === "internal" ? (
                 teamMembers.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
+                    <td colSpan={5} className="px-4 py-10 text-center text-gray-400">
                       Aucun collaborateur interne configuré.
                     </td>
                   </tr>
@@ -815,11 +815,11 @@ export default function AdminTeamPage() {
                     const posList = member.positions && member.positions.length > 0 ? member.positions : extractPositions(member);
 
                     return (
-                      <tbody key={member.id} className="divide-y divide-white/5 border-b border-white/5">
+                      <Fragment key={member.id}>
                         <tr className="hover:bg-white/5 transition-colors">
-                          <td className="px-6 py-4 font-medium text-white">
-                            <div className="flex items-center space-x-3">
-                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
+                          <td className="px-4 py-3 font-medium text-white">
+                            <div className="flex items-center space-x-2.5">
+                              <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
                                 isMemberSuperAdmin
                                   ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
                                   : member.role?.toUpperCase().includes("FINANCE")
@@ -830,54 +830,54 @@ export default function AdminTeamPage() {
                               }`}>
                                 {isMemberSuperAdmin ? "👑" : member.name.charAt(0).toUpperCase()}
                               </div>
-                              <div>
-                                <p className="font-semibold text-white">{member.name}</p>
-                                <p className="text-xs text-gray-400">{member.email}</p>
+                              <div className="min-w-0">
+                                <p className="font-semibold text-white truncate max-w-[180px]">{member.name}</p>
+                                <p className="text-[11px] text-gray-400 truncate max-w-[180px]">{member.email}</p>
                                 {member.phoneNumber && (
-                                  <p className="text-[11px] text-gray-500 mt-0.5">{member.phoneNumber}</p>
+                                  <p className="text-[10px] text-gray-500 mt-0.5">{member.phoneNumber}</p>
                                 )}
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4">
+                          <td className="px-4 py-3">
                             {renderPositionBadges(member)}
                           </td>
-                          <td className="px-6 py-4 text-xs text-gray-300 max-w-xs">
+                          <td className="px-4 py-3 text-xs text-gray-300 max-w-[220px]">
                             {renderScopeDescription(member)}
                           </td>
-                          <td className="px-6 py-4">
-                            <span className="inline-flex items-center gap-1 text-xs text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-medium bg-emerald-500/10 px-2 py-0.5 rounded-full">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                               Actif
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-right whitespace-nowrap">
+                          <td className="px-4 py-3 text-right whitespace-nowrap">
                             {isSuper && !isMemberSuperAdmin ? (
-                              <div className="inline-flex items-center gap-2">
+                              <div className="inline-flex items-center gap-1.5">
                                 <button
                                   onClick={() => {
                                     setEditingMember(member);
                                     setEditPositions(member.positions && member.positions.length > 0 ? member.positions : extractPositions(member));
                                   }}
                                   disabled={isUpdating}
-                                  className="text-xs text-indigo-300 hover:text-white bg-indigo-500/20 hover:bg-indigo-500/30 px-3 py-1.5 rounded-lg border border-indigo-500/30 transition-all font-medium flex items-center gap-1.5 cursor-pointer"
+                                  className="text-[11px] text-indigo-300 hover:text-white bg-indigo-500/20 hover:bg-indigo-500/30 px-2.5 py-1 rounded-lg border border-indigo-500/30 transition-all font-medium inline-flex items-center gap-1 cursor-pointer"
                                 >
-                                  <ShieldCheck size={13} />
-                                  <span>Gérer les Postes ({member.positions?.length || 1})</span>
+                                  <ShieldCheck size={12} />
+                                  <span>Postes ({member.positions?.length || 1})</span>
                                 </button>
 
                                 <button
                                   onClick={() => handleRevokeRole(member.id, member.name)}
                                   disabled={isUpdating}
                                   title="Révoquer tous les droits internes"
-                                  className="text-xs text-red-400 hover:text-white hover:bg-red-500/20 px-2.5 py-1.5 rounded-lg border border-red-500/30 transition-all font-medium cursor-pointer"
+                                  className="text-[11px] text-red-400 hover:text-white hover:bg-red-500/20 px-2 py-1 rounded-lg border border-red-500/30 transition-all font-medium cursor-pointer"
                                 >
                                   Révoquer
                                 </button>
                               </div>
                             ) : isMemberSuperAdmin ? (
                               <span className="inline-flex items-center gap-1 text-xs text-amber-400 font-semibold px-2.5 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                                👑 Propriétaire Système (Intouchable)
+                                👑 Propriétaire Système
                               </span>
                             ) : null}
                           </td>
@@ -886,7 +886,7 @@ export default function AdminTeamPage() {
                         {/* Accordion / Détail Déroulant des Postes */}
                         {isExpanded && (
                           <tr className="bg-indigo-950/20 border-b border-indigo-500/20">
-                            <td colSpan={5} className="px-6 py-4">
+                            <td colSpan={5} className="px-4 py-4">
                               <div className="bg-black/40 border border-indigo-500/20 rounded-xl p-4 space-y-3">
                                 <div className="flex items-center justify-between">
                                   <h4 className="text-xs font-bold text-white flex items-center gap-2">
@@ -932,7 +932,7 @@ export default function AdminTeamPage() {
                             </td>
                           </tr>
                         )}
-                      </tbody>
+                      </Fragment>
                     );
                   })
                 )
