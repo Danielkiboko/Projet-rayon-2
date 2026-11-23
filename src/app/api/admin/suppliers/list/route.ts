@@ -106,6 +106,8 @@ export async function GET(req: NextRequest) {
         assignedRayons: data.assignedRayons || (data.rayon ? [data.rayon] : []),
         status: isPendingApp
           ? "En attente"
+          : data.status === "PENDING_DELETION"
+          ? "Suppression (15j)"
           : normalizedStatus === "active" || normalizedStatus === "disponible"
           ? "Actif"
           : data.status === "PENDING_APPROVAL"

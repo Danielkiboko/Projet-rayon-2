@@ -431,7 +431,7 @@ export default function AdminTeamPage() {
       alert("Action interdite : Le Super Administrateur (Directeur Général) ne peut pas être révoqué.");
       return;
     }
-    if (!confirm(`Voulez-vous vraiment révoquer les accès internes de "${userName}" ? Il redeviendra un utilisateur standard sans droits d'administration.`)) {
+    if (!confirm(`Supprimer DÉFINITIVEMENT le compte de "${userName}" ? Il disparaîtra immédiatement de Firebase Auth et de la base de données (zéro accès résiduel).`)) {
       return;
     }
 
@@ -446,21 +446,22 @@ export default function AdminTeamPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ userId, deleteAccount: false }),
+        body: JSON.stringify({ userId, deleteAccount: true }),
       });
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "Erreur lors de la révocation.");
+        throw new Error(data.error || "Erreur lors de la suppression.");
       }
 
-      setSuccessMessage(`Tous les accès d'administration de "${userName}" ont été révoqués et sa session invalidée.`);
+      setTeamMembers((prev) => prev.filter((m) => m.id !== userId));
+      setSuccessMessage(`Le compte de "${userName}" a été supprimé définitivement et toutes ses sessions invalidées.`);
       if (searchedUser && searchedUser.id === userId) {
-        setSearchedUser({ ...searchedUser, role: "CLIENT", accountType: "CLIENT", isInternalStaff: false });
+        setSearchedUser(null);
       }
     } catch (err: any) {
-      console.error("Error revoking role:", err);
-      setErrorMessage(err?.message || "Erreur lors de la révocation.");
+      console.error("Error deleting team member:", err);
+      setErrorMessage(err?.message || "Erreur lors de la suppression.");
     } finally {
       setIsUpdating(false);
     }
@@ -881,10 +882,10 @@ export default function AdminTeamPage() {
                                 <button
                                   onClick={() => handleRevokeRole(member.id, member.name)}
                                   disabled={isUpdating}
-                                  title="Révoquer tous les droits internes"
+                                  title="Supprimer définitivement ce compte (Auth + BDD)"
                                   className="text-[11px] text-red-400 hover:text-white hover:bg-red-500/20 px-2 py-1 rounded-lg border border-red-500/30 transition-all font-medium cursor-pointer"
                                 >
-                                  Révoquer
+                                  Supprimer
                                 </button>
                               </div>
                             ) : isMemberSuperAdmin ? (
@@ -1181,7 +1182,7 @@ export default function AdminTeamPage() {
                               disabled={isUpdating}
                               className="text-xs text-red-400 hover:text-white hover:bg-red-500/20 px-3 py-1.5 rounded-lg border border-red-500/30 transition-all font-medium cursor-pointer"
                             >
-                              Révoquer
+                              Supprimer
                             </button>
                           </>
                         ) : (

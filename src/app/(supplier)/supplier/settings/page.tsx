@@ -73,6 +73,63 @@ export default function SupplierSettingsPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [hasSubmittedSuccessfully, setHasSubmittedSuccessfully] = useState(false);
 
+  // Auto-suppression compte fournisseur (délai de grâce 15 jours)
+  const [showDeleteBox, setShowDeleteBox] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleteReason, setDeleteReason] = useState("");
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  const isPendingDeletion = userData?.status === "PENDING_DELETION";
+  const scheduledDeletionDate = userData?.scheduledDeletionAt
+    ? (userData.scheduledDeletionAt.toDate
+        ? userData.scheduledDeletionAt.toDate()
+        : new Date(userData.scheduledDeletionAt))
+    : null;
+  const deletionDaysLeft = scheduledDeletionDate
+    ? Math.max(0, Math.ceil((scheduledDeletionDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 15;
+
+  const handleSelfDeleteAction = async (action: "request" | "cancel") => {
+    if (!user) return;
+    if (action === "request" && deleteConfirmText.trim().toUpperCase() !== "SUPPRIMER") {
+      setError('Veuillez taper exactement "SUPPRIMER" pour confirmer la demande.');
+      return;
+    }
+
+    setIsDeletingAccount(true);
+    setError("");
+    setSuccess("");
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Session expirée. Veuillez vous reconnecter.");
+
+      const res = await fetch("/api/supplier/delete-account", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action,
+          reason: deleteReason.trim() || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Erreur lors du traitement de votre demande.");
+      }
+
+      setSuccess(data.message);
+      setShowDeleteBox(false);
+      setDeleteConfirmText("");
+      setDeleteReason("");
+    } catch (err: any) {
+      setError(err?.message || "Erreur lors du traitement.");
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  };
+
   const isPendingApproval = userData?.profileUpdateStatus === "PENDING_APPROVAL" || hasSubmittedSuccessfully;
   const rayonLabel = userData?.rayon?.name || userData?.rayon || "Rayons.net";
 
@@ -1075,6 +1132,106 @@ export default function SupplierSettingsPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* SECTION DANGER : Auto-suppression du compte fournisseur avec délai de grâce de 15 jours */}
+      <div className="mt-8 bg-rose-950/20 border border-rose-500/25 rounded-3xl p-6 space-y-4">
+        {isPendingDeletion ? (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-rose-300 flex items-center gap-2">
+                <Trash2 size={18} />
+                <span>Suppression programmée ({deletionDaysLeft} jour{deletionDaysLeft > 1 ? "s" : ""} restant{deletionDaysLeft > 1 ? "s" : ""})</span>
+              </h3>
+              <p className="text-xs text-rose-200/80 leading-relaxed">
+                Votre boutique et vos articles sont actuellement masqués. Toutes vos données seront définitivement effacées de la base de données centrale le{" "}
+                <strong className="text-white">
+                  {scheduledDeletionDate ? scheduledDeletionDate.toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) : "dans 15 jours"}
+                </strong>.
+              </p>
+            </div>
+            <button
+              type="button"
+              disabled={isDeletingAccount}
+              onClick={() => handleSelfDeleteAction("cancel")}
+              className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl whitespace-nowrap transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {isDeletingAccount ? "Réactivation..." : "Annuler la suppression & réactiver"}
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-bold text-rose-300 flex items-center gap-2">
+                  <Trash2 size={16} />
+                  <span>Zone de danger — Supprimer mon compte fournisseur</span>
+                </h3>
+                <p className="text-xs text-gray-400 mt-1">
+                  Votre boutique et vos articles seront masqués immédiatement. Vos données resteront en délai de grâce pendant <strong className="text-gray-200">15 jours</strong> avant effacement définitif de la base de données centrale (annulable durant ce délai).
+                </p>
+              </div>
+              {!showDeleteBox && (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteBox(true)}
+                  className="px-3.5 py-2 bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 text-xs font-bold rounded-xl whitespace-nowrap transition-colors cursor-pointer shrink-0"
+                >
+                  Supprimer mon compte
+                </button>
+              )}
+            </div>
+
+            {showDeleteBox && (
+              <div className="pt-3 border-t border-rose-500/20 space-y-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-300 mb-1">
+                    Motif de départ (optionnel)
+                  </label>
+                  <input
+                    type="text"
+                    value={deleteReason}
+                    onChange={(e) => setDeleteReason(e.target.value)}
+                    placeholder="Ex : Fermeture temporaire, changement d'activité..."
+                    className="w-full px-3.5 py-2 bg-black/40 border border-white/15 rounded-xl text-xs text-white focus:outline-none focus:border-rose-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-rose-200 mb-1">
+                    Tapez <span className="font-mono font-bold text-white">SUPPRIMER</span> pour confirmer (effacement définitif après 15 jours) :
+                  </label>
+                  <input
+                    type="text"
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    placeholder="SUPPRIMER"
+                    className="w-full sm:w-64 px-3.5 py-2 bg-black/40 border border-rose-500/40 rounded-xl text-xs font-mono uppercase text-white focus:outline-none focus:border-rose-400"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={isDeletingAccount || deleteConfirmText.trim().toUpperCase() !== "SUPPRIMER"}
+                    onClick={() => handleSelfDeleteAction("request")}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-40 cursor-pointer"
+                  >
+                    {isDeletingAccount ? "Traitement..." : "Confirmer la suppression (grâce 15j)"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowDeleteBox(false);
+                      setDeleteConfirmText("");
+                    }}
+                    className="px-3.5 py-2 text-xs text-gray-400 hover:text-white cursor-pointer"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

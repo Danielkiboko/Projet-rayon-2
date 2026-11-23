@@ -19,7 +19,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   userData: null,
   loading: true,
-  signOut: async () => {},
+  signOut: async () => { },
 });
 
 // ── Délais d'inactivité par rôle (en ms) ──────────────────────────────────────
@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setDoc(doc(db, "users", user.uid), {
         isOnline: false,
         lastConnection: serverTimestamp(),
-      }, { merge: true }).catch(() => {});
+      }, { merge: true }).catch(() => { });
     }
     await firebaseSignOut(auth);
     router.push(reason === "inactivity" ? "/login?reason=inactivity" : "/login");
@@ -195,7 +195,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let unsubscribeUserDoc: (() => void) | null = null;
 
     if (auth) {
-      setPersistence(auth, browserLocalPersistence).catch(() => {});
+      setPersistence(auth, browserLocalPersistence).catch(() => { });
     }
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (currentUser) => {
@@ -238,12 +238,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           fallbackRoleUpper === "SUPPLIER_IMMO"
             ? "immo"
             : fallbackRoleUpper === "SUPPLIER_MODE"
-            ? "mode"
-            : fallbackRoleUpper === "SUPPLIER_SAVEURS"
-            ? "saveurs"
-            : fallbackRoleUpper === "SUPPLIER_CONNECT"
-            ? "connect"
-            : undefined;
+              ? "mode"
+              : fallbackRoleUpper === "SUPPLIER_SAVEURS"
+                ? "saveurs"
+                : fallbackRoleUpper === "SUPPLIER_CONNECT"
+                  ? "connect"
+                  : undefined;
         const buildFallbackProfile = () => ({
           uid: currentUser.uid,
           role: fallbackRole,
@@ -251,24 +251,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           displayName: currentUser.displayName || currentUser.email?.split("@")[0] || "Client",
           ...(fallbackRoleUpper.startsWith("SUPPLIER")
             ? {
-                accountType: "SUPPLIER",
-                isSupplier: true,
-                ...(inferredRayon ? { rayon: inferredRayon, assignedRayons: [inferredRayon] } : {}),
-              }
+              accountType: "SUPPLIER",
+              isSupplier: true,
+              ...(inferredRayon ? { rayon: inferredRayon, assignedRayons: [inferredRayon] } : {}),
+            }
             : {}),
         });
 
+        let hadExistingDoc = false;
         unsubscribeUserDoc = onSnapshot(
           doc(db, "users", currentUser.uid),
           (docSnap) => {
             if (docSnap.exists()) {
+              hadExistingDoc = true;
               const data = docSnap.data();
+              // Verrou anti-fuite : si le compte est marqué supprimé, couper la session immédiatement
+              if (data.status === "DELETED" || data.isDeleted === true) {
+                firebaseSignOut(auth).catch(() => {});
+                setUser(null);
+                setUserData(null);
+                setLoading(false);
+                router.replace("/login?reason=deleted");
+                return;
+              }
               let role = data.role || claimRole;
               if (isSuper) {
                 role = role || "SUPER_ADMIN";
               }
               setUserData({ ...data, role: role || fallbackRole });
             } else {
+              // Si le document existait dans cette session et vient d'être supprimé par un admin, couper immédiatement l'accès !
+              if (hadExistingDoc && !isSuper) {
+                firebaseSignOut(auth).catch(() => {});
+                setUser(null);
+                setUserData(null);
+                setLoading(false);
+                router.replace("/login?reason=deleted");
+                return;
+              }
               setUserData(buildFallbackProfile());
             }
             setLoading(false);

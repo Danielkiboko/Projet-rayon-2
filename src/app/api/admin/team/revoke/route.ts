@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { FieldValue } from "firebase-admin/firestore";
-import { adminAuth, adminDb } from "@/lib/firebase-admin";
+import { adminDb } from "@/lib/firebase-admin";
 import { getServerCaller, SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
 import { recordAuditLog } from "@/server/auditLog";
+import { purgeUserAccountCompletely } from "@/lib/purgeUserAccount";
 
 /**
  * POST /api/admin/team/revoke
- * Révoque COMPLÈTEMENT tous les accès internes Team/Admin d'un collaborateur :
- * 1. Nettoie tous les champs Firestore (role, accountType, isInternalStaff, isAdmin, staffProfile, department, roleTitle)
- * 2. Réinitialise les Custom Claims Firebase Auth ({ role: "CLIENT" })
- * 3. Révoque immédiatement tous les refresh tokens actifs (déconnexion forcée des droits admin)
- * Optionnellement, si deleteAccount === true, supprime définitivement le compte Auth + Firestore.
+ * Supprime immédiatement et définitivement un membre Team (Firebase Auth + Firestore + tokens + push_devices).
+ * Aucun résidu en tant que Client : le compte disparaît totalement et ne peut plus se connecter.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -34,7 +31,6 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => ({}));
     const userId = String(body.userId || "").trim();
-    const deleteAccount = Boolean(body.deleteAccount);
 
     if (!userId) {
       return NextResponse.json({ success: false, error: "Identifiant utilisateur manquant." }, { status: 400 });
@@ -58,61 +54,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (deleteAccount) {
-      await Promise.all([
-        adminAuth.deleteUser(userId).catch((e: any) => {
-          if (e?.code !== "auth/user-not-found") console.warn("[team/revoke] deleteUser notice:", e?.message);
-        }),
-        targetRef.delete().catch((e: any) => console.warn("[team/revoke] doc delete notice:", e?.message)),
-      ]);
-    } else {
-      await Promise.all([
-        adminAuth.setCustomUserClaims(userId, { role: "CLIENT" }).catch((e: any) => {
-          if (e?.code !== "auth/user-not-found") console.warn("[team/revoke] claims notice:", e?.message);
-        }),
-        adminAuth.revokeRefreshTokens(userId).catch((e: any) => {
-          if (e?.code !== "auth/user-not-found") console.warn("[team/revoke] revokeTokens notice:", e?.message);
-        }),
-        targetRef.set(
-          {
-            role: "CLIENT",
-            accountType: "CLIENT",
-            isInternalStaff: false,
-            isAdmin: false,
-            isSuperAdmin: false,
-            staffProfile: FieldValue.delete(),
-            department: FieldValue.delete(),
-            roleTitle: FieldValue.delete(),
-            revokedAt: FieldValue.serverTimestamp(),
-            revokedBy: caller.uid,
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true }
-        ),
-      ]);
-    }
+    const purgeResult = await purgeUserAccountCompletely(userId);
 
     recordAuditLog({
-      action: deleteAccount ? "USER_DELETED" : "USER_ROLE_REVOKED",
+      action: "USER_DELETED",
       caller: { uid: caller.uid, email: caller.email, role: caller.role },
       targetType: "user",
       targetId: userId,
-      summary: deleteAccount
-        ? `Compte Team supprimé définitivement (${targetEmail || userId}).`
-        : `Accès Team/Admin intégralement révoqués + tokens invalidés (${targetEmail || userId}).`,
+      summary: `Compte Team supprimé définitivement et purgé (${targetEmail || userId}).`,
+      metadata: purgeResult,
     });
 
     return NextResponse.json({
       success: true,
-      deleteAccount,
-      message: deleteAccount
-        ? "Compte supprimé définitivement (Auth + Firestore)."
-        : "Tous les accès Team/Admin ont été révoqués et la session invalidée.",
+      deleted: true,
+      purgeResult,
+      message: "Compte supprimé définitivement (Firebase Auth, Firestore, sessions et appareils purgés).",
     });
   } catch (error: any) {
-    console.error("[TEAM REVOKE ERROR]:", error);
+    console.error("[TEAM REVOKE/DELETE ERROR]:", error);
     return NextResponse.json(
-      { success: false, error: error?.message || "Erreur lors de la révocation." },
+      { success: false, error: error?.message || "Erreur lors de la suppression." },
       { status: 500 }
     );
   }

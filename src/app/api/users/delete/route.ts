@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { SUPER_ADMIN_EMAILS } from '@/lib/serverAuth';
 import { recordAuditLog } from '@/server/auditLog';
+import { purgeUserAccountCompletely } from '@/lib/purgeUserAccount';
 
 export async function POST(req: Request) {
   try {
@@ -117,60 +118,17 @@ export async function POST(req: Request) {
       }
     }
 
-    // 1. Delete from Firebase Auth + fetch supplier products/properties REFS ONLY (.select() = 0 payload!) en PARALLÈLE
-    const [authRes, productsSnapshot, propertiesSnapshot]: [any, any, any] = await Promise.all([
-      adminAuth.deleteUser(uid).catch((authErr: any) => {
-        if (authErr?.code !== 'auth/user-not-found') {
-          console.warn('Auth deletion error (non-fatal):', authErr?.message);
-        }
-        return null;
-      }),
-      runWithTimeout<any>(
-        adminDb.collection('products').where('supplierId', '==', uid).select().limit(200).get(),
-        8000,
-        'products.refs'
-      ).catch((queryErr) => {
-        console.warn('Could not fetch supplier product refs:', queryErr);
-        return null;
-      }),
-      runWithTimeout<any>(
-        adminDb.collection('properties').where('supplierId', '==', uid).select().limit(200).get(),
-        8000,
-        'properties.refs'
-      ).catch((queryErr) => {
-        console.warn('Could not fetch supplier property refs:', queryErr);
-        return null;
-      }),
-    ]);
-    void authRes;
-
-    // 2. Delete from Firestore (users, suppliers, drivers, products, properties) in 1 fast atomic batch with timeout
-    const batch = adminDb.batch();
-    batch.delete(adminDb.collection('users').doc(uid));
-    batch.delete(adminDb.collection('suppliers').doc(uid));
-    batch.delete(adminDb.collection('drivers').doc(uid));
-    
-    const allowedCollections = ['users', 'suppliers', 'drivers'];
-    if (collectionName && allowedCollections.includes(collectionName)) {
-      batch.delete(adminDb.collection(collectionName).doc(uid));
-    }
-
-    productsSnapshot?.forEach((doc: any) => {
-      batch.delete(doc.ref);
-    });
-    propertiesSnapshot?.forEach((doc: any) => {
-      batch.delete(doc.ref);
-    });
-
+    // Suppression hermétique et définitive (Auth + tokens + users/suppliers/drivers/referrals + produits/biens/abonnements/push/sous-agents)
+    let purgeResult;
     try {
-      await runWithTimeout(batch.commit(), 10000, 'delete.batch.commit');
+      purgeResult = await purgeUserAccountCompletely(uid, { collectionName });
     } catch (commitErr: any) {
       const msg = String(commitErr?.message || '');
       if (commitErr?.code === 8 || msg.includes('RESOURCE_EXHAUSTED') || msg.includes('FIRESTORE_TIMEOUT')) {
         return NextResponse.json(
           {
             error:
-              "Firestore met trop de temps à répondre ou son quota quotidien est saturé. Le compte Auth a été révoqué ; réessayez dans quelques instants si la fiche reste visible.",
+              "Firestore met trop de temps à répondre ou son quota quotidien est saturé. Le compte Auth a été supprimé ; réessayez dans quelques instants si la fiche reste visible.",
             code: 'FIRESTORE_TIMEOUT_OR_QUOTA',
           },
           { status: 503 }
@@ -184,11 +142,18 @@ export async function POST(req: Request) {
       caller: { uid: callerUid, email: callerEmail, role: rawRole },
       targetType: "user",
       targetId: uid,
-      summary: `Compte utilisateur supprimé (${targetDocSnap?.data()?.email || uid}).`,
-      metadata: { targetEmail: targetDocSnap?.data()?.email || null, collectionName: collectionName || "users" },
+      summary: `Compte supprimé définitivement et purgé (${targetDocSnap?.data()?.email || uid}).`,
+      metadata: {
+        targetEmail: targetDocSnap?.data()?.email || null,
+        collectionName: collectionName || "users",
+        ...purgeResult,
+      },
     });
 
-    return NextResponse.json({ message: 'User and associated data deleted successfully' }, { status: 200 });
+    return NextResponse.json({
+      message: 'Compte et toutes les données associées supprimés définitivement.',
+      purgeResult,
+    }, { status: 200 });
   } catch (error: any) {
     console.error('Error deleting user:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
