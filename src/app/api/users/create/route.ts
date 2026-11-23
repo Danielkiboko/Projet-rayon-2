@@ -28,26 +28,45 @@ export async function POST(req: Request) {
 
     const callerUid = decodedToken.uid;
     const callerEmail = (decodedToken.email || '').toLowerCase().trim();
+    const isSuperAdminEmail = SUPER_ADMIN_EMAILS.includes(callerEmail);
 
-    // Check latest role from Firestore first (source of truth), then fallback to token claim
+    // Check latest role from Firestore (skip extra read if already Super Admin by verified email)
     let firestoreRole: string | null = null;
     let callerDocData: any = null;
-    try {
-      const userDoc = await adminDb.collection('users').doc(callerUid).get();
-      if (userDoc.exists) {
-        callerDocData = userDoc.data();
-        firestoreRole = callerDocData?.role;
+    if (!isSuperAdminEmail) {
+      try {
+        const userDoc = await Promise.race([
+          adminDb.collection('users').doc(callerUid).get(),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('CALLER_LOOKUP_TIMEOUT')), 6000)),
+        ]);
+        if (userDoc.exists) {
+          callerDocData = userDoc.data();
+          firestoreRole = callerDocData?.role;
+        }
+      } catch (dbErr) {
+        console.warn('Could not fetch caller doc from Firestore:', dbErr);
       }
-    } catch (dbErr) {
-      console.warn('Could not fetch caller doc from Firestore:', dbErr);
     }
 
     const rawRole = (firestoreRole || decodedToken.role || '').toString().toUpperCase();
-    const isSuperAdminEmail = SUPER_ADMIN_EMAILS.includes((callerEmail || '').toLowerCase().trim());
-    const isSuperAdminCaller = isSuperAdminEmail || rawRole === 'SUPER_ADMIN' || rawRole === 'SUPERADMIN';
-    const isSubAdminCaller = ['SUB_ADMIN', 'SUBADMIN', 'ADMIN'].includes(rawRole);
+    const callerPositions: string[] = Array.isArray(callerDocData?.staffProfile?.positions)
+      ? callerDocData.staffProfile.positions.map((p: any) => String(p).toUpperCase())
+      : [];
+    const callerPermissions: string[] = Array.isArray(callerDocData?.staffProfile?.permissions)
+      ? callerDocData.staffProfile.permissions
+      : [];
+
+    const isSuperAdminCaller =
+      isSuperAdminEmail ||
+      rawRole === 'SUPER_ADMIN' ||
+      rawRole === 'SUPERADMIN' ||
+      callerDocData?.isSuperAdmin === true;
+    const isSubAdminCaller =
+      ['SUB_ADMIN', 'SUBADMIN', 'SOUS_ADMIN', 'SOUS_ADMIN_GENERAL', 'ADMIN', 'GESTIONNAIRE_ADMIN'].includes(rawRole) ||
+      callerPositions.some((p) => ['SUB_ADMIN', 'SUBADMIN', 'ADMIN', 'GESTIONNAIRE_ADMIN'].includes(p)) ||
+      callerPermissions.includes('suppliers.manage');
     const isAdminCaller = isSuperAdminCaller || isSubAdminCaller;
-    const isSupplierCaller = ['SUPPLIER', 'SUPPLIER_IMMO', 'SUB_SUPPLIER', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT', 'SUPPLIER_SAVEURS', 'FOURNISSEUR'].includes(rawRole);
+    const isSupplierCaller = ['SUPPLIER', 'SUPPLIER_IMMO', 'SUB_SUPPLIER', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT', 'SUPPLIER_SAVEURS', 'FOURNISSEUR'].includes(rawRole) || callerDocData?.isSupplier === true;
     const isPartnerCaller = rawRole === 'PARTNER' || callerDocData?.isPartner === true;
 
     if (!isAdminCaller && !isSupplierCaller && !isPartnerCaller) {
@@ -182,10 +201,13 @@ export async function POST(req: Request) {
       } else {
         delete additionalData.isOfficialAdminStore;
         delete additionalData.isAdminSupplier;
-        // Read trial duration from platform settings (default: 15 days per policy)
+        // Read trial duration from platform settings (3s max timeout, default: 15 days)
         let trialDays = 15;
         try {
-          const settingsDoc = await adminDb.collection('settings').doc('platform').get();
+          const settingsDoc = await Promise.race([
+            adminDb.collection('settings').doc('platform').get(),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('SETTINGS_TIMEOUT')), 3000)),
+          ]);
           if (settingsDoc.exists) {
             const settingsData = settingsDoc.data();
             if (settingsData?.trialDurationDays && settingsData.trialDurationDays > 0) {
@@ -193,7 +215,7 @@ export async function POST(req: Request) {
             }
           }
         } catch (settingsErr) {
-          console.warn('Could not read platform settings, using default 15 days trial:', settingsErr);
+          console.warn('Could not read platform settings quickly, using default 15 days trial:', settingsErr);
         }
         const endDate = new Date();
         endDate.setDate(endDate.getDate() + trialDays);
@@ -231,7 +253,7 @@ export async function POST(req: Request) {
       delete additionalData.companyName;
     }
 
-    // 6. Save User Metadata in Firestore (bounded timeout so Firestore quota exhaustion never causes a 504 HTML gateway timeout)
+    // 6 & 7. Save User Metadata + Role Collection in ONE atomic batch (1 seul aller-retour Firestore au lieu de 2-3!)
     const runWithTimeout = <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> =>
       Promise.race([
         promise,
@@ -240,38 +262,60 @@ export async function POST(req: Request) {
         ),
       ]);
 
-    const userDocRef = adminDb.collection('users').doc(userRecord.uid);
-    try {
-      await runWithTimeout(
-        userDocRef.set({
-          ...additionalData,
-          uid: userRecord.uid,
-          email,
-          displayName,
-          role: roleToCreate,
-          createdBy: claims.createdBy,
-          creatorRole: isPartnerCaller ? 'PARTNER' : (rawRole || 'superAdmin'),
-          createdAt: new Date(),
-          status: 'active',
-        }, { merge: true }),
-        10000,
-        'users.set'
-      );
+    const isSupplierRoleToCreate = [
+      'supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT'
+    ].includes(roleToCreate);
 
-      // 7. Route to specific collections (drivers, suppliers) if needed
-      if (['supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT'].includes(roleToCreate)) {
-        await runWithTimeout(
-          adminDb.collection('suppliers').doc(userRecord.uid).set({
-            email,
-            displayName,
-            createdAt: new Date(),
-            status: 'active',
-            referredByPartnerId: isPartnerCaller ? callerUid : (additionalData.referredByPartnerId || null),
-          }, { merge: true }),
-          8000,
-          'suppliers.set'
-        );
-      }
+    const writeBatch = adminDb.batch();
+    const userDocRef = adminDb.collection('users').doc(userRecord.uid);
+    writeBatch.set(userDocRef, {
+      ...additionalData,
+      uid: userRecord.uid,
+      email,
+      displayName,
+      role: roleToCreate,
+      createdBy: claims.createdBy,
+      creatorRole: isPartnerCaller ? 'PARTNER' : (rawRole || 'superAdmin'),
+      createdAt: new Date(),
+      status: 'active',
+    }, { merge: true });
+
+    if (isSupplierRoleToCreate) {
+      writeBatch.set(adminDb.collection('suppliers').doc(userRecord.uid), {
+        email,
+        displayName,
+        companyName: additionalData.companyName || displayName,
+        rayon: additionalData.rayon || null,
+        createdAt: new Date(),
+        status: 'active',
+        referredByPartnerId: isPartnerCaller ? callerUid : (additionalData.referredByPartnerId || null),
+      }, { merge: true });
+    } else if (roleToCreate === 'driver') {
+      const assignedSupplierId = isSupplierCaller ? callerUid : (extraData?.supplierId || 'admin');
+      writeBatch.set(adminDb.collection('drivers').doc(userRecord.uid), {
+        driverId: userRecord.uid,
+        supplierId: assignedSupplierId,
+        parentSupplierId: isSupplierCaller ? callerUid : null,
+        createdBy: claims.createdBy,
+        email,
+        displayName,
+        appDownloadUrl: getPermanentDriverApkUrl(),
+        createdAt: new Date(),
+        status: 'active',
+      }, { merge: true });
+    }
+
+    // Lancer le batch Firestore + la génération du lien mot de passe EN PARALLÈLE !
+    let resetLink: string | null = null;
+    try {
+      const [, linkRes] = await Promise.all([
+        runWithTimeout(writeBatch.commit(), 10000, 'users.batch.commit'),
+        adminAuth.generatePasswordResetLink(email).catch((resetErr: any) => {
+          console.warn('Could not generate reset link:', resetErr);
+          return null;
+        }),
+      ]);
+      resetLink = linkRes;
     } catch (fsWriteErr: any) {
       const msg = String(fsWriteErr?.message || '');
       const isQuota =
@@ -284,7 +328,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             error:
-              "Le quota quotidien d'écriture Firestore est saturé (RESOURCE_EXHAUSTED). Le compte d'authentification a été créé avec son rôle, mais le profil Firestore n'a pas pu être écrit. Passez votre projet Firebase au plan Blaze ou réessayez après réinitialisation du quota.",
+              "Firestore met trop de temps à répondre ou son quota quotidien d'écriture est saturé (RESOURCE_EXHAUSTED). Le compte Auth a été créé avec son rôle ; réessayez dans quelques secondes.",
             code: 'FIRESTORE_QUOTA_EXCEEDED',
             uid: userRecord.uid,
           },
@@ -294,7 +338,7 @@ export async function POST(req: Request) {
       throw fsWriteErr;
     }
 
-    if (['supplier', 'SUPPLIER', 'SUPPLIER_IMMO', 'SUPPLIER_SAVEURS', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT'].includes(roleToCreate)) {
+    if (isSupplierRoleToCreate) {
 
       // If created by partner, attach referral relation immediately
       if (isPartnerCaller) {
@@ -340,27 +384,6 @@ export async function POST(req: Request) {
           }
         }
       }
-    } else if (roleToCreate === 'driver') {
-      const assignedSupplierId = isSupplierCaller ? callerUid : (extraData?.supplierId || 'admin');
-      await adminDb.collection('drivers').doc(userRecord.uid).set({
-        driverId: userRecord.uid,
-        supplierId: assignedSupplierId,
-        parentSupplierId: isSupplierCaller ? callerUid : null,
-        createdBy: claims.createdBy,
-        email,
-        displayName,
-        appDownloadUrl: getPermanentDriverApkUrl(),
-        createdAt: new Date(),
-        status: 'active'
-      }, { merge: true });
-    }
-
-    // 8. Generate Password Reset Link for convenient onboarding
-    let resetLink: string | null = null;
-    try {
-      resetLink = await adminAuth.generatePasswordResetLink(email);
-    } catch (resetErr) {
-      console.warn('Could not generate reset link:', resetErr);
     }
 
     // 8.5 Send Email & SMS with strict timeouts (never block/timeout HTTP response on slow SMTP)
@@ -551,9 +574,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Ne jamais dépasser 4 secondes d'attente pour les notifications afin d'éviter un 504 Gateway Timeout
+    // Ne jamais bloquer l'interface plus de 1.5 seconde pour l'envoi SMTP/SMS (l'envoi continue en arrière-plan)
     if (notificationTasks.length > 0) {
-      await runWithSoftTimeout(Promise.allSettled(notificationTasks), 4000);
+      await runWithSoftTimeout(Promise.allSettled(notificationTasks), 1500);
     }
 
     return NextResponse.json({ 

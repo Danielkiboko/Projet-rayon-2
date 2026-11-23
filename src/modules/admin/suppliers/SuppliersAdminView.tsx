@@ -318,7 +318,7 @@ export default function SuppliersPage() {
     setError("");
     setSuccessMessage("");
     try {
-      const token = await auth.currentUser?.getIdToken(true);
+      const token = await auth.currentUser?.getIdToken();
       if (!token) throw new Error("Session expirée. Veuillez vous reconnecter.");
 
       const res = await fetch("/api/admin/suppliers/approve-application", {
@@ -517,7 +517,7 @@ export default function SuppliersPage() {
     setError("");
     setSuccessMessage("");
     try {
-      const token = await auth.currentUser?.getIdToken(true);
+      const token = await auth.currentUser?.getIdToken();
       if (!token) throw new Error("Vous devez être connecté.");
 
       const response = await fetch("/api/users/delete", {
@@ -572,7 +572,7 @@ export default function SuppliersPage() {
     setSuccessMessage("");
 
     try {
-      const token = await auth.currentUser?.getIdToken(true);
+      const token = await auth.currentUser?.getIdToken();
       if (!token) {
         throw new Error("Vous devez être connecté pour effectuer cette action.");
       }
