@@ -5,6 +5,7 @@ import { getServerCaller, canActForSupplier } from "@/lib/serverAuth";
 import { attachReferral, creditReferralCommission } from "@/lib/referrals";
 import { computeDiscountedDeposit } from "@/lib/referralConfig";
 import { cacheDel } from "@/lib/cache";
+import { enforceRateLimit } from "@/lib/rateLimit";
 
 function generateEntryNumber(): string {
   const year = new Date().getFullYear();
@@ -14,6 +15,9 @@ function generateEntryNumber(): string {
 
 export async function POST(req: NextRequest) {
   try {
+    const rateLimited = await enforceRateLimit(req, "supplier:subscribe", 5, 60);
+    if (rateLimited) return rateLimited;
+
     const body = await req.json();
     const {
       mode,
@@ -307,27 +311,58 @@ export async function POST(req: NextRequest) {
 
     // ─────────────────────────────────────────────────────────────
     // ÉCRITURE ATOMIQUE VIA BATCH
+    // Sécurité anti-fraude : une candidature soumise par un non-admin NE crédite JAMAIS
+    // `accounting_ledger` ni `transactions` tant que l'Admin n'a pas vérifié le paiement.
+    // Elle crée une preuve en attente (`subscription_payment_requests` = PENDING_VERIFICATION).
     // ─────────────────────────────────────────────────────────────
     const batch = adminDb.batch();
-
-    const ledgerRef = adminDb.collection("accounting_ledger").doc();
-    const adminTxRef = adminDb.collection("transactions").doc();
-    const supplierTxRef = adminDb.collection("supplier_transactions").doc();
+    const shouldWriteLedgerDirectly = caller.isAdmin || (!isApplicationMode && (!isProd || allowSim));
+    let ledgerId: string | null = null;
+    let adminTxId: string | null = null;
+    let supplierTxId: string | null = null;
 
     if (!isDuplicatePayment) {
-      batch.set(ledgerRef, ledgerEntry);
-      batch.set(adminTxRef, adminTx);
-      batch.set(supplierTxRef, supplierTx);
-      batch.set(paymentLockRef, {
-        supplierId,
-        referenceId: ref,
-        baseAmount,
-        amount: finalAmount,
-        referralDiscount,
-        paymentMethod,
-        recordedBy: caller?.uid || null,
-        createdAt: now,
-      });
+      if (shouldWriteLedgerDirectly) {
+        const ledgerRef = adminDb.collection("accounting_ledger").doc();
+        const adminTxRef = adminDb.collection("transactions").doc();
+        const supplierTxRef = adminDb.collection("supplier_transactions").doc();
+        ledgerId = ledgerRef.id;
+        adminTxId = adminTxRef.id;
+        supplierTxId = supplierTxRef.id;
+
+        batch.set(ledgerRef, ledgerEntry);
+        batch.set(adminTxRef, adminTx);
+        batch.set(supplierTxRef, supplierTx);
+        batch.set(paymentLockRef, {
+          supplierId,
+          referenceId: ref,
+          baseAmount,
+          amount: finalAmount,
+          referralDiscount,
+          paymentMethod,
+          recordedBy: caller?.uid || null,
+          createdAt: now,
+        });
+      } else {
+        // Preuve en attente de validation Admin dans `/admin/finance` (zéro pollution comptable)
+        const pendingReqRef = adminDb.collection("subscription_payment_requests").doc();
+        batch.set(pendingReqRef, {
+          supplierId,
+          supplierName: effectiveName,
+          supplierEmail: supplierEmail || existingUserData?.email || "",
+          operator: "MANUAL_APPLICATION",
+          operatorLabel: paymentMethod || "Mobile Money / Candidature",
+          senderPhone: companyData?.phone || existingUserData?.phone || "",
+          transactionRef: ref,
+          baseAmount,
+          discountAmount: referralDiscount,
+          finalAmount,
+          note: `Candidature fournisseur (${effectiveName}) — en attente de vérification financière.`,
+          status: "PENDING_VERIFICATION",
+          createdAt: now,
+        });
+        userUpdatePayload.paymentVerificationStatus = "PENDING_VERIFICATION";
+      }
     }
 
     batch.set(userDocRef, userUpdatePayload, { merge: true });
@@ -396,7 +431,7 @@ export async function POST(req: NextRequest) {
         referral.attached = r.attached;
         referral.reason = r.reason;
       }
-      if (!isDuplicatePayment) {
+      if (!isDuplicatePayment && shouldWriteLedgerDirectly) {
         const c = await creditReferralCommission({ filleulId: supplierId, paymentRef: ref, amountPaid: finalAmount });
         referral.credited = c.credited;
       }
@@ -408,15 +443,18 @@ export async function POST(req: NextRequest) {
       success: true,
       referenceId: ref,
       entryNumber,
-      ledgerId: ledgerRef.id,
-      adminTxId: adminTxRef.id,
-      supplierTxId: supplierTxRef.id,
+      ledgerId,
+      adminTxId,
+      supplierTxId,
+      pendingVerification: !shouldWriteLedgerDirectly,
       subscriptionEndDate: nextDueDate.toISOString(),
       amountCharged: finalAmount,
       referralDiscount,
       duplicate: isDuplicatePayment,
       referral,
-      message: `Abonnement de $${finalAmount} validé et enregistré dans le Grand Livre Admin et l'Espace Fournisseur.`,
+      message: shouldWriteLedgerDirectly
+        ? `Abonnement de $${finalAmount} validé et enregistré dans le Grand Livre Admin et l'Espace Fournisseur.`
+        : `Candidature enregistrée ! Votre preuve de paiement ($${finalAmount}, réf. ${ref}) est transmise à la direction financière pour vérification.`,
     });
   } catch (error: any) {
     console.error("[SUPPLIER SUBSCRIBE API ERROR]:", error);

@@ -7,37 +7,51 @@ import {
 } from "@/lib/autoTranslate";
 import { adminDb, initFirebaseAdmin } from "@/lib/firebase-admin";
 import { getServerCaller } from "@/lib/serverAuth";
+import { enforceRateLimit } from "@/lib/rateLimit";
 
 /**
  * POST /api/translate
  * Traduit dynamiquement des textes, messages de chat, ou libellés d'interface
  * en Français (fr), Anglais (en) ou Chinois Simplifié (zh).
  *
- * Modes supportés :
- * - { text: string, targetLang: "fr"|"en"|"zh" } -> { translated: string }
- * - { texts: string[], targetLang: "fr"|"en"|"zh" } -> { translations: string[] }
- * - { text: string, allLanguages: true, chatId?: string, messageId?: string } -> { translations: { fr, en, zh } }
+ * Sécurité :
+ * - Rate-limit distribué (60 req/min/IP via Redis L2 + L1) contre abus CPU/quota.
+ * - Contrôle strict de participation au chat avant toute écriture de `translations`.
  */
 export async function POST(req: NextRequest) {
   try {
+    const rateLimited = await enforceRateLimit(req, "translate", 60, 60);
+    if (rateLimited) return rateLimited;
+
     const body = await req.json();
     const { text, texts, targetLang, allLanguages, chatId, messageId } = body || {};
 
     if (allLanguages && typeof text === "string") {
-      const translations = await translateToAllLanguages(text);
+      const translations = await translateToAllLanguages(text.slice(0, 4000));
 
-      // Si un chatId + messageId est fourni par un utilisateur authentifié, sauvegarder les traductions en BDD
+      // Si un chatId + messageId est fourni par un utilisateur authentifié, vérifier qu'il est participant du chat
       if (chatId && messageId) {
         const caller = await getServerCaller(req);
         if (caller) {
           try {
             await initFirebaseAdmin();
-            await adminDb
-              .collection("chats")
-              .doc(String(chatId))
-              .collection("messages")
-              .doc(String(messageId))
-              .set({ translations }, { merge: true });
+            const chatRef = adminDb.collection("chats").doc(String(chatId));
+            const chatSnap = await chatRef.get();
+            const chatData = chatSnap.exists ? chatSnap.data() || {} : null;
+            const participants: string[] = Array.isArray(chatData?.participants) ? chatData.participants : [];
+            const isParticipant =
+              caller.isAdmin ||
+              participants.includes(caller.uid) ||
+              chatData?.clientId === caller.uid ||
+              chatData?.supplierId === caller.uid ||
+              (caller.parentSupplierId && chatData?.supplierId === caller.parentSupplierId);
+
+            if (chatData && isParticipant) {
+              await chatRef
+                .collection("messages")
+                .doc(String(messageId))
+                .set({ translations }, { merge: true });
+            }
           } catch (persistErr) {
             console.warn("[/api/translate] persist translations warning:", persistErr);
           }

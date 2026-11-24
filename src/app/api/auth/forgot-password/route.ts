@@ -1,22 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { adminAuth } from "@/lib/firebase-admin";
 import { sendEmail } from "@/lib/email";
-
-const RATE_LIMIT_MAX = 5;
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const resetIpWindow = new Map<string, { count: number; firstAt: number }>();
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = resetIpWindow.get(ip);
-  if (!entry || now - entry.firstAt > RATE_LIMIT_WINDOW_MS) {
-    resetIpWindow.set(ip, { count: 1, firstAt: now });
-    return false;
-  }
-  if (entry.count >= RATE_LIMIT_MAX) return true;
-  entry.count += 1;
-  return false;
-}
+import { enforceRateLimit } from "@/lib/rateLimit";
 
 function escapeHtml(str: string): string {
   return String(str)
@@ -27,16 +12,10 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#39;");
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const forwarded = req.headers.get("x-forwarded-for");
-    const ip = forwarded ? forwarded.split(",")[0].trim() : "unknown";
-    if (isRateLimited(ip)) {
-      return NextResponse.json(
-        { error: "Trop de tentatives. Veuillez patienter une minute." },
-        { status: 429 }
-      );
-    }
+    const rateLimited = await enforceRateLimit(req, "auth:forgot-password", 5, 60);
+    if (rateLimited) return rateLimited;
 
     const { email } = await req.json();
 

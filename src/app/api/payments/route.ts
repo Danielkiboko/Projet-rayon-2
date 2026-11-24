@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { initFirebaseAdmin, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { creditReferralCommission } from "@/lib/referrals";
 import { getServerCaller, canActForSupplier } from "@/lib/serverAuth";
+import { enforceRateLimit } from "@/lib/rateLimit";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PAYMENT GATEWAY — Structure prête à brancher
@@ -148,8 +149,11 @@ async function processPayment(
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/payments
 // ─────────────────────────────────────────────────────────────────────────────
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const rateLimited = await enforceRateLimit(req, "payments", 10, 60);
+    if (rateLimited) return rateLimited;
+
     await initFirebaseAdmin();
     const db = adminDb;
     const body: PaymentRequest = await req.json();
@@ -195,6 +199,16 @@ export async function POST(req: Request) {
       }
 
       const existingOrderData = orderDocSnap.data();
+
+      // Contrôle strict de propriété sur la commande (empêche un tiers de modifier le statut d'une autre commande)
+      const orderOwnerId = existingOrderData?.clientId;
+      if (!caller) {
+        return NextResponse.json({ success: false, error: "Authentification requise." }, { status: 401 });
+      }
+      if (!caller.isAdmin && orderOwnerId && orderOwnerId !== "GUEST" && caller.uid !== orderOwnerId) {
+        return NextResponse.json({ success: false, error: "Non autorisé à payer ou modifier cette commande." }, { status: 403 });
+      }
+
       if (existingOrderData?.status === "COMPLETED" || existingOrderData?.status === "PAID") {
         return NextResponse.json({
           success: true,

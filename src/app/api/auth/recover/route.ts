@@ -1,23 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
+import { enforceRateLimit } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
-
-const RECOVER_RATE_LIMIT_MAX = 5;
-const RECOVER_WINDOW_MS = 60 * 1000;
-const recoverIpMap = new Map<string, { count: number; firstAt: number }>();
-
-function isRecoverRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = recoverIpMap.get(ip);
-  if (!entry || now - entry.firstAt > RECOVER_WINDOW_MS) {
-    recoverIpMap.set(ip, { count: 1, firstAt: now });
-    return false;
-  }
-  if (entry.count >= RECOVER_RATE_LIMIT_MAX) return true;
-  entry.count += 1;
-  return false;
-}
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split("@");
@@ -26,16 +11,10 @@ function maskEmail(email: string): string {
   return `${local[0]}***${local[local.length - 1]}@${domain}`;
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const forwarded = req.headers.get("x-forwarded-for");
-    const ip = forwarded ? forwarded.split(",")[0].trim() : "unknown";
-    if (isRecoverRateLimited(ip)) {
-      return NextResponse.json(
-        { error: "Trop de tentatives. Veuillez réessayer dans une minute." },
-        { status: 429 }
-      );
-    }
+    const rateLimited = await enforceRateLimit(req, "auth:recover", 5, 60);
+    if (rateLimited) return rateLimited;
 
     const { phone } = await req.json();
 

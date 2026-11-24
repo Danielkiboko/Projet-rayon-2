@@ -32,6 +32,23 @@ export async function POST(req: Request) {
     const cleanEmail = tenantEmail.trim().toLowerCase();
     const cleanAgency = (agencyName || "MUTAMULIS").trim();
 
+    const esc = (s: any) =>
+      String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+    const safeAgency = esc(cleanAgency);
+    const safeTenant = esc(tenantName || "Cher locataire");
+    const safeProperty = esc(propertyName);
+    const safeUnit = unitName ? esc(unitName) : "";
+    const safePhone = agencyPhone ? esc(agencyPhone) : "";
+    const safeAgencyEmail = agencyEmail ? esc(agencyEmail) : "";
+    const safeStartDate = startDate ? esc(startDate) : "";
+    const safeCurrency = esc(currency);
+
     if (!process.env.SMTP_PASS) {
       return NextResponse.json(
         { error: "Configuration SMTP manquante sur le serveur (SMTP_PASS)." },
@@ -64,20 +81,20 @@ export async function POST(req: Request) {
     const htmlContent = `
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px;">
         <div style="border-bottom: 2px solid #4C6EF5; padding-bottom: 16px; margin-bottom: 24px;">
-          <h1 style="color: #0F1D27; font-size: 22px; font-weight: 800; margin: 0;">${cleanAgency.toUpperCase()}</h1>
+          <h1 style="color: #0F1D27; font-size: 22px; font-weight: 800; margin: 0;">${safeAgency.toUpperCase()}</h1>
           <p style="color: #4C6EF5; font-size: 13px; font-weight: 600; margin: 4px 0 0 0;">GESTION IMMOBILIÈRE & LOCATIVE</p>
         </div>
 
-        <p style="color: #1a202c; font-size: 15px; font-weight: 600;">Bonjour ${tenantName || "Cher locataire"},</p>
+        <p style="color: #1a202c; font-size: 15px; font-weight: 600;">Bonjour ${safeTenant},</p>
         
         <p style="color: #4a5568; font-size: 14px; line-height: 1.6;">
-          Nous vous confirmons l'enregistrement officiel de votre contrat de bail auprès de notre agence <strong>${cleanAgency}</strong> pour le bien suivant :
+          Nous vous confirmons l'enregistrement officiel de votre contrat de bail auprès de notre agence <strong>${safeAgency}</strong> pour le bien suivant :
         </p>
 
         <div style="background-color: #f7fafc; border: 1px solid #edf2f7; border-radius: 10px; padding: 16px; margin: 20px 0;">
-          <p style="margin: 4px 0; color: #2d3748; font-size: 14px;">🏠 <strong>Bien :</strong> ${propertyName}${unitName ? ` (Unité / Porte : ${unitName})` : ""}</p>
-          ${rentAmount ? `<p style="margin: 4px 0; color: #2d3748; font-size: 14px;">💰 <strong>Loyer mensuel :</strong> ${rentAmount.toLocaleString()} ${currency}</p>` : ""}
-          ${startDate ? `<p style="margin: 4px 0; color: #2d3748; font-size: 14px;">📅 <strong>Prise d'effet :</strong> ${startDate}</p>` : ""}
+          <p style="margin: 4px 0; color: #2d3748; font-size: 14px;">🏠 <strong>Bien :</strong> ${safeProperty}${safeUnit ? ` (Unité / Porte : ${safeUnit})` : ""}</p>
+          ${rentAmount ? `<p style="margin: 4px 0; color: #2d3748; font-size: 14px;">💰 <strong>Loyer mensuel :</strong> ${Number(rentAmount).toLocaleString()} ${safeCurrency}</p>` : ""}
+          ${safeStartDate ? `<p style="margin: 4px 0; color: #2d3748; font-size: 14px;">📅 <strong>Prise d'effet :</strong> ${safeStartDate}</p>` : ""}
         </div>
 
         <p style="color: #4a5568; font-size: 14px; line-height: 1.6;">
@@ -85,9 +102,9 @@ export async function POST(req: Request) {
         </p>
 
         <div style="margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #718096;">
-          <p style="margin: 2px 0;"><strong>${cleanAgency}</strong></p>
-          ${agencyPhone ? `<p style="margin: 2px 0;">Tél : ${agencyPhone}</p>` : ""}
-          ${agencyEmail ? `<p style="margin: 2px 0;">Email : ${agencyEmail}</p>` : ""}
+          <p style="margin: 2px 0;"><strong>${safeAgency}</strong></p>
+          ${safePhone ? `<p style="margin: 2px 0;">Tél : ${safePhone}</p>` : ""}
+          ${safeAgencyEmail ? `<p style="margin: 2px 0;">Email : ${safeAgencyEmail}</p>` : ""}
           <p style="margin-top: 8px; color: #a0aec0; font-size: 11px;">Plateforme technique sécurisée : Rayons.net</p>
         </div>
       </div>

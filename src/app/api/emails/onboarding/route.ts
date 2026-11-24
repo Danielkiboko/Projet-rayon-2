@@ -46,6 +46,19 @@ export async function POST(req: Request) {
       welcomeText = `Votre compte <strong style="color:#C7D300;">Fournisseur Saveurs</strong> a été créé. Publiez vos menus et gérez vos commandes.`;
     }
 
+    const esc = (s: any) =>
+      String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+    const safeName = esc(name || "Nouveau Partenaire");
+    const safeCompany = company ? esc(company) : "";
+    const safeEmail = esc(email);
+    const safePassword = esc(password);
+
     const year = new Date().getFullYear();
 
     const htmlContent = `
@@ -69,7 +82,7 @@ export async function POST(req: Request) {
           <!-- Welcome -->
           <tr>
             <td style="padding:40px 40px 20px;">
-              <h2 style="margin:0 0 12px;font-size:22px;color:#ffffff;">Bienvenue, ${name || 'Nouveau Partenaire'} ! 👋</h2>
+              <h2 style="margin:0 0 12px;font-size:22px;color:#ffffff;">Bienvenue, ${safeName} ! 👋</h2>
               <p style="margin:0;font-size:15px;color:#a0b4c0;line-height:1.7;">${welcomeText}</p>
             </td>
           </tr>
@@ -81,7 +94,7 @@ export async function POST(req: Request) {
               <div style="background:rgba(199,211,0,0.08);border:1px solid rgba(199,211,0,0.25);border-radius:10px;padding:20px;">
                 <p style="margin:0 0 6px;font-size:11px;color:#8fa3b0;text-transform:uppercase;letter-spacing:1px;font-weight:600;">Votre Rayon de rattachement</p>
                 <p style="margin:0;font-size:16px;color:#C7D300;font-weight:700;">${rayonLabel}</p>
-                ${company ? `<p style="margin:6px 0 0;font-size:13px;color:#8fa3b0;">Entreprise : <strong style="color:#fff;">${company}</strong></p>` : ''}
+                ${safeCompany ? `<p style="margin:6px 0 0;font-size:13px;color:#8fa3b0;">Entreprise : <strong style="color:#fff;">${safeCompany}</strong></p>` : ''}
               </div>
             </td>
           </tr>` : ''}
@@ -94,13 +107,13 @@ export async function POST(req: Request) {
                 <tr>
                   <td style="padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.08);">
                     <span style="font-size:12px;color:#8fa3b0;text-transform:uppercase;letter-spacing:0.5px;">Identifiant</span><br>
-                    <strong style="font-size:15px;color:#ffffff;">${email}</strong>
+                    <strong style="font-size:15px;color:#ffffff;">${safeEmail}</strong>
                   </td>
                 </tr>
                 <tr>
                   <td style="padding:14px 20px;">
                     <span style="font-size:12px;color:#8fa3b0;text-transform:uppercase;letter-spacing:0.5px;">Mot de passe temporaire</span><br>
-                    <strong style="font-size:18px;color:#C7D300;letter-spacing:3px;font-family:monospace;">${password}</strong>
+                    <strong style="font-size:18px;color:#C7D300;letter-spacing:3px;font-family:monospace;">${safePassword}</strong>
                     <p style="margin:6px 0 0;font-size:12px;color:#8fa3b0;">⚠️ Changez ce mot de passe dès votre première connexion</p>
                   </td>
                 </tr>

@@ -92,33 +92,48 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Aucun article fourni dans la commande." }, { status: 400 });
     }
 
-    // 3b. Vérification serveur des prix et fournisseurs réels depuis Firestore
+    // 3b. Vérification serveur STRICTE des prix et fournisseurs réels depuis Firestore (anti-falsification de prix)
     const orderItems: any[] = [];
     for (const it of rawItems) {
-      let verifiedPrice = it.price;
-      let verifiedSupplierId = it.supplierId;
-      let verifiedTitle = it.title;
-      if (it.productId) {
-        try {
-          const prodSnap = await adminDb.collection("products").doc(String(it.productId)).get();
-          if (prodSnap.exists) {
-            const pData = prodSnap.data() || {};
-            if (typeof pData.price === "number" && pData.price > 0) {
-              verifiedPrice = pData.price;
-            }
-            if (pData.supplierId) {
-              verifiedSupplierId = pData.supplierId;
-            }
-            if (pData.title) {
-              verifiedTitle = pData.title?.fr || pData.title?.en || pData.title || verifiedTitle;
-            }
-          }
-        } catch (err) {
-          console.warn(`[OrderCreate] Could not verify product ${it.productId}:`, err);
-        }
+      const prodId = String(it.productId || "").trim();
+      if (!prodId) {
+        return NextResponse.json(
+          { success: false, error: "Identifiant produit manquant dans la commande." },
+          { status: 400 }
+        );
       }
+
+      const prodSnap = await adminDb.collection("products").doc(prodId).get();
+      if (!prodSnap.exists) {
+        return NextResponse.json(
+          { success: false, error: `L'article "${it.title || prodId}" est introuvable ou n'est plus disponible.` },
+          { status: 400 }
+        );
+      }
+
+      const pData = prodSnap.data() || {};
+      if (pData.status === "REJECTED" || pData.status === "ARCHIVED_DELETION" || pData.isHidden === true) {
+        return NextResponse.json(
+          { success: false, error: `L'article "${it.title || prodId}" n'est plus disponible à la vente.` },
+          { status: 400 }
+        );
+      }
+
+      const verifiedPrice = Number(pData.price);
+      if (!Number.isFinite(verifiedPrice) || verifiedPrice <= 0) {
+        return NextResponse.json(
+          { success: false, error: `Prix officiel invalide pour l'article "${it.title || prodId}".` },
+          { status: 400 }
+        );
+      }
+
+      const verifiedSupplierId = pData.supplierId || it.supplierId || "admin";
+      const verifiedTitle = pData.title?.fr || pData.title?.en || pData.title || pData.name || it.title;
+
       orderItems.push({
         ...it,
+        id: prodId,
+        productId: prodId,
         title: verifiedTitle,
         price: verifiedPrice,
         supplierId: verifiedSupplierId,
