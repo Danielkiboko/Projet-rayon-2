@@ -1,6 +1,8 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef, ReactNode } from "react";
+import { useAuth } from "@/context/AuthContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 export interface CartItem {
   id: string;
@@ -32,11 +34,15 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 const CART_STORAGE_KEY = "rayons_cart_items_v1";
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const { lang } = useLanguage();
   const [items, setItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSyncedSignatureRef = useRef<string>("");
 
-  // 1. Load cart from localStorage on mount
+  // 1. Load cart from localStorage on mount + support ?openCart=1 (clic depuis email/push de relance)
   useEffect(() => {
     try {
       const stored = localStorage.getItem(CART_STORAGE_KEY);
@@ -48,7 +54,43 @@ export function CartProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsHydrated(true);
     }
+
+    try {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("openCart") === "1") {
+          setIsCartOpen(true);
+        }
+      }
+    } catch {}
   }, []);
+
+  // 1b. Si le client clique sur ?openCart=1 depuis un autre appareil et que son panier local est vide, restaurer depuis le serveur
+  useEffect(() => {
+    if (!isHydrated || !user || items.length > 0) return;
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("openCart") !== "1") return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await user.getIdToken();
+        const res = await fetch("/api/cart/sync", {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        const json = await res.json();
+        if (!cancelled && json.success && Array.isArray(json.items) && json.items.length > 0) {
+          setItems(json.items);
+          setIsCartOpen(true);
+        }
+      } catch {}
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isHydrated, user, items.length]);
 
   // 2. Persist cart to localStorage on changes
   useEffect(() => {
@@ -59,6 +101,53 @@ export function CartProvider({ children }: { children: ReactNode }) {
       console.warn("Could not save cart to storage:", e);
     }
   }, [items, isHydrated]);
+
+  // 3. Synchronisation légère (debounce 3s) vers /api/cart/sync pour relance panier abandonné (Email + Push)
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    const deviceId =
+      typeof window !== "undefined" ? localStorage.getItem("rayons_device_id_v1") || "" : "";
+
+    // Inutile d'appeler l'API si ni connecté ni appareil Push enregistré
+    if (!user && !deviceId) return;
+
+    const signature = `${user?.uid || "guest"}::${items.map((it) => `${it.id}:${it.quantity}`).sort().join("|")}`;
+    if (signature === lastSyncedSignatureRef.current) return;
+
+    if (syncTimerRef.current) {
+      clearTimeout(syncTimerRef.current);
+    }
+
+    syncTimerRef.current = setTimeout(async () => {
+      try {
+        const token = user ? await user.getIdToken() : null;
+        const res = await fetch("/api/cart/sync", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            items,
+            deviceId,
+            lang,
+          }),
+        });
+        if (res.ok) {
+          lastSyncedSignatureRef.current = signature;
+        }
+      } catch {
+        // Silencieux : ne jamais perturber l'expérience client
+      }
+    }, 3000);
+
+    return () => {
+      if (syncTimerRef.current) {
+        clearTimeout(syncTimerRef.current);
+      }
+    };
+  }, [items, isHydrated, user, lang]);
 
   const addToCart = useCallback((product: any, quantity = 1) => {
     if (!product || !product.id) return;

@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": ["TEAMID.com.rayon.app"],
+        "components": [
+          { "/": "/product/*" },
+          { "/": "/rayon/*" },
+          { "/": "/order/*" },
+          { "/": "/dashboard*" },
+          { "/": "/?openCart=1" }
+        ]
+      }
+    ]
+  }
+}

@@ -362,21 +362,21 @@ export default function ProductDetails({ params }: { params: Promise<{ id: strin
     <div className="min-h-screen bg-[#0F1D27] text-white">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-[#0F1D27]/95 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <Link href="/" className="flex items-center text-gray-300 hover:text-white transition-colors">
-              <ChevronLeft size={20} className="mr-0.5 sm:mr-1" />
-              <span className="text-xs sm:text-sm font-semibold">{t("store.back")}</span>
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-3 min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-4 shrink-0 min-w-0">
+            <Link href="/" className="flex items-center text-gray-300 hover:text-white transition-colors shrink-0">
+              <ChevronLeft size={19} className="mr-0.5 sm:mr-1" />
+              <span className="hidden min-[400px]:inline text-xs sm:text-sm font-semibold">{t("store.back")}</span>
             </Link>
-            <div className="h-4 sm:h-5 w-[1px] bg-white/15" />
+            <div className="h-4 sm:h-5 w-[1px] bg-white/15 shrink-0" />
             <RayonsLogo size="sm" variant="dark" href="/" />
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             <button
               type="button"
               onClick={handleShareProduct}
-              className="px-2.5 sm:px-3 py-1.5 bg-white/10 hover:bg-white/15 rounded-full text-xs font-semibold text-[#C7D300] flex items-center gap-1.5 border border-white/10 transition-colors cursor-pointer"
+              className="p-2 sm:px-3 sm:py-1.5 bg-white/10 hover:bg-white/15 rounded-full text-xs font-semibold text-[#C7D300] flex items-center gap-1.5 border border-white/10 transition-colors cursor-pointer shrink-0"
               title="Partager le lien du produit"
             >
               <Share2 size={13} />

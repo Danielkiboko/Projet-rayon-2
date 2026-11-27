@@ -103,6 +103,7 @@ export default function SupplierTenantsPage() {
   const [maintenanceChargedTo, setMaintenanceChargedTo] = useState<"BAILLEUR" | "LOCATAIRE">("BAILLEUR");
   const [maintenanceCategory, setMaintenanceCategory] = useState("Plomberie");
   const [sendingEmailTenantId, setSendingEmailTenantId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "LATE" | "UP_TO_DATE" | "PARTI">("ALL");
 
   // Payment History Modal State
   type Payment = { id: string; amount: number; currency: string; reference: string; createdAt: any; };
@@ -949,9 +950,30 @@ export default function SupplierTenantsPage() {
     }
   };
 
-  const filteredTenants = tenants.filter(
-    (t) => (t.name || "").toLowerCase().includes(search.toLowerCase()) || (t.propertyName || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const isTenantOverdue = (t: Tenant) => {
+    if (t.status === "PARTI") return false;
+    if (t.status === "En retard" || t.status === "LATE") return true;
+    if (!t.nextPayment) return false;
+    const due = new Date(t.nextPayment.split("T")[0]);
+    const today = new Date();
+    due.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    return due < today;
+  };
+
+  const overdueTenants = tenants.filter(isTenantOverdue);
+  const totalOverdueRent = overdueTenants.reduce((sum, t) => sum + Number(t.rentAmount || 0), 0);
+
+  const filteredTenants = tenants.filter((t) => {
+    const matchesSearch =
+      (t.name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (t.propertyName || "").toLowerCase().includes(search.toLowerCase());
+    if (!matchesSearch) return false;
+    if (statusFilter === "LATE") return isTenantOverdue(t);
+    if (statusFilter === "UP_TO_DATE") return t.status !== "PARTI" && !isTenantOverdue(t);
+    if (statusFilter === "PARTI") return t.status === "PARTI";
+    return true;
+  });
 
   const totalDeposits = tenants
     .filter(t => t.status !== "PARTI")
@@ -988,18 +1010,25 @@ export default function SupplierTenantsPage() {
         </div>
         <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-400">En retard de loyer</p>
-            <p className="text-2xl font-bold text-red-400 mt-1">{tenants.filter(t => t.status === "En retard").length}</p>
+            <p className="text-sm text-gray-400">Impayés / Retards</p>
+            <p className="text-2xl font-bold text-red-400 mt-1">
+              {overdueTenants.length}
+              {totalOverdueRent > 0 && (
+                <span className="text-sm font-semibold text-red-300/90 ml-2">
+                  ({totalOverdueRent.toLocaleString("fr-FR")} $)
+                </span>
+              )}
+            </p>
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="p-3 bg-red-400/10 text-red-400 rounded-lg">
               <Bell size={20} />
             </div>
-            {tenants.filter(t => t.status === "En retard").length > 0 && (
+            {overdueTenants.length > 0 && (
               <button
                 onClick={handleBulkReminder}
                 title="Envoyer une relance WhatsApp à tous les locataires en retard"
-                className="flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-orange-500/15 hover:bg-orange-500/25 text-orange-400 border border-orange-500/30 transition-all"
+                className="flex items-center gap-1 text-[11px] px-2 py-1 rounded bg-orange-500/15 hover:bg-orange-500/25 text-orange-400 border border-orange-500/30 transition-all cursor-pointer"
               >
                 <MessageSquare size={11} />
                 Tout relancer
@@ -1137,7 +1166,7 @@ export default function SupplierTenantsPage() {
       </div>
 
       <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-        <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row gap-4 justify-between">
+        <div className="p-4 border-b border-white/10 flex flex-col lg:flex-row gap-3 lg:items-center justify-between">
           <div className="relative max-w-sm w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
@@ -1147,6 +1176,29 @@ export default function SupplierTenantsPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-black/20 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#4C6EF5] text-white text-sm transition-all"
             />
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {[
+              { id: "ALL", label: `Tous (${tenants.length})` },
+              { id: "LATE", label: `Impayés / Retards (${overdueTenants.length})` },
+              { id: "UP_TO_DATE", label: `À jour (${tenants.filter((t) => t.status !== "PARTI" && !isTenantOverdue(t)).length})` },
+              { id: "PARTI", label: `Partis (${tenants.filter((t) => t.status === "PARTI").length})` },
+            ].map((pill) => (
+              <button
+                key={pill.id}
+                type="button"
+                onClick={() => setStatusFilter(pill.id as any)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
+                  statusFilter === pill.id
+                    ? pill.id === "LATE"
+                      ? "bg-rose-500/20 text-rose-200 border-rose-500/40"
+                      : "bg-[#C7D300] text-[#0F1D27] border-[#C7D300]"
+                    : "bg-black/20 text-gray-300 border-white/10 hover:bg-white/10"
+                }`}
+              >
+                {pill.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -1281,7 +1333,7 @@ export default function SupplierTenantsPage() {
                         </button>
 
                         {/* Bouton Relance WhatsApp (uniquement si en retard) */}
-                        {tenant.status === "En retard" && (
+                        {isTenantOverdue(tenant) && (
                           <button
                             onClick={() => handleSendReminder(tenant)}
                             title="Envoyer une relance de loyer par WhatsApp"

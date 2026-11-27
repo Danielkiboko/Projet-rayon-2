@@ -211,9 +211,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 8. Notifications in-app + Push Mobile pour le client et les fournisseurs
+    // 8. Notifications in-app + Push Mobile pour le client et les fournisseurs + clôture du panier abandonné
     const pushTasks: Promise<any>[] = [];
     if (clientId !== "GUEST") {
+      pushTasks.push(
+        adminDb
+          .collection("abandoned_carts")
+          .doc(`user_${clientId}`)
+          .set(
+            {
+              status: "CONVERTED",
+              convertedOrderId: orderId,
+              convertedAt: FieldValue.serverTimestamp(),
+              updatedAt: FieldValue.serverTimestamp(),
+            },
+            { merge: true }
+          )
+          .catch(() => {})
+      );
       pushTasks.push(
         dispatchAccountNotification({
           userId: clientId,

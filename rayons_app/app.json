@@ -2,13 +2,18 @@
   "expo": {
     "name": "Rayons",
     "slug": "rayons-app",
-    "version": "1.1.0",
+    "scheme": "rayons",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.rayon.app",
+      "associatedDomains": [
+        "applinks:rayons.net",
+        "applinks:www.rayons.net"
+      ],
       "infoPlist": {
         "NSCameraUsageDescription": "Rayons utilise l'appareil photo pour scanner des codes ou ajouter des photos.",
         "NSPhotoLibraryUsageDescription": "Rayons accède à vos photos pour vous permettre d'envoyer des justificatifs ou photos de profil.",
@@ -17,7 +22,7 @@
     },
     "android": {
       "package": "com.rayon.app",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#0F1D27",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -28,7 +33,27 @@
         "INTERNET",
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-        "CAMERA"
+        "CAMERA",
+        "POST_NOTIFICATIONS"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "rayons.net",
+              "pathPrefix": "/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.rayons.net",
+              "pathPrefix": "/"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
       ],
       "predictiveBackGestureEnabled": false
     },

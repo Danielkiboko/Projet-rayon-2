@@ -17,17 +17,83 @@ import * as SplashScreen from 'expo-splash-screen';
 // Empêcher la fermeture automatique du splash avant chargement
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-const TARGET_URL = 'https://rayons.net';
+const BASE_ORIGIN = 'https://rayons.net';
 
 const EXTERNAL_SCHEMES = ['tel:', 'mailto:', 'sms:', 'whatsapp:', 'intent:', 'geo:'];
 
+const EXTERNAL_DOMAINS = [
+  'wa.me',
+  'api.whatsapp.com',
+  'maps.google.com',
+  'www.google.com/maps',
+  'buy.stripe.com',
+  'checkout.stripe.com',
+  'checkout.flutterwave.com',
+  'www.paypal.com',
+];
+
+/**
+ * Convertit un Deep Link entrant (`https://rayons.net/...`, `https://www.rayons.net/...` ou `rayons://...`)
+ * en URL HTTPS sécurisée autorisée dans la WebView Rayons.
+ */
+function resolveIncomingDeepLink(rawUrl: string | null | undefined): string | null {
+  if (!rawUrl || typeof rawUrl !== 'string') return null;
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+
+  try {
+    if (trimmed.startsWith('rayons://')) {
+      const pathPart = trimmed.replace(/^rayons:\/\//, '').replace(/^\/+/, '');
+      return `${BASE_ORIGIN}/${pathPart}`;
+    }
+
+    const parsed = new URL(trimmed);
+    const host = parsed.hostname.toLowerCase();
+    if (
+      parsed.protocol === 'https:' &&
+      (host === 'rayons.net' || host === 'www.rayons.net')
+    ) {
+      return `${BASE_ORIGIN}${parsed.pathname}${parsed.search}${parsed.hash}`;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 export default function App() {
   const webViewRef = useRef<WebView>(null);
+  const [currentUrl, setCurrentUrl] = useState<string>(BASE_ORIGIN);
   const [canGoBack, setCanGoBack] = useState(false);
   const [isError, setIsError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Gérer le bouton retour matériel (Android)
+  // 1. Gérer les Deep Links au lancement (cold start) et lorsque l'app est déjà ouverte
+  useEffect(() => {
+    Linking.getInitialURL()
+      .then((initialUrl) => {
+        const resolved = resolveIncomingDeepLink(initialUrl);
+        if (resolved) {
+          setCurrentUrl(resolved);
+        }
+      })
+      .catch(() => {});
+
+    const linkSub = Linking.addEventListener('url', ({ url }) => {
+      const resolved = resolveIncomingDeepLink(url);
+      if (resolved) {
+        setIsError(false);
+        setCurrentUrl(resolved);
+      }
+    });
+
+    return () => {
+      linkSub.remove();
+    };
+  }, []);
+
+  // 2. Gérer le bouton retour matériel (Android)
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (canGoBack && webViewRef.current) {
@@ -53,18 +119,16 @@ export default function App() {
     webViewRef.current?.reload();
   };
 
-  // Ouvrir WhatsApp, Appels téléphoniques, Emails et Google Maps nativement hors WebView
+  // 3. Ouvrir WhatsApp, Appels, Maps et passerelles Visa externes nativement hors WebView
   const handleShouldStartLoad = useCallback((request: { url: string }) => {
     const url = request.url || '';
     const lower = url.toLowerCase();
     const isExternalScheme = EXTERNAL_SCHEMES.some((scheme) => lower.startsWith(scheme));
-    const isExternalAppLink =
-      lower.startsWith('https://wa.me/') ||
-      lower.startsWith('https://api.whatsapp.com/') ||
-      lower.startsWith('https://maps.google.com/') ||
-      lower.startsWith('https://www.google.com/maps');
+    const isExternalDomain = EXTERNAL_DOMAINS.some(
+      (domain) => lower.startsWith(`https://${domain}`) || lower.startsWith(`http://${domain}`)
+    );
 
-    if (isExternalScheme || isExternalAppLink) {
+    if (isExternalScheme || isExternalDomain) {
       Linking.openURL(url).catch(() => {});
       return false;
     }
@@ -73,7 +137,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
         <StatusBar style="light" />
 
         {isError ? (
@@ -103,7 +167,7 @@ export default function App() {
           <View style={styles.webviewContainer}>
             <WebView
               ref={webViewRef}
-              source={{ uri: TARGET_URL }}
+              source={{ uri: currentUrl }}
               style={styles.webview}
               onNavigationStateChange={(navState) => {
                 setCanGoBack(navState.canGoBack);
@@ -119,10 +183,12 @@ export default function App() {
               domStorageEnabled={true}
               pullToRefreshEnabled={true}
               allowsBackForwardNavigationGestures={true}
+              allowsInlineMediaPlayback={true}
+              setSupportMultipleWindows={false}
               sharedCookiesEnabled={true}
               thirdPartyCookiesEnabled={true}
               cacheEnabled={true}
-              applicationNameForUserAgent="RayonsApp/1.1"
+              applicationNameForUserAgent="RayonsApp/1.2"
               mixedContentMode="compatibility"
             />
             {isLoading && (
