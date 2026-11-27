@@ -28,7 +28,7 @@
     "jspdf-autotable": "^5.0.8",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.35.0",
-    "next": "^16.3.8",
+    "next": "^16.4.6",
     "next-themes": "^0.4.6",
     "nodemailer": "^10.1.0",
     "react": "19.2.8",
@@ -47,13 +47,19 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "^16.3.8",
+    "eslint-config-next": "^16.4.6",
     "jscpd": "^5.1.2",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^3.2.7"
+    "vitest": "^4.1.12"
   },
   "overrides": {
-    "@grpc/grpc-js": "^1.14.6"
+    "@grpc/grpc-js": "^1.14.6",
+    "websocket-driver": ">=0.8.1",
+    "dompurify": ">=3.4.17",
+    "tinypool": ">=2.1.2",
+    "re2js": ">=2.8.7",
+    "source-map-js": ">=1.2.2",
+    "uuid": ">=11.1.1"
   }
 }
