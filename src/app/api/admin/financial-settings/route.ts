@@ -3,6 +3,8 @@ import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
 import { requireAnyStaffPermission } from "@/server/guards";
+import { cacheDel } from "@/lib/cache";
+import { DEFAULT_VISA_CONFIG, sanitizeHttpsPaymentUrl, VISA_CONFIG_CACHE_KEY } from "@/lib/visaPayments";
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,6 +21,12 @@ export async function GET(req: NextRequest) {
       promoDiscountUSD: Number(data?.promoDiscountUSD) || 10,
       monthlySubscriptionPrice: Number(data?.monthlySubscriptionPrice) || 50,
       trialDurationDays: Number(data?.trialDurationDays) || 15,
+      visaEnabled: Boolean(data?.visaEnabled),
+      visaProviderName: String(data?.visaProviderName || DEFAULT_VISA_CONFIG.providerName),
+      visaSubscriptionUrl: sanitizeHttpsPaymentUrl(data?.visaSubscriptionUrl),
+      visaCheckoutUrl: sanitizeHttpsPaymentUrl(data?.visaCheckoutUrl),
+      visaAutoBillingEnabled: data?.visaAutoBillingEnabled !== false,
+      visaWebhookEndpoint: DEFAULT_VISA_CONFIG.webhookEndpoint,
       updatedAt: data?.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : null,
       updatedBy: data?.updatedBy || null,
     };
@@ -72,6 +80,84 @@ export async function POST(req: NextRequest) {
     const platformRef = adminDb.collection("settings").doc("platform");
     const platformDoc = await platformRef.get();
     const currentData = platformDoc.exists ? platformDoc.data() : {};
+
+    // ─────────────────────────────────────────────────────────────
+    // ACTION 0 : MISE À JOUR DES LIENS DE PAIEMENT CARTE VISA (SUPER ADMIN UNIQUEMENT)
+    // ─────────────────────────────────────────────────────────────
+    if (action === "UPDATE_VISA_CONFIG") {
+      if (!isSuperAdmin) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "Sécurité anti-fraude : seul le Directeur Général (Super Admin) peut modifier les liens de paiement par carte Visa.",
+          },
+          { status: 403 }
+        );
+      }
+
+      const rawSubUrl = String(body.visaSubscriptionUrl || "").trim();
+      const rawCheckoutUrl = String(body.visaCheckoutUrl || "").trim();
+      const cleanSubUrl = sanitizeHttpsPaymentUrl(rawSubUrl);
+      const cleanCheckoutUrl = sanitizeHttpsPaymentUrl(rawCheckoutUrl);
+
+      if (rawSubUrl && !cleanSubUrl) {
+        return NextResponse.json(
+          { success: false, error: "Le lien Visa Abonnement doit être une URL HTTPS valide (ex : https://buy.stripe.com/...)." },
+          { status: 400 }
+        );
+      }
+      if (rawCheckoutUrl && !cleanCheckoutUrl) {
+        return NextResponse.json(
+          { success: false, error: "Le lien Visa Boutique/Achats doit être une URL HTTPS valide (ex : https://...)." },
+          { status: 400 }
+        );
+      }
+
+      const visaEnabled = Boolean(body.visaEnabled);
+      if (visaEnabled && !cleanSubUrl && !cleanCheckoutUrl) {
+        return NextResponse.json(
+          { success: false, error: "Ajoutez au moins un lien de paiement HTTPS avant d'activer la carte Visa." },
+          { status: 400 }
+        );
+      }
+
+      const visaPayload = {
+        visaEnabled,
+        visaProviderName: String(body.visaProviderName || "Stripe").trim().slice(0, 40) || "Stripe",
+        visaSubscriptionUrl: cleanSubUrl,
+        visaCheckoutUrl: cleanCheckoutUrl,
+        visaAutoBillingEnabled: body.visaAutoBillingEnabled !== false,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedBy: caller.uid,
+        updatedByName: callerData?.displayName || "Direction Générale",
+      };
+
+      await Promise.all([
+        platformRef.set(visaPayload, { merge: true }),
+        adminDb.collection("audit_logs").add({
+          action: "FINANCE_UPDATE_VISA_LINKS",
+          category: "FINANCE",
+          actorUid: caller.uid,
+          actorEmail: caller.email || null,
+          visaEnabled: visaPayload.visaEnabled,
+          visaProviderName: visaPayload.visaProviderName,
+          hasSubscriptionUrl: Boolean(cleanSubUrl),
+          hasCheckoutUrl: Boolean(cleanCheckoutUrl),
+          visaAutoBillingEnabled: visaPayload.visaAutoBillingEnabled,
+          createdAt: FieldValue.serverTimestamp(),
+        }),
+      ]);
+
+      await cacheDel(VISA_CONFIG_CACHE_KEY);
+
+      return NextResponse.json({
+        success: true,
+        message: visaEnabled
+          ? `Paiement par Carte Visa (${visaPayload.visaProviderName}) activé et synchronisé instantanément sur le site.`
+          : "Configuration Carte Visa enregistrée (actuellement en pause).",
+      });
+    }
 
     // ─────────────────────────────────────────────────────────────
     // ACTION 1 : PROPOSER UNE MODIFICATION (PAR LE FINANCIER OU L'ADMIN)

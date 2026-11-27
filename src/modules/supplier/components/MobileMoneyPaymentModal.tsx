@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Smartphone, CheckCircle2, Clock, ShieldCheck, Loader2, Copy, Check, Building2, AlertCircle } from "lucide-react";
+import { X, Smartphone, CheckCircle2, Clock, ShieldCheck, Loader2, Copy, Check, Building2, AlertCircle, CreditCard, ExternalLink, RefreshCw } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
+import { buildVisaPaymentUrl, VisaPaymentConfig } from "@/lib/visaPayments";
 
 interface MobileMoneyPaymentModalProps {
   isOpen: boolean;
@@ -43,6 +44,8 @@ export default function MobileMoneyPaymentModal({
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [myRequests, setMyRequests] = useState<any[]>([]);
+  const [payChannelTab, setPayChannelTab] = useState<"MOBILE_MONEY" | "VISA">("MOBILE_MONEY");
+  const [visaConfig, setVisaConfig] = useState<VisaPaymentConfig | null>(null);
 
   const effectiveAmount = Math.max(0, baseAmount - pendingDiscount);
 
@@ -53,6 +56,16 @@ export default function MobileMoneyPaymentModal({
     if (userData?.phone && !senderPhone) {
       setSenderPhone(String(userData.phone));
     }
+
+    // Charger la configuration dynamique Carte Visa / prélèvement automatique
+    fetch("/api/payments/visa-config")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.success && json.config) {
+          setVisaConfig(json.config);
+        }
+      })
+      .catch(() => {});
 
     // Charger le numéro officiel de réception Mobile Money depuis settings/platform
     getDoc(doc(db, "settings", "platform"))
@@ -125,11 +138,11 @@ export default function MobileMoneyPaymentModal({
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-[#122431]">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-[#C7D300]/15 border border-[#C7D300]/30 flex items-center justify-center text-[#C7D300]">
-              <Smartphone size={18} />
+              {payChannelTab === "VISA" ? <CreditCard size={18} /> : <Smartphone size={18} />}
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-bold text-white">Régler mon Abonnement Mobile Money</h3>
-              <p className="text-[11px] text-gray-400">Validation rapide par la caisse centrale Rayons.net</p>
+              <h3 className="text-sm sm:text-base font-bold text-white">Régler mon Abonnement</h3>
+              <p className="text-[11px] text-gray-400">Mobile Money ou Carte Visa / Mastercard</p>
             </div>
           </div>
           <button
@@ -141,8 +154,91 @@ export default function MobileMoneyPaymentModal({
           </button>
         </div>
 
+        {/* Sélecteur de canal : Mobile Money vs Carte Visa (Prélèvement Auto) */}
+        {visaConfig?.enabled && visaConfig.subscriptionUrl && (
+          <div className="px-5 pt-4 bg-[#0F1D27]">
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-black/30 border border-white/10 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setPayChannelTab("MOBILE_MONEY")}
+                className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                  payChannelTab === "MOBILE_MONEY"
+                    ? "bg-white/15 text-white"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <Smartphone size={13} />
+                <span>Mobile Money</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPayChannelTab("VISA")}
+                className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                  payChannelTab === "VISA"
+                    ? "bg-[#C7D300] text-[#0F1D27]"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                <CreditCard size={13} />
+                <span>Carte Visa {visaConfig.autoBillingEnabled ? "· Auto" : ""}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="p-5 max-h-[82vh] overflow-y-auto rayons-scroll">
-          {successMsg ? (
+          {payChannelTab === "VISA" && visaConfig?.enabled && visaConfig.subscriptionUrl ? (
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-gradient-to-r from-[#C7D300]/15 via-[#C7D300]/5 to-transparent border border-[#C7D300]/30 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] uppercase font-bold tracking-wider text-[#C7D300]">
+                    Abonnement Mensuel Carte Visa ({visaConfig.providerName})
+                  </p>
+                  <div className="flex items-baseline gap-2 mt-0.5">
+                    <span className="text-2xl font-black text-white tabular-nums">${effectiveAmount} USD</span>
+                    <span className="text-xs text-gray-400">/ mois</span>
+                  </div>
+                </div>
+                <CreditCard size={28} className="text-[#C7D300] shrink-0" />
+              </div>
+
+              <div className="p-4 rounded-xl bg-white/[0.04] border border-white/10 space-y-2 text-xs text-gray-300">
+                <div className="flex items-center gap-2 text-emerald-300 font-semibold">
+                  <RefreshCw size={14} />
+                  <span>
+                    {visaConfig.autoBillingEnabled
+                      ? "Prélèvement mensuel automatique activé"
+                      : "Paiement sécurisé par Carte Visa / Mastercard"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-400 leading-relaxed">
+                  Vous allez être redirigé vers la page de paiement chiffrée officielle (<strong>{visaConfig.providerName}</strong>).
+                  Dès validation de votre carte, votre abonnement est activé et prolongé automatiquement de 30 jours. Aucune donnée bancaire n&apos;est stockée sur Rayons.net.
+                </p>
+              </div>
+
+              <a
+                href={buildVisaPaymentUrl(visaConfig.subscriptionUrl, {
+                  referenceId: `sub_${supplierId}`,
+                  email: user?.email || userData?.email || "",
+                  amount: effectiveAmount,
+                  currency: "USD",
+                })}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3.5 px-4 rounded-xl bg-[#C7D300] hover:bg-[#b8c400] text-[#0F1D27] font-extrabold text-xs flex items-center justify-center gap-2 transition-colors shadow-lg"
+              >
+                <CreditCard size={15} />
+                <span>Payer ${effectiveAmount} USD par Carte Visa</span>
+                <ExternalLink size={13} />
+              </a>
+
+              <p className="text-[10px] text-center text-gray-500 flex items-center justify-center gap-1.5">
+                <ShieldCheck size={12} className="text-emerald-400" />
+                <span>Paiement 3D-Secure PCI-DSS · Activation automatique via Webhook</span>
+              </p>
+            </div>
+          ) : successMsg ? (
             <ValidationSuccessView
               title="Preuve envoyée !"
               message={successMsg}

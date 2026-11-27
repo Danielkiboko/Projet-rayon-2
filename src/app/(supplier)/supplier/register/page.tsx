@@ -30,6 +30,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import { recordSubscriptionDeposit } from "@/lib/accountingLedger";
 import { DEFAULT_MONTHLY_DEPOSIT } from "@/lib/supplierSubscription";
+import { buildVisaPaymentUrl, VisaPaymentConfig } from "@/lib/visaPayments";
 
 // Helper OTP / mot de passe provisoire
 const generateRandomPassword = () => {
@@ -61,6 +62,16 @@ export default function SupplierRegisterPage() {
 
   // Données de paiement Étape 1
   const [paymentMethod, setPaymentMethod] = useState<"mobile_money" | "card">("mobile_money");
+  const [visaConfig, setVisaConfig] = useState<VisaPaymentConfig | null>(null);
+
+  useEffect(() => {
+    fetch("/api/payments/visa-config")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.success && json.config) setVisaConfig(json.config);
+      })
+      .catch(() => {});
+  }, []);
   const [mobileOperator, setMobileOperator] = useState<"mpesa" | "orange" | "airtel">("mpesa");
   const [paymentPhone, setPaymentPhone] = useState("");
   const [cardNumber, setCardNumber] = useState("");
@@ -173,9 +184,20 @@ export default function SupplierRegisterPage() {
       return;
     }
 
-    if (paymentMethod === "card" && (!cardNumber.trim() || !cardExpiry.trim() || !cardCvc.trim())) {
-      setError("Veuillez compléter toutes les coordonnées de votre carte bancaire.");
-      return;
+    if (paymentMethod === "card") {
+      if (!visaConfig?.enabled || !visaConfig.subscriptionUrl) {
+        setError("Le paiement par carte Visa n'est pas encore activé. Veuillez régler par Mobile Money.");
+        return;
+      }
+      const visaUrl = buildVisaPaymentUrl(visaConfig.subscriptionUrl, {
+        referenceId: `sub_${user?.uid || "candidate"}`,
+        email: email.trim(),
+        amount: effectiveDeposit,
+        currency: "USD",
+      });
+      if (visaUrl) {
+        window.open(visaUrl, "_blank", "noopener,noreferrer");
+      }
     }
 
     setIsProcessingPayment(true);
@@ -710,45 +732,30 @@ export default function SupplierRegisterPage() {
                   </div>
                 )}
 
-                {/* DÉTAILS CARTE BANCAIRE */}
+                {/* DÉTAILS CARTE BANCAIRE (REDIRECTION HÉBERGÉE PCI-DSS — ZÉRO SAISIE PAN/CVC SUR RAYONS.NET) */}
                 {paymentMethod === "card" && (
-                  <div className="p-4 bg-white rounded-2xl border border-gray-200 space-y-3">
-                    <div>
-                      <label className="text-[11px] font-bold text-gray-700 block mb-1">Numéro de carte :</label>
-                      <input
-                        type="text"
-                        required
-                        value={cardNumber}
-                        onChange={(e) => setCardNumber(e.target.value)}
-                        className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF6600] text-xs text-gray-900"
-                        placeholder="4111 2222 3333 4444"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="text-[11px] font-bold text-gray-700 block mb-1">Expiration (MM/AA) :</label>
-                        <input
-                          type="text"
-                          required
-                          value={cardExpiry}
-                          onChange={(e) => setCardExpiry(e.target.value)}
-                          className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF6600] text-xs text-gray-900"
-                          placeholder="12/27"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-bold text-gray-700 block mb-1">Code CVC :</label>
-                        <input
-                          type="password"
-                          required
-                          maxLength={4}
-                          value={cardCvc}
-                          onChange={(e) => setCardCvc(e.target.value)}
-                          className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF6600] text-xs text-gray-900"
-                          placeholder="123"
-                        />
-                      </div>
-                    </div>
+                  <div className="p-4 bg-white rounded-2xl border border-gray-200 space-y-2.5">
+                    {visaConfig?.enabled && visaConfig.subscriptionUrl ? (
+                      <>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold text-gray-900">
+                            Paiement Sécurisé Carte Visa ({visaConfig.providerName})
+                          </span>
+                          {visaConfig.autoBillingEnabled && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              Prélèvement mensuel auto
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-gray-600 leading-relaxed">
+                          En cliquant sur le bouton ci-dessous, la page sécurisée 3D-Secure <strong>{visaConfig.providerName}</strong> s&apos;ouvrira pour régler <strong>${effectiveDeposit} USD</strong> par carte Visa / Mastercard. Aucune coordonnée bancaire n&apos;est saisie sur Rayons.net.
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                        Le lien de paiement Carte Visa est en cours d&apos;activation par l&apos;administration. Veuillez utiliser <strong>Mobile Money</strong> pour finaliser immédiatement.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

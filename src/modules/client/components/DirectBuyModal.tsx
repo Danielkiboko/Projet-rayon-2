@@ -13,11 +13,13 @@ import {
   AlertCircle,
   Loader2,
   ShieldCheck,
-  Package
+  Package,
+  ExternalLink
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useCurrency } from "@/context/CurrencyContext";
 import { useRouter } from "next/navigation";
+import { buildVisaPaymentUrl, VisaPaymentConfig } from "@/lib/visaPayments";
 
 interface DirectBuyModalProps {
   isOpen: boolean;
@@ -46,6 +48,18 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [successOrder, setSuccessOrder] = useState<any | null>(null);
+  const [visaConfig, setVisaConfig] = useState<VisaPaymentConfig | null>(null);
+
+  // Charger le lien dynamique de paiement Visa (configuré dans /admin/finance)
+  useEffect(() => {
+    if (!isOpen) return;
+    fetch("/api/payments/visa-config")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json?.success && json.config) setVisaConfig(json.config);
+      })
+      .catch(() => {});
+  }, [isOpen]);
 
   // Prefill user data if logged in
   useEffect(() => {
@@ -193,10 +207,32 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
               <div className="flex justify-between">
                 <span className="text-gray-500">Mode :</span>
                 <span className="font-medium text-gray-700">
-                  {paymentMethod === "CASH_ON_DELIVERY" ? "💵 Cash à la livraison" : "📱 Mobile Money"}
+                  {paymentMethod === "CASH_ON_DELIVERY"
+                    ? "💵 Cash à la livraison"
+                    : paymentMethod === "CARD"
+                    ? "💳 Carte Visa / Mastercard"
+                    : "📱 Mobile Money"}
                 </span>
               </div>
             </div>
+
+            {paymentMethod === "CARD" && visaConfig?.enabled && visaConfig.checkoutUrl && (
+              <a
+                href={buildVisaPaymentUrl(visaConfig.checkoutUrl, {
+                  referenceId: `ord_${successOrder.id}`,
+                  email: user?.email || "",
+                  amount: totalAmount,
+                  currency: "USD",
+                })}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-3 mb-3 bg-[#0F1D27] hover:bg-[#1a3040] text-[#C7D300] font-bold rounded-xl text-sm flex items-center justify-center gap-2 shadow-md transition-colors"
+              >
+                <CreditCard size={16} />
+                <span>Payer maintenant par Carte Visa (${totalAmount})</span>
+                <ExternalLink size={14} />
+              </a>
+            )}
 
             <div className="flex gap-3 w-full">
               <button
@@ -350,11 +386,11 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
               <span className="font-bold text-gray-800 text-xs uppercase tracking-wider block">
                 3. Mode de paiement
               </span>
-              <div className="grid grid-cols-2 gap-2">
+              <div className={`grid gap-2 ${visaConfig?.enabled && visaConfig.checkoutUrl ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"}`}>
                 <button
                   type="button"
                   onClick={() => setPaymentMethod("CASH_ON_DELIVERY")}
-                  className={`p-3 rounded-xl border text-left flex items-center gap-2 transition-all ${
+                  className={`p-3 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
                     paymentMethod === "CASH_ON_DELIVERY"
                       ? "border-emerald-500 bg-emerald-50/50 text-emerald-900 font-bold"
                       : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
@@ -370,7 +406,7 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
                 <button
                   type="button"
                   onClick={() => setPaymentMethod("MOBILE_MONEY")}
-                  className={`p-3 rounded-xl border text-left flex items-center gap-2 transition-all ${
+                  className={`p-3 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
                     paymentMethod === "MOBILE_MONEY"
                       ? "border-primary bg-primary/10 text-primary font-bold"
                       : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
@@ -382,6 +418,24 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
                     <div className="text-[10px] text-gray-500">M-Pesa / Orange</div>
                   </div>
                 </button>
+
+                {visaConfig?.enabled && visaConfig.checkoutUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("CARD")}
+                    className={`p-3 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
+                      paymentMethod === "CARD"
+                        ? "border-[#0F1D27] bg-slate-100 text-[#0F1D27] font-bold"
+                        : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    <CreditCard size={18} className="text-blue-600 shrink-0" />
+                    <div>
+                      <div className="text-xs font-semibold">Carte Visa</div>
+                      <div className="text-[10px] text-gray-500">{visaConfig.providerName || "Visa / Mastercard"}</div>
+                    </div>
+                  </button>
+                )}
               </div>
             </div>
 
