@@ -27,6 +27,10 @@ import { evaluateSupplierSubscription } from "@/lib/supplierSubscription";
 import ValidationSuccessView from "@/modules/shared/components/ui/ValidationSuccessView";
 import MobileMoneyRequestsPanel from "./MobileMoneyRequestsPanel";
 import PaymentIntentsPanel from "./PaymentIntentsPanel";
+import { AdminShopProfitTab } from "./components/AdminShopProfitTab";
+import { FinanceSettingsTab } from "./components/FinanceSettingsTab";
+import { FinanceModals } from "./components/FinanceModals";
+import { formatRayonBadge, formatEntryDate, PAYMENT_CHANNELS } from "./components/financeHelpers";
 
 interface Transaction {
   id: string;
@@ -58,48 +62,6 @@ interface UserSupplier {
   isAdminSupplier?: boolean;
   referredByPartnerId?: string | null;
   createdAt?: any;
-}
-
-const RAYON_META: Record<string, { label: string; badgeClass: string }> = {
-  immo: {
-    label: "Immobilier",
-    badgeClass: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
-  },
-  mode: {
-    label: "Mode",
-    badgeClass: "bg-pink-500/10 text-pink-300 border-pink-500/20",
-  },
-  connect: {
-    label: "Connect",
-    badgeClass: "bg-sky-500/10 text-sky-300 border-sky-500/20",
-  },
-  saveurs: {
-    label: "Saveurs",
-    badgeClass: "bg-amber-500/10 text-amber-300 border-amber-500/20",
-  },
-};
-
-const PAYMENT_CHANNELS = [
-  "M-Pesa",
-  "Airtel Money",
-  "Orange Money",
-  "Espèces (Caisse Centrale)",
-  "Virement Bancaire",
-] as const;
-
-function formatRayonBadge(rayon?: string) {
-  const key = String(rayon || "connect").toLowerCase().trim();
-  return RAYON_META[key] || {
-    label: key ? key.charAt(0).toUpperCase() + key.slice(1) : "Connect",
-    badgeClass: "bg-white/5 text-gray-300 border-white/10",
-  };
-}
-
-function formatEntryDate(raw: any): string {
-  if (!raw) return "—";
-  if (raw?.toDate) return raw.toDate().toLocaleDateString("fr-FR");
-  const d = new Date(raw);
-  return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("fr-FR");
 }
 
 export default function AdminFinancePage() {
@@ -1639,974 +1601,116 @@ export default function AdminFinancePage() {
             </div>
           )}
 
-          {/* TAB: SUIVI RENTABILITÉ DES PROPRES RAYONS ADMIN (LECTURE SEULE — SANS ENCAISSEMENT PLATEFORME) */}
           {activeTab === "admin_shop" && (
-            <div className="space-y-4">
-              <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/[0.08] pb-3">
-                  <div>
-                    <h2 className="text-sm font-bold text-white">
-                      Suivi Rentabilité — Propres Rayons de l&apos;Admin (Lecture Seule)
-                    </h2>
-                    <p className="text-xs text-gray-400">
-                      Seule la boutique officielle encaisse ses ventes. Ici, l&apos;Admin visualise uniquement la somme investie, le prix de vente et le gain net sur ses propres rayons ({getPeriodLabel()}).
-                    </p>
-                  </div>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 whitespace-nowrap self-start">
-                    <ShieldCheck size={12} /> Exclusivement Rayons Admin
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="bg-black/30 p-4 rounded-xl border border-white/[0.06]">
-                    <span className="text-[10px] text-gray-400 uppercase font-semibold block">
-                      Somme Investie (Coût Produits)
-                    </span>
-                    <div className="text-2xl font-bold text-amber-300 mt-1 tabular-nums">
-                      ${adminShopAnalytics.invested.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <span className="text-[11px] text-gray-500">Capital d&apos;achat sur les ventes livrées</span>
-                  </div>
-
-                  <div className="bg-black/30 p-4 rounded-xl border border-white/[0.06]">
-                    <span className="text-[10px] text-gray-400 uppercase font-semibold block">
-                      Prix de Vente Total (Boutique Admin)
-                    </span>
-                    <div className="text-2xl font-bold text-white mt-1 tabular-nums">
-                      ${adminShopAnalytics.revenue.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <span className="text-[11px] text-gray-500">{periodAdminSales.length} vente(s) livrée(s)</span>
-                  </div>
-
-                  <div className="bg-black/30 p-4 rounded-xl border border-emerald-500/20">
-                    <span className="text-[10px] text-emerald-300 uppercase font-semibold block">
-                      Gain Net Reçu (Marge)
-                    </span>
-                    <div className="text-2xl font-bold text-emerald-400 mt-1 tabular-nums">
-                      ${adminShopAnalytics.profit.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <span className="text-[11px] text-emerald-300/80">
-                      Marge moyenne : {adminShopAnalytics.marginPct}%
-                    </span>
-                  </div>
-                </div>
-
-                {adminShopAnalytics.byRayon.length > 0 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-                    {adminShopAnalytics.byRayon.map((r) => {
-                      const badge = formatRayonBadge(r.rayon);
-                      return (
-                        <div key={r.rayon} className="bg-black/20 p-3.5 rounded-xl border border-white/[0.06] space-y-1.5 text-xs">
-                          <div className="flex items-center justify-between">
-                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${badge.badgeClass}`}>
-                              {badge.label}
-                            </span>
-                            <span className="text-[10px] text-gray-400">{r.count} vente(s)</span>
-                          </div>
-                          <div className="flex justify-between text-gray-400">
-                            <span>Investi :</span>
-                            <span className="text-amber-300 font-semibold tabular-nums">${r.invested.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between text-gray-400">
-                            <span>Vendu :</span>
-                            <span className="text-white font-semibold tabular-nums">${r.revenue.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between border-t border-white/[0.06] pt-1">
-                            <span className="text-gray-300 font-semibold">Gain :</span>
-                            <span className="text-emerald-400 font-bold tabular-nums">+${r.profit.toFixed(2)}</span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl overflow-hidden">
-                <div className="px-5 py-3.5 border-b border-white/[0.08] flex items-center justify-between">
-                  <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider">
-                    Détail des ventes sur vos propres rayons
-                  </h3>
-                  <span className="text-[11px] text-gray-500">Hors vendeurs tiers</span>
-                </div>
-                {periodAdminSales.length === 0 ? (
-                  <p className="p-6 text-center text-xs text-gray-500">
-                    Aucune vente livrée sur les propres rayons de l&apos;Admin pour cette période.
-                  </p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-black/25 text-[10px] uppercase text-gray-400">
-                        <tr>
-                          <th className="px-4 py-3">Date</th>
-                          <th className="px-4 py-3">Produit (Rayon)</th>
-                          <th className="px-4 py-3 text-right">Investi</th>
-                          <th className="px-4 py-3 text-right">Prix Vente</th>
-                          <th className="px-4 py-3 text-right">Gain Net</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/[0.05]">
-                        {periodAdminSales.map((s) => {
-                          const badge = formatRayonBadge(s.rayon);
-                          return (
-                            <tr key={s.id} className="hover:bg-white/[0.02]">
-                              <td className="px-4 py-3 text-gray-400 font-mono whitespace-nowrap">
-                                {formatEntryDate(s.createdAt)}
-                              </td>
-                              <td className="px-4 py-3">
-                                <div className="font-semibold text-white">{s.title}</div>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border ${badge.badgeClass}`}>
-                                    {badge.label}
-                                  </span>
-                                  <span className="text-[10px] text-gray-500">
-                                    Qté {s.quantity} · #{s.orderId.slice(-8)}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-right text-amber-300 tabular-nums font-medium">
-                                ${Number(s.invested || 0).toFixed(2)}
-                              </td>
-                              <td className="px-4 py-3 text-right text-white tabular-nums font-semibold">
-                                ${Number(s.revenue || 0).toFixed(2)}
-                              </td>
-                              <td className="px-4 py-3 text-right text-emerald-400 tabular-nums font-bold">
-                                +${Number(s.profit || 0).toFixed(2)}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
+            <AdminShopProfitTab
+              periodLabel={getPeriodLabel()}
+              adminShopAnalytics={adminShopAnalytics}
+              periodAdminSales={periodAdminSales}
+            />
           )}
 
-          {/* TAB 5: PARAMÈTRES FINANCIERS & DOUBLE VALIDATION */}
           {activeTab === "settings" && (
-            <div className="space-y-4">
-              {pendingProposal && pendingProposal.status === "PENDING_APPROVAL" && (
-                <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-5 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-500/20 pb-3">
-                    <div className="flex items-center gap-2.5">
-                      <AlertTriangle size={18} className="text-amber-400 shrink-0" />
-                      <div>
-                        <h3 className="text-sm font-bold text-white">Proposition financière en attente d&apos;approbation</h3>
-                        <p className="text-xs text-amber-200/80">
-                          Demandée par <strong>{pendingProposal.requestedByName}</strong> ({pendingProposal.requestedByRole})
-                        </p>
-                      </div>
-                    </div>
-                    {isSuperAdmin && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={handleApproveProposal}
-                          className="inline-flex items-center gap-1 px-3.5 py-1.5 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold rounded-lg text-xs cursor-pointer"
-                        >
-                          <Check size={13} /> Approuver
-                        </button>
-                        <button
-                          onClick={() => setIsRejectModalOpen(true)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-rose-500/20 text-rose-200 font-semibold rounded-lg text-xs border border-rose-500/30 cursor-pointer"
-                        >
-                          <X size={13} /> Rejeter
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-                    <div className="bg-black/30 p-3 rounded-lg border border-white/[0.06]">
-                      <span className="text-[10px] text-gray-400 uppercase block">Taux USD / CDF</span>
-                      <span className="text-gray-500 line-through mr-2">{pendingProposal.current?.usdToFcRate}</span>
-                      <span className="font-bold text-[#C7D300]">➔ {pendingProposal.proposed?.usdToFcRate} FC</span>
-                    </div>
-                    <div className="bg-black/30 p-3 rounded-lg border border-white/[0.06]">
-                      <span className="text-[10px] text-gray-400 uppercase block">Commission Partenaire</span>
-                      <span className="text-gray-500 line-through mr-2">${pendingProposal.current?.referralCommissionUSD}</span>
-                      <span className="font-bold text-[#C7D300]">➔ ${pendingProposal.proposed?.referralCommissionUSD}</span>
-                    </div>
-                    <div className="bg-black/30 p-3 rounded-lg border border-white/[0.06]">
-                      <span className="text-[10px] text-gray-400 uppercase block">Abonnement Mensuel</span>
-                      <span className="text-gray-500 line-through mr-2">${pendingProposal.current?.monthlySubscriptionPrice}</span>
-                      <span className="font-bold text-[#C7D300]">➔ ${pendingProposal.proposed?.monthlySubscriptionPrice}</span>
-                    </div>
-                    <div className="bg-black/30 p-3 rounded-lg border border-white/[0.06]">
-                      <span className="text-[10px] text-gray-400 uppercase block">Réduction Promo</span>
-                      <span className="text-gray-500 line-through mr-2">-${pendingProposal.current?.promoDiscountUSD}</span>
-                      <span className="font-bold text-[#C7D300]">➔ -${pendingProposal.proposed?.promoDiscountUSD}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-3">
-                  <div>
-                    <h2 className="text-sm font-bold text-white">Paramètres Financiers Plateforme</h2>
-                    <p className="text-xs text-gray-400">Taux de change, tarification abonnement et commission partenaire</p>
-                  </div>
-                  <button
-                    onClick={() => setIsProposalModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-bold text-xs rounded-lg cursor-pointer whitespace-nowrap"
-                  >
-                    <Sliders size={13} />
-                    <span>{isSuperAdmin ? "Modifier les paramètres" : "Proposer une modification"}</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="bg-black/30 p-4 rounded-xl border border-white/[0.06]">
-                    <span className="text-[10px] text-gray-400 uppercase font-semibold block">Taux USD / CDF</span>
-                    <div className="text-xl font-bold text-white mt-1 tabular-nums">1 $ = {financialSettings?.usdToFcRate || 2850} FC</div>
-                  </div>
-                  <div className="bg-black/30 p-4 rounded-xl border border-white/[0.06]">
-                    <span className="text-[10px] text-gray-400 uppercase font-semibold block">Commission Partenaire</span>
-                    <div className="text-xl font-bold text-[#C7D300] mt-1 tabular-nums">${financialSettings?.referralCommissionUSD || 5} USD</div>
-                  </div>
-                  <div className="bg-black/30 p-4 rounded-xl border border-white/[0.06]">
-                    <span className="text-[10px] text-gray-400 uppercase font-semibold block">Abonnement Mensuel</span>
-                    <div className="text-xl font-bold text-white mt-1 tabular-nums">${financialSettings?.monthlySubscriptionPrice || 50} USD</div>
-                  </div>
-                  <div className="bg-black/30 p-4 rounded-xl border border-white/[0.06]">
-                    <span className="text-[10px] text-gray-400 uppercase font-semibold block">Réduction Code Promo</span>
-                    <div className="text-xl font-bold text-emerald-400 mt-1 tabular-nums">-${financialSettings?.promoDiscountUSD || 10} USD</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* CARTE VISA / MASTERCARD & PRÉLÈVEMENT AUTOMATIQUE (LIENS DYNAMIQUES) */}
-              <form
-                onSubmit={handleSaveVisaConfig}
-                className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5 space-y-5"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.08] pb-4">
-                  <div className="flex items-start gap-3">
-                    <div className="p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 shrink-0">
-                      <CreditCard size={18} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="text-sm font-bold text-white">
-                          Paiement Carte Visa / Mastercard &amp; Prélèvement Automatique
-                        </h2>
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                            financialSettings?.visaEnabled &&
-                            (financialSettings?.visaSubscriptionUrl || financialSettings?.visaCheckoutUrl)
-                              ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/25"
-                              : "bg-white/5 text-gray-400 border-white/10"
-                          }`}
-                        >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              financialSettings?.visaEnabled &&
-                              (financialSettings?.visaSubscriptionUrl || financialSettings?.visaCheckoutUrl)
-                                ? "bg-emerald-400"
-                                : "bg-gray-500"
-                            }`}
-                          />
-                          {financialSettings?.visaEnabled &&
-                          (financialSettings?.visaSubscriptionUrl || financialSettings?.visaCheckoutUrl)
-                            ? `Actif (${financialSettings?.visaProviderName || "Stripe"})`
-                            : "En attente de lien"}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        Configurez vos liens de paiement hébergés (HTTPS) pour les abonnements fournisseurs mensuels automatiques et les achats clients. Synchronisé en temps réel via Redis.
-                      </p>
-                    </div>
-                  </div>
-                  {isSuperAdmin ? (
-                    <button
-                      type="submit"
-                      disabled={isSavingVisa}
-                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-[#C7D300] hover:bg-[#b5c000] disabled:opacity-50 text-[#0F1D27] font-bold text-xs rounded-lg cursor-pointer whitespace-nowrap transition-colors"
-                    >
-                      <ShieldCheck size={14} />
-                      <span>{isSavingVisa ? "Enregistrement..." : "Enregistrer les liens Visa"}</span>
-                    </button>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-[11px] text-gray-400 whitespace-nowrap">
-                      <Lock size={12} /> Réservé Super Admin / DG
-                    </span>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <label className="flex items-center justify-between gap-3 bg-black/30 p-3.5 rounded-xl border border-white/[0.06] cursor-pointer">
-                    <div>
-                      <span className="text-xs font-semibold text-white block">Activer la Carte Visa</span>
-                      <span className="text-[11px] text-gray-400">Affiche l&apos;option Visa sur le site</span>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={visaEnabled}
-                      disabled={!isSuperAdmin}
-                      onChange={(e) => setVisaEnabled(e.target.checked)}
-                      className="w-4 h-4 accent-[#C7D300] cursor-pointer disabled:opacity-50"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between gap-3 bg-black/30 p-3.5 rounded-xl border border-white/[0.06] cursor-pointer">
-                    <div>
-                      <span className="text-xs font-semibold text-white block">Prélèvement mensuel auto</span>
-                      <span className="text-[11px] text-gray-400">Renouvellement ${financialSettings?.monthlySubscriptionPrice || 50}/mois</span>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={visaAutoBillingEnabled}
-                      disabled={!isSuperAdmin}
-                      onChange={(e) => setVisaAutoBillingEnabled(e.target.checked)}
-                      className="w-4 h-4 accent-[#C7D300] cursor-pointer disabled:opacity-50"
-                    />
-                  </label>
-
-                  <div className="bg-black/30 p-3.5 rounded-xl border border-white/[0.06]">
-                    <label className="text-[10px] text-gray-400 uppercase font-semibold block mb-1.5">
-                      Prestataire Passerelle
-                    </label>
-                    <select
-                      value={visaProviderName}
-                      disabled={!isSuperAdmin}
-                      onChange={(e) => setVisaProviderName(e.target.value)}
-                      className="w-full bg-[#0B151D] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#C7D300]/50 disabled:opacity-60"
-                    >
-                      <option value="Stripe">Stripe (Recommandé · Auto-Billing)</option>
-                      <option value="Flutterwave">Flutterwave (RDC / Afrique · Visa)</option>
-                      <option value="FlexPay">FlexPay RDC (Visa / Mastercard)</option>
-                      <option value="Maxicash">Maxicash (Visa / Mastercard)</option>
-                      <option value="CinetPay">CinetPay</option>
-                      <option value="PayPal">PayPal</option>
-                      <option value="Passerelle Visa">Autre passerelle HTTPS</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[11px] text-gray-300 font-semibold uppercase tracking-wider">
-                        Lien Visa · Abonnement Fournisseur (${financialSettings?.monthlySubscriptionPrice || 50}/mois)
-                      </label>
-                      {visaSubscriptionUrl && (
-                        <a
-                          href={visaSubscriptionUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[10px] text-sky-400 hover:text-sky-300"
-                        >
-                          Tester <ExternalLink size={10} />
-                        </a>
-                      )}
-                    </div>
-                    <input
-                      type="url"
-                      value={visaSubscriptionUrl}
-                      disabled={!isSuperAdmin}
-                      onChange={(e) => setVisaSubscriptionUrl(e.target.value)}
-                      placeholder="https://buy.stripe.com/... (lien récurrent mensuel)"
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-gray-600 font-mono focus:outline-none focus:border-[#C7D300]/50 disabled:opacity-60"
-                    />
-                    <p className="text-[11px] text-gray-500">
-                      Utilisé dans l&apos;inscription fournisseur et la modale de renouvellement. Le paramètre <code className="text-gray-300">client_reference_id=sub_&#123;uid&#125;</code> est injecté automatiquement.
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[11px] text-gray-300 font-semibold uppercase tracking-wider">
-                        Lien Visa · Boutique &amp; Achats Clients
-                      </label>
-                      {visaCheckoutUrl && (
-                        <a
-                          href={visaCheckoutUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[10px] text-sky-400 hover:text-sky-300"
-                        >
-                          Tester <ExternalLink size={10} />
-                        </a>
-                      )}
-                    </div>
-                    <input
-                      type="url"
-                      value={visaCheckoutUrl}
-                      disabled={!isSuperAdmin}
-                      onChange={(e) => setVisaCheckoutUrl(e.target.value)}
-                      placeholder="https://buy.stripe.com/... ou lien checkout hébergé"
-                      className="w-full bg-black/40 border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-gray-600 font-mono focus:outline-none focus:border-[#C7D300]/50 disabled:opacity-60"
-                    />
-                    <p className="text-[11px] text-gray-500">
-                      Affiché dans le tunnel de commande client. La référence <code className="text-gray-300">client_reference_id=ord_&#123;orderId&#125;</code> permet la confirmation automatique.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="bg-[#0B151D] border border-white/[0.08] rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="space-y-1 min-w-0">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400 block">
-                      Endpoint Webhook de Prélèvement Automatique (Fail-Closed · HMAC-SHA256)
-                    </span>
-                    <code className="text-xs font-mono text-white block truncate">
-                      {financialSettings?.visaWebhookEndpoint || "https://rayons.net/api/payments/visa-webhook"}
-                    </code>
-                    <p className="text-[11px] text-gray-400">
-                      À coller dans le tableau de bord de votre prestataire (événements <code className="text-gray-300">checkout.session.completed</code> &amp; <code className="text-gray-300">invoice.paid</code>) avec la variable serveur <code className="text-gray-300">STRIPE_WEBHOOK_SECRET</code> ou <code className="text-gray-300">VISA_WEBHOOK_SECRET</code>.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleCopyWebhook}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] border border-white/10 text-xs font-semibold text-white cursor-pointer shrink-0 transition-colors"
-                  >
-                    {copiedWebhook ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
-                    <span>{copiedWebhook ? "Copié !" : "Copier l'URL Webhook"}</span>
-                  </button>
-                </div>
-              </form>
-
-              <div className="bg-white/[0.03] border border-white/[0.08] rounded-xl p-5 space-y-2.5">
-                <h3 className="text-xs font-bold text-gray-300 uppercase tracking-wider">Historique des validations</h3>
-                {financialHistory.length === 0 ? (
-                  <p className="text-xs text-gray-500">Aucun changement récent enregistré.</p>
-                ) : (
-                  <div className="divide-y divide-white/[0.05] text-xs">
-                    {financialHistory.map((h) => (
-                      <div key={h.id} className="py-2.5 flex items-center justify-between text-gray-400">
-                        <div>
-                          <span className="font-semibold text-white">{h.reason || "Mise à jour financière"}</span>
-                          <p className="text-[10px] text-gray-500">
-                            Validé par {h.approvedByName || h.appliedByName || "Direction"} · Taux {h.values?.usdToFcRate} FC · Comm. ${h.values?.referralCommissionUSD}
-                          </p>
-                        </div>
-                        <span className="text-[10px] font-mono text-gray-500">
-                          {h.appliedAt ? new Date(h.appliedAt).toLocaleDateString("fr-FR") : "Récent"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
+            <FinanceSettingsTab
+              isSuperAdmin={isSuperAdmin}
+              pendingProposal={pendingProposal}
+              financialSettings={financialSettings}
+              financialHistory={financialHistory}
+              visaEnabled={visaEnabled}
+              setVisaEnabled={setVisaEnabled}
+              visaAutoBillingEnabled={visaAutoBillingEnabled}
+              setVisaAutoBillingEnabled={setVisaAutoBillingEnabled}
+              visaProviderName={visaProviderName}
+              setVisaProviderName={setVisaProviderName}
+              visaSubscriptionUrl={visaSubscriptionUrl}
+              setVisaSubscriptionUrl={setVisaSubscriptionUrl}
+              visaCheckoutUrl={visaCheckoutUrl}
+              setVisaCheckoutUrl={setVisaCheckoutUrl}
+              isSavingVisa={isSavingVisa}
+              copiedWebhook={copiedWebhook}
+              onApproveProposal={handleApproveProposal}
+              onOpenRejectModal={() => setIsRejectModalOpen(true)}
+              onOpenProposalModal={() => setIsProposalModalOpen(true)}
+              onSaveVisaConfig={handleSaveVisaConfig}
+              onCopyWebhook={handleCopyWebhook}
+            />
           )}
         </>
       )}
 
-      {/* MODAL 1 : ENCAISSEMENT SÉCURISÉ D'ABONNEMENT (PREUVE OBLIGATOIRE + ANTI-DOUBLON) */}
-      <AnimatePresence>
-        {paymentTargetSupplier && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.97, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.97 }}
-              className="w-full max-w-md bg-[#0F1D27] border border-white/15 rounded-2xl shadow-2xl overflow-hidden"
-            >
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
-                <div>
-                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                    <ShieldCheck size={16} className="text-emerald-400" />
-                    <span>Enregistrer un Paiement d&apos;Abonnement</span>
-                  </h2>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
-                    {paymentTargetSupplier.displayName || paymentTargetSupplier.email}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setPaymentTargetSupplier(null)}
-                  className="text-gray-400 hover:text-white cursor-pointer"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              <form onSubmit={handleConfirmSubscriptionPayment} className="p-6 space-y-4">
-                {targetAlreadyActive && targetSubInfo && (
-                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 flex items-start gap-2">
-                    <AlertTriangle size={15} className="text-amber-400 shrink-0 mt-0.5" />
-                    <span>
-                      <strong>Attention :</strong> ce fournisseur est <strong>déjà actif</strong> jusqu&apos;au{" "}
-                      <strong>{targetSubInfo.formattedDueDate}</strong>. Ne validez que si vous avez effectivement reçu une avance supplémentaire (+30 jours).
-                    </span>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">
-                      Canal de paiement *
-                    </label>
-                    <select
-                      value={subChannel}
-                      onChange={(e) => setSubChannel(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs focus:outline-none focus:border-white/25"
-                    >
-                      {PAYMENT_CHANNELS.map((c) => (
-                        <option key={c} value={c} className="bg-[#0F1D27]">{c}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">
-                      Montant reçu ($ USD) *
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="1"
-                      required
-                      value={subAmount}
-                      onChange={(e) => setSubAmount(e.target.value)}
-                      className="w-full px-3 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs tabular-nums focus:outline-none focus:border-white/25"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">
-                    Référence unique de transaction / Reçu *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    minLength={3}
-                    value={subRef}
-                    onChange={(e) => setSubRef(e.target.value)}
-                    placeholder="ex: MP261123.1420.A123 ou REC-CAISSE-042"
-                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white font-mono text-xs focus:outline-none focus:border-[#C7D300]/60 placeholder:text-gray-600"
-                  />
-                  <p className="text-[10px] text-gray-500 mt-1">
-                    Verrou anti-doublon : une même référence ne peut jamais être encaissée deux fois.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">
-                    Note interne (optionnel)
-                  </label>
-                  <input
-                    type="text"
-                    value={subNote}
-                    onChange={(e) => setSubNote(e.target.value)}
-                    placeholder="ex: Paiement mensuel décembre validé par la caisse"
-                    className="w-full px-3.5 py-2 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs placeholder:text-gray-600"
-                  />
-                </div>
-
-                <div className="pt-2 flex justify-end gap-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentTargetSupplier(null)}
-                    className="px-4 py-2 text-xs text-gray-400 hover:text-white cursor-pointer"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmittingSub}
-                    className="px-4 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg transition-colors disabled:opacity-50 cursor-pointer"
-                  >
-                    {isSubmittingSub ? "Validation atomique..." : `Confirmer $${subAmount || 0} (+30j)`}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL 2 : NOUVELLE ÉCRITURE PLATEFORME (SERVEUR + AUDIT) */}
-      <AnimatePresence>
-        {isTxModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.97, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.97 }}
-              className="w-full max-w-md bg-[#0F1D27] border border-white/15 rounded-2xl shadow-2xl overflow-hidden"
-            >
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
-                <div>
-                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Plus size={16} className="text-[#C7D300]" />
-                    <span>Nouvelle Écriture Plateforme</span>
-                  </h2>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
-                    Enregistrée de façon immuable dans le Grand Livre Rayons.net
-                  </p>
-                </div>
-                <button onClick={() => setIsTxModalOpen(false)} className="text-gray-400 hover:text-white cursor-pointer">
-                  <X size={18} />
-                </button>
-              </div>
-
-              <form onSubmit={handleSaveManualEntry} className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setTxKind("OTHER_INCOME")}
-                    className={`py-2.5 rounded-lg text-xs font-semibold border cursor-pointer ${
-                      txKind === "OTHER_INCOME"
-                        ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                        : "bg-white/[0.04] text-gray-400 border-white/10"
-                    }`}
-                  >
-                    + Recette Plateforme
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!isSuperAdmin}
-                    onClick={() => setTxKind("EXPENSE")}
-                    title={!isSuperAdmin ? "Réservé au Directeur Général (Super Admin)" : ""}
-                    className={`py-2.5 rounded-lg text-xs font-semibold border cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-                      txKind === "EXPENSE"
-                        ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
-                        : "bg-white/[0.04] text-gray-400 border-white/10"
-                    }`}
-                  >
-                    - Dépense {!isSuperAdmin && "(DG)"}
-                  </button>
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">Montant (USD) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    required
-                    value={txAmount}
-                    onChange={(e) => setTxAmount(e.target.value)}
-                    placeholder="50.00"
-                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs tabular-nums"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">Libellé comptable *</label>
-                  <input
-                    type="text"
-                    required
-                    minLength={3}
-                    value={txDescription}
-                    onChange={(e) => setTxDescription(e.target.value)}
-                    placeholder="ex: Hébergement serveur cloud / Sponsoring campagne"
-                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs placeholder:text-gray-600"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">N° Pièce justificative</label>
-                  <input
-                    type="text"
-                    value={txReference}
-                    onChange={(e) => setTxReference(e.target.value)}
-                    placeholder="ex: FACT-2026-014"
-                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white font-mono text-xs placeholder:text-gray-600"
-                  />
-                </div>
-
-                <div className="pt-2 flex justify-end gap-2.5">
-                  <button type="button" onClick={() => setIsTxModalOpen(false)} className="px-4 py-2 text-xs text-gray-400 hover:text-white cursor-pointer">
-                    Annuler
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmittingTx}
-                    className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg disabled:opacity-50 cursor-pointer"
-                  >
-                    {isSubmittingTx ? "Enregistrement..." : "Valider l'Écriture"}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL 3 : AJUSTEMENT DE CAISSE (SUPER ADMIN UNIQUEMENT) */}
-      <AnimatePresence>
-        {isAdjustmentModalOpen && isSuperAdmin && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.97, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.97 }}
-              className="w-full max-w-lg bg-[#0F1D27] border border-white/15 rounded-2xl shadow-2xl overflow-hidden"
-            >
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
-                <div>
-                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Sliders className="text-[#C7D300]" size={15} />
-                    <span>Ajustement de Caisse (Direction Générale)</span>
-                  </h2>
-                  <p className="text-[11px] text-gray-400 mt-0.5">
-                    Solde actuel : <span className="text-white font-semibold tabular-nums">${currentBalance.toFixed(2)}</span> · Audité dans `audit_logs`
-                  </p>
-                </div>
-                <button onClick={() => setIsAdjustmentModalOpen(false)} className="text-gray-400 hover:text-white cursor-pointer">
-                  <X size={18} />
-                </button>
-              </div>
-
-              <form onSubmit={handleSaveAdjustment} className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAdjType("ADD")}
-                    className={`py-2.5 rounded-lg text-xs font-bold border cursor-pointer ${
-                      adjType === "ADD"
-                        ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                        : "bg-white/[0.04] text-gray-400 border-white/10"
-                    }`}
-                  >
-                    + Entrée / Apport
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAdjType("SUBTRACT")}
-                    className={`py-2.5 rounded-lg text-xs font-bold border cursor-pointer ${
-                      adjType === "SUBTRACT"
-                        ? "bg-rose-500/15 text-rose-300 border-rose-500/30"
-                        : "bg-white/[0.04] text-gray-400 border-white/10"
-                    }`}
-                  >
-                    - Sortie / Prélèvement
-                  </button>
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">Montant (USD) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.01"
-                    required
-                    value={adjAmount}
-                    onChange={(e) => setAdjAmount(e.target.value)}
-                    placeholder="50.00"
-                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs tabular-nums"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">Motif *</label>
-                  <select
-                    value={adjReason}
-                    onChange={(e) => setAdjReason(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs"
-                  >
-                    {ADJUSTMENT_REASONS.map((r) => (
-                      <option key={r} value={r} className="bg-[#0F1D27]">{r}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">Libellé précis *</label>
-                  <input
-                    type="text"
-                    required
-                    minLength={3}
-                    value={adjLabel}
-                    onChange={(e) => setAdjLabel(e.target.value)}
-                    placeholder="ex: Régularisation inventaire coffre central"
-                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs placeholder:text-gray-600"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">N° Pièce justificative</label>
-                  <input
-                    type="text"
-                    value={adjRef}
-                    onChange={(e) => setAdjRef(e.target.value)}
-                    placeholder="ex: REC-INV-2026-01"
-                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white font-mono text-xs placeholder:text-gray-600"
-                  />
-                </div>
-
-                <div className="pt-2 flex justify-end gap-2.5">
-                  <button type="button" onClick={() => setIsAdjustmentModalOpen(false)} className="px-4 py-2 text-xs text-gray-400 hover:text-white cursor-pointer">
-                    Annuler
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmittingAdj}
-                    className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg disabled:opacity-50 cursor-pointer"
-                  >
-                    {isSubmittingAdj ? "Enregistrement..." : "Valider l'Ajustement"}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL 4 : CRÉDITER COMMISSION PARTENAIRE */}
-      <AnimatePresence>
-        {isCommissionModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.97, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.97 }}
-              className="w-full max-w-md bg-[#0F1D27] border border-white/15 rounded-2xl shadow-2xl overflow-hidden"
-            >
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
-                <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                  <Award className="text-[#C7D300]" size={16} />
-                  <span>Créditer une Commission Partenaire</span>
-                </h2>
-                <button onClick={() => setIsCommissionModalOpen(false)} className="text-gray-400 hover:text-white cursor-pointer">
-                  <X size={18} />
-                </button>
-              </div>
-
-              <form onSubmit={handleCreditCommissionSubmit} className="p-6 space-y-4">
-                <div>
-                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">Partenaire *</label>
-                  <select
-                    value={selectedPartnerId}
-                    onChange={(e) => setSelectedPartnerId(e.target.value)}
-                    required
-                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs"
-                  >
-                    <option value="">Sélectionnez un partenaire</option>
-                    {partners.map((p) => (
-                      <option key={p.id} value={p.id} className="bg-[#0F1D27]">
-                        {p.displayName} ({p.referralCode} · Solde: ${Number(p.balance || 0).toFixed(2)})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">Montant ($ USD) *</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0.5"
-                    required
-                    value={commissionAmount}
-                    onChange={(e) => setCommissionAmount(e.target.value)}
-                    placeholder="25.00"
-                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs tabular-nums"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-gray-400 font-semibold block mb-1.5 uppercase tracking-wider">Motif *</label>
-                  <input
-                    type="text"
-                    required
-                    value={commissionReason}
-                    onChange={(e) => setCommissionReason(e.target.value)}
-                    placeholder="ex: Prime apport 5 nouvelles boutiques"
-                    className="w-full px-3.5 py-2.5 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs placeholder:text-gray-600"
-                  />
-                </div>
-
-                <div className="pt-2 flex justify-end gap-2.5">
-                  <button type="button" onClick={() => setIsCommissionModalOpen(false)} className="px-4 py-2 text-xs text-gray-400 hover:text-white cursor-pointer">
-                    Annuler
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmittingCommission}
-                    className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg disabled:opacity-50 cursor-pointer"
-                  >
-                    {isSubmittingCommission ? "Enregistrement..." : "Créditer"}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL 5 : PARAMÈTRES FINANCIERS */}
-      <AnimatePresence>
-        {isProposalModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.97, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.97 }}
-              className="w-full max-w-lg bg-[#0F1D27] border border-white/15 rounded-2xl shadow-2xl overflow-hidden"
-            >
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.08]">
-                <h2 className="text-sm font-bold text-white">
-                  {isSuperAdmin ? "Modifier les Paramètres Financiers" : "Proposer une Modification Financière"}
-                </h2>
-                <button onClick={() => setIsProposalModalOpen(false)} className="text-gray-400 hover:text-white cursor-pointer">
-                  <X size={18} />
-                </button>
-              </div>
-              <form onSubmit={handleProposeChangeSubmit} className="p-6 space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[11px] text-gray-400 font-semibold block mb-1 uppercase">Taux USD / CDF *</label>
-                    <input type="number" required value={formUsdRate} onChange={(e) => setFormUsdRate(e.target.value)} className="w-full px-3 py-2 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs" />
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-gray-400 font-semibold block mb-1 uppercase">Commission ($ USD) *</label>
-                    <input type="number" required value={formCommission} onChange={(e) => setFormCommission(e.target.value)} className="w-full px-3 py-2 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs" />
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-gray-400 font-semibold block mb-1 uppercase">Abonnement ($ USD) *</label>
-                    <input type="number" required value={formSubscription} onChange={(e) => setFormSubscription(e.target.value)} className="w-full px-3 py-2 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs" />
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-gray-400 font-semibold block mb-1 uppercase">Réduction Promo ($ USD) *</label>
-                    <input type="number" required value={formPromo} onChange={(e) => setFormPromo(e.target.value)} className="w-full px-3 py-2 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs" />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[11px] text-gray-400 font-semibold block mb-1 uppercase">Justification *</label>
-                  <textarea required rows={2} value={formReason} onChange={(e) => setFormReason(e.target.value)} className="w-full px-3 py-2 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs" />
-                </div>
-                <div className="flex justify-end gap-2.5">
-                  <button type="button" onClick={() => setIsProposalModalOpen(false)} className="px-4 py-2 text-xs text-gray-400 hover:text-white cursor-pointer">Annuler</button>
-                  <button type="submit" disabled={isSubmittingProposal} className="px-5 py-2 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] text-xs font-bold rounded-lg disabled:opacity-50 cursor-pointer">
-                    {isSubmittingProposal ? "Traitement..." : isSuperAdmin ? "Appliquer" : "Soumettre au DG"}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* MODAL 6 : REJET PROPOSITION */}
-      <AnimatePresence>
-        {isRejectModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.97, y: 8 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.97 }}
-              className="w-full max-w-md bg-[#0F1D27] border border-white/15 rounded-2xl shadow-2xl p-6 space-y-4"
-            >
-              <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <AlertTriangle size={16} className="text-rose-400" />
-                <span>Rejeter la proposition</span>
-              </h3>
-              <form onSubmit={handleRejectProposalSubmit} className="space-y-4">
-                <textarea required rows={3} value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} placeholder="Motif du refus..." className="w-full px-3 py-2 bg-white/[0.04] border border-white/10 rounded-lg text-white text-xs" />
-                <div className="flex justify-end gap-2.5">
-                  <button type="button" onClick={() => setIsRejectModalOpen(false)} className="px-4 py-2 text-xs text-gray-400 hover:text-white cursor-pointer">Annuler</button>
-                  <button type="submit" className="px-5 py-2 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-lg cursor-pointer">Confirmer le rejet</button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <FinanceModals
+        isSuperAdmin={isSuperAdmin}
+        currentBalance={currentBalance}
+        paymentTargetSupplier={paymentTargetSupplier}
+        setPaymentTargetSupplier={setPaymentTargetSupplier}
+        targetAlreadyActive={Boolean(targetAlreadyActive)}
+        targetSubInfo={targetSubInfo}
+        subChannel={subChannel}
+        setSubChannel={setSubChannel}
+        subAmount={subAmount}
+        setSubAmount={setSubAmount}
+        subRef={subRef}
+        setSubRef={setSubRef}
+        subNote={subNote}
+        setSubNote={setSubNote}
+        isSubmittingSub={isSubmittingSub}
+        onConfirmSubscriptionPayment={handleConfirmSubscriptionPayment}
+        isTxModalOpen={isTxModalOpen}
+        setIsTxModalOpen={setIsTxModalOpen}
+        txKind={txKind}
+        setTxKind={setTxKind}
+        txAmount={txAmount}
+        setTxAmount={setTxAmount}
+        txDescription={txDescription}
+        setTxDescription={setTxDescription}
+        txReference={txReference}
+        setTxReference={setTxReference}
+        isSubmittingTx={isSubmittingTx}
+        onSaveManualEntry={handleSaveManualEntry}
+        isAdjustmentModalOpen={isAdjustmentModalOpen}
+        setIsAdjustmentModalOpen={setIsAdjustmentModalOpen}
+        adjType={adjType}
+        setAdjType={setAdjType}
+        adjAmount={adjAmount}
+        setAdjAmount={setAdjAmount}
+        adjReason={adjReason}
+        setAdjReason={setAdjReason}
+        adjLabel={adjLabel}
+        setAdjLabel={setAdjLabel}
+        adjRef={adjRef}
+        setAdjRef={setAdjRef}
+        isSubmittingAdj={isSubmittingAdj}
+        onSaveAdjustment={handleSaveAdjustment}
+        isCommissionModalOpen={isCommissionModalOpen}
+        setIsCommissionModalOpen={setIsCommissionModalOpen}
+        partners={partners}
+        selectedPartnerId={selectedPartnerId}
+        setSelectedPartnerId={setSelectedPartnerId}
+        commissionAmount={commissionAmount}
+        setCommissionAmount={setCommissionAmount}
+        commissionReason={commissionReason}
+        setCommissionReason={setCommissionReason}
+        isSubmittingCommission={isSubmittingCommission}
+        onCreditCommissionSubmit={handleCreditCommissionSubmit}
+        isProposalModalOpen={isProposalModalOpen}
+        setIsProposalModalOpen={setIsProposalModalOpen}
+        formUsdRate={formUsdRate}
+        setFormUsdRate={setFormUsdRate}
+        formCommission={formCommission}
+        setFormCommission={setFormCommission}
+        formSubscription={formSubscription}
+        setFormSubscription={setFormSubscription}
+        formPromo={formPromo}
+        setFormPromo={setFormPromo}
+        formReason={formReason}
+        setFormReason={setFormReason}
+        isSubmittingProposal={isSubmittingProposal}
+        onProposeChangeSubmit={handleProposeChangeSubmit}
+        isRejectModalOpen={isRejectModalOpen}
+        setIsRejectModalOpen={setIsRejectModalOpen}
+        rejectionReason={rejectionReason}
+        setRejectionReason={setRejectionReason}
+        onRejectProposalSubmit={handleRejectProposalSubmit}
+      />
     </div>
   );
 }
