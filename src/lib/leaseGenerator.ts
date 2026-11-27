@@ -61,7 +61,7 @@ export async function generateFormalLeasePDF(data: LeaseData, options?: { autoDo
   const dateObj = data.createdAt ? new Date(data.createdAt) : new Date();
   const year = dateObj.getFullYear();
   const leaseRef = data.leaseNumber || `BAIL-${year}-${Math.floor(10000 + Math.random() * 90000)}`;
-  const agencyTitle = (data.agencyName || "MUTAMULIS").trim().toUpperCase();
+  const agencyTitle = (data.agencyName || "Agence Immobilière").trim().toUpperCase();
 
   // --- PAGE 1 : EN-TÊTE & ARTICLES 1 À 5 ---
   // Header background
@@ -330,7 +330,7 @@ export async function generateInspectionChecklistPDF(data: {
   const primaryColor = [15, 29, 39];
   const accentColor = [76, 110, 245];
 
-  const agencyTitle = (data.agencyName || "MUTAMULIS").trim().toUpperCase();
+  const agencyTitle = (data.agencyName || "Agence Immobilière").trim().toUpperCase();
 
   // Header
   doc.setFillColor(15, 29, 39);
@@ -486,7 +486,7 @@ export async function generateRentReceiptPDF(data: RentReceiptData) {
   const dateStr = data.paymentDate || now.toLocaleDateString("fr-FR");
   const period  = data.periodLabel  || now.toLocaleString("fr-FR", { month: "long", year: "numeric" });
 
-  const agencyTitle = (data.agencyName || "MUTAMULIS").trim().toUpperCase();
+  const agencyTitle = (data.agencyName || "Agence Immobilière").trim().toUpperCase();
 
   // ── HEADER ──────────────────────────────────────────────────
   doc.setFillColor(...(primaryColor as [number,number,number]));
@@ -653,7 +653,7 @@ export async function generateRentReceiptPDF(data: RentReceiptData) {
   // ── FOOTER ───────────────────────────────────────────────────
   doc.setFontSize(7);
   doc.setTextColor(160, 160, 160);
-  doc.text(`Document officiel de gestion locative — Émis par ${data.agencyName || "MUTAMULIS"}`, 105, 288, { align: "center" });
+  doc.text(`Document officiel de gestion locative — Émis par ${data.agencyName || "Agence Immobilière"}`, 105, 288, { align: "center" });
 
   doc.save(`Quittance_Loyer_${data.tenantName.replace(/\s+/g, "_")}_${period.replace(/\s+/g, "_")}_${receiptRef}.pdf`);
 }

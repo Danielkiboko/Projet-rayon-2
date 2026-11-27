@@ -11,7 +11,7 @@ export async function POST(req: Request) {
     const {
       tenantEmail,
       tenantName,
-      agencyName = "MUTAMULIS",
+      agencyName = "Agence Immobilière",
       agencyPhone,
       agencyEmail,
       propertyName = "Logement",
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     }
 
     const cleanEmail = tenantEmail.trim().toLowerCase();
-    const cleanAgency = (agencyName || "MUTAMULIS").trim();
+    const cleanAgency = (agencyName || "Agence Immobilière").trim();
 
     const esc = (s: any) =>
       String(s ?? "")
