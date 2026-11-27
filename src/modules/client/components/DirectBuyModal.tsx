@@ -29,7 +29,7 @@ interface DirectBuyModalProps {
   onOrderSuccess?: (order: any) => void;
 }
 
-import { KINSHASA_COMMUNES } from "@/lib/kinshasaDelivery";
+import { KINSHASA_COMMUNES, isNegotiatedDeliveryCommune } from "@/lib/kinshasaDelivery";
 
 export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess }: DirectBuyModalProps) {
   const { user, userData } = useAuth();
@@ -39,6 +39,7 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
   const isMultiple = Array.isArray(items) && items.length > 0;
   const [quantity, setQuantity] = useState(1);
   const [selectedCommune, setSelectedCommune] = useState("Gombe");
+  const [customDestination, setCustomDestination] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [clientName, setClientName] = useState("");
   const [clientPhone, setClientPhone] = useState("");
@@ -49,6 +50,14 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
   const [error, setError] = useState("");
   const [successOrder, setSuccessOrder] = useState<any | null>(null);
   const [visaConfig, setVisaConfig] = useState<VisaPaymentConfig | null>(null);
+
+  // Réinitialiser l'état à la fermeture de la modale
+  useEffect(() => {
+    if (!isOpen) {
+      setSuccessOrder(null);
+      setError("");
+    }
+  }, [isOpen]);
 
   // Charger le lien dynamique de paiement Visa (configuré dans /admin/finance)
   useEffect(() => {
@@ -71,14 +80,15 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
     }
   }, [user, userData]);
 
-  if (!isOpen || (!product && !isMultiple)) return null;
+  if (!isOpen || (!successOrder && !product && !isMultiple)) return null;
 
   const activeCommuneObj = KINSHASA_COMMUNES.find(c => c.name === selectedCommune) || KINSHASA_COMMUNES[0];
+  const isOtherDestination = isNegotiatedDeliveryCommune(selectedCommune);
   const unitPrice = isMultiple ? 0 : (Number(product?.price) || 0);
   const subtotal = isMultiple
     ? items.reduce((acc, it) => acc + ((Number(it.price) || 0) * (Number(it.quantity) || 1)), 0)
     : unitPrice * quantity;
-  const deliveryFee = activeCommuneObj.fee;
+  const deliveryFee = isOtherDestination ? 0 : activeCommuneObj.fee;
   const totalAmount = subtotal + deliveryFee;
 
   const productTitle = isMultiple
@@ -100,8 +110,12 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
       setError("Veuillez renseigner votre numéro de téléphone pour la livraison.");
       return;
     }
+    if (isOtherDestination && !customDestination.trim()) {
+      setError("Veuillez indiquer votre ville, commune ou destination souhaitée.");
+      return;
+    }
     if (!deliveryAddress.trim()) {
-      setError("Veuillez indiquer votre adresse ou un repère précis à Kinshasa.");
+      setError("Veuillez indiquer votre adresse ou un repère précis.");
       return;
     }
 
@@ -115,8 +129,10 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
         clientPhone: clientPhone.trim(),
         clientEmail: user?.email || null,
         deliveryDetails: {
-          city: "Kinshasa",
+          city: isOtherDestination ? customDestination.trim() : "Kinshasa",
           commune: selectedCommune,
+          customDestination: isOtherDestination ? customDestination.trim() : null,
+          deliveryFeeNegotiated: isOtherDestination,
           address: deliveryAddress.trim(),
           deliveryFee
         },
@@ -182,54 +198,73 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
 
         {/* Success State */}
         {successOrder ? (
-          <div className="p-8 text-center flex flex-col items-center">
+          <div className="p-6 sm:p-8 text-center flex flex-col items-center overflow-y-auto">
             <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mb-4">
               <CheckCircle2 size={36} />
             </div>
             <h3 className="text-xl font-heading font-bold text-gray-900 mb-1">Commande Confirmée !</h3>
             <p className="text-sm text-gray-500 mb-4 max-w-sm">
-              Votre commande <strong className="text-gray-900">#{successOrder.id}</strong> a été enregistrée avec succès. Un livreur est en cours d'attribution.
+              Votre commande <strong className="text-gray-900">#{successOrder.id}</strong> a bien été enregistrée et transmise au vendeur. Un livreur est en cours d&apos;attribution.
             </p>
 
-            <div className="bg-gray-50 rounded-2xl p-4 w-full text-left text-xs mb-6 space-y-1.5 border border-gray-100">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Produit :</span>
-                <span className="font-bold text-gray-800">{productTitle} (x{quantity})</span>
+            <div className="bg-gray-50 rounded-2xl p-4 w-full text-left text-xs mb-5 space-y-2 border border-gray-100">
+              <div className="flex justify-between gap-2">
+                <span className="text-gray-500 shrink-0">Article(s) :</span>
+                <span className="font-bold text-gray-800 text-right">
+                  {successOrder.productTitle || productTitle} (x{successOrder.quantity || quantity})
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Commune de livraison :</span>
-                <span className="font-bold text-gray-800">{selectedCommune}</span>
+              <div className="flex justify-between gap-2">
+                <span className="text-gray-500 shrink-0">Destination :</span>
+                <span className="font-bold text-gray-800 text-right">
+                  {successOrder.deliveryDetails?.deliveryFeeNegotiated
+                    ? `${successOrder.deliveryDetails?.customDestination || customDestination || "Autre"} (Frais à convenir)`
+                    : (successOrder.deliveryDetails?.commune || selectedCommune)}
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Total TTC à régler :</span>
-                <span className="font-bold text-emerald-600 text-sm">${totalAmount}</span>
+              <div className="flex justify-between gap-2">
+                <span className="text-gray-500 shrink-0">
+                  {successOrder.deliveryDetails?.deliveryFeeNegotiated ? "Sous-total articles :" : "Total TTC à régler :"}
+                </span>
+                <span className="font-extrabold text-emerald-600 text-sm">
+                  {formatPrice(Number(successOrder.totalAmount ?? totalAmount))}
+                </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Mode :</span>
+              <div className="flex justify-between gap-2">
+                <span className="text-gray-500 shrink-0">Mode :</span>
                 <span className="font-medium text-gray-700">
                   {paymentMethod === "CASH_ON_DELIVERY"
                     ? "💵 Cash à la livraison"
                     : paymentMethod === "CARD"
                     ? "💳 Carte Visa / Mastercard"
-                    : "📱 Mobile Money"}
+                    : `📱 Mobile Money (${mobileMoneyOperator})`}
                 </span>
               </div>
             </div>
+
+            {paymentMethod === "MOBILE_MONEY" && (
+              <div className="w-full p-3.5 mb-4 rounded-xl bg-amber-50 border border-amber-200 text-left text-xs text-amber-900 space-y-1">
+                <div className="font-bold">Paiement {mobileMoneyOperator} :</div>
+                <p className="text-[11px] leading-relaxed">
+                  Notre équipe ou le livreur va vous contacter sur <strong>{clientPhone}</strong> pour confirmer votre paiement Mobile Money (Réf. <strong>#{successOrder.id}</strong>).
+                </p>
+              </div>
+            )}
 
             {paymentMethod === "CARD" && visaConfig?.enabled && visaConfig.checkoutUrl && (
               <a
                 href={buildVisaPaymentUrl(visaConfig.checkoutUrl, {
                   referenceId: `ord_${successOrder.id}`,
                   email: user?.email || "",
-                  amount: totalAmount,
+                  amount: Number(successOrder.totalAmount ?? totalAmount),
                   currency: "USD",
                 })}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full py-3 mb-3 bg-[#0F1D27] hover:bg-[#1a3040] text-[#C7D300] font-bold rounded-xl text-sm flex items-center justify-center gap-2 shadow-md transition-colors"
+                className="w-full py-3 mb-3 bg-[#C7D300] hover:bg-[#b5c000] text-[#0F1D27] font-extrabold rounded-xl text-sm flex items-center justify-center gap-2 shadow-md transition-colors"
               >
                 <CreditCard size={16} />
-                <span>Payer maintenant par Carte Visa (${totalAmount})</span>
+                <span>Payer maintenant par Carte Visa ({formatPrice(Number(successOrder.totalAmount ?? totalAmount))})</span>
                 <ExternalLink size={14} />
               </a>
             )}
@@ -238,17 +273,18 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
               <button
                 type="button"
                 onClick={() => {
+                  const targetOrderId = successOrder.id;
                   onClose();
-                  router.push(`/order/${successOrder.id}/tracking`);
+                  router.push(`/order/${targetOrderId}/tracking`);
                 }}
-                className="flex-1 py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary-dark transition-all text-sm flex items-center justify-center gap-1.5 shadow-md"
+                className="flex-1 py-3 bg-[#0F1D27] hover:bg-[#1a3040] text-[#C7D300] font-bold rounded-xl transition-all text-sm flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
               >
                 <Truck size={16} /> Suivre la livraison
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors text-sm"
+                className="px-4 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors text-sm cursor-pointer"
               >
                 Fermer
               </button>
@@ -351,10 +387,10 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
             {/* Delivery Details */}
             <div className="space-y-3">
               <span className="font-bold text-gray-800 text-xs uppercase tracking-wider block">
-                2. Lieu de livraison (Kinshasa)
+                2. Lieu de livraison
               </span>
               <div>
-                <label className="text-[11px] text-gray-500 font-medium block mb-1">Commune de Kinshasa *</label>
+                <label className="text-[11px] text-gray-500 font-medium block mb-1">Zone / Commune de livraison *</label>
                 <select
                   value={selectedCommune}
                   onChange={(e) => setSelectedCommune(e.target.value)}
@@ -362,11 +398,32 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
                 >
                   {KINSHASA_COMMUNES.map((comm) => (
                     <option key={comm.name} value={comm.name}>
-                      {comm.name} — Frais de livraison : ${comm.fee}
+                      {comm.negotiated
+                        ? (comm.label || "Autre destination — À convenir avec le vendeur")
+                        : `${comm.name} — Frais de livraison : $${comm.fee}`}
                     </option>
                   ))}
                 </select>
               </div>
+
+              {isOtherDestination && (
+                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 space-y-2">
+                  <label className="text-[11px] text-amber-900 font-bold block">
+                    Précisez votre ville / commune / destination *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={customDestination}
+                    onChange={(e) => setCustomDestination(e.target.value)}
+                    placeholder="Ex: Lubumbashi, Matadi, Goma, Kinkole..."
+                    className="w-full p-2.5 bg-white border border-amber-300 rounded-xl text-xs text-gray-900 focus:ring-2 focus:ring-amber-300 focus:border-amber-500"
+                  />
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    Pour cette destination hors liste, les frais de livraison seront <strong>convenus directement entre vous et le vendeur</strong> après confirmation.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <label className="text-[11px] text-gray-500 font-medium block mb-1">Adresse ou Repère précis *</label>
@@ -437,21 +494,42 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
                   </button>
                 )}
               </div>
+
+              {paymentMethod === "MOBILE_MONEY" && (
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  {(["MPESA", "AIRTEL", "ORANGE"] as const).map((op) => (
+                    <button
+                      key={op}
+                      type="button"
+                      onClick={() => setMobileMoneyOperator(op)}
+                      className={`py-2 px-2 rounded-xl border text-[11px] font-bold transition-all cursor-pointer ${
+                        mobileMoneyOperator === op
+                          ? "bg-[#0F1D27] text-[#C7D300] border-[#0F1D27]"
+                          : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                      }`}
+                    >
+                      {op === "MPESA" ? "M-Pesa" : op === "AIRTEL" ? "Airtel Money" : "Orange Money"}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Price breakdown */}
             <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-1.5">
               <div className="flex justify-between text-gray-500 text-xs">
-                <span>Sous-total ({quantity} art.) :</span>
+                <span>Sous-total ({isMultiple ? items.reduce((acc, it) => acc + (Number(it.quantity) || 1), 0) : quantity} art.) :</span>
                 <span className="font-semibold text-gray-800">{formatPrice(subtotal)}</span>
               </div>
               <div className="flex justify-between text-gray-500 text-xs">
-                <span>Livraison ({selectedCommune}) :</span>
-                <span className="font-semibold text-gray-800">{formatPrice(deliveryFee)}</span>
+                <span>Livraison ({isOtherDestination ? (customDestination || "Autre") : selectedCommune}) :</span>
+                <span className={`font-semibold ${isOtherDestination ? "text-amber-700" : "text-gray-800"}`}>
+                  {isOtherDestination ? "À convenir avec le vendeur" : formatPrice(deliveryFee)}
+                </span>
               </div>
               <div className="border-t border-gray-200 pt-2 flex justify-between text-sm font-bold text-gray-900">
-                <span>Total à régler :</span>
-                <span className="text-primary font-extrabold text-base">{formatPrice(totalAmount)}</span>
+                <span>{isOtherDestination ? "Total articles (hors transport) :" : "Total à régler :"}</span>
+                <span className="text-[#0F1D27] font-extrabold text-base">{formatPrice(totalAmount)}</span>
               </div>
             </div>
 

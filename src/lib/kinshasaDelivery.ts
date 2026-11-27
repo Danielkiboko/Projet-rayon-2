@@ -1,13 +1,17 @@
 /**
  * Kinshasa Delivery Zones & Delivery Fees
- * Shared single source of truth between DirectBuyModal and CartDrawer.
+ * Shared single source of truth between DirectBuyModal, CartDrawer, and /api/orders/create.
  */
 
 export interface KinshasaCommune {
   name: string;
+  label?: string;
   fee: number;
-  zone?: "central" | "inter" | "peri" | "far";
+  zone?: "central" | "inter" | "peri" | "far" | "other";
+  negotiated?: boolean;
 }
+
+export const OTHER_DESTINATION_VALUE = "Autre";
 
 export const KINSHASA_COMMUNES: KinshasaCommune[] = [
   { name: "Gombe", zone: "central", fee: 3 },
@@ -34,9 +38,23 @@ export const KINSHASA_COMMUNES: KinshasaCommune[] = [
   { name: "Kisenso", zone: "peri", fee: 8 },
   { name: "Nsele", zone: "far", fee: 15 },
   { name: "Maluku", zone: "far", fee: 20 },
+  {
+    name: OTHER_DESTINATION_VALUE,
+    label: "Autre destination (hors liste / Province) — À convenir avec le vendeur",
+    zone: "other",
+    fee: 0,
+    negotiated: true,
+  },
 ];
 
+export function isNegotiatedDeliveryCommune(communeName?: string): boolean {
+  if (!communeName) return false;
+  const normalized = communeName.trim().toLowerCase();
+  return normalized === "autre" || normalized === "other" || normalized.startsWith("autre");
+}
+
 export function getDeliveryFeeForCommune(communeName: string): number {
+  if (isNegotiatedDeliveryCommune(communeName)) return 0;
   const found = KINSHASA_COMMUNES.find(
     (c) => c.name.toLowerCase() === communeName.toLowerCase()
   );

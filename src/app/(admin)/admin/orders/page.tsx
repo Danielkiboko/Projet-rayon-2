@@ -180,18 +180,35 @@ export default function AdminMyOrdersPage() {
     return searchMatch && statusMatch;
   });
 
-  // Statistiques financières propres à l'admin
-  const totalRevenue = orders
-    .filter((o) => ["LIVRÉE", "DELIVERED", "COMPLETED"].includes((o.status || "").toUpperCase()))
-    .reduce((sum, o) => sum + (o.total || o.totalAmount || o.itemsTotal || 0), 0);
+  // Statistiques analytiques propres aux rayons de l'admin (Investi / Prix de Vente / Gain Net)
+  const deliveredOrders = orders.filter((o) =>
+    ["LIVRÉE", "DELIVERED", "COMPLETED"].includes((o.status || "").toUpperCase())
+  );
+
+  const totalInvested = deliveredOrders.reduce((sum, o) => {
+    const orderInvested = (o.items || []).reduce((acc: number, it: any) => {
+      const qty = Number(it.quantity || 1);
+      const cogs =
+        it.costOfGoodsSold !== undefined
+          ? Number(it.costOfGoodsSold || 0)
+          : Number(it.purchasePrice || 0) * qty;
+      return acc + Math.max(0, cogs);
+    }, 0);
+    return sum + orderInvested;
+  }, 0);
+
+  const totalRevenue = deliveredOrders.reduce(
+    (sum, o) => sum + (o.itemsTotal || o.total || o.totalAmount || 0),
+    0
+  );
+
+  const totalNetProfit = totalRevenue - totalInvested;
 
   const pendingCount = orders.filter((o) => 
     ["EN_ATTENTE", "PENDING", "PENDING_DRIVER", "CONFIRMED_AWAITING_DRIVER", "PREPARING", "EN_PREPARATION"].includes((o.status || "").toUpperCase())
   ).length;
 
-  const deliveredCount = orders.filter((o) => 
-    ["LIVRÉE", "DELIVERED", "COMPLETED"].includes((o.status || "").toUpperCase())
-  ).length;
+  const deliveredCount = deliveredOrders.length;
 
   return (
     <div className="space-y-5 pb-16">
@@ -227,39 +244,54 @@ export default function AdminMyOrdersPage() {
         </div>
       </div>
 
-      {/* 3 Cartes KPI Exécutives */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* 4 Cartes KPI Exécutives : Somme Investie / Prix de Vente / Gain Net / Commandes */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-white/[0.03] border border-white/[0.08] p-4 rounded-xl flex flex-col justify-between gap-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">CA Encaissé</span>
-            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">Somme Investie</span>
+            <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
+              <Package size={14} />
+            </span>
+          </div>
+          <p className="text-2xl font-bold text-amber-300 tabular-nums tracking-tight">${totalInvested.toLocaleString()}</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">Coût d&apos;achat de vos rayons</p>
+        </div>
+
+        <div className="bg-white/[0.03] border border-white/[0.08] p-4 rounded-xl flex flex-col justify-between gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">Prix de Vente</span>
+            <span className="p-1.5 rounded-lg bg-white/[0.06] text-white">
               <DollarSign size={14} />
             </span>
           </div>
           <p className="text-2xl font-bold text-white tabular-nums tracking-tight">${totalRevenue.toLocaleString()}</p>
-          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">Ventes boutique officielle</p>
+          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">Encaissé par votre boutique</p>
+        </div>
+
+        <div className="bg-white/[0.03] border border-emerald-500/20 p-4 rounded-xl flex flex-col justify-between gap-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-emerald-300 uppercase font-semibold tracking-wider">Gain Net Reçu</span>
+            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+              <ArrowUpRight size={14} />
+            </span>
+          </div>
+          <p className="text-2xl font-bold text-emerald-400 tabular-nums tracking-tight">${totalNetProfit.toLocaleString()}</p>
+          <p className="text-[11px] text-emerald-300/80 pt-1 border-t border-white/[0.06]">Marge nette sur vos rayons</p>
         </div>
 
         <div className="bg-white/[0.03] border border-white/[0.08] p-4 rounded-xl flex flex-col justify-between gap-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">À Traiter</span>
+            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">Suivi Commandes</span>
             <span className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
               <Clock size={14} />
             </span>
           </div>
-          <p className={`text-2xl font-bold tabular-nums tracking-tight ${pendingCount > 0 ? "text-amber-400" : "text-white"}`}>{pendingCount}</p>
-          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">En préparation ou livraison</p>
-        </div>
-
-        <div className="bg-white/[0.03] border border-white/[0.08] p-4 rounded-xl flex flex-col justify-between gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] text-gray-400 uppercase font-semibold tracking-wider">Commandes Livrées</span>
-            <span className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
-              <CheckCircle size={14} />
-            </span>
-          </div>
-          <p className="text-2xl font-bold text-emerald-400 tabular-nums tracking-tight">{deliveredCount}</p>
-          <p className="text-[11px] text-gray-400 pt-1 border-t border-white/[0.06]">Sur {orders.length} commande(s) au total</p>
+          <p className="text-2xl font-bold text-white tabular-nums tracking-tight">
+            {deliveredCount} <span className="text-xs font-medium text-gray-400">livrées</span>
+          </p>
+          <p className="text-[11px] text-amber-300 pt-1 border-t border-white/[0.06]">
+            {pendingCount} à traiter · {orders.length} au total
+          </p>
         </div>
       </div>
 

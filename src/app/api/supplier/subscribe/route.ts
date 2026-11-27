@@ -118,6 +118,23 @@ export async function POST(req: NextRequest) {
     const effectiveName = (companyData?.company || supplierName || "Boutique Partenaire").trim();
     const entryNumber = generateEntryNumber();
 
+    // Clôturer automatiquement la trace anti-coupure (`supplier_payment_intents`) si le client avait initié le paiement à l'Étape 1
+    const intentDocId = String(ref).replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 100);
+    adminDb
+      .collection("supplier_payment_intents")
+      .doc(intentDocId)
+      .set(
+        {
+          status: "COMPLETED",
+          supplierId,
+          supplierName: effectiveName,
+          completedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      )
+      .catch(() => {});
+
     // ── Réduction immédiate code promo / parrainage (-10 USD direct) ──
     const hasPromo = Boolean(referralCode || existingUserData?.referralCodeUsed || existingUserData?.referralDiscountPending);
     let referralDiscount = 0;

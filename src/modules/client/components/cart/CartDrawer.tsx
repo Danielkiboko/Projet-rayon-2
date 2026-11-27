@@ -727,11 +727,15 @@ export function CartDrawer() {
       {/* Modal Achat Express pour les articles du panier */}
       <DirectBuyModal
         isOpen={isDirectCheckoutOpen}
-        onClose={() => setIsDirectCheckoutOpen(false)}
+        onClose={() => {
+          setIsDirectCheckoutOpen(false);
+          if (items.length === 0) {
+            closeCart();
+          }
+        }}
         items={items}
         onOrderSuccess={() => {
           clearCart();
-          closeCart();
         }}
       />
     </div>

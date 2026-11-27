@@ -74,11 +74,10 @@ export default function SupplierRegisterPage() {
   }, []);
   const [mobileOperator, setMobileOperator] = useState<"mpesa" | "orange" | "airtel">("mpesa");
   const [paymentPhone, setPaymentPhone] = useState("");
-  const [cardNumber, setCardNumber] = useState("");
-  const [cardExpiry, setCardExpiry] = useState("");
-  const [cardCvc, setCardCvc] = useState("");
+  const [operatorTxRef, setOperatorTxRef] = useState("");
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paidPaymentRef, setPaidPaymentRef] = useState<string>("");
+  const [restoredFromCrash, setRestoredFromCrash] = useState(false);
 
   // Données de l'entreprise Étape 2
   const [name, setName] = useState("");
@@ -139,6 +138,31 @@ export default function SupplierRegisterPage() {
       setPromoValidating(false);
     }
   };
+
+  // Reprise automatique anti-coupure (si la connexion ou le téléphone a coupé après l'Étape 1)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem("rayons_supplier_reg_draft_v1");
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      const maxAgeMs = 48 * 60 * 60 * 1000;
+      if (draft?.paidPaymentRef && draft?.savedAt && Date.now() - draft.savedAt < maxAgeMs) {
+        if (draft.email) setEmail(draft.email);
+        if (draft.phone) setPhone(draft.phone);
+        if (draft.paymentPhone) setPaymentPhone(draft.paymentPhone);
+        if (draft.paymentMethod) setPaymentMethod(draft.paymentMethod);
+        if (draft.mobileOperator) setMobileOperator(draft.mobileOperator);
+        if (draft.operatorTxRef) setOperatorTxRef(draft.operatorTxRef);
+        if (draft.promoCode) setPromoCode(draft.promoCode);
+        setPaidPaymentRef(draft.paidPaymentRef);
+        setStep(2);
+        setRestoredFromCrash(true);
+      } else {
+        localStorage.removeItem("rayons_supplier_reg_draft_v1");
+      }
+    } catch {}
+  }, []);
 
   // Détection du paramètre ?ref= ou ?promo= dans l'URL
   useEffect(() => {
@@ -203,10 +227,52 @@ export default function SupplierRegisterPage() {
     setIsProcessingPayment(true);
 
     try {
-      // Simulation / Validation du prélèvement Mobile Money / Carte
-      await new Promise((resolve) => setTimeout(resolve, 1400));
+      const cleanOperatorRef = operatorTxRef.trim();
+      const ref = cleanOperatorRef.length >= 4 ? cleanOperatorRef : generatePaymentRef();
 
-      const ref = generatePaymentRef();
+      // 1. Graver IMMÉDIATEMENT la trace serveur anti-coupure (avant même la fin du paiement ou l'Étape 2)
+      try {
+        const token = user ? await user.getIdToken().catch(() => null) : null;
+        await fetch("/api/supplier/payment-intent", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({
+            reference: ref,
+            operatorTxRef: cleanOperatorRef || undefined,
+            email: email.trim(),
+            phone: phone.trim() || paymentPhone.trim(),
+            paymentPhone: paymentPhone.trim() || phone.trim(),
+            paymentMethod,
+            operator: paymentMethod === "card" ? "VISA" : mobileOperator.toUpperCase(),
+            amount: effectiveDeposit,
+            promoCode: promoCode.trim() || undefined,
+          }),
+        });
+      } catch (intentErr) {
+        console.warn("Trace anti-coupure non bloquante:", intentErr);
+      }
+
+      // 2. Sauvegarder le brouillon en localStorage pour reprise instantanée en cas de coupure réseau/batterie
+      try {
+        localStorage.setItem(
+          "rayons_supplier_reg_draft_v1",
+          JSON.stringify({
+            paidPaymentRef: ref,
+            email: email.trim(),
+            phone: phone.trim() || paymentPhone.trim(),
+            paymentPhone: paymentPhone.trim() || phone.trim(),
+            paymentMethod,
+            mobileOperator,
+            operatorTxRef: cleanOperatorRef,
+            promoCode: promoCode.trim(),
+            savedAt: Date.now(),
+          })
+        );
+      } catch {}
+
       setPaidPaymentRef(ref);
 
       // Si le téléphone général n'est pas encore défini, prendre le numéro de paiement
@@ -372,6 +438,9 @@ export default function SupplierRegisterPage() {
         }
       }
 
+      try {
+        localStorage.removeItem("rayons_supplier_reg_draft_v1");
+      } catch {}
       setIsSuccess(true);
     } catch (err: any) {
       console.error("Erreur finalisation fournisseur:", err);
@@ -725,8 +794,21 @@ export default function SupplierRegisterPage() {
                         className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF6600] text-xs text-gray-900"
                         placeholder="0821377072"
                       />
-                      <span className="text-[10px] text-gray-400 block mt-1">
-                        Un push USSD de confirmation sera envoyé à ce numéro.
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-gray-700 block mb-1">
+                        Référence / ID SMS de transaction opérateur (anti-coupure) :
+                      </label>
+                      <input
+                        type="text"
+                        value={operatorTxRef}
+                        onChange={(e) => setOperatorTxRef(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF6600] text-xs text-gray-900 font-mono"
+                        placeholder="Ex: MPESA-8493021 (si vous avez déjà effectué le dépôt)"
+                      />
+                      <span className="text-[10px] text-gray-500 block mt-1">
+                        Votre référence et votre numéro sont enregistrés sur le serveur dès cette étape : même en cas de coupure réseau, votre trace reste conservée.
                       </span>
                     </div>
                   </div>
@@ -852,17 +934,39 @@ export default function SupplierRegisterPage() {
               className="space-y-4"
             >
               {/* Badge de paiement validé */}
-              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between shadow-2xs">
+              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between gap-2 shadow-2xs">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
                   <div>
-                    <strong>Paiement de ${effectiveDeposit} USD Enregistré !</strong>
-                    <span className="block text-[10px] text-emerald-700 font-mono">Réf : {paidPaymentRef}</span>
+                    <strong>
+                      {restoredFromCrash
+                        ? `Reprise automatique après coupure — Paiement ($${effectiveDeposit} USD) retrouvé !`
+                        : `Paiement de $${effectiveDeposit} USD Enregistré !`}
+                    </strong>
+                    <span className="block text-[10px] text-emerald-700 font-mono">
+                      Réf : {paidPaymentRef} · Trace sauvegardée sur le serveur
+                    </span>
                   </div>
                 </div>
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px]">
-                  Étape 2 / 2
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px]">
+                    Étape 2 / 2
+                  </span>
+                  {restoredFromCrash && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        try { localStorage.removeItem("rayons_supplier_reg_draft_v1"); } catch {}
+                        setRestoredFromCrash(false);
+                        setPaidPaymentRef("");
+                        setStep(1);
+                      }}
+                      className="text-[10px] underline text-emerald-700 hover:text-emerald-900 cursor-pointer"
+                    >
+                      Modifier
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div>

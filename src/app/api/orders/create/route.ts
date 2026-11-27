@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb, adminAuth } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { getDeliveryFeeForCommune } from "@/lib/kinshasaDelivery";
+import { getDeliveryFeeForCommune, isNegotiatedDeliveryCommune } from "@/lib/kinshasaDelivery";
 import { dispatchAccountNotification } from "@/lib/pushNotifications";
 import { enforceRateLimit } from "@/lib/rateLimit";
 
@@ -52,13 +52,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "L'adresse de livraison est requise." }, { status: 400 });
     }
 
-    const commune = deliveryDetails.commune || "Gombe";
-    const city = deliveryDetails.city || "Kinshasa";
+    const commune = String(deliveryDetails.commune || "Gombe").trim();
+    const deliveryFeeNegotiated = isNegotiatedDeliveryCommune(commune);
+    const customDestination = String(deliveryDetails.customDestination || "").trim();
+    const city = deliveryFeeNegotiated && customDestination
+      ? customDestination
+      : (deliveryDetails.city || "Kinshasa");
     const officialCommuneFee = getDeliveryFeeForCommune(commune);
-    const deliveryFee =
-      deliveryDetails.deliveryFee !== undefined && Number(deliveryDetails.deliveryFee) >= officialCommuneFee
-        ? Number(deliveryDetails.deliveryFee)
-        : officialCommuneFee;
+    const deliveryFee = deliveryFeeNegotiated
+      ? 0
+      : (deliveryDetails.deliveryFee !== undefined && Number(deliveryDetails.deliveryFee) >= officialCommuneFee
+          ? Number(deliveryDetails.deliveryFee)
+          : officialCommuneFee);
 
     // 3. Normalisation de la liste des articles
     let rawItems: any[] = [];
@@ -129,6 +134,17 @@ export async function POST(req: NextRequest) {
 
       const verifiedSupplierId = pData.supplierId || it.supplierId || "admin";
       const verifiedTitle = pData.title?.fr || pData.title?.en || pData.title || pData.name || it.title;
+      const verifiedPurchasePrice = Math.max(0, Number(pData.purchasePrice) || 0);
+      const costOfGoodsSold = Number((verifiedPurchasePrice * it.quantity).toFixed(2));
+      const itemNetProfit = Number(((verifiedPrice - verifiedPurchasePrice) * it.quantity).toFixed(2));
+      const isAdminProduct = Boolean(
+        pData.isAdminProduct ||
+          pData.isOfficialRayons ||
+          pData.isOfficialAdminStore ||
+          verifiedSupplierId === "admin"
+      );
+      const rawImage = typeof it.image === "string" ? it.image : "";
+      const safeImage = rawImage.startsWith("data:") ? "" : rawImage.slice(0, 400);
 
       orderItems.push({
         ...it,
@@ -136,6 +152,11 @@ export async function POST(req: NextRequest) {
         productId: prodId,
         title: verifiedTitle,
         price: verifiedPrice,
+        purchasePrice: verifiedPurchasePrice,
+        costOfGoodsSold,
+        netProfit: itemNetProfit,
+        isAdminProduct,
+        image: safeImage,
         supplierId: verifiedSupplierId,
       });
     }
@@ -153,7 +174,9 @@ export async function POST(req: NextRequest) {
 
     // 5. Génération du numéro de commande unique
     const orderId = `CMD-${Date.now().toString(36).toUpperCase()}-${Math.floor(Math.random() * 900 + 100)}`;
-    const fullAddress = `${deliveryDetails.address.trim()}, ${commune}, ${city}`;
+    const fullAddress = deliveryFeeNegotiated
+      ? `${deliveryDetails.address.trim()}${customDestination ? `, ${customDestination}` : ""} (Livraison à convenir avec le vendeur)`
+      : `${deliveryDetails.address.trim()}, ${commune}, ${city}`;
 
     const orderData = {
       id: orderId,
@@ -169,6 +192,8 @@ export async function POST(req: NextRequest) {
       unitPrice: orderItems.length === 1 ? orderItems[0].price : 0,
       subtotal,
       deliveryFee,
+      deliveryFeeNegotiated,
+      deliveryFeeLabel: deliveryFeeNegotiated ? "À convenir avec le vendeur" : `$${deliveryFee}`,
       totalAmount,
       remainingBalance: totalAmount,
       currency,
@@ -176,6 +201,8 @@ export async function POST(req: NextRequest) {
       deliveryDetails: {
         city,
         commune,
+        customDestination: customDestination || null,
+        deliveryFeeNegotiated,
         address: deliveryDetails.address.trim(),
         recipientName: clientName.trim(),
         recipientPhone: clientPhone.trim(),
