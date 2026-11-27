@@ -1,3 +1,6 @@
+import { isProtectedSuperAdminEmail } from "@/server/guards";
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb, adminInitError } from '@/lib/firebase-admin';
 import { sendMobiShastraSMS } from '@/lib/sms';
@@ -9,6 +12,8 @@ import { cacheDel } from '@/lib/cache';
 
 export async function POST(req: Request) {
   try {
+  const _rl = await enforceRateLimit(req, "api:users_create:POST", 20, 60);
+  if (_rl) return _rl;
     // 1. Authenticate the caller
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -29,7 +34,7 @@ export async function POST(req: Request) {
 
     const callerUid = decodedToken.uid;
     const callerEmail = (decodedToken.email || '').toLowerCase().trim();
-    const isSuperAdminEmail = SUPER_ADMIN_EMAILS.includes(callerEmail);
+    const isSuperAdminEmail = isProtectedSuperAdminEmail(callerEmail);
 
     // Check latest role from Firestore (skip extra read if already Super Admin by verified email)
     let firestoreRole: string | null = null;
@@ -124,7 +129,7 @@ export async function POST(req: Request) {
       if (createErr.code === 'auth/email-already-exists') {
         // Auto-nettoyage sécurisé des comptes Auth orphelins (déjà supprimés de Firestore mais restés coincés dans Firebase Auth)
         const normalizedNewEmail = String(email || '').trim().toLowerCase();
-        if (isAdminCaller && normalizedNewEmail && !SUPER_ADMIN_EMAILS.includes(normalizedNewEmail)) {
+        if (isAdminCaller && normalizedNewEmail && !isProtectedSuperAdminEmail(normalizedNewEmail)) {
           try {
             const existingAuth = await adminAuth.getUserByEmail(normalizedNewEmail);
             const existingUserDoc = await adminDb.collection('users').doc(existingAuth.uid).get();
@@ -621,6 +626,6 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error('Error creating user:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeApiError(error, "Erreur interne du serveur.") }, { status: 500 });
   }
 }

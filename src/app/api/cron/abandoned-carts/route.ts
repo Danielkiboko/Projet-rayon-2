@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { adminDb, initFirebaseAdmin } from "@/lib/firebase-admin";
-import { getServerCaller } from "@/lib/serverAuth";
+import { requireCronOrAdminCaller } from "@/server/guards";
 import { dispatchAccountNotification } from "@/lib/pushNotifications";
 import { sendEmail } from "@/lib/email";
+import { escapeHtml } from "@/lib/sanitize";
 
 /**
  * GET / POST /api/cron/abandoned-carts
@@ -24,15 +25,6 @@ const REMINDER_1_DELAY_MS = 2 * 60 * 60 * 1000; // 2 heures
 const REMINDER_2_DELAY_MS = 24 * 60 * 60 * 1000; // 24 heures
 const MIN_GAP_BETWEEN_REMINDERS_MS = 18 * 60 * 60 * 1000; // 18 heures min entre R1 et R2
 const CART_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 jours max
-
-function escapeHtml(value: unknown): string {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
 
 function buildAbandonedCartEmailHtml(params: {
   displayName: string;
@@ -135,26 +127,9 @@ function buildAbandonedCartEmailHtml(params: {
   `;
 }
 
-async function authorizeCron(req: NextRequest): Promise<boolean> {
-  const cronSecret = (process.env.CRON_SECRET || "").trim();
-  const authHeader = req.headers.get("authorization") || "";
-  const querySecret = req.nextUrl.searchParams.get("secret") || "";
-
-  if (cronSecret && cronSecret !== "REMPLACEZ_PAR_VOTRE_SECRET") {
-    if (authHeader === `Bearer ${cronSecret}` || querySecret === cronSecret) {
-      return true;
-    }
-  }
-
-  const caller = await getServerCaller(req);
-  return Boolean(caller?.isAdmin);
-}
-
 async function runAbandonedCartReminders(req: NextRequest) {
-  const authorized = await authorizeCron(req);
-  if (!authorized) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await requireCronOrAdminCaller(req);
+  if (!guard.ok) return guard.errorResponse!;
 
   const nowMs = Date.now();
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://rayons.net").replace(/\/+$/, "");

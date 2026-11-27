@@ -1,3 +1,4 @@
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import {
   translateText,
@@ -80,9 +81,6 @@ export async function POST(req: NextRequest) {
     );
   } catch (error: any) {
     console.error("[/api/translate ERROR]:", error);
-    return NextResponse.json(
-      { success: false, error: error?.message || "Erreur lors de la traduction." },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur lors de la traduction.") }, { status: 500 });
   }
 }

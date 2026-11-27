@@ -1,3 +1,5 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb, initFirebaseAdmin } from "@/lib/firebase-admin";
@@ -99,7 +101,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, requests, pendingCount });
   } catch (error: any) {
     console.error("[GET /api/payments/mobile-money ERROR]:", error);
-    return NextResponse.json({ success: false, error: error?.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }
 
@@ -110,6 +112,8 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:payments_mobile-money:POST", 20, 60);
+  if (_rl) return _rl;
     const caller = await getServerCaller(req);
     if (!caller) {
       return NextResponse.json({ success: false, error: "Authentification requise." }, { status: 401 });
@@ -257,7 +261,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[POST /api/payments/mobile-money ERROR]:", error);
-    return NextResponse.json({ success: false, error: error?.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }
 
@@ -269,6 +273,8 @@ export async function POST(req: NextRequest) {
  */
 export async function PATCH(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:payments_mobile-money:PATCH", 20, 60);
+  if (_rl) return _rl;
     const guard = await requireAnyStaffPermission(req, ["finance.cash", "subscriptions.manage"]);
     if (!guard.ok || !guard.caller) return guard.errorResponse!;
     const caller = guard.caller;
@@ -515,6 +521,6 @@ export async function PATCH(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[PATCH /api/payments/mobile-money ERROR]:", error);
-    return NextResponse.json({ success: false, error: error?.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }

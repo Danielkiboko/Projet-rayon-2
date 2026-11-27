@@ -1,3 +1,6 @@
+import { isProtectedSuperAdminEmail } from "@/server/guards";
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { SUPER_ADMIN_EMAILS } from '@/lib/serverAuth';
@@ -6,6 +9,8 @@ import { recordAuditLog } from '@/server/auditLog';
 
 export async function POST(req: Request) {
   try {
+  const _rl = await enforceRateLimit(req, "api:admin_clients_promote:POST", 40, 60);
+  if (_rl) return _rl;
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Non autorisé: Jeton manquant' }, { status: 401 });
@@ -34,7 +39,7 @@ export async function POST(req: Request) {
     }
 
     const rawRole = (firestoreRole || decodedToken.role || '').toString().toUpperCase();
-    const isSuperAdminCaller = SUPER_ADMIN_EMAILS.includes(callerEmail) || rawRole === 'SUPER_ADMIN' || rawRole === 'SUPERADMIN';
+    const isSuperAdminCaller = isProtectedSuperAdminEmail(callerEmail) || rawRole === 'SUPER_ADMIN' || rawRole === 'SUPERADMIN';
     const isSubAdminCaller = ['SUB_ADMIN', 'SUBADMIN', 'ADMIN'].includes(rawRole);
     const isAuthorizedAdmin = isSuperAdminCaller || isSubAdminCaller;
 
@@ -58,7 +63,7 @@ export async function POST(req: Request) {
     const targetEmail = (targetData.email || '').toLowerCase().trim();
 
     // Protection SuperAdmin
-    if (SUPER_ADMIN_EMAILS.includes(targetEmail)) {
+    if (isProtectedSuperAdminEmail(targetEmail)) {
       return NextResponse.json({ error: 'Impossible de modifier le rôle du Super Administrateur.' }, { status: 403 });
     }
 
@@ -232,7 +237,7 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error('Erreur lors de la promotion du client:', error);
-    return NextResponse.json({ error: error.message || 'Erreur serveur' }, { status: 500 });
+    return NextResponse.json({ error: safeApiError(error, 'Erreur serveur') }, { status: 500 });
   }
 }
 

@@ -1,8 +1,10 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
-import { requireAnyStaffPermission } from "@/server/guards";
+import { requireAnyStaffPermission, isProtectedSuperAdminEmail } from "@/server/guards";
 import { cacheDel } from "@/lib/cache";
 import { DEFAULT_VISA_CONFIG, sanitizeHttpsPaymentUrl, VISA_CONFIG_CACHE_KEY } from "@/lib/visaPayments";
 
@@ -54,12 +56,14 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[GET FINANCIAL SETTINGS ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur interne du serveur.") }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:admin_financial-settings:POST", 40, 60);
+  if (_rl) return _rl;
     const guard = await requireAnyStaffPermission(req, ["finance.cash", "settings.system"]);
     if (!guard.ok || !guard.caller) return guard.errorResponse!;
     const caller = guard.caller;
@@ -71,7 +75,7 @@ export async function POST(req: NextRequest) {
     const callerData = callerDoc.exists ? callerDoc.data() : {};
     const roleUpper = String(callerData?.role || "").toUpperCase();
     const isSuperAdmin =
-      SUPER_ADMIN_EMAILS.includes(caller.email) ||
+      isProtectedSuperAdminEmail(caller.email) ||
       Boolean((caller as any).claims?.superAdmin) ||
       ["SUPER_ADMIN", "SUPERADMIN"].includes(roleUpper) ||
       (Array.isArray(callerData?.staffProfile?.positions) &&
@@ -380,7 +384,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Action non reconnue." }, { status: 400 });
   } catch (error: any) {
     console.error("[POST FINANCIAL SETTINGS ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur interne du serveur.") }, { status: 500 });
   }
 }
 

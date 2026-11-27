@@ -1,9 +1,13 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb, initFirebaseAdmin } from "@/lib/firebase-admin";
 import { getServerCaller } from "@/lib/serverAuth";
 
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:users_profile:POST", 20, 60);
+  if (_rl) return _rl;
     await initFirebaseAdmin();
     const caller = await getServerCaller(req);
     if (!caller) {
@@ -215,9 +219,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[API /api/users/profile] Error:", error);
-    return NextResponse.json(
-      { error: error.message || "Erreur lors de la sauvegarde du profil." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: safeApiError(error, "Erreur lors de la sauvegarde du profil.") }, { status: 500 });
   }
 }

@@ -1,3 +1,4 @@
+import { safeApiError } from "@/lib/sanitize";
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { getServerCaller } from "@/lib/serverAuth";
@@ -78,7 +79,7 @@ export async function GET(request: Request) {
     return await executePurge(request);
   } catch (error: any) {
     console.error("[CRON PURGE DELETED ACCOUNTS ERROR]:", error);
-    return NextResponse.json({ success: false, error: error?.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }
 
@@ -87,6 +88,6 @@ export async function POST(request: Request) {
     return await executePurge(request);
   } catch (error: any) {
     console.error("[CRON PURGE DELETED ACCOUNTS ERROR]:", error);
-    return NextResponse.json({ success: false, error: error?.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }

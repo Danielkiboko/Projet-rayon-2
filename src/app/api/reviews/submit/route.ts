@@ -1,3 +1,4 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { initFirebaseAdmin, adminDb } from "@/lib/firebase-admin";
@@ -5,6 +6,8 @@ import { getServerCaller } from "@/lib/serverAuth";
 
 export async function POST(req: Request) {
   try {
+  const _rl = await enforceRateLimit(req, "api:reviews_submit:POST", 20, 60);
+  if (_rl) return _rl;
     const caller = await getServerCaller(req);
     if (!caller) {
       return NextResponse.json(

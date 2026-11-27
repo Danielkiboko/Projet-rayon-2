@@ -1,3 +1,6 @@
+import { isProtectedSuperAdminEmail } from "@/server/guards";
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminAuth, adminDb } from "@/lib/firebase-admin";
@@ -17,12 +20,14 @@ const GRACE_PERIOD_DAYS = 15;
  */
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:supplier_delete-account:POST", 20, 60);
+  if (_rl) return _rl;
     const caller = await getServerCaller(req);
     if (!caller) {
       return NextResponse.json({ success: false, error: "Authentification requise." }, { status: 401 });
     }
 
-    if (SUPER_ADMIN_EMAILS.includes(caller.email) || caller.role === "SUPER_ADMIN" || caller.role === "SUPERADMIN") {
+    if (isProtectedSuperAdminEmail(caller.email) || caller.role === "SUPER_ADMIN" || caller.role === "SUPERADMIN") {
       return NextResponse.json(
         { success: false, error: "Le compte Super Administrateur ne peut pas être supprimé depuis cette interface." },
         { status: 403 }
@@ -217,9 +222,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[SUPPLIER DELETE ACCOUNT ERROR]:", error);
-    return NextResponse.json(
-      { success: false, error: error?.message || "Erreur lors de la demande de suppression." },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur lors de la demande de suppression.") }, { status: 500 });
   }
 }

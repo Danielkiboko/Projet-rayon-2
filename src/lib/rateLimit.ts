@@ -4,7 +4,7 @@ import { checkDistributedRateLimit } from "./cache";
 /**
  * Extrait l'IP client réelle derrière Cloudflare, Cloud Run / App Hosting, ou Hostinger Proxy.
  */
-export function getClientIp(req: NextRequest): string {
+export function getClientIp(req: NextRequest | Request): string {
   const cfIp = req.headers.get("cf-connecting-ip");
   if (cfIp) return cfIp.trim();
 
@@ -22,7 +22,7 @@ export function getClientIp(req: NextRequest): string {
  * Retourne `null` si autorisé, ou une `NextResponse` HTTP 429 prête à être renvoyée.
  */
 export async function enforceRateLimit(
-  req: NextRequest,
+  req: NextRequest | Request,
   scope: string,
   maxRequests: number,
   windowSeconds: number

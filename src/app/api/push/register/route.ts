@@ -1,3 +1,5 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { FieldValue } from "firebase-admin/firestore";
@@ -19,6 +21,8 @@ function detectOsPlatform(ua: string): "android" | "ios" | "desktop" {
  */
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:push_register:POST", 20, 60);
+  if (_rl) return _rl;
     const caller = await getServerCaller(req);
     const body = await req.json().catch(() => ({}));
 
@@ -142,7 +146,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[PUSH REGISTER POST ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }
 
@@ -211,6 +215,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[PUSH REGISTER GET ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }

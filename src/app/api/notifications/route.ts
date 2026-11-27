@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { safeApiError } from "@/lib/sanitize";
+import { NextRequest, NextResponse } from "next/server";
 import { 
   sendEmail, 
   sendSMS, 
@@ -13,30 +14,12 @@ import { dispatchAccountNotification } from "@/lib/pushNotifications";
 import { requireAuthenticatedCaller, isOperationalCaller } from "@/server/guards";
 import { hasStaffPermission } from "@/domain/permissions";
 import { isSupplier, isSuperAdmin } from "@/domain/roles";
+import { enforceRateLimit } from "@/lib/rateLimit";
 
-const RATE_LIMIT_MAX = 10;
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const notifIpWindow = new Map<string, { count: number; firstAt: number }>();
-
-function isNotifRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = notifIpWindow.get(ip);
-  if (!entry || now - entry.firstAt > RATE_LIMIT_WINDOW_MS) {
-    notifIpWindow.set(ip, { count: 1, firstAt: now });
-    return false;
-  }
-  if (entry.count >= RATE_LIMIT_MAX) return true;
-  entry.count += 1;
-  return false;
-}
-
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const forwarded = req.headers.get("x-forwarded-for");
-    const ip = forwarded ? forwarded.split(",")[0].trim() : "unknown";
-    if (isNotifRateLimited(ip)) {
-      return NextResponse.json({ error: "Trop de requêtes." }, { status: 429 });
-    }
+    const rateLimited = await enforceRateLimit(req, "api:notifications", 10, 60);
+    if (rateLimited) return rateLimited;
 
     // Authentification obligatoire pour éviter tout abus de relais Email/SMS/Push
     const guard = await requireAuthenticatedCaller(req);
@@ -246,6 +229,6 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     console.error("Erreur API Notifications:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeApiError(error, "Erreur interne du serveur.") }, { status: 500 });
   }
 }

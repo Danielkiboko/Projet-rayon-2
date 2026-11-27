@@ -1,3 +1,5 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { getServerCaller, canActForSupplier } from "@/lib/serverAuth";
@@ -11,6 +13,8 @@ import { translateToAllLanguages } from "@/lib/autoTranslate";
  */
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:push_notify:POST", 20, 60);
+  if (_rl) return _rl;
     const caller = await getServerCaller(req);
     if (!caller || !caller.uid) {
       return NextResponse.json({ success: false, error: "Authentification requise." }, { status: 401 });
@@ -117,6 +121,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "eventType non supporté." }, { status: 400 });
   } catch (error: any) {
     console.error("[PUSH NOTIFY API ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }

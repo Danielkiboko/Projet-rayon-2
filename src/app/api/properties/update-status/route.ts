@@ -1,10 +1,13 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { initFirebaseAdmin, adminDb } from "@/lib/firebase-admin";
 import { getServerCaller, canActForSupplier } from "@/lib/serverAuth";
 
 export async function POST(req: Request) {
-  let propertyId = "unknown";
+  
+  const _rl = await enforceRateLimit(req, "api:properties_update-status:POST", 20, 60);
+  if (_rl) return _rl;let propertyId = "unknown";
   try {
     const caller = await getServerCaller(req);
     if (!caller) {

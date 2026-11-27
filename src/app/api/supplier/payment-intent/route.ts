@@ -4,6 +4,7 @@ import { adminDb } from "@/lib/firebase-admin";
 import { getServerCaller } from "@/lib/serverAuth";
 import { requireAnyStaffPermission } from "@/server/guards";
 import { enforceRateLimit } from "@/lib/rateLimit";
+import { paymentIntentSchema } from "@/server/schemas";
 
 /**
  * /api/supplier/payment-intent
@@ -23,11 +24,19 @@ export async function POST(req: NextRequest) {
     const rateLimited = await enforceRateLimit(req, "supplier:payment-intent", 12, 60);
     if (rateLimited) return rateLimited;
 
-    const body = await req.json().catch(() => ({}));
-    const email = String(body.email || "").trim().toLowerCase().slice(0, 140);
+    const rawBody = await req.json().catch(() => null);
+    const parsed = paymentIntentSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: parsed.error.issues[0]?.message || "Données de paiement invalides." },
+        { status: 400 }
+      );
+    }
+    const body = parsed.data;
+    const email = body.email.toLowerCase();
     const phone = String(body.phone || "").trim().slice(0, 40);
     const paymentPhone = String(body.paymentPhone || phone || "").trim().slice(0, 40);
-    const paymentMethod = body.paymentMethod === "card" ? "card" : "mobile_money";
+    const paymentMethod = body.paymentMethod;
     const operator = String(body.operator || (paymentMethod === "card" ? "VISA" : "MPESA"))
       .trim()
       .toUpperCase()
@@ -39,12 +48,8 @@ export async function POST(req: NextRequest) {
       (operatorTxRef.length >= 4
         ? operatorTxRef
         : `RAY-DEP-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`);
-    const amount = Math.max(1, Math.min(5000, Number(body.amount) || 50));
+    const amount = body.amount;
     const promoCode = String(body.promoCode || "").trim().slice(0, 40);
-
-    if (!email || !email.includes("@")) {
-      return NextResponse.json({ success: false, error: "Adresse email valide requise." }, { status: 400 });
-    }
 
     const caller = await getServerCaller(req);
     const docId = sanitizeDocId(reference);

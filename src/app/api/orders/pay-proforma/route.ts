@@ -1,3 +1,5 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -6,6 +8,8 @@ import { dispatchAccountNotification } from "@/lib/pushNotifications";
 
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:orders_pay-proforma:POST", 20, 60);
+  if (_rl) return _rl;
     const caller = await getServerCaller(req);
     const body = await req.json();
     const { chatId, messageId, clientId, clientName, clientPhone, clientAddress } = body;
@@ -235,9 +239,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("Erreur api pay-proforma:", error);
-    return NextResponse.json(
-      { error: error.message || "Erreur interne du serveur" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: safeApiError(error, "Erreur interne du serveur") }, { status: 500 });
   }
 }

@@ -1,3 +1,5 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAnyStaffPermission } from "@/server/guards";
 import { recordAuditLog } from "@/server/auditLog";
@@ -91,12 +93,14 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[ADMIN REFERRALS GET ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:admin_referrals:POST", 40, 60);
+  if (_rl) return _rl;
     const guard = await requireAnyStaffPermission(req, ["finance.cash", "partners.payout"]);
     if (!guard.ok || !guard.caller) return guard.errorResponse!;
     const caller = guard.caller;
@@ -134,6 +138,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Action inconnue." }, { status: 400 });
   } catch (error: any) {
     console.error("[ADMIN REFERRALS POST ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }

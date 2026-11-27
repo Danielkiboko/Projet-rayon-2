@@ -1,3 +1,5 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
 import { initFirebaseAdmin, adminDb } from "@/lib/firebase-admin";
@@ -5,6 +7,8 @@ import { getServerCaller } from "@/lib/serverAuth";
 
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:ai_analyze-bug:POST", 12, 60);
+  if (_rl) return _rl;
     const caller = await getServerCaller(req);
     if (!caller || !caller.isAdmin) {
       return NextResponse.json(
@@ -70,6 +74,6 @@ Analyse cette erreur et fournis une explication claire de ce qui a pu se passer,
     return NextResponse.json({ success: true, analysis });
   } catch (error: any) {
     console.error("AI Bug Analysis failed:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeApiError(error, "Erreur interne du serveur.") }, { status: 500 });
   }
 }

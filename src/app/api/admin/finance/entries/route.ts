@@ -1,7 +1,8 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
-import { requireAnyStaffPermission } from "@/server/guards";
+import { requireAnyStaffPermission, isProtectedSuperAdminEmail } from "@/server/guards";
 import { SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
 
 /**
@@ -17,6 +18,8 @@ import { SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
  */
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:admin_finance_entries:POST", 40, 60);
+  if (_rl) return _rl;
     const guard = await requireAnyStaffPermission(req, ["finance.cash", "finance.view"]);
     if (!guard.ok || !guard.caller) return guard.errorResponse!;
     const caller = guard.caller;
@@ -80,7 +83,7 @@ export async function POST(req: NextRequest) {
     const isSuper =
       Boolean((caller as any).isSuperAdmin) ||
       callerRole === "SUPER_ADMIN" ||
-      SUPER_ADMIN_EMAILS.includes(callerEmail);
+      isProtectedSuperAdminEmail(callerEmail);
 
     const isOutflow = kind === "EXPENSE" || (kind === "ADJUSTMENT" && numericAmount < 0);
     if ((kind === "ADJUSTMENT" || isOutflow) && !isSuper) {

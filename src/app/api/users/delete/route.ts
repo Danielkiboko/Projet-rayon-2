@@ -1,3 +1,6 @@
+import { isProtectedSuperAdminEmail } from "@/server/guards";
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextResponse } from 'next/server';
 import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { SUPER_ADMIN_EMAILS } from '@/lib/serverAuth';
@@ -7,6 +10,8 @@ import { cacheDel } from '@/lib/cache';
 
 export async function POST(req: Request) {
   try {
+  const _rl = await enforceRateLimit(req, "api:users_delete:POST", 20, 60);
+  if (_rl) return _rl;
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized: No token' }, { status: 401 });
@@ -22,7 +27,7 @@ export async function POST(req: Request) {
 
     const callerUid = decodedToken.uid;
     const callerEmail = (decodedToken.email || '').toLowerCase().trim();
-    const isSuperAdminEmail = SUPER_ADMIN_EMAILS.includes(callerEmail);
+    const isSuperAdminEmail = isProtectedSuperAdminEmail(callerEmail);
 
     const body = await req.json();
     const { uid, collectionName, email: bodyEmail } = body;
@@ -84,7 +89,7 @@ export async function POST(req: Request) {
       const targetData = targetDocSnap.data();
       const targetEmail = (targetData?.email || '').toLowerCase().trim();
       const targetRole = (targetData?.role || '').toString().toUpperCase();
-      if (SUPER_ADMIN_EMAILS.includes(targetEmail) || targetRole === 'SUPER_ADMIN' || targetRole === 'SUPERADMIN') {
+      if (isProtectedSuperAdminEmail(targetEmail) || targetRole === 'SUPER_ADMIN' || targetRole === 'SUPERADMIN') {
         return NextResponse.json({ 
           error: 'Action interdite : Le compte Super Administrateur (Directeur Général) ne peut jamais être révoqué ni supprimé.' 
         }, { status: 403 });
@@ -166,6 +171,6 @@ export async function POST(req: Request) {
     }, { status: 200 });
   } catch (error: any) {
     console.error('Error deleting user:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeApiError(error, "Erreur interne du serveur.") }, { status: 500 });
   }
 }

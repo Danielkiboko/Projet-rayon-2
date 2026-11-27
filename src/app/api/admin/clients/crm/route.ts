@@ -1,3 +1,5 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
@@ -124,7 +126,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[ADMIN CLIENTS CRM GET ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }
 
@@ -137,6 +139,8 @@ export async function GET(req: NextRequest) {
  */
 export async function PATCH(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:admin_clients_crm:PATCH", 40, 60);
+  if (_rl) return _rl;
     const guard = await requireAnyStaffPermission(req, ["clients.manage"]);
     if (!guard.ok || !guard.caller) return guard.errorResponse!;
 
@@ -240,6 +244,6 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Action CRM non reconnue." }, { status: 400 });
   } catch (error: any) {
     console.error("[ADMIN CLIENTS CRM PATCH ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }

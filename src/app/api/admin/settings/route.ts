@@ -1,3 +1,5 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { initFirebaseAdmin, adminDb } from "@/lib/firebase-admin";
@@ -6,6 +8,8 @@ import { recordAuditLog } from "@/server/auditLog";
 
 export async function POST(req: Request) {
   try {
+  const _rl = await enforceRateLimit(req, "api:admin_settings:POST", 40, 60);
+  if (_rl) return _rl;
     const guard = await requireFullAdminCaller(req);
     if (!guard.ok || !guard.caller) return guard.errorResponse!;
     const caller = guard.caller;
@@ -54,6 +58,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, settings: dataToSave });
   } catch (error: any) {
     console.error("Error in /api/admin/settings:", error);
-    return NextResponse.json({ success: false, error: error?.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }

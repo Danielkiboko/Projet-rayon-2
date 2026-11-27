@@ -1,3 +1,4 @@
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { initFirebaseAdmin, adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -60,10 +61,6 @@ async function callMakuta(_amount: number, _phone: string, _currency: string): P
   // }
   // return { success: true, referenceId: data.reference };
 
-  // ── Mode simulation ou API réelle ──
-  const isProd = process.env.NODE_ENV === "production";
-  const allowSim = process.env.ALLOW_PAYMENT_SIMULATION === "true";
-
   if (process.env.MAKUTA_API_KEY && process.env.MAKUTA_BASE_URL) {
     try {
       const res = await fetch(`${process.env.MAKUTA_BASE_URL}/mgep_Payment`, {
@@ -84,43 +81,29 @@ async function callMakuta(_amount: number, _phone: string, _currency: string): P
         return { success: false, error: data.message || "Échec de transaction Makuta" };
       }
       return { success: true, referenceId: data.reference };
-    } catch (e: any) {
-      return { success: false, error: e.message || "Erreur de connexion Makuta" };
+    } catch {
+      return { success: false, error: "Erreur de connexion au prestataire Makuta." };
     }
   }
 
-  // Si on est en production sans credentials réels et sans simulation autorisée
-  if (isProd && !allowSim) {
-    return {
-      success: false,
-      error: "La passerelle de paiement Makuta est en cours d'activation. Veuillez opter pour le paiement à la livraison (Cash) ou contacter l'assistance."
-    };
-  }
-
-  console.log("[MAKUTA SIMULATION] amount:", _amount, "phone:", _phone, "currency:", _currency);
-  await new Promise(r => setTimeout(r, 1000));
-  return { success: true, referenceId: `SIM-MAKUTA-${Date.now()}` };
+  // Fail-closed strict : aucune simulation de paiement n'est autorisée sans passerelle réelle configurée
+  return {
+    success: false,
+    error: "La passerelle de paiement Makuta n'est pas encore activée. Veuillez opter pour le paiement à la livraison (Cash) ou contacter l'assistance.",
+  };
 }
 
 // ─── Helper: appel Orange Money (à activer quand API reçue) ─────────────────
 async function callOrangeMoney(_amount: number, _phone: string): Promise<{ success: boolean; referenceId?: string; error?: string }> {
-  const isProd = process.env.NODE_ENV === "production";
-  const allowSim = process.env.ALLOW_PAYMENT_SIMULATION === "true";
-
   if (process.env.ORANGE_MONEY_TOKEN && process.env.ORANGE_MONEY_BASE_URL) {
     // Appel réel Orange Money quand configuré
   }
 
-  if (isProd && !allowSim) {
-    return {
-      success: false,
-      error: "La passerelle Orange Money est en cours de configuration. Veuillez choisir le paiement cash ou contacter le support."
-    };
-  }
-
-  console.log("[ORANGE MONEY SIMULATION] amount:", _amount, "phone:", _phone);
-  await new Promise(r => setTimeout(r, 1000));
-  return { success: true, referenceId: `SIM-OM-${Date.now()}` };
+  // Fail-closed strict : aucune simulation autorisée
+  return {
+    success: false,
+    error: "La passerelle Orange Money est en cours de configuration. Veuillez choisir le paiement cash ou soumettre votre preuve Mobile Money.",
+  };
 }
 
 // ─── Routeur de provider ─────────────────────────────────────────────────────
@@ -318,6 +301,6 @@ export async function POST(req: NextRequest) {
 
   } catch (error: any) {
     console.error("[PAYMENT API] Erreur :", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur interne du serveur.") }, { status: 500 });
   }
 }

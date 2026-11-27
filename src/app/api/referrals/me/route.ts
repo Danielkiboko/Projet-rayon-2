@@ -1,3 +1,4 @@
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerCaller } from "@/lib/serverAuth";
 import { ensureReferralCode } from "@/lib/referrals";
@@ -205,6 +206,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[REFERRALS ME API ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }

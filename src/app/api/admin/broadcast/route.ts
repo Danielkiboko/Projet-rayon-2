@@ -1,13 +1,16 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { sendEmail } from "@/lib/email";
 import { FieldValue } from "firebase-admin/firestore";
 import { SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
-import { requireAnyStaffPermission } from "@/server/guards";
+import { requireAnyStaffPermission, isProtectedSuperAdminEmail } from "@/server/guards";
 import { normalizeLang, translateText, SupportedLang } from "@/lib/autoTranslate";
 
 export async function POST(req: NextRequest) {
-  // 1. Vérification du token Firebase et des droits de diffusion (Direction / Gestionnaire Admin uniquement)
+  
+  const _rl = await enforceRateLimit(req, "api:admin_broadcast:POST", 40, 60);
+  if (_rl) return _rl;// 1. Vérification du token Firebase et des droits de diffusion (Direction / Gestionnaire Admin uniquement)
   const guard = await requireAnyStaffPermission(req, ["clients.manage", "suppliers.manage", "settings.system"]);
   if (!guard.ok || !guard.caller) return guard.errorResponse!;
   const callerUid = guard.caller.uid;
@@ -32,7 +35,7 @@ export async function POST(req: NextRequest) {
     const email = (data.email || "").toLowerCase().trim();
 
     // 1. Super Admin & Administrateurs internes (JAMAIS clients)
-    if (SUPER_ADMIN_EMAILS.includes(email) || ADMIN_ROLES.includes(role)) return false;
+    if (isProtectedSuperAdminEmail(email) || ADMIN_ROLES.includes(role)) return false;
     if (role.includes("ADMIN") || role.includes("STAFF") || role.includes("FONCTIONNAIRE") || role.includes("COLLABORAT")) return false;
 
     // 2. Fournisseurs & Partenaires
@@ -53,7 +56,7 @@ export async function POST(req: NextRequest) {
     if (!data) return false;
     const role = (data.role || "").toUpperCase();
     const email = (data.email || "").toLowerCase().trim();
-    return SUPER_ADMIN_EMAILS.includes(email) || ADMIN_ROLES.includes(role) || role.includes("ADMIN");
+    return isProtectedSuperAdminEmail(email) || ADMIN_ROLES.includes(role) || role.includes("ADMIN");
   }
 
   const seen = new Set<string>();

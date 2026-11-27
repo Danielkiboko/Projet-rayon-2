@@ -1,7 +1,9 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
-import { requireAdminCaller, requireFullAdminCaller } from "@/server/guards";
+import { requireAdminCaller, requireFullAdminCaller, isProtectedSuperAdminEmail } from "@/server/guards";
 import { recordAuditLog } from "@/server/auditLog";
 import { hasStaffPermission } from "@/domain/permissions";
 import { isSuperAdmin } from "@/domain/roles";
@@ -29,7 +31,7 @@ function isStaffOrAdminDoc(data: any): boolean {
   if (!data) return false;
   if (data.isInternalStaff === true || data.accountType === "STAFF") return true;
   const email = String(data.email || "").toLowerCase().trim();
-  if (SUPER_ADMIN_EMAILS.includes(email)) return true;
+  if (isProtectedSuperAdminEmail(email)) return true;
   const role = String(data.role || "").toUpperCase().trim();
   return (
     ADMIN_ROLES.includes(role) ||
@@ -960,10 +962,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[STAFF DASHBOARD GET ERROR]:", error);
-    return NextResponse.json(
-      { success: false, error: error.message || "Erreur serveur" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }
 
@@ -973,6 +972,8 @@ export async function GET(req: NextRequest) {
  */
 export async function PATCH(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:admin_staff-dashboard:PATCH", 40, 60);
+  if (_rl) return _rl;
     const guard = await requireFullAdminCaller(req);
     if (!guard.ok || !guard.caller) return guard.errorResponse!;
 
@@ -1015,9 +1016,6 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: true, goals: nextGoals });
   } catch (error: any) {
     console.error("[STAFF DASHBOARD PATCH GOALS ERROR]:", error);
-    return NextResponse.json(
-      { success: false, error: error.message || "Impossible de sauvegarder les objectifs." },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: safeApiError(error, "Impossible de sauvegarder les objectifs.") }, { status: 500 });
   }
 }

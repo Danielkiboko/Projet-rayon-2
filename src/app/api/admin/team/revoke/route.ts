@@ -1,3 +1,6 @@
+import { isProtectedSuperAdminEmail } from "@/server/guards";
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { getServerCaller, SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
@@ -11,13 +14,15 @@ import { purgeUserAccountCompletely } from "@/lib/purgeUserAccount";
  */
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:admin_team_revoke:POST", 40, 60);
+  if (_rl) return _rl;
     const caller = await getServerCaller(req);
     if (!caller) {
       return NextResponse.json({ success: false, error: "Authentification requise." }, { status: 401 });
     }
 
     const isSuperAdmin =
-      SUPER_ADMIN_EMAILS.includes(caller.email) ||
+      isProtectedSuperAdminEmail(caller.email) ||
       caller.role === "SUPER_ADMIN" ||
       caller.role === "SUPERADMIN" ||
       caller.data?.isSuperAdmin === true;
@@ -43,7 +48,7 @@ export async function POST(req: NextRequest) {
     const targetRole = String(targetData.role || "").toUpperCase();
 
     if (
-      SUPER_ADMIN_EMAILS.includes(targetEmail) ||
+      isProtectedSuperAdminEmail(targetEmail) ||
       targetRole === "SUPER_ADMIN" ||
       targetRole === "SUPERADMIN" ||
       targetData.isSuperAdmin === true
@@ -73,9 +78,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[TEAM REVOKE/DELETE ERROR]:", error);
-    return NextResponse.json(
-      { success: false, error: error?.message || "Erreur lors de la suppression." },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur lors de la suppression.") }, { status: 500 });
   }
 }

@@ -1,9 +1,12 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { getServerCaller } from '@/lib/serverAuth';
 
 export async function POST(req: Request) {
   try {
+  const _rl = await enforceRateLimit(req, "api:ai_product-assistant:POST", 12, 60);
+  if (_rl) return _rl;
     const caller = await getServerCaller(req);
     if (!caller) {
       return NextResponse.json({ error: 'Authentification requise pour utiliser l\'assistant IA.' }, { status: 401 });

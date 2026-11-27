@@ -1,3 +1,4 @@
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { getServerCaller } from "@/lib/serverAuth";
@@ -175,9 +176,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[PARTNER SUPPLIER PUBLICATIONS API ERROR]:", error);
-    return NextResponse.json(
-      { success: false, error: error.message || "Erreur interne" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur interne") }, { status: 500 });
   }
 }

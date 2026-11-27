@@ -1,9 +1,13 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
 import { getServerCaller } from "@/lib/serverAuth";
 
 export async function POST(req: Request) {
   try {
+  const _rl = await enforceRateLimit(req, "api:emails_onboarding:POST", 12, 60);
+  if (_rl) return _rl;
     const caller = await getServerCaller(req);
     if (!caller) {
       return NextResponse.json({ error: "Authentification requise." }, { status: 401 });
@@ -165,7 +169,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, message: "Email sent successfully" });
   } catch (error: any) {
     console.error("Failed to send onboarding email:", error);
-    return NextResponse.json({ error: error.message || "Failed to send email" }, { status: 500 });
+    return NextResponse.json({ error: safeApiError(error, "Failed to send email") }, { status: 500 });
   }
 }
 

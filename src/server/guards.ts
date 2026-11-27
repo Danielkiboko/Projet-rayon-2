@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerCaller, ServerCaller } from "@/lib/serverAuth";
+import { getServerCaller, ServerCaller, SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
 import { hasStaffPermission, StaffPermission } from "@/domain/permissions";
 import { isSuperAdmin, isSupplier, isDriver } from "@/domain/roles";
 
@@ -7,6 +7,49 @@ export interface GuardResult {
   ok: boolean;
   caller: ServerCaller | null;
   errorResponse?: NextResponse;
+}
+
+/**
+ * Source de vérité unique côté serveur pour savoir si un email correspond à un Super Admin protégé.
+ */
+export function isProtectedSuperAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return SUPER_ADMIN_EMAILS.includes(String(email).trim().toLowerCase());
+}
+
+/**
+ * Source de vérité unique côté serveur pour savoir si un caller authentifié est Super Admin.
+ */
+export function isSuperAdminServerCaller(caller: ServerCaller | null): boolean {
+  if (!caller) return false;
+  return isProtectedSuperAdminEmail(caller.email) || isSuperAdmin(buildSubject(caller));
+}
+
+/**
+ * Vérification stricte Cron : accepte UNIQUEMENT `Authorization: Bearer <CRON_SECRET>`
+ * (jamais de `?secret=` dans l'URL) ou un administrateur authentifié.
+ */
+export async function requireCronOrAdminCaller(req: NextRequest | Request): Promise<GuardResult> {
+  const cronSecret = (process.env.CRON_SECRET || "").trim();
+  const authHeader = req.headers.get("authorization") || req.headers.get("Authorization") || "";
+  if (
+    cronSecret &&
+    cronSecret !== "REMPLACEZ_PAR_VOTRE_SECRET" &&
+    authHeader === `Bearer ${cronSecret}`
+  ) {
+    return { ok: true, caller: null };
+  }
+
+  const caller = await getServerCaller(req);
+  if (caller?.isAdmin) {
+    return { ok: true, caller };
+  }
+
+  return {
+    ok: false,
+    caller: null,
+    errorResponse: NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 }),
+  };
 }
 
 function buildSubject(caller: ServerCaller) {

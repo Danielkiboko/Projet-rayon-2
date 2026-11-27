@@ -52,14 +52,13 @@ export async function POST(req: NextRequest) {
     // Il ne reçoit JAMAIS de rayon ni de rôle fournisseur automatiquement : seul l'admin attribue le rayon.
     const isApplicationMode = mode === "application" || (!caller.isAdmin && !body.isRenewal);
 
-    const isProd = process.env.NODE_ENV === "production";
-    const allowSim = process.env.ALLOW_PAYMENT_SIMULATION === "true";
-    if (!isApplicationMode && isProd && !allowSim && !caller.isAdmin) {
+    // Fail-closed strict : tout renouvellement non-admin passe obligatoirement par preuve Mobile Money validée ou webhook Visa signé
+    if (!isApplicationMode && !caller.isAdmin) {
       return NextResponse.json(
         {
           success: false,
           error:
-            "Pour sécuriser votre compte, veuillez soumettre votre référence Mobile Money (M-Pesa, Airtel Money, Orange Money) depuis votre Espace Finances.",
+            "Pour sécuriser votre compte, veuillez soumettre votre référence Mobile Money (M-Pesa, Airtel Money, Orange Money) depuis votre Espace Finances ou utiliser le paiement Carte Visa.",
         },
         { status: 403 }
       );
@@ -333,7 +332,7 @@ export async function POST(req: NextRequest) {
     // Elle crée une preuve en attente (`subscription_payment_requests` = PENDING_VERIFICATION).
     // ─────────────────────────────────────────────────────────────
     const batch = adminDb.batch();
-    const shouldWriteLedgerDirectly = caller.isAdmin || (!isApplicationMode && (!isProd || allowSim));
+    const shouldWriteLedgerDirectly = caller.isAdmin;
     let ledgerId: string | null = null;
     let adminTxId: string | null = null;
     let supplierTxId: string | null = null;

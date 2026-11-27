@@ -1,3 +1,5 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAnyStaffPermission } from "@/server/guards";
 import { recordAuditLog } from "@/server/auditLog";
@@ -5,6 +7,8 @@ import { adminDb } from "@/lib/firebase-admin";
 
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:admin_suppliers_subscription:POST", 40, 60);
+  if (_rl) return _rl;
     const guard = await requireAnyStaffPermission(req, ["suppliers.subscription", "subscriptions.manage", "finance.cash"]);
     if (!guard.ok || !guard.caller) return guard.errorResponse!;
     const caller = guard.caller;
@@ -112,6 +116,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[ADMIN UPDATE SUPPLIER SUB ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }

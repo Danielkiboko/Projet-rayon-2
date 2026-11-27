@@ -1,3 +1,4 @@
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb, initFirebaseAdmin } from "@/lib/firebase-admin";
 import { requireFullAdminCaller } from "@/server/guards";
@@ -52,9 +53,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, logs });
   } catch (error: any) {
     console.error("[GET /api/admin/audit-logs ERROR]:", error);
-    return NextResponse.json(
-      { success: false, error: error?.message || "Erreur serveur" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }

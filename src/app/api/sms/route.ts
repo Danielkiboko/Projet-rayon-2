@@ -1,42 +1,13 @@
-import { NextResponse } from "next/server";
+import { safeApiError } from "@/lib/sanitize";
+import { NextRequest, NextResponse } from "next/server";
 import { sendMobiShastraSMS } from "@/lib/sms";
 import { adminDb, adminAuth } from "@/lib/firebase-admin";
+import { enforceRateLimit } from "@/lib/rateLimit";
 
-// ─── Rate Limiting (sliding window, en mémoire) ───────────────────────────────
-// Max 5 SMS par IP toutes les 60 secondes
-const RATE_LIMIT_MAX = 5;
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const ipWindowMap = new Map<string, { count: number; firstAt: number }>();
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = ipWindowMap.get(ip);
-
-  if (!entry || now - entry.firstAt > RATE_LIMIT_WINDOW_MS) {
-    // Nouvelle fenêtre
-    ipWindowMap.set(ip, { count: 1, firstAt: now });
-    return false;
-  }
-
-  if (entry.count >= RATE_LIMIT_MAX) {
-    return true;
-  }
-
-  entry.count += 1;
-  return false;
-}
-
-export async function POST(request: Request) {
-  // ─── 1. Rate limiting ──────────────────────────────────────────────────────
-  const forwarded = request.headers.get("x-forwarded-for");
-  const ip = forwarded ? forwarded.split(",")[0].trim() : "unknown";
-
-  if (isRateLimited(ip)) {
-    return NextResponse.json(
-      { success: false, error: "Trop de requêtes. Réessayez dans 60 secondes." },
-      { status: 429 }
-    );
-  }
+export async function POST(request: NextRequest) {
+  // ─── 1. Rate limiting distribué Redis (max 5 SMS / IP / 60s) ──────────────
+  const rateLimited = await enforceRateLimit(request, "api:sms", 5, 60);
+  if (rateLimited) return rateLimited;
 
   // ─── 2. Authentification Firebase & Autorisation Rôle obligatoires ─────────
   const authHeader = request.headers.get("Authorization");
@@ -127,9 +98,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, result });
   } catch (error: any) {
     console.error("SMS API Route Error:", error);
-    return NextResponse.json(
-      { success: false, error: error.message || "Failed to send SMS" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: safeApiError(error, "Failed to send SMS") }, { status: 500 });
   }
 }

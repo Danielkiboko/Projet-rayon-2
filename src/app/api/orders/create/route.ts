@@ -4,6 +4,8 @@ import { FieldValue } from "firebase-admin/firestore";
 import { getDeliveryFeeForCommune, isNegotiatedDeliveryCommune } from "@/lib/kinshasaDelivery";
 import { dispatchAccountNotification } from "@/lib/pushNotifications";
 import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
+import { orderCreateSchema } from "@/server/schemas";
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,7 +13,16 @@ export async function POST(req: NextRequest) {
     const rateLimited = await enforceRateLimit(req, "orders:create", 15, 60);
     if (rateLimited) return rateLimited;
 
-    const body = await req.json();
+    const rawBody = await req.json().catch(() => null);
+    const parsed = orderCreateSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const firstIssue = parsed.error.issues[0];
+      return NextResponse.json(
+        { success: false, error: firstIssue?.message || "Données de commande invalides." },
+        { status: 400 }
+      );
+    }
+    const body = parsed.data;
     const {
       items,
       product,
@@ -79,18 +90,19 @@ export async function POST(req: NextRequest) {
         rayon: it.rayon || it.category || "connect"
       }));
     } else if (product) {
+      const prodObj = product as Record<string, any>;
       const q = Math.max(1, Math.floor(Number(quantity) || 1));
-      const unitP = Math.max(0, Number(product.price) || 0);
+      const unitP = Math.max(0, Number(prodObj.price) || 0);
       rawItems = [
         {
-          id: product.id,
-          productId: product.id,
-          title: product.title?.fr || product.title?.en || product.title || "Article",
+          id: prodObj.id,
+          productId: prodObj.id,
+          title: prodObj.title?.fr || prodObj.title?.en || prodObj.title || "Article",
           price: unitP,
           quantity: q,
-          image: product.imageUrl || product.image || "/images/placeholder.png",
-          supplierId: product.supplierId || "admin",
-          rayon: product.rayon || product.category || "connect"
+          image: prodObj.imageUrl || prodObj.image || "/images/placeholder.png",
+          supplierId: prodObj.supplierId || "admin",
+          rayon: prodObj.rayon || prodObj.category || "connect"
         }
       ];
     } else {
@@ -298,7 +310,7 @@ export async function POST(req: NextRequest) {
     console.error("[OrderCreate] Erreur création de commande:", error);
     return NextResponse.json({
       success: false,
-      error: error.message || "Erreur interne lors de la création de la commande."
+      error: safeApiError(error, "Erreur interne lors de la création de la commande.")
     }, { status: 500 });
   }
 }

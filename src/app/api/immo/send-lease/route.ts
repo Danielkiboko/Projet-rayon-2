@@ -1,9 +1,14 @@
-import { NextResponse } from "next/server";
-import nodemailer from "nodemailer";
+import { NextRequest, NextResponse } from "next/server";
 import { requireSupplierOrAdminCaller } from "@/server/guards";
+import { createSmtpTransporter } from "@/lib/email";
+import { escapeHtml, safeApiError } from "@/lib/sanitize";
+import { enforceRateLimit } from "@/lib/rateLimit";
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const rateLimited = await enforceRateLimit(req, "immo:send-lease", 10, 60);
+    if (rateLimited) return rateLimited;
+
     const guard = await requireSupplierOrAdminCaller(req);
     if (!guard.ok) return guard.errorResponse!;
 
@@ -32,22 +37,14 @@ export async function POST(req: Request) {
     const cleanEmail = tenantEmail.trim().toLowerCase();
     const cleanAgency = (agencyName || "Agence Immobilière").trim();
 
-    const esc = (s: any) =>
-      String(s ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-
-    const safeAgency = esc(cleanAgency);
-    const safeTenant = esc(tenantName || "Cher locataire");
-    const safeProperty = esc(propertyName);
-    const safeUnit = unitName ? esc(unitName) : "";
-    const safePhone = agencyPhone ? esc(agencyPhone) : "";
-    const safeAgencyEmail = agencyEmail ? esc(agencyEmail) : "";
-    const safeStartDate = startDate ? esc(startDate) : "";
-    const safeCurrency = esc(currency);
+    const safeAgency = escapeHtml(cleanAgency);
+    const safeTenant = escapeHtml(tenantName || "Cher locataire");
+    const safeProperty = escapeHtml(propertyName);
+    const safeUnit = unitName ? escapeHtml(unitName) : "";
+    const safePhone = agencyPhone ? escapeHtml(agencyPhone) : "";
+    const safeAgencyEmail = agencyEmail ? escapeHtml(agencyEmail) : "";
+    const safeStartDate = startDate ? escapeHtml(startDate) : "";
+    const safeCurrency = escapeHtml(currency);
 
     if (!process.env.SMTP_PASS) {
       return NextResponse.json(
@@ -56,20 +53,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Setup nodemailer with official SMTP (strict timeouts to prevent proxy 504)
-    const smtpPort = Number(process.env.SMTP_PORT) || 465;
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || "smtp.hostinger.com",
-      port: smtpPort,
-      secure: smtpPort === 465,
-      connectionTimeout: 6000,
-      greetingTimeout: 6000,
-      socketTimeout: 8000,
-      auth: {
-        user: process.env.SMTP_USER || "no-reply@rayons.net",
-        pass: process.env.SMTP_PASS,
-      },
-    });
+    const transporter = createSmtpTransporter();
 
     // Remove data URI prefix if present
     const cleanBase64 = pdfBase64.includes("base64,")
@@ -129,9 +113,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, messageId: info.messageId });
   } catch (error: any) {
     console.error("Error sending lease email:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to send lease email" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: safeApiError(error, "Failed to send lease email") }, { status: 500 });
   }
 }

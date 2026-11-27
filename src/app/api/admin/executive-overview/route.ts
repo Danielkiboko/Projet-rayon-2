@@ -1,8 +1,10 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
 import { SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
-import { requireAnyStaffPermission } from "@/server/guards";
+import { requireAnyStaffPermission, isProtectedSuperAdminEmail } from "@/server/guards";
 import { creditReferralCommission } from "@/lib/referrals";
 import { dispatchAccountNotification } from "@/lib/pushNotifications";
 import { cacheGet, cacheSet, cacheDel } from "@/lib/cache";
@@ -33,7 +35,7 @@ function isStaffOrAdminDoc(data: any): boolean {
   if (!data) return false;
   if (data.isInternalStaff === true || data.accountType === "STAFF") return true;
   const email = String(data.email || "").toLowerCase().trim();
-  if (SUPER_ADMIN_EMAILS.includes(email)) return true;
+  if (isProtectedSuperAdminEmail(email)) return true;
   const role = String(data.role || "").toUpperCase().trim();
   return (
     ADMIN_ROLES.includes(role) ||
@@ -390,7 +392,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(payload, { headers: { "X-Rayons-Cache": "db" } });
   } catch (error: any) {
     console.error("[EXECUTIVE OVERVIEW GET ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }
 
@@ -401,6 +403,8 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:admin_executive-overview:POST", 40, 60);
+  if (_rl) return _rl;
     const guard = await requireAnyStaffPermission(req, ["finance.cash", "subscriptions.manage"]);
     if (!guard.ok || !guard.caller) return guard.errorResponse!;
     const caller = guard.caller;
@@ -658,6 +662,6 @@ export async function POST(req: NextRequest) {
       );
     }
     console.error("[EXECUTIVE OVERVIEW POST ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }

@@ -1,3 +1,5 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -40,12 +42,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: true, partners });
   } catch (error: any) {
     console.error("[GET ADMIN COMMISSIONS ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur interne du serveur.") }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:admin_commissions:POST", 40, 60);
+  if (_rl) return _rl;
     const guard = await requireAnyStaffPermission(req, ["finance.cash", "partners.payout"]);
     if (!guard.ok || !guard.caller) return guard.errorResponse!;
     const caller = guard.caller;
@@ -151,6 +155,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Action non reconnue" }, { status: 400 });
   } catch (error: any) {
     console.error("[POST ADMIN COMMISSIONS ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur interne du serveur.") }, { status: 500 });
   }
 }

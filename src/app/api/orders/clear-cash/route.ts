@@ -1,3 +1,5 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -5,6 +7,8 @@ import { getServerCaller, canActForSupplier } from "@/lib/serverAuth";
 
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:orders_clear-cash:POST", 20, 60);
+  if (_rl) return _rl;
     const caller = await getServerCaller(req);
     const body = await req.json();
     const { orderId, supplierId } = body;
@@ -175,9 +179,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(
-      { success: false, error: error.message || "Erreur serveur lors de la validation de la caisse." },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur lors de la validation de la caisse.") }, { status: 500 });
   }
 }

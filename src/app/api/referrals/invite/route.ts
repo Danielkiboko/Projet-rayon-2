@@ -1,3 +1,5 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerCaller } from "@/lib/serverAuth";
 import { ensureReferralCode } from "@/lib/referrals";
@@ -9,6 +11,8 @@ import { FieldValue } from "firebase-admin/firestore";
 
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:referrals_invite:POST", 20, 60);
+  if (_rl) return _rl;
     const caller = await getServerCaller(req);
     if (!caller) {
       return NextResponse.json({ success: false, error: "Authentification requise." }, { status: 401 });
@@ -110,6 +114,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[REFERRALS INVITE API ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }

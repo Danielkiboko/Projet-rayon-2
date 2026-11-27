@@ -1,3 +1,4 @@
+import { safeApiError } from "@/lib/sanitize";
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
@@ -473,9 +474,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: error.message }, { status: 404 });
     }
     console.error("[VISA WEBHOOK ERROR]:", error);
-    return NextResponse.json(
-      { success: false, error: error?.message || "Erreur serveur webhook Visa" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur webhook Visa") }, { status: 500 });
   }
 }

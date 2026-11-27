@@ -3,17 +3,9 @@ import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
 import { sendSMS } from "@/lib/notifications";
 import { sendEmail } from "@/lib/email";
-import { getServerCaller } from "@/lib/serverAuth";
+import { requireCronOrAdminCaller } from "@/server/guards";
 import { dispatchAccountNotification } from "@/lib/pushNotifications";
-
-function escapeHtml(value: unknown): string {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+import { escapeHtml, safeApiError } from "@/lib/sanitize";
 
 /**
  * GET / POST /api/cron/check-leases
@@ -24,19 +16,8 @@ function escapeHtml(value: unknown): string {
  */
 export async function GET(request: NextRequest) {
   try {
-    const cronSecret = (process.env.CRON_SECRET || "").trim();
-    const authHeader = request.headers.get("authorization") || "";
-    const querySecret = request.nextUrl.searchParams.get("secret") || "";
-    const hasValidCronSecret =
-      Boolean(cronSecret && cronSecret !== "REMPLACEZ_PAR_VOTRE_SECRET") &&
-      (authHeader === `Bearer ${cronSecret}` || querySecret === cronSecret);
-
-    if (!hasValidCronSecret) {
-      const caller = await getServerCaller(request);
-      if (!caller || !caller.isAdmin) {
-        return new NextResponse("Unauthorized", { status: 401 });
-      }
-    }
+    const guard = await requireCronOrAdminCaller(request);
+    if (!guard.ok) return guard.errorResponse!;
 
     const now = new Date();
     const todayMidnight = new Date(now);
@@ -249,7 +230,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("Erreur Cron check-leases:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: safeApiError(error, "Erreur interne du serveur.") }, { status: 500 });
   }
 }
 

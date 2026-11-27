@@ -1,16 +1,18 @@
+import { enforceRateLimit } from "@/lib/rateLimit";
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { getMessaging } from "firebase-admin/messaging";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb, initFirebaseAdmin, adminInitError } from "@/lib/firebase-admin";
 import { SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
-import { requireAnyStaffPermission } from "@/server/guards";
+import { requireAnyStaffPermission, isProtectedSuperAdminEmail } from "@/server/guards";
 import { normalizeLang, translateText, SupportedLang } from "@/lib/autoTranslate";
 
 function classifyUserRole(u: any): "ADMIN" | "SUPPLIER" | "PARTNER" | "DRIVER" | "CLIENT" {
   const email = String(u?.email || "").toLowerCase().trim();
   const role = String(u?.role || "").toUpperCase().trim();
   if (
-    SUPER_ADMIN_EMAILS.includes(email) ||
+    isProtectedSuperAdminEmail(email) ||
     ADMIN_ROLES.includes(role) ||
     role.includes("ADMIN") ||
     role.includes("STAFF") ||
@@ -198,7 +200,7 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[ADMIN PUSH CAMPAIGNS GET ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }
 
@@ -209,6 +211,8 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
+  const _rl = await enforceRateLimit(req, "api:admin_push-campaigns:POST", 40, 60);
+  if (_rl) return _rl;
     const guard = await requireAnyStaffPermission(req, ["clients.manage", "suppliers.manage", "settings.system"]);
     if (!guard.ok || !guard.caller) return guard.errorResponse!;
     const caller = guard.caller;
@@ -477,6 +481,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[ADMIN PUSH CAMPAIGNS POST ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }

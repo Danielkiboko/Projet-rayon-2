@@ -1,3 +1,4 @@
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAnyStaffPermission } from "@/server/guards";
 import { adminDb } from "@/lib/firebase-admin";
@@ -113,6 +114,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[ADMIN PARTNERS API ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }

@@ -1,12 +1,11 @@
+import { safeApiError } from "@/lib/sanitize";
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { sendEmail } from "@/lib/email";
 import { sendMobiShastraSMS } from "@/lib/sms";
 import { FieldValue } from "firebase-admin/firestore";
-import { SUPER_ADMIN_EMAILS, getServerCaller } from "@/lib/serverAuth";
-
-// ─── Security ────────────────────────────────────────────────────────────────
-const CRON_SECRET = process.env.CRON_SECRET;
+import { SUPER_ADMIN_EMAILS } from "@/lib/serverAuth";
+import { requireCronOrAdminCaller } from "@/server/guards";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -101,21 +100,13 @@ export async function POST(req: Request) {
 
 async function handleDailyReports(req: Request) {
   try {
-    const authHeader = req.headers.get("authorization");
     const { searchParams } = new URL(req.url);
-    const secretParam = searchParams.get("secret");
 
-    // ── 🔒 SECURITY: strictly require valid CRON_SECRET or authenticated Admin ──
-    const hasValidCronSecret =
-      Boolean(CRON_SECRET && CRON_SECRET !== "REMPLACEZ_PAR_VOTRE_SECRET") &&
-      (authHeader === `Bearer ${CRON_SECRET}` || secretParam === CRON_SECRET);
-
-    if (!hasValidCronSecret) {
-      const caller = await getServerCaller(req);
-      if (!caller || !caller.isAdmin) {
-        console.warn("[DailyReport] ⛔ Unauthorized access attempt blocked.");
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
+    // ── 🔒 SECURITY: strictly require valid Authorization: Bearer CRON_SECRET or authenticated Admin ──
+    const guard = await requireCronOrAdminCaller(req);
+    if (!guard.ok) {
+      console.warn("[DailyReport] ⛔ Unauthorized access attempt blocked.");
+      return guard.errorResponse!;
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://rayons.net";
@@ -680,7 +671,7 @@ async function handleDailyReports(req: Request) {
 
   } catch (error: any) {
     console.error("[DailyReport] 🔥 Fatal error:", error);
-    return NextResponse.json({ success: false, error: error?.message || "Erreur interne" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur interne") }, { status: 500 });
   }
 }
 

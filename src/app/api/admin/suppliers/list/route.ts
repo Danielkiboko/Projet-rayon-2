@@ -1,14 +1,15 @@
+import { safeApiError } from "@/lib/sanitize";
 import { NextRequest, NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 import { SUPER_ADMIN_EMAILS, ADMIN_ROLES } from "@/lib/serverAuth";
-import { requireAnyStaffPermission } from "@/server/guards";
+import { requireAnyStaffPermission, isProtectedSuperAdminEmail } from "@/server/guards";
 import { cacheGetOrSet } from "@/lib/cache";
 
 function isStaffOrAdminDoc(data: any): boolean {
   if (!data) return false;
   if (data.isInternalStaff === true || data.accountType === "STAFF") return true;
   const email = String(data.email || "").toLowerCase().trim();
-  if (SUPER_ADMIN_EMAILS.includes(email)) return true;
+  if (isProtectedSuperAdminEmail(email)) return true;
   const role = String(data.role || "").toUpperCase().trim();
   return (
     ADMIN_ROLES.includes(role) ||
@@ -177,6 +178,6 @@ export async function GET(req: NextRequest) {
     );
   } catch (error: any) {
     console.error("[ADMIN SUPPLIERS LIST API ERROR]:", error);
-    return NextResponse.json({ success: false, error: error.message || "Erreur serveur" }, { status: 500 });
+    return NextResponse.json({ success: false, error: safeApiError(error, "Erreur serveur") }, { status: 500 });
   }
 }
