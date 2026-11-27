@@ -8,10 +8,12 @@ import {
   ActivityIndicator,
   Image,
   Linking,
+  Platform,
+  Share,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { WebView } from 'react-native-webview';
+import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import * as SplashScreen from 'expo-splash-screen';
 
 // Empêcher la fermeture automatique du splash avant chargement
@@ -19,18 +21,48 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const BASE_ORIGIN = 'https://rayons.net';
 
-const EXTERNAL_SCHEMES = ['tel:', 'mailto:', 'sms:', 'whatsapp:', 'intent:', 'geo:'];
+const EXTERNAL_SCHEMES = ['tel:', 'mailto:', 'sms:', 'whatsapp:', 'intent:', 'geo:', 'maps:'];
 
 const EXTERNAL_DOMAINS = [
   'wa.me',
   'api.whatsapp.com',
   'maps.google.com',
   'www.google.com/maps',
+  'maps.apple.com',
   'buy.stripe.com',
   'checkout.stripe.com',
   'checkout.flutterwave.com',
   'www.paypal.com',
 ];
+
+/**
+ * Pont natif injecté dans la WebView :
+ * - Branche `navigator.share` sur la feuille de partage native iOS/Android (AirDrop, WhatsApp, Messages).
+ * - Expose `window.__RAYONS_NATIVE_OS__` pour les ajustements d'interface natifs.
+ */
+const NATIVE_BRIDGE_JS = `
+(function() {
+  if (window.__RAYONS_BRIDGE_READY__) return;
+  window.__RAYONS_BRIDGE_READY__ = true;
+  window.__RAYONS_NATIVE_OS__ = "${Platform.OS}";
+  try {
+    navigator.share = function(data) {
+      return new Promise(function(resolve) {
+        if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'SHARE',
+            title: (data && data.title) || document.title || 'Rayons.net',
+            text: (data && data.text) || '',
+            url: (data && data.url) || window.location.href
+          }));
+        }
+        resolve();
+      });
+    };
+  } catch (e) {}
+})();
+true;
+`;
 
 /**
  * Convertit un Deep Link entrant (`https://rayons.net/...`, `https://www.rayons.net/...` ou `rayons://...`)
@@ -69,7 +101,7 @@ export default function App() {
   const [isError, setIsError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 1. Gérer les Deep Links au lancement (cold start) et lorsque l'app est déjà ouverte
+  // 1. Gérer les Deep Links / Universal Links iOS au lancement et lorsque l'app est déjà ouverte
   useEffect(() => {
     Linking.getInitialURL()
       .then((initialUrl) => {
@@ -95,6 +127,7 @@ export default function App() {
 
   // 2. Gérer le bouton retour matériel (Android)
   useEffect(() => {
+    if (Platform.OS !== 'android') return;
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (canGoBack && webViewRef.current) {
         webViewRef.current.goBack();
@@ -119,7 +152,27 @@ export default function App() {
     webViewRef.current?.reload();
   };
 
-  // 3. Ouvrir WhatsApp, Appels, Maps et passerelles Visa externes nativement hors WebView
+  // 3. Messages envoyés par le site vers le code natif (Partage iOS/Android, ouverture externe)
+  const handleWebMessage = useCallback(async (event: WebViewMessageEvent) => {
+    try {
+      const msg = JSON.parse(event.nativeEvent.data || '{}');
+      if (msg.type === 'SHARE') {
+        const shareUrl = typeof msg.url === 'string' && msg.url.startsWith('http') ? msg.url : BASE_ORIGIN;
+        const shareText = [msg.text, shareUrl].filter(Boolean).join('\n');
+        await Share.share(
+          Platform.OS === 'ios'
+            ? { title: msg.title || 'Rayons.net', message: msg.text || msg.title || 'Découvrez sur Rayons.net', url: shareUrl }
+            : { title: msg.title || 'Rayons.net', message: shareText }
+        );
+      } else if (msg.type === 'OPEN_EXTERNAL' && typeof msg.url === 'string' && msg.url.startsWith('https://')) {
+        Linking.openURL(msg.url).catch(() => {});
+      }
+    } catch {
+      // Ignorer les messages non JSON
+    }
+  }, []);
+
+  // 4. Ouvrir WhatsApp, Appels, Plans/Maps et passerelles Visa externes nativement hors WebView (Safari / Chrome)
   const handleShouldStartLoad = useCallback((request: { url: string }) => {
     const url = request.url || '';
     const lower = url.toLowerCase();
@@ -145,7 +198,7 @@ export default function App() {
             <View style={styles.errorCard}>
               <View style={styles.logoBadge}>
                 <Image
-                  source={require('./assets/icon.png')}
+                  source={require('./assets/ios-icon.png')}
                   style={{ width: 56, height: 56, borderRadius: 14 }}
                   resizeMode="contain"
                 />
@@ -169,11 +222,17 @@ export default function App() {
               ref={webViewRef}
               source={{ uri: currentUrl }}
               style={styles.webview}
+              injectedJavaScript={NATIVE_BRIDGE_JS}
+              onMessage={handleWebMessage}
               onNavigationStateChange={(navState) => {
                 setCanGoBack(navState.canGoBack);
               }}
               onShouldStartLoadWithRequest={handleShouldStartLoad}
               onLoadEnd={handleLoadEnd}
+              onContentProcessDidTerminate={() => {
+                // Récupération automatique si iOS WKWebView libère la mémoire en arrière-plan
+                webViewRef.current?.reload();
+              }}
               onError={() => {
                 setIsError(true);
                 setIsLoading(false);
@@ -182,19 +241,24 @@ export default function App() {
               javaScriptEnabled={true}
               domStorageEnabled={true}
               pullToRefreshEnabled={true}
+              bounces={Platform.OS === 'ios'}
+              decelerationRate={Platform.OS === 'ios' ? 'normal' : undefined}
+              contentInsetAdjustmentBehavior="never"
               allowsBackForwardNavigationGestures={true}
               allowsInlineMediaPlayback={true}
+              allowsLinkPreview={Platform.OS === 'ios'}
+              mediaPlaybackRequiresUserAction={false}
               setSupportMultipleWindows={false}
               sharedCookiesEnabled={true}
               thirdPartyCookiesEnabled={true}
               cacheEnabled={true}
-              applicationNameForUserAgent="RayonsApp/1.2"
+              applicationNameForUserAgent={`RayonsApp/1.2 (${Platform.OS})`}
               mixedContentMode="compatibility"
             />
             {isLoading && (
               <View style={styles.loadingOverlay} pointerEvents="none">
                 <Image
-                  source={require('./assets/icon.png')}
+                  source={require('./assets/ios-icon.png')}
                   style={{ width: 64, height: 64, borderRadius: 16, marginBottom: 16 }}
                   resizeMode="contain"
                 />

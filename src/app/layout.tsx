@@ -97,6 +97,11 @@ export const metadata: Metadata = {
     ],
     shortcut: "/favicon.ico?v=4",
   },
+  appleWebApp: {
+    capable: true,
+    title: "Rayons.net",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 import { AuthProvider } from "@/context/AuthContext";
