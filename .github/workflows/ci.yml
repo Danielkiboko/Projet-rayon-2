@@ -1,0 +1,40 @@
+name: CI — Rayons.net Quality & Security Gates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: TypeScript check (Web)
+        run: npx tsc --noEmit
+
+      - name: ESLint check (0 errors)
+        run: npm run lint -- --quiet
+
+      - name: Run Vitest security & unit tests
+        run: npm test
+
+      - name: Install mobile dependencies & TypeScript check
+        working-directory: rayons_app
+        run: |
+          npm ci
+          npx tsc --noEmit

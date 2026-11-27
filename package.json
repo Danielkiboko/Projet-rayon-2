@@ -10,6 +10,8 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "firebase:emulate": "firebase emulators:start --only firestore",
     "detect-duplicates": "npx jscpd ./src",
     "optimize:images": "node scripts/optimize-existing-images.js"
@@ -48,7 +50,8 @@
     "eslint-config-next": "^16.3.8",
     "jscpd": "^5.1.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   },
   "overrides": {
     "@grpc/grpc-js": "^1.14.6"
