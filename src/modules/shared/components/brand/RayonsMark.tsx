@@ -19,6 +19,9 @@ export function RayonsMark({
   const isDarkMono = color === "#0F1D27" || color === "dark";
   const fillWing = isWhite ? "#FFFFFF" : isDarkMono ? "#0F1D27" : "#C7D300";
 
+  const hasCustomSizeClass = /\bw-/.test(className);
+  const inlineSizeStyle = hasCustomSizeClass ? undefined : { width: `${numSize}px`, height: `${numSize}px` };
+
   if (withBadge && !isWhite && !isDarkMono) {
     return (
       <svg
@@ -29,7 +32,7 @@ export function RayonsMark({
         xmlns="http://www.w3.org/2000/svg"
         aria-label="Icône Rayons"
         className={`inline-block shrink-0 select-none transition-transform group-hover:scale-105 rounded-lg shadow-xs ${className}`}
-        style={{ width: `${numSize}px`, height: `${numSize}px` }}
+        style={inlineSizeStyle}
       >
         <rect width="1024" height="1024" rx="220" fill="#0F1D27" />
         <rect
@@ -70,7 +73,7 @@ export function RayonsMark({
       xmlns="http://www.w3.org/2000/svg"
       aria-label="Logo Rayons"
       className={`inline-block shrink-0 select-none transition-transform group-hover:scale-105 ${className}`}
-      style={{ width: `${numSize}px`, height: `${numSize}px` }}
+      style={inlineSizeStyle}
     >
       <path
         d="M 136.0 2.0 L 403.0 2.0 L 383.0 10.0 L 376.0 17.0 L 365.0 50.0 L 355.0 68.0 L 347.0 75.0 L 331.0 80.0 L 68.0 80.0 L 69.0 72.0 L 80.0 40.0 L 89.0 24.0 L 100.0 14.0 L 111.0 8.0 L 135.0 3.0 Z"

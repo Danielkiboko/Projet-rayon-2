@@ -293,17 +293,17 @@ export default function Home() {
       {/* ═══════════════════════════════════════════════════════
           HEADER — Floating Ultra-Glass Navbar
       ═══════════════════════════════════════════════════════ */}
-      <header className="sticky top-2 z-50 px-3 sm:px-6">
-        <div className="max-w-7xl mx-auto bg-[#0F1D27]/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/30 px-2.5 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-3 text-white min-w-0">
+      <header className="sticky top-2 z-50 px-2 sm:px-6">
+        <div className="max-w-7xl mx-auto bg-[#0F1D27]/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/30 px-2 sm:px-4 h-13 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-3 text-white min-w-0">
 
           {/* Logo & Mobile Menu Trigger */}
-          <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
+          <div className="flex items-center gap-1 sm:gap-3 shrink-0 min-w-0">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 -ml-1 sm:-ml-2 text-gray-300 hover:text-white lg:hidden rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 -ml-0.5 sm:-ml-2 text-gray-300 hover:text-white lg:hidden rounded-xl hover:bg-white/10 transition-colors cursor-pointer shrink-0"
               aria-label="Menu"
             >
-              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+              {mobileMenuOpen ? <X size={19} /> : <Menu size={19} />}
             </button>
             <RayonsLogo size="md" variant="dark" href="/" />
           </div>
@@ -368,18 +368,18 @@ export default function Home() {
           </nav>
 
           {/* Right Utilities */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
             <CurrencySelector variant="dark" />
             <LanguageSelector variant="dark" />
 
             {user ? (
-              <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-2">
                 <Link
                   href="/dashboard"
-                  className="flex items-center gap-1.5 text-xs font-bold text-white bg-white/10 hover:bg-white/20 border border-white/15 p-2 sm:px-3.5 sm:py-2 rounded-xl transition-all"
+                  className="flex items-center gap-1.5 text-xs font-bold text-white bg-white/10 hover:bg-white/20 border border-white/15 px-3.5 py-2 rounded-xl transition-all"
                 >
                   <User size={14} className="text-[#C7D300]" />
-                  <span className="hidden sm:inline-block max-w-[120px] truncate">
+                  <span className="max-w-[120px] truncate">
                     {userData?.displayName || user.displayName || t("nav.account")}
                   </span>
                 </Link>
@@ -391,14 +391,13 @@ export default function Home() {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5">
+              <div className="hidden sm:flex items-center gap-1.5">
                 <Link
                   href="/login"
                   aria-label={t("nav.login")}
-                  className="flex items-center gap-1.5 text-xs font-bold text-gray-200 hover:text-white bg-white/10 hover:bg-white/15 border border-white/10 p-2 sm:px-3.5 sm:py-2 rounded-xl transition-colors"
+                  className="flex items-center gap-1.5 text-xs font-bold text-gray-200 hover:text-white bg-white/10 hover:bg-white/15 border border-white/10 px-3.5 py-2 rounded-xl transition-colors"
                 >
-                  <User size={15} className="sm:hidden" />
-                  <span className="hidden sm:inline">{t("nav.login")}</span>
+                  <span>{t("nav.login")}</span>
                 </Link>
               </div>
             )}
@@ -408,12 +407,12 @@ export default function Home() {
             {/* Cart Trigger */}
             <button
               onClick={openCart}
-              className="relative p-2 sm:p-2.5 text-white bg-white/10 hover:bg-[#C7D300] hover:text-[#0F1D27] rounded-xl border border-white/15 transition-all duration-200 group cursor-pointer shadow-md"
+              className="relative p-1.5 sm:p-2.5 text-white bg-white/10 hover:bg-[#C7D300] hover:text-[#0F1D27] rounded-xl border border-white/15 transition-all duration-200 group cursor-pointer shadow-md shrink-0"
               title="Votre Panier & Factures Proformas"
             >
-              <ShoppingBag size={19} className="group-hover:scale-110 transition-transform" />
+              <ShoppingBag size={17} className="sm:w-[19px] sm:h-[19px] group-hover:scale-110 transition-transform" />
               {totalItems > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#FF6B35] text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-[#0F1D27] shadow-sm animate-pulse">
+                <span className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-[#FF6B35] text-white text-[9px] sm:text-[10px] font-black rounded-full flex items-center justify-center border-2 border-[#0F1D27] shadow-sm animate-pulse">
                   {totalItems}
                 </span>
               )}
@@ -424,6 +423,39 @@ export default function Home() {
         {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
           <div className="lg:hidden mt-2 max-w-7xl mx-auto bg-[#0F1D27]/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-4 flex flex-col gap-1 shadow-2xl text-white animate-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center gap-2 pb-2 mb-1 border-b border-white/10">
+              {user ? (
+                <>
+                  <Link
+                    href="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-bold bg-white/10 hover:bg-white/15 text-white rounded-xl border border-white/15"
+                  >
+                    <User size={14} className="text-[#C7D300]" />
+                    <span className="truncate">{userData?.displayName || user.displayName || t("nav.account")}</span>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      signOut();
+                    }}
+                    className="py-2.5 px-3 text-xs font-semibold bg-rose-500/15 text-rose-300 rounded-xl border border-rose-500/20 cursor-pointer"
+                  >
+                    {t("nav.logout")}
+                  </button>
+                </>
+              ) : (
+                <Link
+                  href="/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-bold bg-white/10 hover:bg-white/15 text-white rounded-xl border border-white/15"
+                >
+                  <User size={14} className="text-[#C7D300]" />
+                  <span>{t("nav.login")}</span>
+                </Link>
+              )}
+            </div>
             {[
               { href: "/rayon/connect", icon: Wifi, label: "Rayon Connect & Tech", color: "#00B5A5" },
               { href: "/rayon/immo", icon: Building, label: "Rayon Immobilier & Hôtels", color: "#4C6EF5" },
@@ -503,7 +535,7 @@ export default function Home() {
       {/* ═══════════════════════════════════════════════════════
           HERO SECTION — Luxury Ambient Glow & High CRO
       ═══════════════════════════════════════════════════════ */}
-      <section className="relative min-h-[92vh] flex items-center bg-[#0F1D27] overflow-hidden -mt-20 pt-28 pb-16">
+      <section className="relative min-h-[90vh] sm:min-h-[92vh] flex items-center bg-[#0F1D27] overflow-hidden -mt-16 sm:-mt-20 pt-24 sm:pt-28 pb-24 sm:pb-16">
         {/* Ambient Glow mesh */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(700px,120vw)] h-[500px] bg-gradient-to-tr from-[#C7D300]/15 via-[#00B5A5]/15 to-[#4C6EF5]/15 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute top-10 right-0 sm:right-10 w-[min(350px,80vw)] h-[350px] bg-[#FF6B35]/10 rounded-full blur-[100px] pointer-events-none" />
@@ -539,19 +571,20 @@ export default function Home() {
           <div className="max-w-3xl lg:max-w-[52%]">
 
             {/* Human trust signal with customer avatars */}
-            <div className="inline-flex items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-2 rounded-full bg-white/8 border border-white/15 backdrop-blur-sm mb-6 max-w-full">
+            <div className="inline-flex items-center gap-2 sm:gap-2.5 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full bg-white/8 border border-white/15 backdrop-blur-sm mb-5 sm:mb-6 max-w-full">
               <div className="flex -space-x-1.5 shrink-0">
                 {["MC", "PB", "AK"].map((init, i) => (
                   <div
                     key={i}
-                    className="w-6 h-6 rounded-full bg-gradient-to-br from-[#C7D300] to-[#96a000] flex items-center justify-center text-[9px] font-black text-[#0F1D27] ring-2 ring-[#0F1D27]"
+                    className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gradient-to-br from-[#C7D300] to-[#96a000] flex items-center justify-center text-[8px] sm:text-[9px] font-black text-[#0F1D27] ring-2 ring-[#0F1D27]"
                   >
                     {init}
                   </div>
                 ))}
               </div>
-              <span className="text-xs sm:text-sm font-medium text-gray-300 truncate">
-                Déjà +12 000 commandes livrées avec succès en RDC
+              <span className="text-[11px] sm:text-sm font-medium text-gray-200 truncate">
+                <span className="sm:hidden">+12 000 commandes livrées en RDC</span>
+                <span className="hidden sm:inline">Déjà +12 000 commandes livrées avec succès en RDC</span>
               </span>
               <span className="hidden sm:inline text-[#C7D300] text-xs font-bold shrink-0">★★★★★</span>
             </div>
@@ -578,10 +611,10 @@ export default function Home() {
             </div>
 
             {/* Primary Action Buttons */}
-            <div className="flex flex-wrap items-center gap-3.5">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3 sm:gap-3.5">
               <button
                 onClick={() => document.getElementById("rayons")?.scrollIntoView({ behavior: "smooth" })}
-                className="inline-flex items-center gap-2 bg-[#C7D300] text-[#0F1D27] font-heading font-extrabold px-7 py-4 rounded-xl hover:bg-[#b5c000] active:scale-95 transition-all shadow-xl shadow-[#C7D300]/25 text-sm sm:text-base cursor-pointer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#C7D300] text-[#0F1D27] font-heading font-extrabold px-6 sm:px-7 py-3.5 sm:py-4 rounded-xl hover:bg-[#b5c000] active:scale-95 transition-all shadow-xl shadow-[#C7D300]/25 text-sm sm:text-base cursor-pointer"
               >
                 <span>{t("home.exploreRayons")}</span>
                 <ArrowRight size={18} />
@@ -589,7 +622,7 @@ export default function Home() {
 
               <Link
                 href="/supplier/register"
-                className="inline-flex items-center gap-2 px-6 py-4 rounded-xl text-white font-bold text-sm sm:text-base bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md transition-all active:scale-95"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:py-4 rounded-xl text-white font-bold text-sm sm:text-base bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md transition-all active:scale-95"
               >
                 <span>{t("home.openShop")}</span>
                 <BadgeCheck size={18} className="text-[#C7D300]" />

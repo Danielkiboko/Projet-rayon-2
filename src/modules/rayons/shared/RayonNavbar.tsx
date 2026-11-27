@@ -36,17 +36,17 @@ export function RayonNavbar({ category, t }: RayonNavbarProps) {
   const saveursLabel = cleanLabel(t?.saveurs, gt("nav.saveurs"));
 
   return (
-    <header className="sticky top-2 z-50 px-3 sm:px-6">
-      <div className="max-w-7xl mx-auto bg-[#0F1D27]/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/30 px-2.5 sm:px-4 h-14 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-3 text-white min-w-0">
+    <header className="sticky top-2 z-50 px-2 sm:px-6">
+      <div className="max-w-7xl mx-auto bg-[#0F1D27]/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-black/30 px-2 sm:px-4 h-13 sm:h-16 flex items-center justify-between gap-1.5 sm:gap-3 text-white min-w-0">
         
         {/* Logo & Mobile Menu Trigger */}
-        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
+        <div className="flex items-center gap-1 sm:gap-3 shrink-0 min-w-0">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 -ml-1 sm:-ml-2 text-gray-300 hover:text-white lg:hidden rounded-xl hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+            className="p-1.5 sm:p-2 -ml-0.5 sm:-ml-2 text-gray-300 hover:text-white lg:hidden rounded-xl hover:bg-white/10 transition-colors cursor-pointer shrink-0"
             aria-label="Menu"
           >
-            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            {mobileMenuOpen ? <X size={19} /> : <Menu size={19} />}
           </button>
           <RayonsLogo rayon={category} size="md" variant="dark" href="/" />
         </div>
@@ -116,14 +116,14 @@ export function RayonNavbar({ category, t }: RayonNavbarProps) {
           <LanguageSelector variant="dark" />
 
           {user ? (
-            <div className="flex items-center gap-1 sm:gap-2">
+            <div className="hidden sm:flex items-center gap-2">
               <Link 
                 href="/dashboard" 
                 aria-label={gt("nav.account")}
-                className="flex items-center gap-1.5 text-xs font-bold text-white bg-white/10 hover:bg-white/20 border border-white/15 p-2 sm:px-3.5 sm:py-2 rounded-xl transition-all"
+                className="flex items-center gap-1.5 text-xs font-bold text-white bg-white/10 hover:bg-white/20 border border-white/15 px-3.5 py-2 rounded-xl transition-all"
               >
                 <User size={14} className="text-[#C7D300]" />
-                <span className="hidden sm:inline-block max-w-[110px] truncate">
+                <span className="max-w-[110px] truncate">
                   {user.displayName || gt("nav.account")}
                 </span>
               </Link>
@@ -138,10 +138,9 @@ export function RayonNavbar({ category, t }: RayonNavbarProps) {
             <Link 
               href="/login" 
               aria-label={gt("nav.login")}
-              className="flex items-center gap-1.5 text-xs font-bold text-gray-200 hover:text-white bg-white/10 hover:bg-white/15 border border-white/10 p-2 sm:px-3.5 sm:py-2 rounded-xl transition-colors"
+              className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-gray-200 hover:text-white bg-white/10 hover:bg-white/15 border border-white/10 px-3.5 py-2 rounded-xl transition-colors"
             >
-              <User size={14} className="sm:hidden" />
-              <span className="hidden sm:inline">{t?.login || gt("nav.login")}</span>
+              <span>{t?.login || gt("nav.login")}</span>
             </Link>
           )}
 
@@ -150,12 +149,12 @@ export function RayonNavbar({ category, t }: RayonNavbarProps) {
           {/* Cart Trigger */}
           <button
             onClick={openCart}
-            className="relative p-2 sm:p-2.5 text-white bg-white/10 hover:bg-[#C7D300] hover:text-[#0F1D27] rounded-xl border border-white/15 transition-all duration-200 group cursor-pointer shadow-md"
+            className="relative p-1.5 sm:p-2.5 text-white bg-white/10 hover:bg-[#C7D300] hover:text-[#0F1D27] rounded-xl border border-white/15 transition-all duration-200 group cursor-pointer shadow-md shrink-0"
             title="Votre panier"
           >
-            <ShoppingBag size={18} className="group-hover:scale-110 transition-transform" />
+            <ShoppingBag size={17} className="sm:w-[18px] sm:h-[18px] group-hover:scale-110 transition-transform" />
             {totalItems > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#FF6B35] text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-[#0F1D27] shadow-sm animate-pulse">
+              <span className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-[#FF6B35] text-white text-[9px] sm:text-[10px] font-black rounded-full flex items-center justify-center border-2 border-[#0F1D27] shadow-sm animate-pulse">
                 {totalItems}
               </span>
             )}
@@ -166,6 +165,39 @@ export function RayonNavbar({ category, t }: RayonNavbarProps) {
       {/* Mobile Menu Dropdown */}
       {mobileMenuOpen && (
         <div className="lg:hidden mt-2 max-w-7xl mx-auto bg-[#0F1D27]/95 backdrop-blur-2xl border border-white/10 rounded-2xl p-4 flex flex-col gap-1 shadow-2xl text-white animate-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2 pb-2 mb-1 border-b border-white/10">
+            {user ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-bold bg-white/10 hover:bg-white/15 text-white rounded-xl border border-white/15"
+                >
+                  <User size={14} className="text-[#C7D300]" />
+                  <span className="truncate">{user.displayName || gt("nav.account")}</span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    signOut();
+                  }}
+                  className="py-2.5 px-3 text-xs font-semibold bg-rose-500/15 text-rose-300 rounded-xl border border-rose-500/20 cursor-pointer"
+                >
+                  {gt("nav.logout")}
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 px-3 text-xs font-bold bg-white/10 hover:bg-white/15 text-white rounded-xl border border-white/15"
+              >
+                <User size={14} className="text-[#C7D300]" />
+                <span>{t?.login || gt("nav.login")}</span>
+              </Link>
+            )}
+          </div>
           {[
             { href: "/", icon: HomeIcon, label: homeLabel, color: "#C7D300", active: false },
             { href: "/rayon/connect", icon: Wifi, label: connectLabel, color: "#00B5A5", active: category === "connect" },

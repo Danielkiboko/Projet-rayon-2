@@ -36,12 +36,12 @@ export function RayonsLogo({
     textColor = "#0F1D27";
   }
 
-  // Dimensions selon size
+  // Dimensions selon size (responsive sur mobile pour éviter tout chevauchement en 360px)
   const config = {
-    sm: { markSize: 24, textSize: "text-lg", domainSize: "text-xs", badgeSize: "text-[10px] px-1.5 py-0.5" },
-    md: { markSize: 32, textSize: "text-2xl", domainSize: "text-sm", badgeSize: "text-xs px-2 py-0.5" },
-    lg: { markSize: 42, textSize: "text-3xl", domainSize: "text-base", badgeSize: "text-xs px-2.5 py-1" },
-    xl: { markSize: 56, textSize: "text-4xl", domainSize: "text-lg", badgeSize: "text-sm px-3 py-1" },
+    sm: { markSize: 24, markClass: "w-6 h-6", textSize: "text-base sm:text-lg", domainSize: "text-[11px] sm:text-xs", badgeSize: "text-[9px] sm:text-[10px] px-1.5 py-0.5" },
+    md: { markSize: 32, markClass: "w-6 h-6 sm:w-8 sm:h-8", textSize: "text-[17px] sm:text-2xl", domainSize: "text-[11px] sm:text-sm", badgeSize: "text-[9px] sm:text-xs px-1.5 sm:px-2 py-0.5" },
+    lg: { markSize: 42, markClass: "w-9 h-9 sm:w-[42px] sm:h-[42px]", textSize: "text-2xl sm:text-3xl", domainSize: "text-sm sm:text-base", badgeSize: "text-xs px-2.5 py-1" },
+    xl: { markSize: 56, markClass: "w-12 h-12 sm:w-14 sm:h-14", textSize: "text-3xl sm:text-4xl", domainSize: "text-base sm:text-lg", badgeSize: "text-sm px-3 py-1" },
   }[size];
 
   // Univers spécifique
@@ -55,9 +55,9 @@ export function RayonsLogo({
   const currentUniverse = rayon ? universeConfig[rayon] : null;
 
   const innerContent = (
-    <div className="inline-flex items-center gap-2 select-none" translate="no" data-no-translate="true">
+    <div className="inline-flex items-center gap-1.5 sm:gap-2 select-none whitespace-nowrap shrink-0" translate="no" data-no-translate="true">
       {/* Emblème ailé officiel */}
-      <RayonsMark size={config.markSize} color={markColor} />
+      <RayonsMark size={config.markSize} className={config.markClass} color={markColor} />
       
       {/* Typographie Montserrat du Logo */}
       <div className="flex items-baseline tracking-tight">

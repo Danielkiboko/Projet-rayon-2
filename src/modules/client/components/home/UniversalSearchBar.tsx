@@ -112,28 +112,29 @@ export function UniversalSearchBar({ products = [], properties = [] }: Universal
   return (
     <div ref={containerRef} className="relative w-full max-w-3xl mx-auto z-30">
       {/* Main Search Input Form with Integrated Rayon Selector */}
-      <form onSubmit={handleSearchSubmit} className="relative flex items-center shadow-2xl rounded-2xl bg-white p-1.5 border border-white/20 focus-within:ring-4 focus-within:ring-[#C7D300]/30 transition-all">
+      <form onSubmit={handleSearchSubmit} className="relative flex items-center shadow-2xl rounded-2xl bg-white p-1 sm:p-1.5 border border-white/20 focus-within:ring-4 focus-within:ring-[#C7D300]/30 transition-all">
         {/* Integrated Rayon Filter */}
-        <div className="relative pl-2 pr-1.5 sm:pl-3 sm:pr-2 py-1 flex items-center border-r border-gray-200 shrink-0">
+        <div className="relative pl-2 pr-1 sm:pl-3 sm:pr-2 py-1 flex items-center border-r border-gray-200 shrink-0">
           <select
             value={selectedRayon}
             onChange={(e) => setSelectedRayon(e.target.value as any)}
-            className="appearance-none bg-transparent pr-4 sm:pr-6 max-w-[105px] sm:max-w-none truncate text-xs sm:text-sm font-bold text-gray-800 cursor-pointer focus:outline-none"
+            aria-label="Filtrer par rayon"
+            className="appearance-none bg-transparent pr-4 sm:pr-6 max-w-[78px] sm:max-w-none truncate text-xs sm:text-sm font-bold text-gray-800 cursor-pointer focus:outline-none"
           >
-            <option value="all">Tous les rayons</option>
+            <option value="all">Tout</option>
             <option value="connect">📡 Connect</option>
-            <option value="immo">🏢 Immo & Hôtels</option>
+            <option value="immo">🏢 Immo</option>
             <option value="mode">👗 Mode</option>
             <option value="saveurs">🍽️ Saveurs</option>
           </select>
-          <div className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-gray-400">
+          <div className="pointer-events-none absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 text-gray-400">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
             </svg>
           </div>
         </div>
 
-        <div className="pl-2 sm:pl-3 pr-1.5 sm:pr-2 text-gray-400 shrink-0">
+        <div className="hidden sm:block pl-3 pr-2 text-gray-400 shrink-0">
           <Search size={18} className="text-gray-400" />
         </div>
 
@@ -151,16 +152,16 @@ export function UniversalSearchBar({ products = [], properties = [] }: Universal
               : lang === "en"
               ? t("nav.searchPlaceholder")
               : selectedRayon === "immo"
-              ? "Rechercher un hôtel, appartement, villa à Kinshasa (ex: Gombe, Ngaliema)..."
+              ? "Hôtel, appart, villa (Gombe...)"
               : selectedRayon === "connect"
-              ? "Rechercher un équipement tech (ex: Starlink, routeur Wi-Fi, caméra)..."
+              ? "Starlink, routeur, caméra..."
               : selectedRayon === "mode"
-              ? "Rechercher un vêtement, costume, robe de créateur..."
+              ? "Robe, costume, sneakers..."
               : selectedRayon === "saveurs"
-              ? "Rechercher un plat, ustensile de cuisine, traiteur..."
-              : "Rechercher sur tout Rayons (ex: Starlink, Hôtel Gombe, Veste, Repas)..."
+              ? "Plat, resto, traiteur..."
+              : "Rechercher produit, hôtel, plat..."
           }
-          className="w-full min-w-0 py-2.5 sm:py-3 text-sm sm:text-base text-gray-900 placeholder:text-gray-400 placeholder:truncate focus:outline-hidden bg-transparent pr-2 sm:pr-8"
+          className="w-full min-w-0 pl-2.5 sm:pl-0 py-2.5 sm:py-3 text-xs sm:text-base text-gray-900 placeholder:text-gray-400 placeholder:truncate focus:outline-hidden bg-transparent pr-1.5 sm:pr-8"
         />
 
         {query && (

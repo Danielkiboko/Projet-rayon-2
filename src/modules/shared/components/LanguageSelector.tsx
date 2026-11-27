@@ -39,7 +39,7 @@ export function LanguageSelector({ variant = "dark", className = "" }: LanguageS
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer select-none shrink-0 ${
+        className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-bold transition-all cursor-pointer select-none shrink-0 ${
           isDark
             ? "bg-white/10 hover:bg-white/20 text-white border border-white/15"
             : "bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-200/60 shadow-2xs"
@@ -48,8 +48,8 @@ export function LanguageSelector({ variant = "dark", className = "" }: LanguageS
       >
         <Globe size={13} className={`hidden sm:block ${isDark ? "text-[#C7D300]" : "text-gray-600"}`} />
         <span>{current.flag}</span>
-        <span>{current.short}</span>
-        <ChevronDown size={12} className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
+        <span className="hidden min-[380px]:inline">{current.short}</span>
+        <ChevronDown size={11} className={`transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
       </button>
 
       {isOpen && (
