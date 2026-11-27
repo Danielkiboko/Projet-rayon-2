@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
       ],
     });
 
-    console.log(`Lease PDF email sent to ${cleanEmail}, messageId: ${info.messageId}`);
+    void info.messageId;
     return NextResponse.json({ success: true, messageId: info.messageId });
   } catch (error: any) {
     console.error("Error sending lease email:", error);

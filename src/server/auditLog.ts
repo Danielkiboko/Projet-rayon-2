@@ -25,7 +25,7 @@ export interface AuditLogInput {
   targetType: "user" | "supplier" | "partner" | "settings" | "commission" | "broadcast" | "campaign";
   targetId?: string;
   summary: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown> | object;
 }
 
 /**

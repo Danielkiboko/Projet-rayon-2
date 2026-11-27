@@ -10,8 +10,8 @@ export interface BaseUser {
   phoneNumber?: string;
   photoURL?: string;
   status: "active" | "suspended" | "pending" | "inactive";
-  createdAt?: any;
-  updatedAt?: any;
+  createdAt?: unknown;
+  updatedAt?: unknown;
 }
 
 /**
@@ -44,7 +44,7 @@ export interface StaffProfile {
   permissions: StaffPermission[];
   department?: string;
   assignedBy?: string;
-  assignedAt?: any;
+  assignedAt?: unknown;
 }
 
 export interface StaffUser extends BaseUser {
@@ -65,7 +65,7 @@ export interface SupplierUser extends BaseUser {
   serviceAttached?: string;
   businessType?: string;
   subscriptionStatus: "TRIAL" | "ACTIVE" | "SUSPENDED_PAYMENT" | "EXPIRED";
-  subscriptionEndDate?: any;
+  subscriptionEndDate?: unknown;
   isBlocked: boolean;
   referredByPartnerId?: string;
   partnerReferral?: boolean;

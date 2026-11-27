@@ -180,12 +180,12 @@ export function resolveStaffPermissions(
  * Vérifie si un collaborateur possède une permission donnée.
  * Le Super Admin possède TOUJOURS toutes les permissions.
  */
-export function hasStaffPermission(user: any, permission: StaffPermission): boolean {
+export function hasStaffPermission(user: Record<string, unknown> | null | undefined, permission: StaffPermission): boolean {
   if (!user) return false;
   if (isSuperAdmin(user)) return true;
 
   // Récupérer depuis staffProfile ou rétro-compatibilité
-  const staffProfile = user.staffProfile;
+  const staffProfile = user.staffProfile as { permissions?: string[]; positions?: StaffPosition[] } | undefined;
   if (staffProfile) {
     if (Array.isArray(staffProfile.permissions) && staffProfile.permissions.includes(permission)) {
       return true;

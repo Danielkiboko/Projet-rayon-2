@@ -45,7 +45,9 @@ export const DRIVER_ROLES = [
  * Normalise et détermine le type de compte réel d'un utilisateur.
  * Privilégie le champ explicite `accountType` s'il existe, sinon rétro-déduit proprement.
  */
-export function getAccountType(user: any): AccountType {
+export type UserLike = Record<string, unknown> | null | undefined;
+
+export function getAccountType(user: UserLike): AccountType {
   if (!user) return "CLIENT";
 
   // 1. Champ canonique s'il est déjà migré
@@ -100,30 +102,30 @@ export function getAccountType(user: any): AccountType {
   return "CLIENT";
 }
 
-export function isStaff(user: any): boolean {
+export function isStaff(user: UserLike): boolean {
   return getAccountType(user) === "STAFF";
 }
 
-export function isSuperAdmin(user: any): boolean {
+export function isSuperAdmin(user: UserLike): boolean {
   const email = String(user?.email || "").toLowerCase().trim();
   const role = String(user?.role || "").toUpperCase().trim();
   return SUPER_ADMIN_EMAILS.includes(email) || role === "SUPER_ADMIN" || role === "SUPERADMIN";
 }
 
-export function isPartner(user: any): boolean {
+export function isPartner(user: UserLike): boolean {
   return getAccountType(user) === "PARTNER";
 }
 
-export function isSupplier(user: any): boolean {
+export function isSupplier(user: UserLike): boolean {
   const t = getAccountType(user);
   return t === "SUPPLIER" || t === "SUB_SUPPLIER";
 }
 
-export function isDriver(user: any): boolean {
+export function isDriver(user: UserLike): boolean {
   return getAccountType(user) === "DRIVER";
 }
 
-export function isClient(user: any): boolean {
+export function isClient(user: UserLike): boolean {
   return getAccountType(user) === "CLIENT";
 }
 

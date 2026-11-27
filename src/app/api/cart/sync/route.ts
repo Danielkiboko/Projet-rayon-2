@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
     let userId: string | null = caller?.uid || null;
     let userEmail: string | null = caller?.email || null;
     let displayName = "Client";
-    let deviceId: string | null = rawDeviceId || null;
+    const deviceId: string | null = rawDeviceId || null;
     let guestFcmToken: string | null = null;
 
     if (userId) {

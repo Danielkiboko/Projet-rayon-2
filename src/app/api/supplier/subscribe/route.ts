@@ -434,7 +434,7 @@ export async function POST(req: NextRequest) {
     // PARRAINAGE : rattachement (1ʳᵉ souscription uniquement) + commission 5 USD au parrain
     // Les erreurs de parrainage ne doivent jamais bloquer l'abonnement.
     // ─────────────────────────────────────────────────────────────
-    let referral: { attached?: boolean; reason?: string; credited?: boolean } = {};
+    const referral: { attached?: boolean; reason?: string; credited?: boolean } = {};
     try {
       const isFirstSubscription = !existingUserData?.lastDepositPaidAt || isDuplicatePayment;
       if (referralCode && isFirstSubscription && !existingUserData?.referredBy) {

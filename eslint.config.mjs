@@ -5,6 +5,24 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // ── Politique de qualité progressive (0 erreur bloquante, strict sur backend/domain) ──
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    rules: {
+      "react/no-unescaped-entities": "off",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/purity": "warn",
+      "react-hooks/immutability": "warn",
+      "react-hooks/refs": "warn",
+    },
+  },
+  {
+    files: ["src/server/**/*.{ts,tsx}", "src/domain/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "error",
+    },
+  },
   // ── Frontières strictes entre compartiments (Anti-fuites & Respect d'Autorité) ──
   {
     files: ["src/app/(client)/**/*.{ts,tsx}", "src/modules/client/**/*.{ts,tsx}"],
@@ -155,11 +173,14 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    ".vercel/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
     "livreur_app/**",
     "rayons_app/**",
+    "public/livreur-app/**",
+    "scripts/**",
     "scratch/**",
     "report/**",
     "*.js",

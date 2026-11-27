@@ -507,7 +507,6 @@ export async function POST(req: Request) {
             const appLinkSms = roleToCreate === 'driver' ? `\nApp mobile Livreur: ${driverApkUrl}` : '';
             const message = `Bonjour ${displayName || ''}, votre compte Rayons a été créé.\nEmail: ${email}\n${resetLink ? `Activez votre compte: ${resetLink}` : `Mot de passe temporaire: ${finalPassword}`}${appLinkSms}\nLien: https://rayons.net`;
             await sendMobiShastraSMS({ mobileNo: phoneNumber, message, customSenderId });
-            console.log(`SMS sent successfully to ${phoneNumber} with senderId ${customSenderId || 'default'}`);
           } catch (smsError) {
             console.error('Failed to send SMS:', smsError);
           }
