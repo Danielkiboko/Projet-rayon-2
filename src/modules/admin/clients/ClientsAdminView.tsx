@@ -222,7 +222,7 @@ export default function ClientsPage() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ uid: clientToDelete.id }),
+        body: JSON.stringify({ uid: clientToDelete.id, email: clientToDelete.email || undefined }),
       });
 
       const data = await res.json();

@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     const isSuperAdminEmail = SUPER_ADMIN_EMAILS.includes(callerEmail);
 
     const body = await req.json();
-    const { uid, collectionName } = body;
+    const { uid, collectionName, email: bodyEmail } = body;
 
     if (!uid) {
       return NextResponse.json({ error: 'Missing uid' }, { status: 400 });
@@ -119,10 +119,11 @@ export async function POST(req: Request) {
       }
     }
 
-    // Suppression hermétique et définitive (Auth + tokens + users/suppliers/drivers/referrals + produits/biens/abonnements/push/sous-agents)
+    // Suppression hermétique et définitive (Auth par UID + par Email + tokens + users/suppliers/drivers/referrals + produits/biens/abonnements/push/sous-agents)
+    const targetEmailToPurge = (targetDocSnap?.data()?.email || bodyEmail || '').toString().trim().toLowerCase() || null;
     let purgeResult;
     try {
-      purgeResult = await purgeUserAccountCompletely(uid, { collectionName });
+      purgeResult = await purgeUserAccountCompletely(uid, { collectionName, email: targetEmailToPurge });
       await cacheDel(
         "admin:suppliers:list:v1",
         "catalog:public:v1:home",

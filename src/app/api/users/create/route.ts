@@ -122,9 +122,39 @@ export async function POST(req: Request) {
       });
     } catch (createErr: any) {
       if (createErr.code === 'auth/email-already-exists') {
-        return NextResponse.json({ error: 'Un compte avec cette adresse e-mail existe déjà.' }, { status: 409 });
+        // Auto-nettoyage sécurisé des comptes Auth orphelins (déjà supprimés de Firestore mais restés coincés dans Firebase Auth)
+        const normalizedNewEmail = String(email || '').trim().toLowerCase();
+        if (isAdminCaller && normalizedNewEmail && !SUPER_ADMIN_EMAILS.includes(normalizedNewEmail)) {
+          try {
+            const existingAuth = await adminAuth.getUserByEmail(normalizedNewEmail);
+            const existingUserDoc = await adminDb.collection('users').doc(existingAuth.uid).get();
+            const existingData = existingUserDoc.exists ? existingUserDoc.data() || {} : null;
+            const isOrphanOrDeleted =
+              !existingUserDoc.exists ||
+              existingData?.isDeleted === true ||
+              existingData?.deletionStatus === 'DELETED';
+
+            if (isOrphanOrDeleted) {
+              await adminAuth.revokeRefreshTokens(existingAuth.uid).catch(() => {});
+              await adminAuth.deleteUser(existingAuth.uid);
+              userRecord = await adminAuth.createUser({
+                email,
+                password: finalPassword,
+                displayName,
+              });
+            } else {
+              return NextResponse.json({ error: 'Un compte actif avec cette adresse e-mail existe déjà.' }, { status: 409 });
+            }
+          } catch (cleanupErr: any) {
+            console.warn('[users/create] Orphan Auth cleanup warning:', cleanupErr?.message);
+            return NextResponse.json({ error: 'Un compte avec cette adresse e-mail existe déjà.' }, { status: 409 });
+          }
+        } else {
+          return NextResponse.json({ error: 'Un compte avec cette adresse e-mail existe déjà.' }, { status: 409 });
+        }
+      } else {
+        throw createErr;
       }
-      throw createErr;
     }
 
     // 5. Set Custom Claims (Role & Creation lineage)

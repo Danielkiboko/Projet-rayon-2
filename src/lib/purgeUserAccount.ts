@@ -27,9 +27,28 @@ export interface PurgeResult {
  */
 export async function purgeUserAccountCompletely(
   uid: string,
-  options?: { collectionName?: string }
+  options?: { collectionName?: string; email?: string | null }
 ): Promise<PurgeResult> {
-  // 1. Tuer la session Auth + récupérer uniquement les références (.select() = 0 payload) EN PARALLÈLE
+  // 0. Résoudre l'email cible (depuis options ou Firestore ou Firebase Auth) pour purger TOUT compte Auth/Firestore orphelin lié à cet email
+  let resolvedEmail = String(options?.email || "").trim().toLowerCase();
+  if (!resolvedEmail) {
+    try {
+      const [uDoc, sDoc] = await Promise.all([
+        adminDb.collection("users").doc(uid).get().catch(() => null),
+        adminDb.collection("suppliers").doc(uid).get().catch(() => null),
+      ]);
+      const rawMail = uDoc?.data()?.email || sDoc?.data()?.email || "";
+      if (rawMail) resolvedEmail = String(rawMail).trim().toLowerCase();
+    } catch {}
+  }
+  if (!resolvedEmail) {
+    try {
+      const authRec = await adminAuth.getUser(uid);
+      if (authRec?.email) resolvedEmail = authRec.email.trim().toLowerCase();
+    } catch {}
+  }
+
+  // 1. Tuer la session Auth (par UID + par Email si un compte Auth différent porte cet email) + récupérer les refs EN PARALLÈLE
   const [
     authDeleted,
     productsSnap,
@@ -38,17 +57,40 @@ export async function purgeUserAccountCompletely(
     subRequestsSnap,
     notifsSnap,
     subAgentsSnap,
-  ]: [boolean, any, any, any, any, any, any] = await Promise.all([
+    duplicateUsersByEmailSnap,
+    duplicateSuppliersByEmailSnap,
+  ]: [boolean, any, any, any, any, any, any, any, any] = await Promise.all([
     (async () => {
+      let deletedByUid = false;
       try {
         await adminAuth.revokeRefreshTokens(uid).catch(() => {});
         await adminAuth.deleteUser(uid);
-        return true;
+        deletedByUid = true;
       } catch (authErr: any) {
-        if (authErr?.code === "auth/user-not-found") return true;
-        console.warn("[purgeUserAccount] Auth delete warning:", authErr?.message);
-        return false;
+        if (authErr?.code === "auth/user-not-found") {
+          deletedByUid = true;
+        } else {
+          console.warn("[purgeUserAccount] Auth delete by uid warning:", authErr?.message);
+        }
       }
+
+      // Vérification supplémentaire par EMAIL : libère l'adresse email dans Firebase Auth même si l'UID Auth différait du docId Firestore
+      if (resolvedEmail && resolvedEmail.includes("@")) {
+        try {
+          const byEmail = await adminAuth.getUserByEmail(resolvedEmail);
+          if (byEmail?.uid) {
+            await adminAuth.revokeRefreshTokens(byEmail.uid).catch(() => {});
+            await adminAuth.deleteUser(byEmail.uid);
+            deletedByUid = true;
+          }
+        } catch (emailAuthErr: any) {
+          if (emailAuthErr?.code !== "auth/user-not-found") {
+            console.warn("[purgeUserAccount] Auth delete by email warning:", emailAuthErr?.message);
+          }
+        }
+      }
+
+      return deletedByUid;
     })(),
     runWithTimeout<any>(
       adminDb.collection("products").where("supplierId", "==", uid).select().limit(200).get(),
@@ -80,6 +122,20 @@ export async function purgeUserAccountCompletely(
       6000,
       "sub_agents.refs"
     ).catch(() => null),
+    resolvedEmail
+      ? runWithTimeout<any>(
+          adminDb.collection("users").where("email", "==", resolvedEmail).select().limit(10).get(),
+          5000,
+          "users.byEmail"
+        ).catch(() => null)
+      : Promise.resolve(null),
+    resolvedEmail
+      ? runWithTimeout<any>(
+          adminDb.collection("suppliers").where("email", "==", resolvedEmail).select().limit(10).get(),
+          5000,
+          "suppliers.byEmail"
+        ).catch(() => null)
+      : Promise.resolve(null),
   ]);
 
   // 2. Collecter toutes les références Firestore à effacer (en respectant la limite de 450 ops/batch)
@@ -110,6 +166,8 @@ export async function purgeUserAccountCompletely(
   const deletedPushDevices = pushRefs(pushDevicesSnap);
   const deletedSubscriptionRequests = pushRefs(subRequestsSnap);
   const deletedNotifications = pushRefs(notifsSnap);
+  pushRefs(duplicateUsersByEmailSnap);
+  pushRefs(duplicateSuppliersByEmailSnap);
 
   // Supprimer aussi les sous-agents rattachés à ce fournisseur dans Auth & Firestore
   const subAgentIds: string[] = [];

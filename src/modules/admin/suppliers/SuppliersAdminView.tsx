@@ -534,13 +534,14 @@ export default function SuppliersPage() {
       const token = await auth.currentUser?.getIdToken();
       if (!token) throw new Error("Vous devez être connecté.");
 
+      const targetSup = suppliers.find(s => s.id === supplierId);
       const response = await fetch("/api/users/delete", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ uid: supplierId }),
+        body: JSON.stringify({ uid: supplierId, email: targetSup?.email || undefined }),
       });
 
       if (!response.ok) {
