@@ -645,11 +645,29 @@ export default function AdminTeamPage() {
     return "Collaborateur Interne";
   };
 
-  const superAdminCount = teamMembers.filter(m => m.role?.toUpperCase().includes("SUPER")).length;
-  const subAdminCount = teamMembers.filter(m => m.role === "SUB_ADMIN" || m.role === "ADMIN" || m.role === "SUBADMIN").length;
-  const financeCount = teamMembers.filter(m => m.role?.toUpperCase().includes("FINANCE")).length;
-  const dbCount = teamMembers.filter(m => m.role?.toUpperCase().includes("DB") || m.role?.toUpperCase().includes("TECH")).length;
-  const opsCount = teamMembers.filter(m => m.role?.toUpperCase().includes("OPS")).length;
+  const getMemberPositions = (m: TeamMember): StaffPosition[] =>
+    m.positions && m.positions.length > 0 ? m.positions : extractPositions(m);
+
+  const financeCount = teamMembers.filter((m) => {
+    const pos = getMemberPositions(m);
+    return pos.includes("RESPONSABLE_FINANCIER") || Boolean(m.role?.toUpperCase().includes("FINANCE"));
+  }).length;
+  const dbCount = teamMembers.filter((m) => {
+    const pos = getMemberPositions(m);
+    return (
+      pos.includes("RESPONSABLE_CATALOGUE") ||
+      Boolean(m.role?.toUpperCase().includes("DB") || m.role?.toUpperCase().includes("TECH"))
+    );
+  }).length;
+  const opsCount = teamMembers.filter((m) => {
+    const pos = getMemberPositions(m);
+    return (
+      pos.includes("RESPONSABLE_LOGISTIQUE") ||
+      pos.includes("SUPPORT_CLIENT") ||
+      pos.includes("GESTIONNAIRE_ADMIN") ||
+      Boolean(m.role?.toUpperCase().includes("OPS"))
+    );
+  }).length;
 
   return (
     <div className="space-y-5 pb-16">
