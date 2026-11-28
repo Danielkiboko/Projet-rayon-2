@@ -1039,11 +1039,13 @@ export default function ClientsPage() {
                 onChange={(e) => setTargetRole(e.target.value)}
                 className="w-full px-3.5 py-2.5 bg-black/50 border border-white/10 rounded-xl text-white text-xs focus:outline-none focus:border-blue-400 cursor-pointer"
               >
-                <optgroup label="Équipe Administrative Centrale">
-                  <option value="SUB_ADMIN">Sous-Administrateur (Gestion générale)</option>
-                  <option value="ADMIN_FINANCE">Admin Finances & Trésorerie (Comptabilité, Payouts)</option>
-                  <option value="ADMIN_DB">Admin Base de Données (Clients & Fournisseurs)</option>
-                  <option value="ADMIN_OPS">Admin Opérations & Logistique (Commandes, Livraisons)</option>
+                <optgroup label="Équipe Administrative Centrale (Team Rayons)">
+                  <option value="SUB_ADMIN">Sous-Administrateur Général (Direction Adjointe)</option>
+                  <option value="RESPONSABLE_FINANCIER">Responsable Financier &amp; Caisse (Abonnements, Trésorerie)</option>
+                  <option value="RESPONSABLE_CATALOGUE">Responsable Catalogue &amp; BDD (Produits, Biens Immo)</option>
+                  <option value="RESPONSABLE_LOGISTIQUE">Responsable Logistique &amp; Opérations (Commandes, Livreurs)</option>
+                  <option value="GESTIONNAIRE_ADMIN">Gestionnaire Administratif (KYC, Clients, Boutiques)</option>
+                  <option value="SUPPORT_CLIENT">Support Client &amp; Assistance (Tickets, SAV)</option>
                 </optgroup>
                 <optgroup label="Partenariat & Vente">
                   <option value="SUPPLIER">Fournisseur / Boutique marchande</option>

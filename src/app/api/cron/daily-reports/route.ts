@@ -117,8 +117,12 @@ async function handleDailyReports(req: Request) {
         const isAdmin = role === "admin" || role === "super_admin" || role === "superadmin"
           || roles.some((r: string) => r === "admin" || r === "super_admin");
         const isSubAdmin = !isAdmin && (
-          role.includes("sub_admin") || role.includes("subadmin") || role.includes("admin_")
-          || roles.some((r: string) => r.includes("sub_admin") || r.includes("subadmin") || r.includes("admin_"))
+          d.isInternalStaff === true ||
+          String(d.accountType || "").toUpperCase() === "STAFF" ||
+          role === "staff" ||
+          role.includes("sub_admin") || role.includes("subadmin") || role.includes("admin_") ||
+          role.includes("responsable_") || role.includes("gestionnaire_") || role === "support_client" ||
+          roles.some((r: string) => r.includes("sub_admin") || r.includes("subadmin") || r.includes("admin_") || r === "staff")
         );
 
         if (isAdmin && d.email) adminEmails.add(d.email.trim().toLowerCase());
@@ -127,8 +131,8 @@ async function handleDailyReports(req: Request) {
             id: doc.id,
             email: d.email.trim().toLowerCase(),
             name: d.displayName || d.name || [d.firstName, d.lastName].filter(Boolean).join(" ") || "Collaborateur",
-            role: d.role || "SUB_ADMIN",
-            roleTitle: getSubAdminRoleTitle(d.role),
+            role: d.role || "STAFF",
+            roleTitle: getSubAdminRoleTitle(d.role, d.staffProfile?.positions),
             assignedRayons: extractSubAdminRayons(d),
           });
         }

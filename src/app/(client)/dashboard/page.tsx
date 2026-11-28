@@ -35,7 +35,15 @@ export default function DashboardRedirect() {
         const claimRole = (tokenResult.claims.role as string || '').toUpperCase();
         if (claimRole && ['SUPPLIER', 'SUPPLIER_IMMO', 'SUB_SUPPLIER', 'SUPPLIER_SAVEURS', 'SUPPLIER_MODE', 'SUPPLIER_CONNECT'].includes(claimRole)) {
           router.replace("/supplier");
-        } else if (claimRole && ['SUPERADMIN', 'SUPER_ADMIN', 'ADMIN', 'SUB_ADMIN', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_OPS'].includes(claimRole)) {
+        } else if (
+          claimRole &&
+          [
+            'SUPERADMIN', 'SUPER_ADMIN', 'ADMIN', 'SUB_ADMIN', 'STAFF',
+            'GESTIONNAIRE_ADMIN', 'RESPONSABLE_FINANCIER', 'RESPONSABLE_CATALOGUE',
+            'RESPONSABLE_LOGISTIQUE', 'SUPPORT_CLIENT',
+            'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_OPS'
+          ].includes(claimRole)
+        ) {
           router.replace("/admin/dashboard");
         }
       }).catch(() => {});

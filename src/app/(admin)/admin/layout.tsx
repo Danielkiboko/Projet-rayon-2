@@ -391,17 +391,30 @@ export default function AdminLayout({
     ? "MEMBRE DU TEAM"
     : "TEAM RAYONS";
 
-  const userRoleTitle = isSuper 
-    ? "Directeur Général (Super Admin)" 
+  const positionLabelMap: Record<string, string> = {
+    SUB_ADMIN: "Sous-Administrateur Général",
+    RESPONSABLE_FINANCIER: "Responsable Financier & Caisse",
+    RESPONSABLE_CATALOGUE: "Responsable Catalogue & BDD",
+    RESPONSABLE_LOGISTIQUE: "Responsable Logistique & Opérations",
+    GESTIONNAIRE_ADMIN: "Gestionnaire Administratif",
+    SUPPORT_CLIENT: "Support Client & Assistance",
+  };
+  const primaryPosition = Array.isArray(userData?.staffProfile?.positions)
+    ? String(userData.staffProfile.positions[0] || "")
+    : "";
+
+  const userRoleTitle = isSuper
+    ? "Directeur Général (Super Admin)"
     : userData?.roleTitle ||
+      positionLabelMap[primaryPosition] ||
       (userRole === "SUB_ADMIN" || userRole === "SUBADMIN" || userRole === "ADMIN"
         ? "Sous-Administrateur Général (Adjoint)"
         : userRole === "ADMIN_FINANCE"
-        ? "Responsable Finances & Caisse"
+        ? "Responsable Financier & Caisse"
         : userRole === "ADMIN_DB" || userRole === "ADMIN_TECH"
-        ? "Gestionnaire Catalogue & BDD"
+        ? "Responsable Catalogue & BDD"
         : userRole === "ADMIN_OPS"
-        ? "Responsable Opérations & Logistique"
+        ? "Responsable Logistique & Opérations"
         : "Membre du Team");
 
   const roleBadgeTitle = isSuper

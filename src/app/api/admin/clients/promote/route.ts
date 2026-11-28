@@ -6,6 +6,7 @@ import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { SUPER_ADMIN_EMAILS } from '@/lib/serverAuth';
 import { ensureReferralCode } from '@/lib/referrals';
 import { recordAuditLog } from '@/server/auditLog';
+import { resolveStaffPermissions, type StaffPosition } from '@/domain/permissions';
 
 export async function POST(req: Request) {
   try {
@@ -159,11 +160,47 @@ export async function POST(req: Request) {
       };
     }
 
-    if (['SUB_ADMIN', 'ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_OPS', 'STAFF', 'ADMIN'].includes(newRole)) {
+    const canonicalPositions: StaffPosition[] = [
+      'SUB_ADMIN',
+      'GESTIONNAIRE_ADMIN',
+      'RESPONSABLE_LOGISTIQUE',
+      'RESPONSABLE_FINANCIER',
+      'RESPONSABLE_CATALOGUE',
+      'SUPPORT_CLIENT',
+    ];
+    const isStaffRole =
+      canonicalPositions.includes(newRole as StaffPosition) ||
+      ['ADMIN_FINANCE', 'ADMIN_DB', 'ADMIN_TECH', 'ADMIN_OPS', 'STAFF', 'ADMIN'].includes(newRole);
+
+    if (isStaffRole) {
       updatePayload.isInternalStaff = true;
       updatePayload.isPartner = false;
       updatePayload.isSupplier = false;
       updatePayload.accountType = 'STAFF';
+
+      const mappedPosition: StaffPosition =
+        canonicalPositions.includes(newRole as StaffPosition)
+          ? (newRole as StaffPosition)
+          : newRole === 'ADMIN_FINANCE'
+          ? 'RESPONSABLE_FINANCIER'
+          : newRole === 'ADMIN_DB' || newRole === 'ADMIN_TECH'
+          ? 'RESPONSABLE_CATALOGUE'
+          : newRole === 'ADMIN_OPS'
+          ? 'RESPONSABLE_LOGISTIQUE'
+          : 'SUB_ADMIN';
+
+      const existingPos = Array.isArray(targetData.staffProfile?.positions)
+        ? (targetData.staffProfile.positions as StaffPosition[])
+        : [];
+      const mergedPositions: StaffPosition[] = Array.from(
+        new Set([...(Array.isArray(extraData?.positions) ? extraData.positions : [mappedPosition]), ...existingPos])
+      );
+      updatePayload.role = mappedPosition === 'SUB_ADMIN' ? 'SUB_ADMIN' : 'STAFF';
+      updatePayload.staffProfile = {
+        positions: mergedPositions,
+        permissions: resolveStaffPermissions(mergedPositions),
+        assignedBy: callerUid,
+      };
 
       // L'équipe interne est assignée par tâches et postes : STRICTEMENT AUCUN RAYON
       const { FieldValue } = await import('firebase-admin/firestore');

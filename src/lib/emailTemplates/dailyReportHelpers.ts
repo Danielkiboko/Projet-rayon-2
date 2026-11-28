@@ -66,10 +66,19 @@ export function extractSubAdminRayons(d: Record<string, unknown>): string[] {
   return Array.from(set);
 }
 
-export function getSubAdminRoleTitle(role?: string): string {
+export function getSubAdminRoleTitle(role?: string, positions?: unknown): string {
+  const posList = Array.isArray(positions) ? positions.map((p) => String(p).toUpperCase()) : [];
+  if (posList.includes("RESPONSABLE_FINANCIER")) return "Responsable Financier & Caisse";
+  if (posList.includes("RESPONSABLE_CATALOGUE")) return "Responsable Catalogue & BDD";
+  if (posList.includes("RESPONSABLE_LOGISTIQUE")) return "Responsable Logistique & Opérations";
+  if (posList.includes("GESTIONNAIRE_ADMIN")) return "Gestionnaire Administratif";
+  if (posList.includes("SUPPORT_CLIENT")) return "Support Client & Assistance";
+  if (posList.includes("SUB_ADMIN")) return "Sous-Administrateur Général";
+
   const r = (role || "").toUpperCase();
-  if (r.includes("FINANCE")) return "Gestionnaire Financier & Comptabilité";
-  if (r.includes("DB") || r.includes("TECH")) return "Gestionnaire Base de Données & Catalogue";
-  if (r.includes("OPS")) return "Gestionnaire des Opérations & Logistique";
-  return "Sous-Administrateur";
+  if (r.includes("FINANCE")) return "Responsable Financier & Caisse";
+  if (r.includes("DB") || r.includes("TECH") || r.includes("CATALOGUE")) return "Responsable Catalogue & BDD";
+  if (r.includes("OPS") || r.includes("LOGISTIQUE")) return "Responsable Logistique & Opérations";
+  if (r.includes("SUPPORT")) return "Support Client & Assistance";
+  return "Collaborateur Team Rayons";
 }

@@ -27,12 +27,14 @@ export async function POST(request: NextRequest) {
     const callerData = callerSnap.exists ? callerSnap.data() || {} : {};
     callerRole = String(callerData.role || decoded.role || "").toUpperCase();
     const allowedSmsRoles = [
-      "SUPER_ADMIN", "SUPERADMIN", "ADMIN", "SUB_ADMIN", "ADMIN_FINANCE",
-      "ADMIN_DB", "ADMIN_OPS", "STAFF", "SUPPLIER", "SUPPLIER_IMMO",
+      "SUPER_ADMIN", "SUPERADMIN", "ADMIN", "SUB_ADMIN", "STAFF",
+      "GESTIONNAIRE_ADMIN", "RESPONSABLE_FINANCIER", "RESPONSABLE_CATALOGUE",
+      "RESPONSABLE_LOGISTIQUE", "SUPPORT_CLIENT",
+      "ADMIN_FINANCE", "ADMIN_DB", "ADMIN_OPS", "SUPPLIER", "SUPPLIER_IMMO",
       "SUPPLIER_SAVEURS", "SUPPLIER_MODE", "SUPPLIER_CONNECT", "SUB_SUPPLIER",
       "FOURNISSEUR", "PARTNER", "DRIVER", "LIVREUR"
     ];
-    if (!allowedSmsRoles.includes(callerRole) && !callerData.isSupplier && !callerData.isAdmin) {
+    if (!allowedSmsRoles.includes(callerRole) && !callerData.isSupplier && !callerData.isAdmin && !callerData.isInternalStaff) {
       return NextResponse.json(
         { success: false, error: "Accès refusé : privilèges insuffisants pour envoyer des SMS." },
         { status: 403 }
