@@ -173,9 +173,38 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 4. Calculs des montants
+    // 4. Calculs des montants (base canonique USD + conversion selon le taux de change officiel du site)
     const subtotal = orderItems.reduce((acc, it) => acc + (it.price * it.quantity), 0);
     const totalAmount = subtotal + deliveryFee;
+
+    let usdToFcRate = 2850;
+    let usdToEurRate = 0.92;
+    try {
+      const settingsSnap = await adminDb.collection("settings").doc("platform").get();
+      if (settingsSnap.exists) {
+        const sData = settingsSnap.data() || {};
+        if (Number(sData.usdToFcRate) > 0) usdToFcRate = Number(sData.usdToFcRate);
+        if (Number(sData.usdToEurRate) > 0) usdToEurRate = Number(sData.usdToEurRate);
+      }
+    } catch {}
+
+    const normalizedCurrency = currency === "CDF" ? "FC" : currency;
+    const exchangeRateApplied =
+      normalizedCurrency === "FC" ? usdToFcRate : normalizedCurrency === "EUR" ? usdToEurRate : 1;
+    const convertAmount = (usdVal: number) =>
+      normalizedCurrency === "FC"
+        ? Math.round(usdVal * exchangeRateApplied)
+        : Number((usdVal * exchangeRateApplied).toFixed(2));
+    const formatConvertedLabel = (usdVal: number) => {
+      const v = convertAmount(usdVal);
+      if (normalizedCurrency === "FC") return `${v.toLocaleString("fr-FR")} FC`;
+      if (normalizedCurrency === "EUR") return `${v.toFixed(2)} €`;
+      return `$${v.toFixed(2)}`;
+    };
+
+    const convertedSubtotal = convertAmount(subtotal);
+    const convertedDeliveryFee = convertAmount(deliveryFee);
+    const convertedTotalAmount = convertAmount(totalAmount);
 
     // Collecte des identifiants fournisseurs concernés
     const supplierIds = Array.from(new Set(orderItems.map((it) => it.supplierId).filter(Boolean)));
@@ -205,10 +234,15 @@ export async function POST(req: NextRequest) {
       subtotal,
       deliveryFee,
       deliveryFeeNegotiated,
-      deliveryFeeLabel: deliveryFeeNegotiated ? "À convenir avec le vendeur" : `$${deliveryFee}`,
+      deliveryFeeLabel: deliveryFeeNegotiated ? "À convenir avec le vendeur" : formatConvertedLabel(deliveryFee),
       totalAmount,
       remainingBalance: totalAmount,
-      currency,
+      currency: "USD",
+      displayCurrency: normalizedCurrency,
+      exchangeRateApplied,
+      convertedSubtotal,
+      convertedDeliveryFee,
+      convertedTotalAmount,
       items: orderItems,
       deliveryDetails: {
         city,

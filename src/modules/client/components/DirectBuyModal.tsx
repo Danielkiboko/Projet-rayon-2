@@ -33,7 +33,7 @@ import { KINSHASA_COMMUNES, isNegotiatedDeliveryCommune } from "@/lib/kinshasaDe
 
 export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess }: DirectBuyModalProps) {
   const { user, userData } = useAuth();
-  const { formatPrice } = useCurrency();
+  const { formatPrice, currency } = useCurrency();
   const router = useRouter();
 
   const isMultiple = Array.isArray(items) && items.length > 0;
@@ -138,7 +138,7 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
         },
         paymentMethod,
         mobileMoneyOperator: paymentMethod === "MOBILE_MONEY" ? mobileMoneyOperator : null,
-        currency: "USD"
+        currency: currency || "USD"
       };
 
       if (isMultiple) {
@@ -220,6 +220,14 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
                   {successOrder.deliveryDetails?.deliveryFeeNegotiated
                     ? `${successOrder.deliveryDetails?.customDestination || customDestination || "Autre"} (Frais à convenir)`
                     : (successOrder.deliveryDetails?.commune || selectedCommune)}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span className="text-gray-500 shrink-0">Frais de livraison :</span>
+                <span className="font-semibold text-gray-800 text-right">
+                  {successOrder.deliveryDetails?.deliveryFeeNegotiated
+                    ? "À convenir avec le vendeur"
+                    : formatPrice(Number(successOrder.deliveryFee ?? deliveryFee))}
                 </span>
               </div>
               <div className="flex justify-between gap-2">
@@ -400,7 +408,7 @@ export function DirectBuyModal({ isOpen, onClose, product, items, onOrderSuccess
                     <option key={comm.name} value={comm.name}>
                       {comm.negotiated
                         ? (comm.label || "Autre destination — À convenir avec le vendeur")
-                        : `${comm.name} — Frais de livraison : $${comm.fee}`}
+                        : `${comm.name} — Frais de livraison : ${formatPrice(comm.fee)}`}
                     </option>
                   ))}
                 </select>
