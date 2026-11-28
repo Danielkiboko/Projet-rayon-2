@@ -6,7 +6,6 @@ import {
   Settings,
   Store,
   Tag,
-  Truck,
   Save,
   CheckCircle,
   Phone,
@@ -25,7 +24,6 @@ import { useLanguage, LanguageCode } from "@/context/LanguageContext";
 interface PlatformSettings {
   monthlySubscriptionPrice: number;
   trialDurationDays: number;
-  defaultDeliveryFee: number;
   adminShopName: string;
   adminContactPhone: string;
   usdToFcRate: number;
@@ -36,7 +34,6 @@ interface PlatformSettings {
 const DEFAULT_SETTINGS: PlatformSettings = {
   monthlySubscriptionPrice: 50,
   trialDurationDays: 15,
-  defaultDeliveryFee: 0,
   adminShopName: "Rayons Officiel",
   adminContactPhone: "",
   usdToFcRate: 2850,
@@ -147,7 +144,6 @@ export default function AdminSettingsPage() {
       const dataToSave: Record<string, any> = {
         monthlySubscriptionPrice: Number(settings.monthlySubscriptionPrice) || 50,
         trialDurationDays: Number(settings.trialDurationDays) || 15,
-        defaultDeliveryFee: Number(settings.defaultDeliveryFee) || 0,
         adminShopName: settings.adminShopName || "Rayons Officiel",
         adminContactPhone: settings.adminContactPhone || "",
         usdToFcRate: Number(settings.usdToFcRate) || 2850,
@@ -310,20 +306,6 @@ export default function AdminSettingsPage() {
                         className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                       />
                       <p className="text-xs text-gray-500 mt-1.5">Attribué automatiquement aux nouveaux fournisseurs.</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-300 mb-2">
-                        <Truck size={14} className="inline mr-1.5" />Frais de livraison par défaut (FC)
-                      </label>
-                      <input
-                        type="number"
-                        step="100"
-                        min="0"
-                        value={settings.defaultDeliveryFee}
-                        onChange={e => setSettings(s => ({ ...s, defaultDeliveryFee: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                      />
-                      <p className="text-xs text-gray-500 mt-1.5">Appliqué si le fournisseur ne définit pas ses propres frais.</p>
                     </div>
                   </div>
                 </div>
