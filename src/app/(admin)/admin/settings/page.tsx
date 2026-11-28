@@ -7,8 +7,6 @@ import {
   Store,
   Tag,
   Truck,
-  Plus,
-  Trash2,
   Save,
   CheckCircle,
   Phone,
@@ -17,9 +15,11 @@ import {
   AlertTriangle,
   Coins,
   Globe,
+  ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, collection, getDocs, addDoc, deleteDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { useLanguage, LanguageCode } from "@/context/LanguageContext";
 
 interface PlatformSettings {
@@ -33,14 +33,6 @@ interface PlatformSettings {
   defaultLanguage: LanguageCode;
 }
 
-interface Category {
-  id: string;
-  name: string;
-  slug: string;
-  description?: string;
-  createdAt?: any;
-}
-
 const DEFAULT_SETTINGS: PlatformSettings = {
   monthlySubscriptionPrice: 50,
   trialDurationDays: 15,
@@ -52,12 +44,36 @@ const DEFAULT_SETTINGS: PlatformSettings = {
   defaultLanguage: "fr",
 };
 
-const DEFAULT_CATEGORIES: Omit<Category, "id">[] = [
-  { name: "Mode", slug: "mode", description: "Vêtements, chaussures et accessoires" },
-  { name: "Connect", slug: "connect", description: "Équipements technologiques et télécom" },
-  { name: "Immo", slug: "immo", description: "Biens immobiliers et services d'agences" },
-  { name: "Général", slug: "general", description: "Produits divers et variés" },
-];
+const OFFICIAL_RAYONS = [
+  {
+    name: "Rayon Immo",
+    slug: "immo",
+    href: "/immo",
+    description: "Appartements, villas, résidences, hôtels & gestion locative",
+    badgeClass: "bg-emerald-500/15 text-emerald-300 border-emerald-500/25",
+  },
+  {
+    name: "Rayon Mode",
+    slug: "mode",
+    href: "/mode",
+    description: "Prêt-à-porter, chaussures, sacs, bijoux & accessoires",
+    badgeClass: "bg-pink-500/15 text-pink-300 border-pink-500/25",
+  },
+  {
+    name: "Rayon Connect",
+    slug: "connect",
+    href: "/connect",
+    description: "Smartphones, informatique, électronique & équipements télécom",
+    badgeClass: "bg-sky-500/15 text-sky-300 border-sky-500/25",
+  },
+  {
+    name: "Rayon Saveurs",
+    slug: "saveurs",
+    href: "/saveurs",
+    description: "Restaurants, plats cuisinés, traiteurs & gastronomie",
+    badgeClass: "bg-amber-500/15 text-amber-300 border-amber-500/25",
+  },
+] as const;
 
 function SectionTitle({ icon: Icon, title, subtitle }: { icon: any; title: string; subtitle: string }) {
   return (
@@ -97,15 +113,6 @@ export default function AdminSettingsPage() {
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
 
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoadingCats, setIsLoadingCats] = useState(true);
-
-  // New category form
-  const [newCatName, setNewCatName] = useState("");
-  const [newCatSlug, setNewCatSlug] = useState("");
-  const [newCatDesc, setNewCatDesc] = useState("");
-  const [isAddingCat, setIsAddingCat] = useState(false);
-
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
   const showToast = (message: string, type: "success" | "error" = "success") => {
@@ -128,37 +135,9 @@ export default function AdminSettingsPage() {
     }
   }, []);
 
-  // ─── Load categories ──────────────────────────────────────────
-  const loadCategories = useCallback(async () => {
-    try {
-      const snap = await getDocs(collection(db, "categories"));
-      if (snap.empty) {
-        // Seed defaults on first run
-        const seeded: Category[] = [];
-        for (const cat of DEFAULT_CATEGORIES) {
-          const ref = await addDoc(collection(db, "categories"), {
-            ...cat,
-            createdAt: serverTimestamp(),
-          });
-          seeded.push({ id: ref.id, ...cat });
-        }
-        setCategories(seeded);
-      } else {
-        const cats: Category[] = [];
-        snap.forEach(d => cats.push({ id: d.id, ...d.data() } as Category));
-        setCategories(cats);
-      }
-    } catch (err) {
-      console.error("Error loading categories:", err);
-    } finally {
-      setIsLoadingCats(false);
-    }
-  }, []);
-
   useEffect(() => {
     loadSettings();
-    loadCategories();
-  }, [loadSettings, loadCategories]);
+  }, [loadSettings]);
 
   // ─── Save platform settings ───────────────────────────────────
   const handleSaveSettings = async (e: React.FormEvent) => {
@@ -212,69 +191,6 @@ export default function AdminSettingsPage() {
     } finally {
       setIsSavingSettings(false);
     }
-  };
-
-  // ─── Add category ─────────────────────────────────────────────
-  const handleAddCategory = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCatName.trim() || !newCatSlug.trim()) return;
-
-    // Check for duplicate slug
-    if (categories.some(c => c.slug === newCatSlug.trim().toLowerCase())) {
-      showToast("Un rayon avec ce slug existe déjà.", "error");
-      return;
-    }
-
-    setIsAddingCat(true);
-    try {
-      const ref = await addDoc(collection(db, "categories"), {
-        name: newCatName.trim(),
-        slug: newCatSlug.trim().toLowerCase(),
-        description: newCatDesc.trim(),
-        createdAt: serverTimestamp(),
-      });
-      setCategories(prev => [...prev, {
-        id: ref.id,
-        name: newCatName.trim(),
-        slug: newCatSlug.trim().toLowerCase(),
-        description: newCatDesc.trim(),
-      }]);
-      setNewCatName("");
-      setNewCatSlug("");
-      setNewCatDesc("");
-      showToast("Rayon ajouté avec succès !");
-    } catch (err) {
-      console.error("Error adding category:", err);
-      showToast("Erreur lors de l'ajout.", "error");
-    } finally {
-      setIsAddingCat(false);
-    }
-  };
-
-  // ─── Delete category ──────────────────────────────────────────
-  const handleDeleteCategory = async (catId: string, catName: string) => {
-    if (!confirm(`Supprimer le rayon "${catName}" ? Les produits existants dans ce rayon ne seront pas affectés, mais ce rayon ne sera plus disponible à la sélection.`)) return;
-    try {
-      await deleteDoc(doc(db, "categories", catId));
-      setCategories(prev => prev.filter(c => c.id !== catId));
-      showToast("Rayon supprimé.");
-    } catch (err) {
-      console.error("Error deleting category:", err);
-      showToast("Erreur lors de la suppression.", "error");
-    }
-  };
-
-  // Auto-generate slug from name
-  const handleCatNameChange = (val: string) => {
-    setNewCatName(val);
-    setNewCatSlug(
-      val
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/\s+/g, "-")
-        .replace(/[^a-z0-9-]/g, "")
-    );
   };
 
   const userRole = (userData?.role || "").toUpperCase();
@@ -532,115 +448,53 @@ export default function AdminSettingsPage() {
             )}
           </div>
 
-          {/* ── Section 3: Gestionnaire de Rayons ─────────────────── */}
+          {/* ── Section 3: Les 4 Rayons Officiels Actifs ─────────────────── */}
           <div className="bg-[#111111] border border-white/5 rounded-2xl p-6 shadow-sm">
             <SectionTitle
               icon={Tag}
-              title="Gestion des Rayons (Catégories)"
-              subtitle="Ces catégories sont utilisées par les fournisseurs pour publier leurs produits. Elles alimentent directement les pages publiques du site (Mode, Connect, Immo...)."
+              title="Rayons Officiels Actifs (4 univers)"
+              subtitle="Les 4 rayons commerciaux structurant Rayons.net. Chaque rayon dispose de sa propre page publique dédiée et de ses règles d'isolation."
             />
 
-            {/* Add category form */}
-            <form onSubmit={handleAddCategory} className="mb-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">Nom du rayon *</label>
-                  <input
-                    type="text"
-                    required
-                    value={newCatName}
-                    onChange={e => handleCatNameChange(e.target.value)}
-                    placeholder="ex: Supermarché"
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">Slug (ID technique) *</label>
-                  <input
-                    type="text"
-                    required
-                    value={newCatSlug}
-                    onChange={e => setNewCatSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
-                    placeholder="ex: supermarche"
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">Description</label>
-                  <input
-                    type="text"
-                    value={newCatDesc}
-                    onChange={e => setNewCatDesc(e.target.value)}
-                    placeholder="Courte description..."
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                  />
-                </div>
-              </div>
-              <button
-                type="submit"
-                disabled={isAddingCat || !newCatName.trim()}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-semibold rounded-lg transition-colors"
-              >
-                {isAddingCat ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
-                Ajouter le rayon
-              </button>
-            </form>
-
-            {/* Categories list */}
-            {isLoadingCats ? (
-              <div className="flex items-center gap-3 text-gray-400 py-6">
-                <Loader2 size={20} className="animate-spin" /> Chargement des rayons...
-              </div>
-            ) : (
-              <div className="border border-white/5 rounded-xl overflow-x-auto">
-                <table className="w-full text-sm min-w-[500px]">
-                  <thead>
-                    <tr className="bg-white/5 text-xs uppercase tracking-wider text-gray-400">
-                      <th className="px-4 py-3 text-left">Nom</th>
-                      <th className="px-4 py-3 text-left font-mono">Slug (clé interne)</th>
-                      <th className="px-4 py-3 text-left">Description</th>
-                      <th className="px-4 py-3 text-right">Action</th>
+            <div className="border border-white/5 rounded-xl overflow-x-auto">
+              <table className="w-full text-sm min-w-[520px]">
+                <thead>
+                  <tr className="bg-white/5 text-xs uppercase tracking-wider text-gray-400">
+                    <th className="px-4 py-3 text-left">Rayon</th>
+                    <th className="px-4 py-3 text-left font-mono">Slug</th>
+                    <th className="px-4 py-3 text-left">Description</th>
+                    <th className="px-4 py-3 text-right">Page publique</th>
+                  </tr>
+                </thead>
+                <tbody className="text-gray-300">
+                  {OFFICIAL_RAYONS.map((r) => (
+                    <tr key={r.slug} className="border-t border-white/5 hover:bg-white/[0.03] transition-colors">
+                      <td className="px-4 py-3 font-semibold text-white">{r.name}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2 py-0.5 rounded-md text-xs font-mono border ${r.badgeClass}`}>
+                          {r.slug}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-400">{r.description}</td>
+                      <td className="px-4 py-3 text-right">
+                        <Link
+                          href={r.href}
+                          target="_blank"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#C7D300] hover:underline"
+                        >
+                          <span>{r.href}</span>
+                          <ExternalLink size={12} />
+                        </Link>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="text-gray-300">
-                    {categories.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-4 py-10 text-center text-gray-500">
-                          Aucun rayon configuré.
-                        </td>
-                      </tr>
-                    ) : (
-                      categories.map(cat => (
-                        <tr key={cat.id} className="border-t border-white/5 hover:bg-white/3 transition-colors">
-                          <td className="px-4 py-3 font-semibold text-white">{cat.name}</td>
-                          <td className="px-4 py-3">
-                            <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded-md text-xs font-mono">
-                              {cat.slug}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-gray-400">{cat.description || "—"}</td>
-                          <td className="px-4 py-3 text-right">
-                            <button
-                              onClick={() => handleDeleteCategory(cat.id, cat.name)}
-                              className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                              title="Supprimer"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             <div className="mt-4 p-3 bg-blue-500/5 border border-blue-500/10 rounded-lg">
-              <p className="text-xs text-blue-400/80">
-                <strong>Note :</strong> Le slug est la valeur enregistrée dans chaque produit Firestore
-                (champ <code className="font-mono bg-black/20 px-1 rounded">category</code>). Les pages publiques
-                filtrent les produits en fonction de ce slug. Assurez-vous de la cohérence lors d'ajouts.
+              <p className="text-xs text-blue-300/80">
+                <strong>Architecture SaaS :</strong> les rayons sont attribués aux fournisseurs par l&apos;administration lors de la validation du dossier dans <code className="font-mono bg-black/30 px-1 rounded">/admin/suppliers</code>.
               </p>
             </div>
           </div>
